@@ -1,15 +1,16 @@
 # Plataforma de Gestión de Portafolio (PHP + MySQL)
 
-Propuesta integral para implementar la plataforma mostrada en las capturas, optimizada para un stack **PHP 8.2 + MySQL 8** con una arquitectura modular y escalable.
+Diseño completo y accionable para construir la plataforma mostrada en las capturas, lista para que un equipo la implemente con PHP 8.2 y MySQL 8. Se prioriza modularidad, seguridad y una UX moderna centrada en dashboards y tableros Kanban.
 
-## 1) Arquitectura de la Solución
-- **PHP 8.2** con **Laravel/Lumen** o **Slim** (micro) + **Blade/Twig** para vistas.
-- **MySQL 8** con **InnoDB**, claves foráneas y particiones por fecha para históricos de horas.
-- **Redis** opcional para sesiones y caché de métricas de dashboard.
-- **Autenticación JWT + cookies HttpOnly**; roles y permisos en BD con middleware de autorización.
-- **Front-end** en Blade + Tailwind/Bootstrap 5 para replicar el look & feel de las pantallas.
-- **Docker Compose** para orquestar `php-fpm`, `nginx` y `mysql`.
+## 1) Stack recomendado
+- **Backend:** PHP 8.2 + **Laravel 10** (incluye ORM, colas, validaciones, políticas y migraciones). Slim/Lumen es opcional si se busca microservicio.
+- **Base de datos:** MySQL 8 (InnoDB, claves foráneas, particiones por fecha para históricos de horas).
+- **Cache/colas:** Redis para sesiones, cache de métricas y colas (WebSockets, emails).
+- **Frontend:** Blade + **Tailwind** o **Bootstrap 5**. Livewire o Alpine.js para interactividad ligera.
+- **Autenticación:** JWT + cookies HttpOnly/SameSite=Lax; roles/permisos via gates/policies.
+- **Infra:** Docker Compose (php-fpm, nginx, mysql, redis) + Sail opcional. 
 
+## 2) Arquitectura lógica
 ```
 ./
 ├─ public/            # index.php, assets compilados
@@ -19,15 +20,17 @@ Propuesta integral para implementar la plataforma mostrada en las capturas, opti
 │  │  ├─ Middleware/
 │  │  └─ Requests/
 │  ├─ Models/
-│  └─ Policies/
-├─ resources/views/   # Blade: dashboard, clientes, proyectos...
+│  ├─ Policies/
+│  └─ Services/       # cálculos de KPIs y reglas de negocio
+├─ resources/views/   # dashboard, clientes, proyectos, kanban, horas
 ├─ database/
 │  ├─ migrations/
 │  └─ seeders/
-└─ tests/
+└─ tests/             # Feature y API tests
 ```
 
-## 2) Esquema MySQL (extracto clave)
+## 3) Modelo de datos (extracto clave)
+Tablas mínimas para roles, usuarios, clientes, proyectos, tareas, registro de horas y auditoría.
 ```sql
 CREATE TABLE roles (
     id TINYINT PRIMARY KEY AUTO_INCREMENT,
@@ -114,19 +117,35 @@ CREATE TABLE horas (
     FOREIGN KEY (tarea_id) REFERENCES tareas(id),
     FOREIGN KEY (talento_id) REFERENCES talento(id)
 );
+
+CREATE TABLE auditoria (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    usuario_id BIGINT,
+    accion VARCHAR(120),
+    detalle JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-## 3) Endpoints PHP clave
-- `POST /auth/login` → genera JWT; almacena refresh en cookie HttpOnly.
-- `GET /dashboard` → métricas cacheadas: proyectos activos, margen, utilización, alertas.
-- `CRUD /clientes` → listado con filtros, NPS y total facturado.
-- `CRUD /proyectos` → cálculo en SQL del margen: `SUM(ingresos) - SUM(costos_talento)`.
+## 4) Roles, permisos y experiencia
+- **Administrador:** crud completo, gestión de usuarios/roles, configuraciones.
+- **PMO/Project Manager:** proyectos, tareas, aprobaciones de horas, dashboards de margen y riesgo.
+- **Talento:** ve/edita sus tareas y registra horas; Kanban personal y calendario.
+- **Cliente (opcional):** sólo lectura de avance, rentabilidad y horas aprobadas.
+
+UX clave: dashboards con tarjetas y badges de riesgo, filtros dinámicos, Kanban drag & drop con actualizaciones optimistas, cards de talento (disponibilidad, tasas, contacto), modo oscuro y reportes exportables (CSV/PDF).
+
+## 5) Endpoints y vistas principales
+- `POST /auth/login` (JWT + refresh en cookie HttpOnly) y `POST /auth/refresh`.
+- `GET /dashboard` métricas cacheadas (margen, utilización, proyectos activos, alertas SLA).
+- `CRUD /clientes` con filtros, NPS y facturación.
+- `CRUD /proyectos` con cálculo SQL del margen: `SUM(ingresos) - SUM(costos_talento)`.
 - `CRUD /tareas` + `PATCH /tareas/{id}/estado` para mover en Kanban.
-- `POST /horas` y `PATCH /horas/{id}/aprobar` con reglas por rol.
-- `GET /rentabilidad` → KPIs por proyecto, comparativos y variación presupuestal.
+- `POST /horas`, `PATCH /horas/{id}/aprobar` con reglas por rol.
+- `GET /rentabilidad` → KPIs por proyecto, variación presupuestal.
 - `GET /pmo/portafolio` → consolidado de carga y riesgo por proyecto.
 
-## 4) Consultas de Métricas (ejemplos)
+### Consultas de métricas (ejemplos)
 ```sql
 -- Utilización por talento (últimos 30 días)
 SELECT t.id, u.nombre,
@@ -150,31 +169,64 @@ JOIN talento t ON t.id = h.talento_id
 GROUP BY p.id;
 ```
 
-## 5) Experiencia de Usuario "impactante"
-- **Dashboards con tarjetas y badges de riesgo**; alertas en tiempo real con websockets (Pusher/Socket.IO + Redis).
-- **Kanban drag & drop** con actualizaciones optimistas y contadores de SLA.
-- **Filtros dinámicos** (proyecto, estado, prioridad, rol) y búsqueda instantánea con debounce.
-- **Cards de talento** mostrando disponibilidad, tasa y contacto directo.
-- **Modo oscuro** y **tema corporativo**; uso de microinteracciones (hover, transitions).
-- **Reportes exportables** (CSV/PDF) y **widgets configurables** por rol.
+## 6) Seguridad
+- Middleware `auth` valida JWT y estado del usuario.
+- Middleware `role`/`can` aplica permisos por ruta (Administrador, PMO, Talento, Cliente).
+- Cookies HttpOnly + SameSite=Lax, rotación de refresh tokens, protección CSRF en vistas.
+- Auditoría de acciones críticas (aprobaciones, cambios de presupuesto, roles) en tabla `auditoria`.
+- Validaciones server-side en `FormRequest`; sanitización y rate limiting por IP/usuario.
 
-## 6) Flujo de Seguridad y Roles
-- Middleware `Auth` valida JWT y estado del usuario.
-- Middleware `Role` verifica permisos: Administrador (todo), PMO (operativo sin usuarios), Talento (solo sus tareas/horas), otros roles con scopes por módulo.
-- Auditoría: tabla `auditoria` con fecha, usuario y acción.
+## 7) Entrega rápida (local y nube)
+1. Crear `.env` (clave `JWT_SECRET`, credenciales MySQL).
+2. `docker compose up -d` (nginx, php-fpm, mysql, redis).
+3. `php artisan migrate --seed` (roles, admin inicial, catálogos de estados/prioridades).
+4. `npm install && npm run build` (Tailwind/Bootstrap + Vite).
+5. Cargar factories para clientes, proyectos, tareas y horas de muestra.
+6. Monitoreo: healthcheck `/health`, logs con Monolog a stdout y alerta en Slack/Email para errores 5xx.
 
-## 7) Plan de Despliegue Rápido
-1. Preparar `.env` con credenciales MySQL y JWT_SECRET.
-2. Ejecutar migraciones y seeders iniciales (roles, admin, catálogos).
-3. Levantar stack: `docker compose up -d` (nginx + php-fpm + mysql + redis opcional).
-4. Compilar assets: `npm install && npm run build`.
-5. Cargar datos de prueba con factories para dashboards inmediatos.
+**Ejemplo docker-compose.yml (resumen):**
+```yaml
+services:
+  app:
+    image: php:8.2-fpm
+    volumes: [".:/var/www/html"]
+    environment:
+      - PHP_MEMORY_LIMIT=512M
+    depends_on: [db, redis]
+  web:
+    image: nginx:1.25
+    volumes: [".:/var/www/html", "./docker/nginx.conf:/etc/nginx/conf.d/default.conf"]
+    ports: ["8080:80"]
+    depends_on: [app]
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: portafolio
+      MYSQL_ROOT_PASSWORD: root
+    volumes: ["db_data:/var/lib/mysql"]
+  redis:
+    image: redis:7
+volumes:
+  db_data:
+```
 
-## 8) Extensiones Futuras
-- BI ligero con Metabase conectado a réplicas MySQL.
-- Automatización de alertas por correo/Slack cuando margen < umbral o tareas bloqueadas >48h.
-- API pública para integraciones (facturación, HRIS, CRM).
-- Módulo de presupuestos con versionado y simulaciones de escenarios.
-- IA asistida para estimar horas y detectar riesgos de sobrecarga.
+## 8) Flujos de usuario clave
+- **Inicio de sesión:** email + password → JWT (local storage) + refresh en cookie; redirección a dashboard.
+- **Gestión de tareas:** Kanban drag & drop; cambios de estado vía `PATCH /tareas/{id}/estado` con feedback optimista.
+- **Registro/aprobación de horas:** talento crea horas (borrador → enviada); PMO aprueba/rechaza; cálculo automático de facturable.
+- **Dashboard PMO:** cards de margen, utilización, riesgos de SLA; alertas por WebSockets (Redis + Pusher/Socket.IO).
+- **Reportes:** export CSV/PDF por rango de fechas, proyecto o cliente; filtros con debounce.
 
-Esta guía resume cómo construir la plataforma de manera sólida con PHP + MySQL, manteniendo una experiencia visual impactante y moderna.
+## 9) Calidad y mantenimiento
+- Tests: API (auth, roles, CRUD), servicios de KPIs y policies. PHPUnit + Pest opcional.
+- CI/CD: lint (phpstan/phpcs), tests y build de assets en cada PR. Despliegue blue/green o contenedores inmutables.
+- Observabilidad: logging estructurado, métricas (Prometheus + exporters de Nginx/PHP-FPM), trazas opcionales (OpenTelemetry).
+
+## 10) Roadmap sugerido (4-6 semanas)
+1. Semana 1: setup Docker, auth JWT, migraciones básicas y seeders.
+2. Semana 2: CRUD clientes/proyectos/tareas, Kanban inicial, registro de horas.
+3. Semana 3: dashboards de margen/utilización, aprobaciones de horas, exportes CSV/PDF.
+4. Semana 4: notificaciones en tiempo real, auditoría y hardening de seguridad.
+5. Semanas 5-6: refinar UX (tema corporativo, modo oscuro), monitoreo y ajustes de performance.
+
+Esta guía sirve como blueprint listo para implementar la plataforma de manera práctica, escalable y con una experiencia visual moderna.
