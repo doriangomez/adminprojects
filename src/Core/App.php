@@ -19,6 +19,11 @@ class App
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
         $method = $_SERVER['REQUEST_METHOD'];
 
+        $basePath = '/project/public';
+        if (str_starts_with($path, $basePath)) {
+            $path = substr($path, strlen($basePath)) ?: '/';
+        }
+
         if ($path === '/login' && $method === 'GET') {
             (new AuthController($this->db, $this->auth))->showLogin();
             return;
