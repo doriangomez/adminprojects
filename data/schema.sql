@@ -114,6 +114,7 @@ CREATE TABLE projects (
     status VARCHAR(20) NOT NULL,
     health VARCHAR(20) NOT NULL,
     priority VARCHAR(20) NOT NULL,
+    project_type VARCHAR(20) NOT NULL DEFAULT 'convencional',
     budget DECIMAL(12,2) DEFAULT 0,
     actual_cost DECIMAL(12,2) DEFAULT 0,
     planned_hours INT DEFAULT 0,
@@ -182,6 +183,26 @@ CREATE TABLE timesheets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (talent_id) REFERENCES talents(id)
+);
+
+CREATE TABLE project_talent_assignments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    talent_id INT NOT NULL,
+    role VARCHAR(120) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    allocation_percent DECIMAL(5,2),
+    weekly_hours DECIMAL(8,2),
+    cost_type VARCHAR(20) NOT NULL,
+    cost_value DECIMAL(12,2) NOT NULL,
+    is_external TINYINT(1) DEFAULT 0,
+    requires_timesheet TINYINT(1) DEFAULT 0,
+    requires_approval TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (talent_id) REFERENCES talents(id)
 );
 
