@@ -22,9 +22,8 @@ $kpiDefaults = [
     'avg_progress' => 0.0,
     'active_projects' => 0,
     'total_projects' => 0,
-    'capacity_used' => 0.0,
-    'capacity_available' => 0.0,
-    'capacity_percent' => 0.0,
+    'budget_used' => 0.0,
+    'budget_planned' => 0.0,
 ];
 
 $clientsIndex = [];
@@ -180,21 +179,15 @@ $groupedPortfolios = array_values($grouped);
                     <?php foreach ($group['portfolios'] as $portfolio): ?>
                         <?php
                             $projects = is_array($portfolio['projects'] ?? null) ? $portfolio['projects'] : [];
-                            $hoursUsed = array_sum(array_map(fn ($p) => (float) ($p['actual_hours'] ?? 0), $projects));
-                            $plannedHours = array_sum(array_map(fn ($p) => (float) ($p['planned_hours'] ?? 0), $projects));
-                            $budgetUsed = array_sum(array_map(fn ($p) => (float) ($p['actual_cost'] ?? 0), $projects));
-                            $budgetPlanned = array_sum(array_map(fn ($p) => (float) ($p['budget'] ?? 0), $projects));
-                            $hoursCap = (float) ($portfolio['hours_limit'] ?? 0) ?: $plannedHours;
-                            $budgetCap = (float) ($portfolio['budget_limit'] ?? 0) ?: $budgetPlanned;
-                            $hoursRatio = $hoursCap > 0 ? round(($hoursUsed / $hoursCap) * 100, 1) : null;
-                            $budgetRatio = $budgetCap > 0 ? round(($budgetUsed / $budgetCap) * 100, 1) : null;
                             $kpis = array_merge($kpiDefaults, is_array($portfolio['kpis'] ?? null) ? $portfolio['kpis'] : []);
+                            $budgetTotal = (float) ($portfolio['budget_total'] ?? 0);
+                            $budgetUsed = (float) ($kpis['budget_used'] ?? 0);
+                            $budgetRatio = $budgetTotal > 0 ? round(($budgetUsed / $budgetTotal) * 100, 1) : null;
                             $riskText = $riskLevelText[$kpis['risk_level'] ?? ''] ?? 'Riesgo no calculado';
                             $generalStatus = $signalTextMap[$portfolio['signal']['code'] ?? ''] ?? 'Estado no disponible';
                             $portfolioId = 'pf-' . $portfolio['id'];
                             $hasScrum = array_filter($projects, fn ($project) => in_array($project['project_type'] ?? '', ['agil', 'scrum', 'agile'], true));
                             $alerts = is_array($portfolio['alerts'] ?? null) ? $portfolio['alerts'] : [];
-                            $assignmentsByProject = is_array($portfolio['assignments'] ?? null) ? $portfolio['assignments'] : [];
                         ?>
                         <article class="portfolio-card-grid" id="<?= htmlspecialchars($portfolioId) ?>">
                             <header class="portfolio-summary">
@@ -225,25 +218,14 @@ $groupedPortfolios = array_values($grouped);
                                     </div>
                                     <div class="kpi-chip">
                                         <div class="chip-top">
-                                            <span class="icon" aria-hidden="true">⏱</span>
-                                            <small>Consumo de horas</small>
-                                        </div>
-                                        <strong><?= $hoursRatio !== null ? $hoursRatio . '%' : 'N/D' ?></strong>
-                                        <div class="micro-track" aria-hidden="true">
-                                            <span class="micro-bar soft-blue" style="width: <?= $hoursRatio !== null ? max(0, min(100, $hoursRatio)) : 0 ?>%"></span>
-                                        </div>
-                                        <span class="subtext">Usadas: <?= $hoursUsed ?>h <?= $hoursCap ? '/ ' . $hoursCap . 'h' : '' ?></span>
-                                    </div>
-                                    <div class="kpi-chip">
-                                        <div class="chip-top">
                                             <span class="icon" aria-hidden="true">💰</span>
-                                            <small>Estado de costos</small>
+                                            <small>Ejecución vs presupuesto</small>
                                         </div>
                                         <strong><?= $budgetRatio !== null ? $budgetRatio . '%' : 'N/D' ?></strong>
                                         <div class="micro-track" aria-hidden="true">
                                             <span class="micro-bar soft-amber" style="width: <?= $budgetRatio !== null ? max(0, min(100, $budgetRatio)) : 0 ?>%"></span>
                                         </div>
-                                        <span class="subtext">Real: $<?= number_format((float) $budgetUsed, 0, ',', '.') ?> <?= $budgetCap ? '/ $' . number_format((float) $budgetCap, 0, ',', '.') : '' ?></span>
+                                        <span class="subtext">Real: $<?= number_format((float) $budgetUsed, 0, ',', '.') ?> <?= $budgetTotal ? '/ $' . number_format((float) $budgetTotal, 0, ',', '.') : '' ?></span>
                                     </div>
                                     <div class="kpi-chip">
                                         <div class="chip-top">
@@ -253,14 +235,20 @@ $groupedPortfolios = array_values($grouped);
                                         <strong><?= $riskText ?></strong>
                                         <span class="subtext">Estado general: <?= $generalStatus ?></span>
                                     </div>
+                                    <div class="kpi-chip">
+                                        <div class="chip-top">
+                                            <span class="icon" aria-hidden="true">📁</span>
+                                            <small>Proyectos activos</small>
+                                        </div>
+                                        <strong><?= $kpis['active_projects'] ?>/<?= $kpis['total_projects'] ?></strong>
+                                        <span class="subtext">Operación se controla en cada proyecto.</span>
+                                    </div>
                                 </div>
                             </header>
 
                             <div class="tab-nav" role="tablist" aria-label="Drilldown del portafolio">
                                 <button class="tab-button active" data-tab="summary-<?= $portfolioId ?>">Resumen</button>
                                 <button class="tab-button" data-tab="projects-<?= $portfolioId ?>">Proyectos</button>
-                                <button class="tab-button" data-tab="talent-<?= $portfolioId ?>">Talento</button>
-                                <button class="tab-button" data-tab="costs-<?= $portfolioId ?>">Costos</button>
                                 <?php if ($hasScrum): ?>
                                     <button class="tab-button" data-tab="scrum-<?= $portfolioId ?>">Scrum</button>
                                 <?php endif; ?>
@@ -298,8 +286,6 @@ $groupedPortfolios = array_values($grouped);
                                     <?php foreach ($projects as $project): ?>
                                         <?php
                                             $projectStatus = $signalTextMap[$project['signal']['code'] ?? ''] ?? 'Estado no disponible';
-                                            $costDeviation = $project['signal']['cost_deviation'];
-                                            $hoursDeviation = $project['signal']['hours_deviation'];
                                             $riskTextProject = $signalTextMap[$project['signal']['code'] ?? ''] ?? 'Riesgo no calculado';
                                         ?>
                                         <div class="project-row">
@@ -311,51 +297,15 @@ $groupedPortfolios = array_values($grouped);
                                                 <span class="pill">Estado: <?= $projectStatus ?></span>
                                                 <span class="pill subtle">Riesgo: <?= $riskTextProject ?></span>
                                                 <span class="pill subtle">Avance <?= $project['progress'] ?>%</span>
-                                                <span class="pill neutral">Horas <?= $project['actual_hours'] ?>/<?= $project['planned_hours'] ?></span>
                                             </div>
                                             <div class="project-detail">
                                                 <small>Alertas</small>
                                                 <p class="muted"><?= htmlspecialchars(implode(' · ', $project['signal']['reasons'])) ?></p>
-                                                <small>Costos</small>
-                                                <p class="muted">Desvío costo: <?= $costDeviation !== null ? round($costDeviation * 100, 1) . '%' : 'N/D' ?> · Desvío horas: <?= $hoursDeviation !== null ? round($hoursDeviation * 100, 1) . '%' : 'N/D' ?></p>
+                                                <small>Operación</small>
+                                                <p class="muted">Los detalles de costos y horas se gestionan en el proyecto.</p>
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
-                                </div>
-                            </div>
-
-                            <div class="tab-content hidden" id="talent-<?= $portfolioId ?>">
-                                <div class="chip-grid">
-                                    <?php foreach ($assignmentsByProject as $projectId => $assignments): ?>
-                                        <?php foreach ($assignments as $assignment): ?>
-                                            <span class="pill neutral">
-                                                <?= htmlspecialchars($assignment['talent_name']) ?> — <?= htmlspecialchars($assignment['role']) ?> (<?= $assignment['weekly_hours'] ?>h / <?= $assignment['allocation_percent'] ?>%)
-                                            </span>
-                                        <?php endforeach; ?>
-                                    <?php endforeach; ?>
-                                    <?php if (empty(array_filter($assignmentsByProject))): ?>
-                                        <p class="muted">Sin talento asignado. Gestiona desde Talento o los tabs del proyecto.</p>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <div class="tab-content hidden" id="costs-<?= $portfolioId ?>">
-                                <div class="summary-grid">
-                                    <div>
-                                        <small>Capacidad de horas</small>
-                                        <strong><?= $hoursCap ?: 'Sin tope' ?></strong>
-                                        <span class="subtext">Consumidas: <?= $hoursUsed ?>h <?= $hoursRatio !== null ? '(' . $hoursRatio . '%)' : '' ?></span>
-                                    </div>
-                                    <div>
-                                        <small>Presupuesto</small>
-                                        <strong><?= $budgetCap ? '$' . number_format((float) $budgetCap, 0, ',', '.') : 'Sin tope' ?></strong>
-                                        <span class="subtext">Real: $<?= number_format((float) $budgetUsed, 0, ',', '.') ?> <?= $budgetRatio !== null ? '(' . $budgetRatio . '%)' : '' ?></span>
-                                    </div>
-                                    <div>
-                                        <small>Estado de costos</small>
-                                        <strong><?= $generalStatus ?></strong>
-                                        <span class="subtext">Desviaciones monitoreadas con reglas configuradas.</span>
-                                    </div>
                                 </div>
                             </div>
 
