@@ -284,8 +284,17 @@ class ClientsRepository
             }
 
             return [
+                'success' => true,
                 'projects' => $projectCount,
                 'portfolios' => $portfolioCount,
+            ];
+        } catch (\PDOException $e) {
+            $pdo->rollBack();
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
             ];
         } catch (\Throwable $e) {
             $pdo->rollBack();
