@@ -12,18 +12,21 @@ class DashboardService
 
     public function executiveSummary(array $user): array
     {
-        [$whereClients, $params] = $this->visibilityForUser($user);
+        [$whereProjects, $params] = $this->visibilityForUser($user);
 
-        $clients = $this->db->fetchOne('SELECT COUNT(*) AS total FROM clients c ' . $whereClients, $params);
+        $clients = $this->db->fetchOne(
+            'SELECT COUNT(DISTINCT c.id) AS total FROM clients c JOIN projects p ON p.client_id = c.id ' . ($whereProjects ?: ''),
+            $params
+        );
 
-        $projectsCondition = $whereClients ?: 'WHERE 1=1';
+        $projectsCondition = $whereProjects ?: 'WHERE 1=1';
         $projects = $this->db->fetchOne(
             "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $projectsCondition AND p.status NOT IN ('archived','cancelled')",
             $params
         );
 
         $income = $this->db->fetchOne(
-            'SELECT SUM(r.amount) AS total FROM revenues r JOIN projects p ON p.id = r.project_id JOIN clients c ON c.id = p.client_id ' . ($whereClients ?: ''),
+            'SELECT SUM(r.amount) AS total FROM revenues r JOIN projects p ON p.id = r.project_id JOIN clients c ON c.id = p.client_id ' . ($whereProjects ?: ''),
             $params
         );
 
@@ -57,10 +60,10 @@ class DashboardService
             return ['', []];
         }
 
-        if (!$this->db->columnExists('clients', 'pm_id')) {
+        if (!$this->db->columnExists('projects', 'pm_id')) {
             return ['', []];
         }
 
-        return ['WHERE c.pm_id = :pmId', [':pmId' => $user['id']]];
+        return ['WHERE p.pm_id = :pmId', [':pmId' => $user['id']]];
     }
 }

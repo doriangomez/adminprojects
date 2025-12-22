@@ -109,6 +109,7 @@ CREATE TABLE clients (
 CREATE TABLE projects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
+    pm_id INT NOT NULL,
     name VARCHAR(180) NOT NULL,
     status VARCHAR(20) NOT NULL,
     health VARCHAR(20) NOT NULL,
@@ -122,7 +123,8 @@ CREATE TABLE projects (
     end_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES clients(id)
+    FOREIGN KEY (client_id) REFERENCES clients(id),
+    FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
 CREATE TABLE tasks (
@@ -252,8 +254,8 @@ INSERT INTO client_areas (code, label) VALUES ('digital_transformation', 'Transf
 INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, logo_path, feedback_notes, feedback_history, operational_context)
 VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderate', 'innovación,cloud', 'digital_transformation', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
-INSERT INTO projects (client_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
-VALUES (1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());
+INSERT INTO projects (client_id, pm_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
+VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());
 
 INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, hourly_cost, hourly_rate)
 VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 35, 70);

@@ -71,28 +71,46 @@ class ClientsRepository
         return $client ?: null;
     }
 
-    public function projectsForClient(int $clientId): array
+    public function projectsForClient(int $clientId, array $user = []): array
     {
+        $params = [':clientId' => $clientId];
+        $where = 'WHERE p.client_id = :clientId';
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
+            $where .= ' AND p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
+        }
+
         return $this->db->fetchAll(
             'SELECT p.*, pr.label AS priority_label, st.label AS status_label, h.label AS health_label
              FROM projects p
              LEFT JOIN priorities pr ON pr.code = p.priority
              LEFT JOIN project_status st ON st.code = p.status
              LEFT JOIN project_health h ON h.code = p.health
-             WHERE p.client_id = :clientId
+             ' . $where . '
              ORDER BY p.created_at DESC',
-            [':clientId' => $clientId]
+            $params
         );
     }
 
-    public function projectSnapshot(int $clientId): array
+    public function projectSnapshot(int $clientId, array $user = []): array
     {
+        $params = [':clientId' => $clientId];
+        $conditions = ['client_id = :clientId'];
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
+            $conditions[] = 'pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
+        }
+
         $snapshot = $this->db->fetchOne(
             "SELECT COUNT(*) AS total, AVG(progress) AS avg_progress,
                     SUM(CASE WHEN health IN ('at_risk','critical','red','yellow') THEN 1 ELSE 0 END) AS at_risk,
                     SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed
-             FROM projects WHERE client_id = :clientId",
-            [':clientId' => $clientId]
+             FROM projects WHERE " . implode(' AND ', $conditions),
+            $params
         );
 
         return [
