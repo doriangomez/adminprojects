@@ -16,46 +16,56 @@ $theme = $config['theme'];
             --background: <?= htmlspecialchars($theme['background']) ?>;
             --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
-            --text: color-mix(in srgb, var(--secondary) 78%, var(--background) 22%);
-            --muted: color-mix(in srgb, var(--text) 65%, var(--background) 35%);
-            --panel: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
-            --border: color-mix(in srgb, var(--surface) 60%, var(--background) 40%);
-            --glow: color-mix(in srgb, var(--primary) 18%, transparent);
-            --soft-secondary: color-mix(in srgb, var(--secondary) 14%, var(--panel) 86%);
-            --positive: color-mix(in srgb, var(--primary) 55%, var(--accent) 45%);
+            --text: color-mix(in srgb, var(--secondary) 72%, var(--background) 28%);
+            --muted: color-mix(in srgb, var(--text) 62%, var(--background) 38%);
+            --panel: color-mix(in srgb, var(--surface) 90%, var(--background) 10%);
+            --border: color-mix(in srgb, var(--surface) 55%, var(--background) 45%);
         }
         body {
             font-family: var(--font-family);
-            background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent 42%),
-                        radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 40%),
-                        linear-gradient(135deg, color-mix(in srgb, var(--background) 40%, var(--surface) 60%), color-mix(in srgb, var(--surface) 54%, var(--secondary) 46%));
+            background: color-mix(in srgb, var(--background) 96%, var(--surface) 4%);
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin:0;
-            color: color-mix(in srgb, white 88%, var(--secondary) 12%);
-            padding: 22px;
+            color: var(--text);
+            padding: 24px;
         }
         .panel {
-            background: color-mix(in srgb, var(--panel) 18%, rgba(0,0,0,0.6));
-            padding: 36px;
-            border-radius: 18px;
-            width: min(480px, 100%);
-            box-shadow: 0 30px 70px color-mix(in srgb, var(--secondary) 22%, transparent);
-            backdrop-filter: blur(14px);
-            border: 1px solid color-mix(in srgb, var(--panel) 28%, transparent);
+            background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%);
+            padding: 28px;
+            border-radius: 14px;
+            width: min(520px, 100%);
+            border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
         }
-        h1 { margin: 0 0 8px 0; color: white; font-size: 28px; letter-spacing: 0.03em; }
-        p { margin: 0 0 18px 0; color: color-mix(in srgb, white 78%, transparent); }
-        label { display:block; margin-bottom: 6px; font-weight: 700; color: white; letter-spacing: 0.01em; }
-        input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--panel) 36%, transparent); margin-bottom: 14px; background: color-mix(in srgb, var(--panel) 28%, rgba(255,255,255,0.02)); color: white; }
-        input::placeholder { color: color-mix(in srgb, white 70%, transparent); }
-        button { width: 100%; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 82%, var(--secondary) 18%); color: white; border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); font-weight:700; cursor: pointer; box-shadow: 0 12px 34px color-mix(in srgb, var(--primary) 20%, transparent); }
-        .error { background: color-mix(in srgb, var(--positive) 12%, rgba(255,255,255,0.04)); color: var(--positive); padding: 10px; border-radius: 10px; margin-bottom: 12px; border:1px solid color-mix(in srgb, var(--positive) 30%, transparent); }
+        h1 { margin: 0 0 6px 0; color: var(--text); font-size: 26px; letter-spacing: 0.01em; }
+        p { margin: 0 0 16px 0; color: var(--muted); }
+        label { display:block; margin-bottom: 6px; font-weight: 700; color: var(--text); letter-spacing: 0.01em; }
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+            margin-bottom: 14px;
+            background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
+            color: var(--text);
+        }
+        input::placeholder { color: color-mix(in srgb, var(--muted) 80%, var(--background) 20%); }
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--primary) 86%, var(--secondary) 14%);
+            color: white;
+            border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent);
+            font-weight:700;
+            cursor: pointer;
+        }
+        .error { background: transparent; color: var(--accent); padding: 10px; border-radius: 10px; margin-bottom: 12px; border:1px solid color-mix(in srgb, var(--accent) 40%, var(--border) 60%); }
         .hero { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-        .hero img { height: 48px; background: color-mix(in srgb, var(--panel) 30%, transparent); padding: 10px; border-radius: 14px; box-shadow: 0 12px 30px color-mix(in srgb, var(--secondary) 20%, transparent); }
-        .pill { display:inline-block; padding:6px 10px; border-radius:999px; background: color-mix(in srgb, white 10%, transparent); color:white; font-size:12px; margin-right:6px; border:1px solid color-mix(in srgb, var(--panel) 32%, transparent); }
+        .hero img { height: 44px; background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); padding: 10px; border-radius: 10px; }
+        .pill { display:inline-block; padding:6px 10px; border-radius:999px; background: transparent; color: var(--muted); font-size:12px; margin-right:6px; border:1px solid color-mix(in srgb, var(--border) 70%, transparent); }
     </style>
 </head>
 <body>
