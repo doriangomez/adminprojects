@@ -14,6 +14,19 @@ $riskLevelText = [
     'alto' => 'Riesgo crítico',
 ];
 
+$kpiDefaults = [
+    'projects_total' => 0,
+    'projects_active' => 0,
+    'progress_avg' => 0.0,
+    'risk_level' => 'bajo',
+    'avg_progress' => 0.0,
+    'active_projects' => 0,
+    'total_projects' => 0,
+    'capacity_used' => 0.0,
+    'capacity_available' => 0.0,
+    'capacity_percent' => 0.0,
+];
+
 $clientsIndex = [];
 foreach ($clients as $client) {
     $clientsIndex[(int) $client['id']] = $client;
@@ -103,7 +116,8 @@ $groupedPortfolios = array_values($grouped);
                             $budgetCap = (float) ($portfolio['budget_limit'] ?? 0) ?: $budgetPlanned;
                             $hoursRatio = $hoursCap > 0 ? round(($hoursUsed / $hoursCap) * 100, 1) : null;
                             $budgetRatio = $budgetCap > 0 ? round(($budgetUsed / $budgetCap) * 100, 1) : null;
-                            $riskText = $riskLevelText[$portfolio['kpis']['risk_level'] ?? ''] ?? 'Riesgo no calculado';
+                            $kpis = array_merge($kpiDefaults, is_array($portfolio['kpis'] ?? null) ? $portfolio['kpis'] : []);
+                            $riskText = $riskLevelText[$kpis['risk_level'] ?? ''] ?? 'Riesgo no calculado';
                             $generalStatus = $signalTextMap[$portfolio['signal']['code'] ?? ''] ?? 'Estado no disponible';
                             $portfolioId = 'pf-' . $portfolio['id'];
                             $hasScrum = array_filter($projects, fn ($project) => in_array($project['project_type'] ?? '', ['agil', 'scrum', 'agile'], true));
@@ -120,7 +134,7 @@ $groupedPortfolios = array_values($grouped);
                                 <div class="kpi-strip">
                                     <div class="kpi-chip">
                                         <small>Avance global</small>
-                                        <strong><?= $portfolio['kpis']['avg_progress'] ?>%</strong>
+                                        <strong><?= $kpis['avg_progress'] ?>%</strong>
                                     </div>
                                     <div class="kpi-chip">
                                         <small>Consumo de horas</small>

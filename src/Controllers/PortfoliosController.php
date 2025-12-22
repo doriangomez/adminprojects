@@ -14,17 +14,30 @@ class PortfoliosController extends Controller
         $portfolioRepo = new PortfoliosRepository($this->db, $config['operational_rules']);
         $clientsRepo = new ClientsRepository($this->db);
 
-        $portfolios = $portfolioRepo->listWithUsage($user);
-        $clientProjects = [];
-        foreach ($portfolios as $portfolio) {
-            $clientProjects[$portfolio['client_id']] = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user);
+        $portfolios = [];
+        foreach ($portfolioRepo->listWithUsage($user) as $portfolio) {
+            $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user) ?? [];
+            $assignments = $projectsRepo->assignmentsForClient((int) $portfolio['client_id'], $user);
+            $assignmentsByProject = [];
+            foreach ($assignments as $assignment) {
+                $assignmentsByProject[$assignment['project_id']][] = $assignment;
+            }
+
+            $kpis = $this->defaultKpis($projectsRepo->clientKpis($projects, $assignments));
+
+            $portfolios[] = [
+                ...$portfolio,
+                'projects' => $projects,
+                'assignments' => $assignmentsByProject,
+                'kpis' => $kpis,
+                'signal' => $projectsRepo->clientSignal($projects),
+            ];
         }
 
         $this->render('projects/portfolio', [
             'title' => 'Portafolios de cliente',
             'clients' => $clientsRepo->listForUser($user),
             'portfolios' => $portfolios,
-            'projectsByClient' => $clientProjects,
             'error' => $error,
         ]);
     }
@@ -113,5 +126,23 @@ class PortfoliosController extends Controller
         }
 
         return (float) str_replace(',', '.', $clean);
+    }
+
+    private function defaultKpis(array $kpis): array
+    {
+        $defaults = [
+            'projects_total' => 0,
+            'projects_active' => 0,
+            'progress_avg' => 0.0,
+            'risk_level' => 'bajo',
+            'avg_progress' => 0.0,
+            'active_projects' => 0,
+            'total_projects' => 0,
+            'capacity_used' => 0.0,
+            'capacity_available' => 0.0,
+            'capacity_percent' => 0.0,
+        ];
+
+        return array_merge($defaults, $kpis);
     }
 }
