@@ -48,6 +48,15 @@ class DatabaseMigrator
         $this->ensurePmIntegrity('projects', 'client_id');
     }
 
+    public function ensureAssignmentsTable(): void
+    {
+        try {
+            $this->createAssignmentsTableIfMissing();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tabla project_talent_assignments: ' . $e->getMessage());
+        }
+    }
+
     private function ensurePmIntegrity(string $table, string $afterColumn): void
     {
         try {
@@ -188,7 +197,7 @@ class DatabaseMigrator
         }
     }
 
-    private function ensureAssignmentsTable(): void
+    private function createAssignmentsTableIfMissing(): void
     {
         if ($this->db->tableExists('project_talent_assignments')) {
             return;
@@ -198,22 +207,30 @@ class DatabaseMigrator
             'CREATE TABLE project_talent_assignments (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
-                talent_id INT NOT NULL,
+                user_id INT NOT NULL,
+                talent_id INT,
                 role VARCHAR(120) NOT NULL,
-                start_date DATE,
-                end_date DATE,
-                allocation_percent DECIMAL(5,2),
+                allocation_percent DECIMAL(5,2) DEFAULT 0,
+                allocation_percentage DECIMAL(5,2) GENERATED ALWAYS AS (allocation_percent) STORED,
+                planned_hours DECIMAL(10,2) DEFAULT 0,
+                reported_hours DECIMAL(10,2) DEFAULT 0,
                 weekly_hours DECIMAL(8,2),
-                cost_type VARCHAR(20) NOT NULL,
-                cost_value DECIMAL(12,2) NOT NULL,
+                cost_type VARCHAR(20),
+                cost_value DECIMAL(12,2),
+                hourly_rate DECIMAL(12,2),
+                monthly_cost DECIMAL(12,2),
                 is_external TINYINT(1) DEFAULT 0,
                 requires_timesheet TINYINT(1) DEFAULT 0,
                 requires_approval TINYINT(1) DEFAULT 0,
+                active TINYINT(1) DEFAULT 1,
+                start_date DATE,
+                end_date DATE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id),
+                FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (talent_id) REFERENCES talents(id)
-            )'
+            ) ENGINE=InnoDB'
         );
     }
 
