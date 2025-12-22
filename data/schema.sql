@@ -267,6 +267,7 @@ INSERT INTO permissions (code, name) VALUES
     ('dashboard.view', 'Ver dashboard'),
     ('clients.view', 'Ver clientes'),
     ('clients.manage', 'Gestionar clientes'),
+    ('clients.delete', 'Eliminar clientes'),
     ('projects.view', 'Ver proyectos'),
     ('projects.manage', 'Gestionar proyectos'),
     ('tasks.view', 'Ver tareas'),

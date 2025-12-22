@@ -64,4 +64,28 @@ class Auth
 
         return $result !== null;
     }
+
+    public function hasRole(string $role): bool
+    {
+        $user = $this->user();
+
+        if (!$user || empty($user['role'])) {
+            return false;
+        }
+
+        return strcasecmp((string) $user['role'], $role) === 0;
+    }
+
+    public function canDeleteClients(): bool
+    {
+        if ($this->can('clients.delete')) {
+            return true;
+        }
+
+        if ($this->can('config.manage')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador');
+    }
 }

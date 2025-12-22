@@ -11,6 +11,7 @@ abstract class Controller
     protected function render(string $view, array $data = []): void
     {
         extract($data);
+        $auth = $this->auth;
         $user = $this->auth->user();
         $title = $data['title'] ?? 'PMO';
         include __DIR__ . '/../Views/layout/header.php';

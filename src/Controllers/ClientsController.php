@@ -9,7 +9,6 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
-        $canDelete = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
 
@@ -17,7 +16,6 @@ class ClientsController extends Controller
             'title' => 'Clientes',
             'clients' => $repo->listForUser($user),
             'canManage' => $canManage,
-            'canDelete' => $canDelete,
         ]);
     }
 
@@ -36,7 +34,6 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
-        $canDelete = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
         $client = $repo->findForUser($id, $user);
@@ -52,7 +49,6 @@ class ClientsController extends Controller
             'projects' => $repo->projectsForClient($id, $user),
             'snapshot' => $repo->projectSnapshot($id, $user),
             'canManage' => $canManage,
-            'canDelete' => $canDelete,
         ]);
     }
 
@@ -124,9 +120,7 @@ class ClientsController extends Controller
 
     public function destroy(): void
     {
-        $this->requirePermission('clients.manage');
-
-        if (!$this->isAdmin()) {
+        if (!$this->auth->canDeleteClients()) {
             http_response_code(403);
             exit('Solo administradores pueden eliminar clientes.');
         }
@@ -301,8 +295,4 @@ class ClientsController extends Controller
         return $trimmed;
     }
 
-    private function isAdmin(): bool
-    {
-        return ($this->auth->user()['role'] ?? '') === 'Administrador';
-    }
 }
