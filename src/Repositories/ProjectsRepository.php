@@ -251,8 +251,6 @@ class ProjectsRepository
             'u.name AS pm_name',
             'p.actual_hours',
             'p.planned_hours',
-            'p.health',
-            'p.status',
         ];
 
         $joins = [
