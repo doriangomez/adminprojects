@@ -23,8 +23,8 @@
             <h3 style="margin:0;">Salud del portafolio</h3>
             <div class="badge <?= $portfolio['at_risk'] > 0 ? 'danger' : 'success' ?>">Riesgo: <?= $portfolio['at_risk'] ?></div>
         </div>
-        <p style="margin:0; color: var(--gray);">Promedio de avance: <?= $portfolio['avg_progress'] ?>%</p>
-        <p style="margin:0; color: var(--gray);">Horas planificadas: <?= $portfolio['planned_hours'] ?> | Horas reales: <?= $portfolio['actual_hours'] ?></p>
+        <p style="margin:0; color: var(--muted);">Promedio de avance: <?= $portfolio['avg_progress'] ?>%</p>
+        <p style="margin:0; color: var(--muted);">Horas planificadas: <?= $portfolio['planned_hours'] ?> | Horas reales: <?= $portfolio['actual_hours'] ?></p>
     </div>
     <div class="card">
         <div class="toolbar">

@@ -12,41 +12,50 @@ $theme = $config['theme'];
         :root {
             --primary: <?= htmlspecialchars($theme['primary']) ?>;
             --secondary: <?= htmlspecialchars($theme['secondary']) ?>;
+            --accent: <?= htmlspecialchars($theme['accent'] ?? $theme['primary']) ?>;
             --background: <?= htmlspecialchars($theme['background']) ?>;
             --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
+            --text: color-mix(in srgb, var(--secondary) 78%, var(--background) 22%);
+            --muted: color-mix(in srgb, var(--text) 65%, var(--background) 35%);
+            --panel: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
+            --border: color-mix(in srgb, var(--surface) 60%, var(--background) 40%);
+            --glow: color-mix(in srgb, var(--primary) 18%, transparent);
+            --soft-secondary: color-mix(in srgb, var(--secondary) 14%, var(--panel) 86%);
+            --positive: color-mix(in srgb, var(--primary) 55%, var(--accent) 45%);
         }
         body {
             font-family: var(--font-family);
-            background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 40%),
-                        radial-gradient(circle at 80% 0%, rgba(255,255,255,0.05), transparent 35%),
-                        linear-gradient(135deg, var(--background) 0%, var(--secondary) 100%);
+            background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 40%),
+                        radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 35%),
+                        linear-gradient(135deg, color-mix(in srgb, var(--background) 70%, var(--surface) 30%), color-mix(in srgb, var(--surface) 60%, var(--secondary) 40%));
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin:0;
-            color: #e5e7eb;
+            color: color-mix(in srgb, white 90%, var(--secondary) 10%);
+            padding: 18px;
         }
         .panel {
-            background: rgba(255,255,255,0.06);
+            background: color-mix(in srgb, var(--panel) 40%, transparent);
             padding: 32px;
-            border-radius: 18px;
-            width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            width: min(460px, 100%);
+            box-shadow: 0 26px 60px var(--glow);
+            backdrop-filter: blur(16px);
+            border: 1px solid color-mix(in srgb, var(--panel) 30%, transparent);
         }
-        h1 { margin: 0 0 8px 0; color: white; font-size: 26px; }
-        p { margin: 0 0 16px 0; color: rgba(255,255,255,0.8); }
-        label { display:block; margin-bottom: 6px; font-weight: 600; color: #f8fafc; }
-        input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); margin-bottom: 12px; background: rgba(255,255,255,0.06); color: white; }
-        input::placeholder { color: rgba(255,255,255,0.6); }
-        button { width: 100%; padding: 12px; border-radius: 12px; background: var(--primary); color: white; border: none; font-weight:700; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .error { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+        h1 { margin: 0 0 8px 0; color: white; font-size: 28px; letter-spacing: 0.02em; }
+        p { margin: 0 0 16px 0; color: color-mix(in srgb, white 82%, transparent); }
+        label { display:block; margin-bottom: 6px; font-weight: 700; color: white; }
+        input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--panel) 40%, transparent); margin-bottom: 12px; background: color-mix(in srgb, var(--panel) 22%, transparent); color: white; }
+        input::placeholder { color: color-mix(in srgb, white 70%, transparent); }
+        button { width: 100%; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--accent) 30%)); color: white; border: none; font-weight:700; cursor: pointer; box-shadow: 0 10px 30px var(--glow); }
+        .error { background: color-mix(in srgb, var(--positive) 16%, var(--panel) 84%); color: var(--positive); padding: 10px; border-radius: 10px; margin-bottom: 12px; border:1px solid color-mix(in srgb, var(--positive) 40%, transparent); }
         .hero { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-        .hero img { height: 42px; background: white; padding: 8px; border-radius: 12px; }
-        .pill { display:inline-block; padding:6px 10px; border-radius:999px; background: rgba(255,255,255,0.1); color:white; font-size:12px; margin-right:6px; border:1px solid rgba(255,255,255,0.2); }
+        .hero img { height: 48px; background: var(--panel); padding: 10px; border-radius: 14px; box-shadow: 0 12px 30px var(--glow); }
+        .pill { display:inline-block; padding:6px 10px; border-radius:999px; background: color-mix(in srgb, white 16%, transparent); color:white; font-size:12px; margin-right:6px; border:1px solid color-mix(in srgb, var(--panel) 40%, transparent); }
     </style>
 </head>
 <body>
