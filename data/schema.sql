@@ -189,7 +189,8 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.nombre IN ('Administrador', 'PMO');
 
 INSERT INTO users (name, email, password_hash, role_id) VALUES
-('Admin', 'admin@example.com', '$2y$12$TEU2ChKY7WJdBOxzBaU52envKOeRT8vosBZZQXAfx/Qm/TLoRHDl.', 1);
+('Admin', 'admin@example.com', '$2y$12$TEU2ChKY7WJdBOxzBaU52envKOeRT8vosBZZQXAfx/Qm/TLoRHDl.', 1),
+('Usuario Demo', 'usuario.demo@example.com', '$2y$12$aKNSIj0oDylU1ZEAcSDMEesIt8xtQWYEzzYBOnCzwKCFKFyThAfTW', 2);
 
 INSERT INTO clients (name, industry, priority, satisfaction, nps) VALUES
 ('Acme Corp', 'Tecnología', 'high', 85, 70);
