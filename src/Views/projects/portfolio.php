@@ -48,17 +48,42 @@ $groupedPortfolios = array_values($grouped);
 ?>
 
 <div class="card portfolio-card">
-    <div class="toolbar portfolio-toolbar">
+    <div class="portfolio-toolbar">
         <div>
             <p class="eyebrow">Crear ≠ Analizar</p>
             <h2 class="portfolio-title">Portafolio por cliente</h2>
             <p class="muted">Vista ejecutiva de análisis. Sin formularios ni creación aquí: solo lectura, resumen y drilldown.</p>
         </div>
         <div class="portfolio-actions">
-            <a class="button ghost" href="<?= $basePath ?>/projects">Ir a proyectos</a>
-            <a class="button primary" href="<?= $basePath ?>/portfolio/create">Nuevo portafolio (wizard)</a>
+            <a class="action-button ghost" href="<?= $basePath ?>/projects">
+                <span class="icon" aria-hidden="true">↗</span>
+                Ir a proyectos
+            </a>
+            <a class="action-button primary" href="<?= $basePath ?>/portfolio/create">
+                <span class="icon" aria-hidden="true">＋</span>
+                Nuevo portafolio (wizard)
+            </a>
         </div>
     </div>
+
+    <section class="intro-card">
+        <div class="intro-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7">
+                <path d="M4 7h16M4 12h10M4 17h6" />
+                <path d="m16 11 4 1-4 1 4 1-4 1" />
+            </svg>
+        </div>
+        <div>
+            <p class="eyebrow">Visión ejecutiva</p>
+            <h3 class="intro-title">Portafolio por cliente</h3>
+            <p class="muted">Vista ejecutiva de análisis. Sin formularios ni creación aquí: solo lectura, resumen y drilldown.</p>
+        </div>
+        <div class="intro-pillset">
+            <span class="pill soft-blue">Ejecución</span>
+            <span class="pill soft-green">Claridad</span>
+            <span class="pill soft-amber">Seguimiento</span>
+        </div>
+    </section>
 
     <?php if (!empty($error)): ?>
         <div class="alert danger" style="margin-bottom:12px;">
@@ -90,17 +115,64 @@ $groupedPortfolios = array_values($grouped);
 
     <div class="portfolio-stack">
         <?php foreach ($groupedPortfolios as $group): ?>
-            <?php $client = $group['client']; ?>
+            <?php
+                $client = $group['client'];
+                $clientName = $client['name'] ?? 'Cliente sin nombre';
+                $portfolioCount = count($group['portfolios']);
+                $activeProjectsCount = array_sum(array_map(fn ($p) => count(is_array($p['projects'] ?? null) ? array_filter($p['projects'], fn ($proj) => ($proj['status'] ?? 'activo') === 'activo') : []), $group['portfolios']));
+                $allProgress = [];
+                $riskLevels = [];
+                foreach ($group['portfolios'] as $p) {
+                    $kpisLoop = array_merge($kpiDefaults, is_array($p['kpis'] ?? null) ? $p['kpis'] : []);
+                    if (isset($kpisLoop['avg_progress'])) {
+                        $allProgress[] = (float) $kpisLoop['avg_progress'];
+                    }
+                    $riskLevels[] = $kpisLoop['risk_level'] ?? null;
+                }
+                $overallProgress = $allProgress ? round(array_sum($allProgress) / count($allProgress), 1) : 0;
+                $riskPriority = ['alto' => 3, 'medio' => 2, 'bajo' => 1];
+                $topRiskLevel = 'bajo';
+                foreach ($riskLevels as $level) {
+                    if (($riskPriority[$level] ?? 0) > ($riskPriority[$topRiskLevel] ?? 0)) {
+                        $topRiskLevel = $level;
+                    }
+                }
+                $topRiskText = $riskLevelText[$topRiskLevel] ?? 'Riesgo no calculado';
+                $clientInitial = strtoupper(mb_substr($clientName, 0, 1, 'UTF-8'));
+            ?>
             <section class="client-block">
                 <header class="client-header">
-                    <div>
-                        <p class="eyebrow">Cliente</p>
-                        <h3><?= htmlspecialchars($client['name'] ?? 'Cliente sin nombre') ?></h3>
-                        <p class="muted"><?= htmlspecialchars($client['sector_label'] ?? 'Sector no registrado') ?> · <?= htmlspecialchars($client['category_label'] ?? 'Categoría no registrada') ?></p>
+                    <div class="client-identity">
+                        <?php if (!empty($client['logo'])): ?>
+                            <div class="client-avatar has-logo">
+                                <img src="<?= htmlspecialchars($client['logo']) ?>" alt="Logo <?= htmlspecialchars($clientName) ?>">
+                            </div>
+                        <?php else: ?>
+                            <div class="client-avatar" aria-hidden="true"><?= htmlspecialchars($clientInitial) ?></div>
+                        <?php endif; ?>
+                        <div>
+                            <p class="eyebrow">Cliente</p>
+                            <h3><?= htmlspecialchars($clientName) ?></h3>
+                            <p class="muted"><?= htmlspecialchars($client['sector_label'] ?? 'Sector no registrado') ?> · <?= htmlspecialchars($client['category_label'] ?? 'Categoría no registrada') ?></p>
+                        </div>
                     </div>
                     <div class="meta-badges">
-                        <span class="pill neutral">Portafolios: <?= count($group['portfolios']) ?></span>
-                        <span class="pill neutral">Proyectos activos: <?= array_sum(array_map(fn ($p) => count(is_array($p['projects'] ?? null) ? $p['projects'] : []), $group['portfolios'])) ?></span>
+                        <span class="pill kpi-pill soft-blue">
+                            <span class="icon" aria-hidden="true">📁</span>
+                            Portafolios: <?= $portfolioCount ?>
+                        </span>
+                        <span class="pill kpi-pill soft-green">
+                            <span class="icon" aria-hidden="true">🚀</span>
+                            Proyectos activos: <?= $activeProjectsCount ?>
+                        </span>
+                        <span class="pill kpi-pill soft-amber">
+                            <span class="icon" aria-hidden="true">📊</span>
+                            Avance global: <?= $overallProgress ?>%
+                        </span>
+                        <span class="pill kpi-pill soft-slate">
+                            <span class="icon" aria-hidden="true">⚠️</span>
+                            Riesgo: <?= htmlspecialchars($topRiskText) ?>
+                        </span>
                     </div>
                 </header>
 
@@ -126,28 +198,58 @@ $groupedPortfolios = array_values($grouped);
                         ?>
                         <article class="portfolio-card-grid" id="<?= htmlspecialchars($portfolioId) ?>">
                             <header class="portfolio-summary">
-                                <div>
-                                    <p class="eyebrow">Portafolio</p>
-                                    <h4><?= htmlspecialchars($portfolio['name']) ?></h4>
-                                    <p class="muted"><?= htmlspecialchars($portfolio['signal']['summary'] ?? 'Sin resumen cargado') ?></p>
+                                <div class="portfolio-heading">
+                                    <div class="portfolio-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+                                            <path d="M4 8h16v10H4z" />
+                                            <path d="M4 6h6l2 2h8" />
+                                            <path d="M8 12h8" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="eyebrow">Portafolio</p>
+                                        <h4><?= htmlspecialchars($portfolio['name']) ?></h4>
+                                        <p class="muted"><?= htmlspecialchars($portfolio['signal']['summary'] ?? 'Sin resumen cargado') ?></p>
+                                    </div>
                                 </div>
                                 <div class="kpi-strip">
                                     <div class="kpi-chip">
-                                        <small>Avance global</small>
+                                        <div class="chip-top">
+                                            <span class="icon" aria-hidden="true">📈</span>
+                                            <small>Avance global</small>
+                                        </div>
                                         <strong><?= $kpis['avg_progress'] ?>%</strong>
+                                        <div class="micro-track" aria-hidden="true">
+                                            <span class="micro-bar" style="width: <?= max(0, min(100, (float) $kpis['avg_progress'])) ?>%"></span>
+                                        </div>
                                     </div>
                                     <div class="kpi-chip">
-                                        <small>Consumo de horas</small>
+                                        <div class="chip-top">
+                                            <span class="icon" aria-hidden="true">⏱</span>
+                                            <small>Consumo de horas</small>
+                                        </div>
                                         <strong><?= $hoursRatio !== null ? $hoursRatio . '%' : 'N/D' ?></strong>
+                                        <div class="micro-track" aria-hidden="true">
+                                            <span class="micro-bar soft-blue" style="width: <?= $hoursRatio !== null ? max(0, min(100, $hoursRatio)) : 0 ?>%"></span>
+                                        </div>
                                         <span class="subtext">Usadas: <?= $hoursUsed ?>h <?= $hoursCap ? '/ ' . $hoursCap . 'h' : '' ?></span>
                                     </div>
                                     <div class="kpi-chip">
-                                        <small>Estado de costos</small>
+                                        <div class="chip-top">
+                                            <span class="icon" aria-hidden="true">💰</span>
+                                            <small>Estado de costos</small>
+                                        </div>
                                         <strong><?= $budgetRatio !== null ? $budgetRatio . '%' : 'N/D' ?></strong>
+                                        <div class="micro-track" aria-hidden="true">
+                                            <span class="micro-bar soft-amber" style="width: <?= $budgetRatio !== null ? max(0, min(100, $budgetRatio)) : 0 ?>%"></span>
+                                        </div>
                                         <span class="subtext">Real: $<?= number_format((float) $budgetUsed, 0, ',', '.') ?> <?= $budgetCap ? '/ $' . number_format((float) $budgetCap, 0, ',', '.') : '' ?></span>
                                     </div>
                                     <div class="kpi-chip">
-                                        <small>Nivel de riesgo</small>
+                                        <div class="chip-top">
+                                            <span class="icon" aria-hidden="true">🛡</span>
+                                            <small>Nivel de riesgo</small>
+                                        </div>
                                         <strong><?= $riskText ?></strong>
                                         <span class="subtext">Estado general: <?= $generalStatus ?></span>
                                     </div>
@@ -307,35 +409,211 @@ tabButtons.forEach(button => {
 </script>
 
 <style>
-.portfolio-card { padding: 20px; }
-.portfolio-toolbar { border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px; display:flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
-.portfolio-title { margin: 0; }
-.eyebrow { margin: 0; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); font-size: 12px; }
-.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; }
-.portfolio-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.portfolio-stack { display: flex; flex-direction: column; gap: 16px; }
-.client-block { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--surface); }
-.client-header { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-.meta-badges { display: flex; gap: 8px; flex-wrap: wrap; }
-.portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
-.portfolio-card-grid { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--surface-1); display: flex; flex-direction: column; gap: 10px; }
-.portfolio-summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
-.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.kpi-chip { padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); }
-.tab-nav { display: flex; flex-wrap: wrap; gap: 6px; }
-.tab-button { padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1); cursor: pointer; }
-.tab-button.active { background: color-mix(in srgb, var(--primary) 12%, var(--surface-1)); color: var(--primary); border-color: var(--primary); }
-.tab-content { border: 1px dashed var(--border); border-radius: 10px; padding: 10px; background: var(--surface); }
-.hidden { display: none; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-.subtext { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
-.projects-list { display: flex; flex-direction: column; gap: 8px; }
-.project-row { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface-2); display: grid; gap: 6px; }
-.project-kpis { display: flex; flex-wrap: wrap; gap: 6px; }
-.pill { padding: 6px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-weight: 600; }
-.pill.subtle { background: var(--surface-1); font-weight: 500; }
-.pill.neutral { background: transparent; border-style: dashed; color: var(--muted); font-weight: 500; }
-.project-detail { display: grid; gap: 2px; }
-.chip-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-.pillset { display: flex; gap: 6px; flex-wrap: wrap; }
+    :root {
+        --blue-soft: #e6f0ff;
+        --green-soft: #e5f6ef;
+        --amber-soft: #fff4e5;
+        --slate-soft: #eef2f7;
+        --border-strong: rgba(15, 23, 42, 0.08);
+        --text-strong: #0f172a;
+        --muted-strong: #475569;
+    }
+
+    .portfolio-card {
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 60%);
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    }
+    .portfolio-toolbar {
+        display:flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding-bottom: 6px;
+    }
+    .portfolio-title { margin: 0; color: var(--text-strong); }
+    .eyebrow { margin: 0; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted-strong); font-size: 12px; }
+    .portfolio-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .action-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        border: 1px solid rgba(59, 130, 246, 0.24);
+        color: #1d4ed8;
+        background: rgba(59, 130, 246, 0.12);
+        box-shadow: 0 8px 18px rgba(59, 130, 246, 0.12);
+    }
+    .action-button.ghost {
+        background: #ffffff;
+        color: #0f172a;
+        border-color: rgba(15, 23, 42, 0.12);
+        box-shadow: none;
+    }
+    .action-button.primary {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(16, 185, 129, 0.16));
+        color: #0f172a;
+        border-color: rgba(59, 130, 246, 0.28);
+    }
+    .action-button .icon { font-size: 14px; }
+
+    .intro-card {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 14px;
+        align-items: center;
+        padding: 16px 18px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(229, 243, 255, 0.9), rgba(237, 247, 237, 0.9));
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    }
+    .intro-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .intro-icon svg { width: 32px; height: 32px; stroke: currentColor; }
+    .intro-title { margin: 4px 0 6px; font-size: 20px; color: var(--text-strong); }
+    .muted { color: var(--muted-strong); font-size: 14px; margin: 0; }
+    .intro-pillset, .pillset { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 4px 0 8px; }
+    .card.subtle-card { background: #ffffff; border: 1px dashed rgba(148, 163, 184, 0.3); border-radius: 12px; box-shadow: none; }
+    .badge.neutral { background: var(--slate-soft); padding: 6px 10px; border-radius: 10px; font-weight: 700; color: #0f172a; display: inline-block; }
+
+    .portfolio-stack { display: flex; flex-direction: column; gap: 16px; }
+    .client-block {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 16px;
+        padding: 14px;
+        background: linear-gradient(180deg, #ffffff, #f9fbff);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .client-header { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom:14px; }
+    .client-identity { display: flex; gap: 10px; align-items: center; }
+    .client-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: var(--slate-soft);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: #0f172a;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+    .client-avatar.has-logo { padding: 6px; background: #ffffff; }
+    .client-avatar img { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; }
+    .meta-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill {
+        padding: 7px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: #ffffff;
+        font-weight: 700;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: #0f172a;
+    }
+    .pill.subtle { background: var(--slate-soft); font-weight: 600; }
+    .pill.neutral { background: transparent; border-style: dashed; color: var(--muted-strong); font-weight: 600; }
+    .pill.kpi-pill { box-shadow: 0 6px 14px rgba(148, 163, 184, 0.14); }
+    .pill.soft-blue { background: var(--blue-soft); border-color: rgba(59, 130, 246, 0.3); color: #1d4ed8; }
+    .pill.soft-green { background: var(--green-soft); border-color: rgba(16, 185, 129, 0.28); color: #0f766e; }
+    .pill.soft-amber { background: var(--amber-soft); border-color: rgba(251, 191, 36, 0.34); color: #b45309; }
+    .pill.soft-slate { background: var(--slate-soft); border-color: rgba(148, 163, 184, 0.4); color: #0f172a; }
+
+    .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
+    .portfolio-card-grid {
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: linear-gradient(180deg, #ffffff, #f6f9ff);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+    }
+    .portfolio-summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .portfolio-heading { display: flex; gap: 10px; align-items: center; }
+    .portfolio-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .portfolio-icon svg { width: 26px; height: 26px; stroke: currentColor; }
+
+    .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .kpi-chip {
+        padding: 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: #ffffff;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 8px 16px rgba(148, 163, 184, 0.12);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .chip-top { display: flex; align-items: center; gap: 6px; color: #475569; font-weight: 700; }
+    .micro-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(226, 232, 240, 0.7);
+        overflow: hidden;
+    }
+    .micro-bar {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, rgba(59, 130, 246, 0.75), rgba(16, 185, 129, 0.75));
+        border-radius: 999px;
+    }
+    .micro-bar.soft-blue { background: linear-gradient(90deg, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 0.6)); }
+    .micro-bar.soft-amber { background: linear-gradient(90deg, rgba(251, 191, 36, 0.85), rgba(249, 115, 22, 0.7)); }
+
+    .tab-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tab-button {
+        padding: 9px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: #ffffff;
+        cursor: pointer;
+        font-weight: 700;
+        color: #0f172a;
+        box-shadow: 0 6px 14px rgba(148, 163, 184, 0.16);
+    }
+    .tab-button.active { background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(16, 185, 129, 0.12)); color: #0f172a; border-color: rgba(59, 130, 246, 0.35); }
+    .tab-content { border: 1px dashed rgba(148, 163, 184, 0.4); border-radius: 12px; padding: 12px; background: #ffffff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8); }
+    .hidden { display: none; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .subtext { display: block; color: #64748b; font-size: 12px; margin-top: 2px; }
+    .projects-list { display: flex; flex-direction: column; gap: 10px; }
+    .project-row { border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 12px; padding: 12px; background: #f8fafc; display: grid; gap: 6px; box-shadow: 0 6px 12px rgba(148, 163, 184, 0.1); }
+    .project-kpis { display: flex; flex-wrap: wrap; gap: 8px; }
+    .project-detail { display: grid; gap: 2px; }
+    .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 </style>
