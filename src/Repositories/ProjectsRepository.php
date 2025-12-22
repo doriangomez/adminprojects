@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use InvalidArgumentException;
-
 class ProjectsRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];
@@ -17,6 +15,9 @@ class ProjectsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $hasStatusColumn = $this->db->columnExists('projects', 'status');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -25,17 +26,56 @@ class ProjectsRepository
 
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
-        return $this->db->fetchAll(
-            'SELECT p.id, p.name, p.status, st.label AS status_label, p.health, h.label AS health_label, p.priority, pr.label AS priority_label, p.progress, p.budget, p.actual_cost, p.planned_hours, p.actual_hours, c.name AS client
-             FROM projects p
-             JOIN clients c ON c.id = p.client_id
-             LEFT JOIN priorities pr ON pr.code = p.priority
-             LEFT JOIN project_status st ON st.code = p.status
-             LEFT JOIN project_health h ON h.code = p.health
-             ' . $whereClause . '
-             ORDER BY p.created_at DESC',
-            $params
+        $select = [
+            'p.id',
+            'p.name',
+            'p.progress',
+            'p.budget',
+            'p.actual_cost',
+            'p.planned_hours',
+            'p.actual_hours',
+            'c.name AS client',
+        ];
+
+        $joins = [
+            'JOIN clients c ON c.id = p.client_id',
+        ];
+
+        if ($hasPriorityColumn) {
+            $select[] = 'p.priority';
+            $select[] = 'pr.label AS priority_label';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority';
+        } else {
+            $select[] = 'NULL AS priority';
+            $select[] = 'NULL AS priority_label';
+        }
+
+        if ($hasStatusColumn) {
+            $select[] = 'p.status';
+            $select[] = 'st.label AS status_label';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status';
+        } else {
+            $select[] = "'' AS status";
+            $select[] = 'NULL AS status_label';
+        }
+
+        if ($hasHealthColumn) {
+            $select[] = 'p.health';
+            $select[] = 'h.label AS health_label';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health';
+        } else {
+            $select[] = 'NULL AS health';
+            $select[] = 'NULL AS health_label';
+        }
+
+        $sql = sprintf(
+            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
+            implode(', ', $select),
+            implode(' ', $joins),
+            $whereClause
         );
+
+        return $this->db->fetchAll($sql, $params);
     }
 
     public function portfolioKpis(array $user): array
@@ -43,6 +83,7 @@ class ProjectsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -56,10 +97,12 @@ class ProjectsRepository
              FROM projects p JOIN clients c ON c.id = p.client_id ' . $whereClause,
             $params
         );
-        $atRisk = $this->db->fetchOne(
-            "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND p.health IN ('at_risk','critical','red','yellow')",
-            $params
-        );
+        $atRisk = $hasHealthColumn
+            ? $this->db->fetchOne(
+                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND p.health IN ('at_risk','critical','red','yellow')",
+                $params
+            )
+            : ['total' => 0];
 
         return [
             'total_projects' => (int) ($totals['total'] ?? 0),
@@ -109,22 +152,63 @@ class ProjectsRepository
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
         $conditions[] = 'c.id = :clientId';
         $params[':clientId'] = $clientId;
+        $hasStatusColumn = $this->db->columnExists('projects', 'status');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority');
 
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
-        return $this->db->fetchAll(
-            'SELECT p.id, p.name, p.status, st.label AS status_label, p.health, h.label AS health_label, p.priority, pr.label AS priority_label, p.progress, p.project_type, p.pm_id, u.name AS pm_name,
-                    p.actual_hours, p.planned_hours
-             FROM projects p
-             JOIN clients c ON c.id = p.client_id
-             LEFT JOIN priorities pr ON pr.code = p.priority
-             LEFT JOIN project_status st ON st.code = p.status
-             LEFT JOIN project_health h ON h.code = p.health
-             LEFT JOIN users u ON u.id = p.pm_id
-             ' . $whereClause . '
-             ORDER BY p.created_at DESC',
-            $params
+        $select = [
+            'p.id',
+            'p.name',
+            'p.progress',
+            'p.project_type',
+            'p.pm_id',
+            'u.name AS pm_name',
+            'p.actual_hours',
+            'p.planned_hours',
+        ];
+
+        $joins = [
+            'JOIN clients c ON c.id = p.client_id',
+            'LEFT JOIN users u ON u.id = p.pm_id',
+        ];
+
+        if ($hasPriorityColumn) {
+            $select[] = 'p.priority';
+            $select[] = 'pr.label AS priority_label';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority';
+        } else {
+            $select[] = 'NULL AS priority';
+            $select[] = 'NULL AS priority_label';
+        }
+
+        if ($hasStatusColumn) {
+            $select[] = 'p.status';
+            $select[] = 'st.label AS status_label';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status';
+        } else {
+            $select[] = "'' AS status";
+            $select[] = 'NULL AS status_label';
+        }
+
+        if ($hasHealthColumn) {
+            $select[] = 'p.health';
+            $select[] = 'h.label AS health_label';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health';
+        } else {
+            $select[] = 'NULL AS health';
+            $select[] = 'NULL AS health_label';
+        }
+
+        $sql = sprintf(
+            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
+            implode(', ', $select),
+            implode(' ', $joins),
+            $whereClause
         );
+
+        return $this->db->fetchAll($sql, $params);
     }
 
     public function assignmentsForClient(int $clientId, array $user): array
