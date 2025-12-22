@@ -85,6 +85,17 @@ class App
             return;
         }
 
+        if (str_starts_with($path, '/config')) {
+            $controller = new ConfigController($this->db, $this->auth);
+            if ($path === '/config' && $method === 'POST') {
+                $controller->update();
+                return;
+            }
+
+            $controller->index();
+            return;
+        }
+
         http_response_code(404);
         echo 'Ruta no encontrada';
     }

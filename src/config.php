@@ -1,5 +1,10 @@
 <?php
 // Basic configuration for the PMO system
+require_once __DIR__ . '/Services/ConfigService.php';
+
+$configService = new ConfigService();
+$customConfig = $configService->getConfig();
+
 return [
     'db' => [
         'host' => getenv('DB_HOST') ?: 'localhost',
@@ -13,4 +18,7 @@ return [
         'name' => 'Prompt Maestro - PMO',
         'key' => getenv('APP_KEY') ?: 'change-me',
     ],
+    'master_files' => $customConfig['master_files'],
+    'theme' => $customConfig['theme'],
+    'access' => $customConfig['access'],
 ];
