@@ -14,7 +14,14 @@ class ProjectsRepository
 
     public function summary(array $user): array
     {
-        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $conditions = [];
+        $params = [];
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
+            $conditions[] = 'p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
+        }
 
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
@@ -33,7 +40,15 @@ class ProjectsRepository
 
     public function portfolioKpis(array $user): array
     {
-        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $conditions = [];
+        $params = [];
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
+            $conditions[] = 'p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
+        }
+
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         $totals = $this->db->fetchOne(

@@ -46,8 +46,8 @@ class ClientsController extends Controller
         $this->render('clients/show', [
             'title' => 'Detalle de cliente',
             'client' => $client,
-            'projects' => $repo->projectsForClient($id),
-            'snapshot' => $repo->projectSnapshot($id),
+            'projects' => $repo->projectsForClient($id, $user),
+            'snapshot' => $repo->projectSnapshot($id, $user),
             'canManage' => $canManage,
         ]);
     }

@@ -275,11 +275,8 @@ INSERT INTO client_areas (code, label) VALUES ('digital_transformation', 'Transf
 INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, logo_path, feedback_notes, feedback_history, operational_context)
 VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderate', 'innovación,cloud', 'digital_transformation', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
-INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
-VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 'convencional', 120000, 45000, 800, 320, 40, CURDATE());
-
-INSERT INTO project_talent_assignments (project_id, talent_id, role, start_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_approval)
-VALUES (1, 1, 'Project Manager', CURDATE(), 50, 20, 'fijo_mensual', 5000, 0, 1, 1);
+INSERT INTO projects (client_id, pm_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
+VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());
 
 INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, hourly_cost, hourly_rate)
 VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 35, 70);
