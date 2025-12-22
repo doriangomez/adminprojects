@@ -71,6 +71,18 @@ CREATE TABLE client_status (
     label VARCHAR(100) NOT NULL
 );
 
+CREATE TABLE client_risk (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    label VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE client_areas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(80) NOT NULL UNIQUE,
+    label VARCHAR(120) NOT NULL
+);
+
 CREATE TABLE clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
@@ -234,9 +246,11 @@ INSERT INTO project_health (code, label) VALUES ('on_track', 'En curso'), ('at_r
 INSERT INTO client_sectors (code, label) VALUES ('tech', 'Tecnología'), ('finance', 'Finanzas'), ('retail', 'Retail');
 INSERT INTO client_categories (code, label) VALUES ('enterprise', 'Enterprise'), ('scaleup', 'Scale-Up'), ('public', 'Sector público');
 INSERT INTO client_status (code, label) VALUES ('active', 'Activo'), ('on_hold', 'En pausa'), ('prospect', 'Prospecto');
+INSERT INTO client_risk (code, label) VALUES ('low', 'Bajo'), ('moderate', 'Moderado'), ('high', 'Alto');
+INSERT INTO client_areas (code, label) VALUES ('digital_transformation', 'Transformación Digital'), ('operations', 'Operaciones'), ('marketing', 'Marketing');
 
 INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, logo_path, feedback_notes, feedback_history, operational_context)
-VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderado', 'innovación,cloud', 'Transformación Digital', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
+VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderate', 'innovación,cloud', 'digital_transformation', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
 INSERT INTO projects (client_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
 VALUES (1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());

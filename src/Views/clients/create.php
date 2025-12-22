@@ -61,7 +61,12 @@
         </label>
         <label class="input">
             <span>Riesgo de la relación</span>
-            <input type="text" name="risk_level" placeholder="Ej: moderado, alto">
+            <select name="risk_level">
+                <option value="">Selecciona riesgo</option>
+                <?php foreach($risks as $risk): ?>
+                    <option value="<?= htmlspecialchars($risk['code']) ?>"><?= htmlspecialchars($risk['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
         </label>
         <label class="input">
             <span>Etiquetas</span>
@@ -69,7 +74,12 @@
         </label>
         <label class="input">
             <span>Área</span>
-            <input type="text" name="area" placeholder="Unidad / dominio de negocio">
+            <select name="area">
+                <option value="">Selecciona área</option>
+                <?php foreach($areas as $area): ?>
+                    <option value="<?= htmlspecialchars($area['code']) ?>"><?= htmlspecialchars($area['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
         </label>
         <label class="input">
             <span>Satisfacción</span>

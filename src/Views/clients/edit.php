@@ -76,7 +76,14 @@
         </label>
         <label class="input">
             <span>Riesgo de la relación</span>
-            <input type="text" name="risk_level" value="<?= htmlspecialchars($client['risk_level'] ?? '') ?>">
+            <select name="risk_level">
+                <option value="">Selecciona riesgo</option>
+                <?php foreach($risks as $risk): ?>
+                    <option value="<?= htmlspecialchars($risk['code']) ?>" <?= ($risk['code'] ?? '') === ($client['risk_level'] ?? '') ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($risk['label']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </label>
         <label class="input">
             <span>Etiquetas</span>
@@ -84,7 +91,14 @@
         </label>
         <label class="input">
             <span>Área</span>
-            <input type="text" name="area" value="<?= htmlspecialchars($client['area'] ?? '') ?>">
+            <select name="area">
+                <option value="">Selecciona área</option>
+                <?php foreach($areas as $area): ?>
+                    <option value="<?= htmlspecialchars($area['code']) ?>" <?= ($area['code'] ?? '') === ($client['area'] ?? '') ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($area['label']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </label>
         <label class="input">
             <span>Satisfacción</span>

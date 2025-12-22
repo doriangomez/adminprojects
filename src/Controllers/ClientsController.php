@@ -100,19 +100,26 @@ class ClientsController extends Controller
     private function collectPayload(string $currentLogoPath = ''): array
     {
         $logoPath = $this->handleLogoUpload($_FILES['logo'] ?? null, $currentLogoPath);
+        $catalogs = $this->catalogData();
+        $sectorCode = $this->validatedCatalogValue($_POST['sector_code'] ?? '', $catalogs['sectors'], 'sector');
+        $categoryCode = $this->validatedCatalogValue($_POST['category_code'] ?? '', $catalogs['categories'], 'categoría');
+        $priority = $this->validatedCatalogValue($_POST['priority'] ?? '', $catalogs['priorities'], 'prioridad');
+        $statusCode = $this->validatedCatalogValue($_POST['status_code'] ?? '', $catalogs['statuses'], 'estado');
+        $riskCode = $this->validatedCatalogValue($_POST['risk_level'] ?? '', $catalogs['risks'], 'riesgo', false);
+        $areaCode = $this->validatedCatalogValue($_POST['area'] ?? '', $catalogs['areas'], 'área', false);
 
         return [
             'name' => trim($_POST['name'] ?? ''),
-            'sector_code' => $_POST['sector_code'] ?? '',
-            'category_code' => $_POST['category_code'] ?? '',
-            'priority' => $_POST['priority'] ?? '',
-            'status_code' => $_POST['status_code'] ?? '',
+            'sector_code' => $sectorCode,
+            'category_code' => $categoryCode,
+            'priority' => $priority,
+            'status_code' => $statusCode,
             'pm_id' => $_POST['pm_id'] ?? null,
             'satisfaction' => ($_POST['satisfaction'] ?? '') !== '' ? (int) $_POST['satisfaction'] : null,
             'nps' => ($_POST['nps'] ?? '') !== '' ? (int) $_POST['nps'] : null,
-            'risk_level' => trim($_POST['risk_level'] ?? ''),
+            'risk_level' => $riskCode,
             'tags' => trim($_POST['tags'] ?? ''),
-            'area' => trim($_POST['area'] ?? ''),
+            'area' => $areaCode,
             'feedback_notes' => trim($_POST['feedback_notes'] ?? ''),
             'feedback_history' => trim($_POST['feedback_history'] ?? ''),
             'operational_context' => trim($_POST['operational_context'] ?? ''),
@@ -163,18 +170,47 @@ class ClientsController extends Controller
 
     private function formData(): array
     {
-        $masterRepo = new MasterFilesRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
+
+        return array_merge($this->catalogData(), [
+            'projectManagers' => array_filter(
+                $usersRepo->all(),
+                fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
+            ),
+        ]);
+    }
+
+    private function catalogData(): array
+    {
+        $masterRepo = new MasterFilesRepository($this->db);
 
         return [
             'sectors' => $masterRepo->list('client_sectors'),
             'categories' => $masterRepo->list('client_categories'),
             'priorities' => $masterRepo->list('priorities'),
             'statuses' => $masterRepo->list('client_status'),
-            'projectManagers' => array_filter(
-                $usersRepo->all(),
-                fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
-            ),
+            'risks' => $masterRepo->list('client_risk'),
+            'areas' => $masterRepo->list('client_areas'),
         ];
+    }
+
+    private function validatedCatalogValue(string $value, array $catalog, string $fieldLabel, bool $required = true): ?string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            if ($required) {
+                http_response_code(400);
+                exit('Valor inválido para ' . $fieldLabel . '.');
+            }
+            return null;
+        }
+
+        $codes = array_column($catalog, 'code');
+        if (!in_array($trimmed, $codes, true)) {
+            http_response_code(400);
+            exit('Valor inválido para ' . $fieldLabel . '.');
+        }
+
+        return $trimmed;
     }
 }
