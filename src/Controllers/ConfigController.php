@@ -9,7 +9,7 @@ class ConfigController extends Controller
         $service = new ConfigService();
         $config = $service->getConfig();
 
-        $this->ensureAdmin();
+        $this->ensureConfigAccess();
 
         $this->render('config/index', [
             'title' => 'Configuración',
@@ -20,7 +20,7 @@ class ConfigController extends Controller
 
     public function update(): void
     {
-        $this->ensureAdmin();
+        $this->ensureConfigAccess();
 
         $payload = [
             'theme' => [
@@ -59,10 +59,11 @@ class ConfigController extends Controller
         return array_values($parts);
     }
 
-    private function ensureAdmin(): void
+    private function ensureConfigAccess(): void
     {
         $user = $this->auth->user();
-        if (!$user || ($user['role'] ?? '') !== 'Administrador') {
+        $allowedRoles = ['Administrador', 'PMO'];
+        if (!$user || !in_array($user['role'] ?? '', $allowedRoles, true)) {
             http_response_code(403);
             exit('Acceso denegado');
         }
