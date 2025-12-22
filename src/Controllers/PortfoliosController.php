@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+class PortfoliosController extends Controller
+{
+    public function index(?string $error = null): void
+    {
+        $this->requirePermission('projects.view');
+
+        $config = (new ConfigService())->getConfig();
+        $user = $this->auth->user() ?? [];
+        $projectsRepo = new ProjectsRepository($this->db);
+        $portfolioRepo = new PortfoliosRepository($this->db, $config['operational_rules']);
+        $clientsRepo = new ClientsRepository($this->db);
+
+        $portfolios = $portfolioRepo->listWithUsage($user);
+        $clientProjects = [];
+        foreach ($portfolios as $portfolio) {
+            $clientProjects[$portfolio['client_id']] = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user);
+        }
+
+        $this->render('projects/portfolio', [
+            'title' => 'Portafolios de cliente',
+            'clients' => $clientsRepo->listForUser($user),
+            'portfolios' => $portfolios,
+            'projectsByClient' => $clientProjects,
+            'error' => $error,
+        ]);
+    }
+
+    public function store(): void
+    {
+        $this->requirePermission('projects.manage');
+
+        $config = (new ConfigService())->getConfig();
+        $repo = new PortfoliosRepository($this->db, $config['operational_rules']);
+
+        try {
+            $attachment = $repo->storeAttachment($_FILES['attachment'] ?? null);
+            $repo->create($this->payload($attachment));
+            header('Location: /project/public/portfolio');
+        } catch (\Throwable $e) {
+            error_log('Error al crear portafolio: ' . $e->getMessage());
+            $this->index('No se pudo registrar el portafolio: ' . $e->getMessage());
+        }
+    }
+
+    public function update(): void
+    {
+        $this->requirePermission('projects.manage');
+
+        $config = (new ConfigService())->getConfig();
+        $repo = new PortfoliosRepository($this->db, $config['operational_rules']);
+        $id = (int) ($_POST['id'] ?? 0);
+
+        try {
+            $attachment = $repo->storeAttachment($_FILES['attachment'] ?? null) ?: ($_POST['current_attachment'] ?? null);
+            $repo->update($id, $this->payload($attachment));
+            header('Location: /project/public/portfolio');
+        } catch (\Throwable $e) {
+            error_log('Error al actualizar portafolio: ' . $e->getMessage());
+            $this->index('No se pudo actualizar el portafolio: ' . $e->getMessage());
+        }
+    }
+
+    private function payload(?string $attachmentPath): array
+    {
+        return [
+            'client_id' => (int) ($_POST['client_id'] ?? 0),
+            'name' => trim($_POST['name'] ?? ''),
+            'start_date' => $_POST['start_date'] ?? null,
+            'end_date' => $_POST['end_date'] ?? null,
+            'hours_limit' => $this->nullableFloat($_POST['hours_limit'] ?? ''),
+            'budget_limit' => $this->nullableFloat($_POST['budget_limit'] ?? ''),
+            'attachment_path' => $attachmentPath,
+        ];
+    }
+
+    private function nullableFloat(string $value): ?float
+    {
+        $clean = trim($value);
+        if ($clean === '') {
+            return null;
+        }
+
+        return (float) str_replace(',', '.', $clean);
+    }
+}

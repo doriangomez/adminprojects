@@ -246,6 +246,20 @@ CREATE TABLE audit_log (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS client_portfolios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    start_date DATE NULL,
+    end_date DATE NULL,
+    hours_limit DECIMAL(12,2) NULL,
+    budget_limit DECIMAL(14,2) NULL,
+    attachment_path VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    CONSTRAINT fk_client_portfolios_client FOREIGN KEY (client_id) REFERENCES clients(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Seeds básicos
 INSERT INTO roles (nombre) VALUES ('Administrador'), ('PMO'), ('Líder de Proyecto'), ('Talento'), ('Visualizador');
 

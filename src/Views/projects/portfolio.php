@@ -1,69 +1,141 @@
 <div class="card portfolio-card">
     <div class="toolbar">
         <div>
-            <h2 style="margin:0;">Portafolio por cliente</h2>
-            <p style="margin:0;color:var(--muted);">Vista jerárquica y de solo lectura. Acciones clave separadas por flujo.</p>
+            <h2 style="margin:0;">Portafolios por cliente</h2>
+            <p style="margin:0;color:var(--muted);">Control operativo centralizado. La asignación de talento vive en sus pantallas dedicadas.</p>
         </div>
         <div class="toolbar-actions">
             <a href="<?= $basePath ?>/clients/create" class="button ghost">Crear cliente</a>
-            <a href="<?= $basePath ?>/projects" class="button">Ir a crear proyecto</a>
-            <a href="<?= $basePath ?>/projects" class="button secondary">Ver listado</a>
+            <a href="<?= $basePath ?>/projects" class="button">Crear proyecto</a>
+            <a href="<?= $basePath ?>/talents" class="button secondary">Gestionar talento</a>
         </div>
     </div>
 
-    <div class="portfolio-legend">
-        <div class="legend-item">Creación de proyectos y clientes en pantallas dedicadas.</div>
-        <div class="legend-item">Asignación de talento desde el detalle del proyecto (tab Talento en modal).</div>
-        <div class="legend-item">Navegación de detalle por tabs: Resumen, Talento, Scrum (según tipo), Costos, Reportes.</div>
-    </div>
-
     <?php if (!empty($error)): ?>
-        <div class="alert danger"><?= htmlspecialchars($error) ?></div>
+        <div class="alert danger" style="margin-bottom:12px;">
+            <?= htmlspecialchars($error) ?>
+        </div>
     <?php endif; ?>
 
-    <div class="accordion portfolio-accordion">
-        <?php foreach ($clients as $client): ?>
-            <details>
+    <div class="portfolio-columns">
+        <div class="card subtle-card stretch">
+            <div class="toolbar">
+                <div>
+                    <p class="badge neutral" style="margin:0;">Nuevo portafolio</p>
+                    <h4 style="margin:4px 0 0 0;">Un portafolio por cliente, con límites y adjuntos</h4>
+                </div>
+            </div>
+            <form action="<?= $basePath ?>/portfolio" method="POST" enctype="multipart/form-data" class="config-form-grid">
+                <label>Cliente
+                    <select name="client_id" required>
+                        <option value="">Selecciona un cliente</option>
+                        <?php foreach ($clients as $client): ?>
+                            <option value="<?= (int) $client['id'] ?>"><?= htmlspecialchars($client['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>Nombre
+                    <input name="name" placeholder="Portafolio anual" required>
+                </label>
+                <label>Fecha inicio
+                    <input type="date" name="start_date">
+                </label>
+                <label>Fecha fin
+                    <input type="date" name="end_date">
+                </label>
+                <label>Límite de horas
+                    <input type="number" step="0.01" name="hours_limit" placeholder="Ej. 1200">
+                </label>
+                <label>Límite de presupuesto
+                    <input type="number" step="0.01" name="budget_limit" placeholder="Ej. 250000">
+                </label>
+                <label>Adjunto (SOW / alcance)
+                    <input type="file" name="attachment" accept="application/pdf,image/*">
+                </label>
+                <div class="form-footer">
+                    <span class="text-muted">Notificamos vencimientos y excesos según reglas operativas.</span>
+                    <button class="button primary" type="submit">Crear portafolio</button>
+                </div>
+            </form>
+        </div>
+        <div class="card subtle-card stretch">
+            <div class="toolbar">
+                <div>
+                    <p class="badge neutral" style="margin:0;">Reglas de operación</p>
+                    <h4 style="margin:4px 0 0 0;">Semáforo y alertas configurables</h4>
+                </div>
+            </div>
+            <ul class="legend-list">
+                <li>Semáforo automático por avance, horas y costo según Configuración &gt; Reglas operativas.</li>
+                <li>Alertas de vencimiento de portafolio y consumo de límites de horas / presupuesto.</li>
+                <li>La asignación de talento se gestiona en Talento o en el tab dedicado del proyecto.</li>
+                <li>Tipos de proyecto soportados: convencional, scrum e híbrido.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="portfolio-accordion">
+        <?php if (empty($portfolios)): ?>
+            <div class="alert neutral">Aún no hay portafolios registrados. Crea el primero para un cliente.</div>
+        <?php endif; ?>
+        <?php foreach ($portfolios as $portfolio): ?>
+            <details open>
                 <summary>
                     <div class="client-header">
                         <div class="client-title">
-                            <span class="signal-badge <?= $client['signal']['code'] ?>" title="<?= htmlspecialchars($client['signal']['summary']) ?>">● <?= $client['signal']['label'] ?></span>
+                            <span class="signal-badge <?= $portfolio['signal']['code'] ?>" title="<?= htmlspecialchars($portfolio['signal']['summary']) ?>">● <?= $portfolio['signal']['label'] ?></span>
                             <div>
-                                <strong><?= htmlspecialchars($client['name']) ?></strong>
-                                <p style="margin:0; color: var(--muted);">Proyectos activos: <?= $client['kpis']['active_projects'] ?> / <?= $client['kpis']['total_projects'] ?></p>
+                                <strong><?= htmlspecialchars($portfolio['client_name']) ?></strong>
+                                <p style="margin:0; color: var(--muted);">Portafolio: <?= htmlspecialchars($portfolio['name']) ?></p>
                             </div>
                         </div>
                         <div class="kpi-row">
-                            <span class="badge">Avance: <?= $client['kpis']['avg_progress'] ?>%</span>
-                            <span class="badge <?= $client['kpis']['risk_level'] === 'alto' ? 'danger' : ($client['kpis']['risk_level'] === 'medio' ? 'warning' : 'success') ?>">Riesgo: <?= ucfirst($client['kpis']['risk_level']) ?></span>
-                            <span class="badge ghost">Capacidad: <?= $client['kpis']['capacity_used'] ?>h / <?= $client['kpis']['capacity_available'] ?>h (<?= $client['kpis']['capacity_percent'] ?>%)</span>
+                            <span class="badge">Avance: <?= $portfolio['kpis']['avg_progress'] ?>%</span>
+                            <span class="badge <?= $portfolio['kpis']['risk_level'] === 'alto' ? 'danger' : ($portfolio['kpis']['risk_level'] === 'medio' ? 'warning' : 'success') ?>">Riesgo: <?= ucfirst($portfolio['kpis']['risk_level']) ?></span>
+                            <span class="badge ghost">Capacidad: <?= $portfolio['kpis']['capacity_used'] ?>h / <?= $portfolio['kpis']['capacity_available'] ?>h (<?= $portfolio['kpis']['capacity_percent'] ?>%)</span>
                         </div>
                     </div>
                 </summary>
                 <div class="client-body">
                     <div class="client-kpis">
                         <div class="kpi-card">
-                            <small>Proyectos activos</small>
-                            <strong><?= $client['kpis']['active_projects'] ?> / <?= $client['kpis']['total_projects'] ?></strong>
+                            <small>Fechas</small>
+                            <strong><?= $portfolio['start_date'] ? htmlspecialchars($portfolio['start_date']) : 'Sin inicio' ?> → <?= $portfolio['end_date'] ? htmlspecialchars($portfolio['end_date']) : 'Sin fin' ?></strong>
                         </div>
                         <div class="kpi-card">
-                            <small>Avance promedio</small>
-                            <strong><?= $client['kpis']['avg_progress'] ?>%</strong>
+                            <small>Límite de horas</small>
+                            <strong><?= $portfolio['hours_limit'] ?: 'N/D' ?></strong>
+                            <span class="subtext">Usadas: <?= round((float) ($portfolio['kpis']['capacity_used']), 1) ?>h</span>
                         </div>
                         <div class="kpi-card">
-                            <small>Capacidad utilizada</small>
-                            <strong><?= $client['kpis']['capacity_percent'] ?>%</strong>
-                            <span class="subtext"><?= $client['kpis']['capacity_used'] ?>h de <?= $client['kpis']['capacity_available'] ?>h</span>
+                            <small>Límite de presupuesto</small>
+                            <strong><?= $portfolio['budget_limit'] ?: 'N/D' ?></strong>
+                            <span class="subtext">Gasto real: <?= round((float) ($portfolio['projects'] ? array_sum(array_column($portfolio['projects'], 'actual_cost')) : 0), 1) ?></span>
                         </div>
                         <div class="kpi-card">
-                            <small>Nivel de riesgo</small>
-                            <strong class="badge <?= $client['kpis']['risk_level'] === 'alto' ? 'danger' : ($client['kpis']['risk_level'] === 'medio' ? 'warning' : 'success') ?>" style="padding: 4px 10px;"><?= ucfirst($client['kpis']['risk_level']) ?></strong>
+                            <small>Adjunto</small>
+                            <?php if (!empty($portfolio['attachment_path'])): ?>
+                                <a class="badge ghost" href="<?= htmlspecialchars($portfolio['attachment_path']) ?>" target="_blank" rel="noopener">Ver archivo</a>
+                            <?php else: ?>
+                                <span class="subtext">Sin adjuntos</span>
+                            <?php endif; ?>
                         </div>
                     </div>
 
+                    <?php if (!empty($portfolio['alerts'])): ?>
+                        <div class="alert warning">
+                            <strong>Alertas del portafolio:</strong>
+                            <ul>
+                                <?php foreach ($portfolio['alerts'] as $alert): ?>
+                                    <li><?= htmlspecialchars($alert) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="projects-stack">
-                        <?php foreach ($client['projects'] as $project): ?>
-                            <?php $projectAssignments = $client['assignments'][$project['id']] ?? []; ?>
+                        <?php foreach ($portfolio['projects'] as $project): ?>
+                            <?php $projectAssignments = $portfolio['assignments'][$project['id']] ?? []; ?>
                             <?php $assignedHours = array_sum(array_map(fn($a) => (float) ($a['weekly_hours'] ?? 0), $projectAssignments)); ?>
                             <?php $assignedPercent = array_sum(array_map(fn($a) => (float) ($a['allocation_percent'] ?? 0), $projectAssignments)); ?>
 
@@ -87,24 +159,23 @@
                                 </summary>
                                 <div class="project-body">
                                     <div class="project-meta-grid">
+                                    <div>
+                                            <small>Tipo de proyecto</small>
+                                            <strong><?= htmlspecialchars(ucfirst($project['project_type'] ?? 'convencional')) ?></strong>
+                                        </div>
                                         <div>
                                             <small>Capacidad asignada</small>
                                             <strong><?= $assignedHours ?>h / <?= $assignedPercent ?>%</strong>
                                         </div>
                                         <div>
-                                            <small>Seguimiento</small>
-                                            <strong><?= htmlspecialchars($project['status_label'] ?? $project['status']) ?></strong>
-                                            <span class="subtext">Salud: <?= htmlspecialchars($project['health_label'] ?? $project['health']) ?></span>
-                                        </div>
-                                        <div>
-                                            <small>Gestión de talento</small>
-                                            <strong>Solo desde tab Talento</strong>
-                                            <span class="subtext">Abre modal corto para asignar recursos</span>
-                                        </div>
-                                        <div>
                                             <small>Control operativo</small>
                                             <strong class="badge <?= $project['signal']['code'] === 'red' ? 'danger' : ($project['signal']['code'] === 'yellow' ? 'warning' : 'success') ?>" style="padding:4px 10px;">Semáforo <?= $project['signal']['label'] ?></strong>
                                             <span class="subtext">Costos: <?= $project['signal']['cost_deviation'] !== null ? round($project['signal']['cost_deviation'] * 100, 1) . '%' : 'N/D' ?> · Horas: <?= $project['signal']['hours_deviation'] !== null ? round($project['signal']['hours_deviation'] * 100, 1) . '%' : 'N/D' ?></span>
+                                        </div>
+                                        <div>
+                                            <small>Gestión de talento</small>
+                                            <strong>Disponible en módulo Talento</strong>
+                                            <span class="subtext">Sin formularios embebidos en el portafolio</span>
                                         </div>
                                     </div>
 
@@ -117,16 +188,6 @@
                                         </ul>
                                     </div>
 
-                                    <div class="tab-guidance">
-                                        <span class="tab-pill active">Resumen</span>
-                                        <span class="tab-pill">Talento</span>
-                                        <?php if (in_array($project['project_type'] ?? '', ['scrum', 'hibrido', 'híbrido'], true)): ?>
-                                            <span class="tab-pill">Scrum</span>
-                                        <?php endif; ?>
-                                        <span class="tab-pill">Costos</span>
-                                        <span class="tab-pill">Reportes</span>
-                                    </div>
-
                                     <?php if ($projectAssignments): ?>
                                         <div class="assignment-chips readonly">
                                             <?php foreach ($projectAssignments as $assignment): ?>
@@ -136,16 +197,16 @@
                                             <?php endforeach; ?>
                                         </div>
                                     <?php else: ?>
-                                        <p class="muted" style="margin:0;">Sin talento asignado. Administrar desde el tab Talento del proyecto.</p>
+                                        <p class="muted" style="margin:0;">Sin talento asignado. Gestiona desde Talento o el tab Talento del proyecto.</p>
                                     <?php endif; ?>
 
                                     <div class="project-actions">
                                         <div>
-                                            <p class="muted" style="margin:0;">Detalle del proyecto con tabs y modal de asignación.</p>
+                                            <p class="muted" style="margin:0;">Detalle del proyecto con tabs dedicados: Resumen, Talento, Scrum, Costos, Reportes.</p>
                                         </div>
                                         <div class="action-buttons">
                                             <a class="button ghost" href="<?= $basePath ?>/projects">Ver detalle del proyecto</a>
-                                            <a class="button secondary" href="<?= $basePath ?>/projects">Abrir tab "Talento"</a>
+                                            <a class="button secondary" href="<?= $basePath ?>/talents">Asignar talento</a>
                                         </div>
                                     </div>
                                 </div>
@@ -162,8 +223,8 @@
     .portfolio-card { padding: 20px; }
     .toolbar { align-items: center; }
     .toolbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .portfolio-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 16px 0; }
-    .legend-item { background: var(--surface-2); padding: 10px 12px; border-radius: 10px; color: var(--muted); }
+    .portfolio-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin: 14px 0; }
+    .legend-list { margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; }
     .portfolio-accordion details { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--surface); }
     .portfolio-accordion details + details { margin-top: 12px; }
     .client-body { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
@@ -191,15 +252,8 @@
     .project-meta-grid small { color: var(--muted); }
     .project-alerts ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
     .project-alerts li { margin-bottom: 4px; }
-    .tab-guidance { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tab-pill { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); background: var(--surface-2); }
-    .tab-pill.active { border-color: var(--primary); color: var(--primary); background: rgba(74, 144, 226, 0.08); }
     .assignment-chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .assignment-chips.readonly .pill { background: var(--surface-2); color: var(--muted); }
     .project-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
     .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-    @media (max-width: 780px) {
-        .project-summary { flex-direction: column; align-items: flex-start; }
-        .project-actions { flex-direction: column; align-items: flex-start; }
-    }
 </style>

@@ -57,6 +57,15 @@ class DatabaseMigrator
         }
     }
 
+    public function ensurePortfoliosTable(): void
+    {
+        try {
+            $this->createPortfolioTableIfMissing();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tabla client_portfolios: ' . $e->getMessage());
+        }
+    }
+
     private function ensurePmIntegrity(string $table, string $afterColumn): void
     {
         try {
@@ -195,6 +204,29 @@ class DatabaseMigrator
         if (!$this->db->foreignKeyExists('projects', 'pm_id', 'users')) {
             $this->db->execute('ALTER TABLE projects ADD CONSTRAINT fk_projects_pm_id_users FOREIGN KEY (pm_id) REFERENCES users(id)');
         }
+    }
+
+    private function createPortfolioTableIfMissing(): void
+    {
+        if ($this->db->tableExists('client_portfolios')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE client_portfolios (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                client_id INT NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                start_date DATE NULL,
+                end_date DATE NULL,
+                hours_limit DECIMAL(12,2) NULL,
+                budget_limit DECIMAL(14,2) NULL,
+                attachment_path VARCHAR(255) NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                CONSTRAINT fk_client_portfolios_client FOREIGN KEY (client_id) REFERENCES clients(id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
     }
 
     private function createAssignmentsTableIfMissing(): void
