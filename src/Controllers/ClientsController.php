@@ -126,11 +126,6 @@ class ClientsController extends Controller
     {
         $this->requirePermission('clients.manage');
 
-        if (!$this->isAdmin()) {
-            http_response_code(403);
-            exit('Solo administradores pueden eliminar clientes.');
-        }
-
         $repo = new ClientsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $clientId = (int) ($_POST['id'] ?? 0);
@@ -158,18 +153,48 @@ class ClientsController extends Controller
         }
 
         try {
-            $summary = $repo->deleteWithCascade($clientId, $client['logo_path'] ?? null);
-            error_log(sprintf(
-                '[audit] Usuario %s (ID: %d) eliminó cliente "%s" (ID: %d) con %d portafolios y %d proyectos a las %s',
-                $user['name'] ?? 'desconocido',
-                (int) ($user['id'] ?? 0),
-                $client['name'],
-                $clientId,
-                (int) $summary['portfolios'],
-                (int) $summary['projects'],
-                date('c')
-            ));
-            header('Location: /project/public/clients');
+            if (!$this->isAdmin()) {
+                http_response_code(403);
+                $this->json([
+                    'success' => false,
+                    'message' => 'Solo un administrador puede eliminar clientes.',
+                ], 403);
+                return;
+            }
+
+            $result = $repo->deleteWithCascade($clientId, $client['logo_path'] ?? null);
+
+            if (($result['success'] ?? false) === true) {
+                error_log(sprintf(
+                    '[audit] Usuario %s (ID: %d) eliminó cliente "%s" (ID: %d) con %d portafolios y %d proyectos a las %s',
+                    $user['name'] ?? 'desconocido',
+                    (int) ($user['id'] ?? 0),
+                    $client['name'],
+                    $clientId,
+                    (int) ($result['portfolios'] ?? 0),
+                    (int) ($result['projects'] ?? 0),
+                    date('c')
+                ));
+
+                $this->json([
+                    'success' => true,
+                    'message' => 'Cliente eliminado correctamente junto con su información asociada.',
+                ]);
+                return;
+            }
+
+            $errorCode = (string) ($result['error_code'] ?? '');
+            $status = $errorCode === '23000' ? 409 : 500;
+            $message = $errorCode === '23000'
+                ? 'No se pudo eliminar el cliente por dependencias activas.'
+                : 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
+
+            error_log('Error al eliminar cliente: ' . ($result['error'] ?? 'operación desconocida'));
+
+            $this->json([
+                'success' => false,
+                'message' => $message,
+            ], $status);
         } catch (\Throwable $e) {
             error_log('Error al eliminar cliente: ' . $e->getMessage());
             http_response_code(500);
