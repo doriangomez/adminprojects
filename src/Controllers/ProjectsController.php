@@ -57,7 +57,7 @@ class ProjectsController extends Controller
                 'hours_ratio' => $portfolio['hours_ratio'],
                 'budget_ratio' => $portfolio['budget_ratio'],
                 'projects' => $projects,
-                'kpis' => $projectsRepo->clientKpis($projects, $assignments),
+                'kpis' => $this->defaultKpis($projectsRepo->clientKpis($projects, $assignments)),
                 'signal' => $projectsRepo->clientSignal($projects),
                 'assignments' => $assignmentsByProject,
                 'client_meta' => $clientsIndex[(int) $portfolio['client_id']] ?? [],
@@ -105,5 +105,23 @@ class ProjectsController extends Controller
             'requires_timesheet' => isset($_POST['requires_timesheet']) ? 1 : 0,
             'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
         ];
+    }
+
+    private function defaultKpis(array $kpis): array
+    {
+        $defaults = [
+            'projects_total' => 0,
+            'projects_active' => 0,
+            'progress_avg' => 0.0,
+            'risk_level' => 'bajo',
+            'avg_progress' => 0.0,
+            'active_projects' => 0,
+            'total_projects' => 0,
+            'capacity_used' => 0.0,
+            'capacity_available' => 0.0,
+            'capacity_percent' => 0.0,
+        ];
+
+        return array_merge($defaults, $kpis);
     }
 }
