@@ -43,10 +43,10 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         }
         .sidebar {
             width: 280px;
-            background: var(--surface-strong);
+            background: var(--surface);
             color: var(--muted);
             min-height: 100vh;
-            padding: 22px 20px;
+            padding: 20px 18px;
             position: sticky;
             top: 0;
             border-right: 1px solid var(--border);
@@ -55,28 +55,25 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             gap: 18px;
         }
         .sidebar .user-panel {
-            padding: 14px 12px;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%);
             display: flex;
             align-items: center;
             gap: 12px;
+            padding: 6px 8px;
         }
         .avatar {
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: color-mix(in srgb, var(--primary) 16%, var(--surface) 84%);
+            background: color-mix(in srgb, var(--primary) 20%, var(--surface) 80%);
             color: var(--text-strong);
-            border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border) 70%);
+            border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border) 75%);
         }
-        .user-meta { display: flex; flex-direction: column; gap: 4px; }
-        .user-meta strong { color: var(--text-strong); font-size: 14px; }
+        .user-meta { display: flex; flex-direction: column; gap: 3px; }
+        .user-meta strong { color: var(--text-strong); font-size: 15px; }
         .user-meta small { color: var(--muted); font-size: 13px; }
         .nav-title {
             margin: 0;
@@ -84,26 +81,26 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             letter-spacing: 0.02em;
             text-transform: uppercase;
             color: var(--muted);
-            padding-inline: 8px;
+            padding-inline: 10px;
         }
-        .sidebar nav { display:flex; flex-direction:column; gap:8px; }
+        .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: var(--muted);
+            color: var(--text);
             text-decoration: none;
-            padding: 12px 12px;
+            padding: 14px 12px;
             border-radius: 12px;
             position: relative;
             border: 1px solid transparent;
             font-weight: 600;
-            font-size: 15px;
+            font-size: 16px;
         }
         .nav-link::before {
             content: '';
             position: absolute;
-            left: 8px;
+            left: 10px;
             top: 10px;
             bottom: 10px;
             width: 3px;
@@ -111,28 +108,28 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             background: transparent;
         }
         .nav-link:hover {
-            color: var(--text);
-            background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
-            border-color: color-mix(in srgb, var(--border) 75%, var(--surface) 25%);
+            color: var(--text-strong);
+            background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
+            border-color: color-mix(in srgb, var(--primary) 18%, var(--border) 82%);
         }
         .nav-link.active {
             color: var(--text-strong);
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
-            border-color: color-mix(in srgb, var(--primary) 35%, var(--border) 65%);
+            background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
+            border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%);
         }
         .nav-link.active::before { background: var(--primary); }
         .nav-icon {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             color: inherit;
         }
-        .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; }
+        .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 1.8; }
         .topbar {
-            padding: 14px 24px;
+            padding: 10px 22px;
             display: flex;
             align-items: center;
             gap: 16px;
@@ -145,24 +142,24 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .brand {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             min-width: 0;
         }
-        .brand-logo { height: 28px; width: auto; object-fit: contain; }
+        .brand-logo { height: 32px; width: auto; object-fit: contain; }
         .brand-title {
-            font-weight: 600;
+            font-weight: 800;
             color: var(--text-strong);
-            font-size: 16px;
+            font-size: 18px;
             white-space: nowrap;
         }
         .topbar .spacer { flex: 1; }
         .user-actions { display: flex; align-items: center; gap: 12px; }
-        .user-summary { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); }
-        .user-identity { display:flex; flex-direction:column; gap:4px; }
+        .user-summary { display:flex; align-items:center; gap:10px; padding:6px 0; }
+        .user-identity { display:flex; flex-direction:column; gap:3px; }
         .user-identity strong { color: var(--text-strong); font-size: 14px; }
-        .role-badge { display:inline-flex; align-items:center; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%); color: var(--text-strong); font-size:12px; font-weight:600; }
-        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-strong); text-decoration:none; font-weight:600; }
-        .logout-btn:hover { background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%); border-color: color-mix(in srgb, var(--primary) 25%, var(--border) 75%); }
+        .role-badge { display:inline-flex; align-items:center; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%); color: var(--text-strong); font-size:12px; font-weight:600; }
+        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: transparent; color: var(--text-strong); text-decoration:none; font-weight:600; }
+        .logout-btn:hover { background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%); border-color: color-mix(in srgb, var(--primary) 25%, var(--border) 75%); }
         main {
             flex: 1;
             min-height: 100vh;
@@ -184,15 +181,17 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 18px;
-            box-shadow: var(--shadow-soft);
         }
-        .card.ghosted { background: transparent; border-style: dashed; box-shadow: none; }
-        .kpi { display: flex; flex-direction: column; gap: 6px; }
+        .card.ghosted { background: transparent; border-style: dashed; }
+        .kpi { display: flex; align-items: center; gap: 14px; }
         .kpi .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .kpi .value { font-weight: 700; font-size: 28px; color: var(--text-strong); }
+        .kpi .value { font-weight: 800; font-size: 32px; color: var(--text-strong); }
         .kpi .meta { color: var(--muted); font-size: 13px; }
+        .kpi-icon { width: 42px; height: 42px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 15%, var(--surface) 85%); display: inline-flex; align-items: center; justify-content: center; color: var(--text-strong); }
+        .kpi-icon svg { width: 24px; height: 24px; stroke: currentColor; }
+        .kpi-body { display: flex; flex-direction: column; gap: 4px; }
         .badge {
             display: inline-flex;
             align-items: center;
@@ -257,7 +256,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         label { font-weight: 600; color: var(--text-strong); display:block; margin-bottom:6px; }
         .hint { color: var(--muted); font-size: 13px; }
         .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .column { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow-soft); }
+        .column { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
         .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
         .card-task { background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
         .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); color: var(--text-strong); border: 1px solid var(--border); }
