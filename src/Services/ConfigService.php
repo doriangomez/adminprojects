@@ -13,6 +13,8 @@ class ConfigService
             'secondary' => '#0f172a',
             'accent' => '#f97316',
             'background' => '#0b1224',
+            'surface' => '#0f172a',
+            'font_family' => "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             'login_hero' => 'Orquesta tus operaciones críticas',
             'login_message' => 'Diseña flujos, controla riesgos y haz visible el valor de tu PMO.',
         ],
@@ -70,6 +72,32 @@ class ConfigService
         $this->writeConfigFile($updated);
 
         return $updated;
+    }
+
+    public function storeLogo(?array $file): ?string
+    {
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return null;
+        }
+
+        $allowedMime = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/svg+xml' => 'svg'];
+        $mime = mime_content_type($file['tmp_name']);
+        if (!isset($allowedMime[$mime])) {
+            return null;
+        }
+
+        $targetDir = __DIR__ . '/../../public/uploads/logos';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0775, true);
+        }
+
+        $safeName = 'logo_' . time() . '.' . $allowedMime[$mime];
+        $targetPath = $targetDir . '/' . $safeName;
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            return null;
+        }
+
+        return '/project/public/uploads/logos/' . $safeName;
     }
 
     private function readConfigFile(): array

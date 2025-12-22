@@ -87,9 +87,49 @@ class App
 
         if (str_starts_with($path, '/config')) {
             $controller = new ConfigController($this->db, $this->auth);
-            if ($path === '/config' && $method === 'POST') {
-                $controller->update();
+            if (($path === '/config' || $path === '/config/theme') && $method === 'POST') {
+                $controller->updateTheme();
                 return;
+            }
+
+            if ($path === '/config/users/create' && $method === 'POST') {
+                $controller->storeUser();
+                return;
+            }
+
+            if ($path === '/config/users/update' && $method === 'POST') {
+                $controller->updateUser();
+                return;
+            }
+
+            if ($path === '/config/users/deactivate' && $method === 'POST') {
+                $controller->deactivateUser();
+                return;
+            }
+
+            if ($path === '/config/roles/create' && $method === 'POST') {
+                $controller->storeRole();
+                return;
+            }
+
+            if ($path === '/config/roles/update' && $method === 'POST') {
+                $controller->updateRole();
+                return;
+            }
+
+            if (str_starts_with($path, '/config/master-files') && $method === 'POST') {
+                if ($path === '/config/master-files/create') {
+                    $controller->manageMasterFile('create');
+                    return;
+                }
+                if ($path === '/config/master-files/update') {
+                    $controller->manageMasterFile('update');
+                    return;
+                }
+                if ($path === '/config/master-files/delete') {
+                    $controller->manageMasterFile('delete');
+                    return;
+                }
             }
 
             $controller->index();
