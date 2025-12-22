@@ -178,8 +178,27 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .section-grid { display:grid; gap:20px; align-items:start; }
         .section-grid.twothirds { grid-template-columns: 3fr 2fr; }
         .section-grid.wide { grid-template-columns: 2fr 3fr; }
+        .config-columns { display:grid; gap:20px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items:stretch; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
         .grid.tight { gap: 10px; }
+        .config-form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; align-items:start; }
+        .config-form-grid.tight { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+        .card.stretch { height:100%; display:flex; flex-direction:column; }
+        .card .card-content { display:flex; flex-direction:column; gap:14px; flex:1; }
+        .form-block { display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px; background: rgb(249, 250, 251); }
+        .section-label { font-size:12px; letter-spacing:0.05em; text-transform:uppercase; color: var(--muted); font-weight:700; }
+        .input-stack { display:flex; flex-direction:column; gap:8px; }
+        .palette-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; }
+        .option-row { display:flex; gap:12px; flex-wrap:wrap; }
+        .option { display:flex; align-items:center; gap:8px; font-weight:600; color: var(--text-strong); }
+        .option.compact { gap:4px; font-size:13px; }
+        .form-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; grid-column:1 / -1; }
+        .card-stack { display:flex; flex-direction:column; gap:12px; }
+        .cards-grid { align-items:stretch; }
+        .preview-pane { background: color-mix(in srgb, white 12%, transparent); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:10px; }
+        .preview-header { display:flex; align-items:center; gap:12px; }
+        .preview-logo { height:42px; background:var(--panel); padding:8px; border-radius:10px; box-shadow:0 8px 20px var(--glow); }
+        .preview-subtitle { color: color-mix(in srgb, white 80%, transparent); font-size:13px; }
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
