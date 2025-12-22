@@ -15,21 +15,24 @@ class ClientsRepository
         $params = [];
         $where = '';
         $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
+        $priorityColumn = $this->priorityColumn();
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $where = 'WHERE c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
 
+        $priorityField = 'c.' . $priorityColumn . ' AS priority';
+        $priorityJoin = 'LEFT JOIN priorities pr ON pr.code = c.' . $priorityColumn;
         $pmFields = $hasPmColumn ? 'u.name AS pm_name' : 'NULL AS pm_name';
         $pmJoin = $hasPmColumn ? 'LEFT JOIN users u ON u.id = c.pm_id' : '';
 
         return $this->db->fetchAll(
-            'SELECT c.*, c.priority_code AS priority, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, risk.label AS risk_label, area.label AS area_label, ' . $pmFields . '
+            'SELECT c.*, ' . $priorityField . ', sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, risk.label AS risk_label, area.label AS area_label, ' . $pmFields . '
              FROM clients c
              LEFT JOIN client_sectors sec ON sec.code = c.sector_code
              LEFT JOIN client_categories cat ON cat.code = c.category_code
-             LEFT JOIN priorities pr ON pr.code = c.priority_code
+             ' . $priorityJoin . '
              LEFT JOIN client_status st ON st.code = c.status_code
              LEFT JOIN client_risk risk ON risk.code = c.risk_level
              LEFT JOIN client_areas area ON area.code = c.area
@@ -45,21 +48,24 @@ class ClientsRepository
         $params = [':id' => $id];
         $conditions = ['c.id = :id'];
         $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
+        $priorityColumn = $this->priorityColumn();
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
 
+        $priorityField = 'c.' . $priorityColumn . ' AS priority';
+        $priorityJoin = 'LEFT JOIN priorities pr ON pr.code = c.' . $priorityColumn;
         $pmFields = $hasPmColumn ? 'u.name AS pm_name, u.email AS pm_email' : 'NULL AS pm_name, NULL AS pm_email';
         $pmJoin = $hasPmColumn ? 'LEFT JOIN users u ON u.id = c.pm_id' : '';
 
         $client = $this->db->fetchOne(
-            'SELECT c.*, c.priority_code AS priority, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, risk.label AS risk_label, area.label AS area_label, ' . $pmFields . '
+            'SELECT c.*, ' . $priorityField . ', sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, risk.label AS risk_label, area.label AS area_label, ' . $pmFields . '
              FROM clients c
              LEFT JOIN client_sectors sec ON sec.code = c.sector_code
              LEFT JOIN client_categories cat ON cat.code = c.category_code
-             LEFT JOIN priorities pr ON pr.code = c.priority_code
+             ' . $priorityJoin . '
              LEFT JOIN client_status st ON st.code = c.status_code
              LEFT JOIN client_risk risk ON risk.code = c.risk_level
              LEFT JOIN client_areas area ON area.code = c.area
@@ -164,14 +170,19 @@ class ClientsRepository
 
     public function create(array $payload): int
     {
+        $priorityColumn = $this->priorityColumn();
+
         return $this->db->insert(
-            'INSERT INTO clients (name, sector_code, category_code, priority_code, status_code, pm_id, satisfaction, nps, risk_level, tags, area, feedback_notes, feedback_history, operational_context, logo_path, created_at, updated_at)
-             VALUES (:name, :sector_code, :category_code, :priority_code, :status_code, :pm_id, :satisfaction, :nps, :risk_level, :tags, :area, :feedback_notes, :feedback_history, :operational_context, :logo_path, NOW(), NOW())',
+            sprintf(
+                'INSERT INTO clients (name, sector_code, category_code, %s, status_code, pm_id, satisfaction, nps, risk_level, tags, area, feedback_notes, feedback_history, operational_context, logo_path, created_at, updated_at)
+                 VALUES (:name, :sector_code, :category_code, :priority, :status_code, :pm_id, :satisfaction, :nps, :risk_level, :tags, :area, :feedback_notes, :feedback_history, :operational_context, :logo_path, NOW(), NOW())',
+                $priorityColumn
+            ),
             [
                 ':name' => $payload['name'],
                 ':sector_code' => $payload['sector_code'],
                 ':category_code' => $payload['category_code'],
-                ':priority_code' => $payload['priority'],
+                ':priority' => $payload['priority'],
                 ':status_code' => $payload['status_code'],
                 ':pm_id' => (int) $payload['pm_id'],
                 ':satisfaction' => $payload['satisfaction'] ?? null,
@@ -189,13 +200,18 @@ class ClientsRepository
 
     public function update(int $id, array $payload): void
     {
+        $priorityColumn = $this->priorityColumn();
+
         $this->db->execute(
-            'UPDATE clients SET name = :name, sector_code = :sector_code, category_code = :category_code, priority_code = :priority_code, status_code = :status_code, pm_id = :pm_id, satisfaction = :satisfaction, nps = :nps, risk_level = :risk_level, tags = :tags, area = :area, feedback_notes = :feedback_notes, feedback_history = :feedback_history, operational_context = :operational_context, logo_path = :logo_path, updated_at = NOW() WHERE id = :id',
+            sprintf(
+                'UPDATE clients SET name = :name, sector_code = :sector_code, category_code = :category_code, %s = :priority, status_code = :status_code, pm_id = :pm_id, satisfaction = :satisfaction, nps = :nps, risk_level = :risk_level, tags = :tags, area = :area, feedback_notes = :feedback_notes, feedback_history = :feedback_history, operational_context = :operational_context, logo_path = :logo_path, updated_at = NOW() WHERE id = :id',
+                $priorityColumn
+            ),
             [
                 ':name' => $payload['name'],
                 ':sector_code' => $payload['sector_code'],
                 ':category_code' => $payload['category_code'],
-                ':priority_code' => $payload['priority'],
+                ':priority' => $payload['priority'],
                 ':status_code' => $payload['status_code'],
                 ':pm_id' => (int) $payload['pm_id'],
                 ':satisfaction' => $payload['satisfaction'] ?? null,
@@ -220,5 +236,10 @@ class ClientsRepository
     private function isPrivileged(array $user): bool
     {
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
+    }
+
+    private function priorityColumn(): string
+    {
+        return $this->db->columnExists('clients', 'priority_code') ? 'priority_code' : 'priority';
     }
 }
