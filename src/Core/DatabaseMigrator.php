@@ -8,6 +8,22 @@ class DatabaseMigrator
     {
     }
 
+    public function normalizeClientsSchema(): void
+    {
+        if (!$this->db->tableExists('clients')) {
+            return;
+        }
+
+        try {
+            $this->ensureClientPriorityCode();
+            $this->ensureClientStatusCode();
+            $this->ensureClientRiskCode();
+            $this->ensureClientAreaCode();
+        } catch (\PDOException $e) {
+            error_log('Error normalizando tabla clients: ' . $e->getMessage());
+        }
+    }
+
     public function ensureClientPmIntegrity(): void
     {
         $this->ensurePmIntegrity('clients', 'status_code');
@@ -27,6 +43,72 @@ class DatabaseMigrator
             $this->addPmForeignKey($table);
         } catch (\PDOException $e) {
             error_log("Error ejecutando migración de {$table}.pm_id: " . $e->getMessage());
+        }
+    }
+
+    private function ensureClientPriorityCode(): void
+    {
+        if (!$this->db->columnExists('clients', 'priority_code')) {
+            $this->db->execute('ALTER TABLE clients ADD COLUMN priority_code VARCHAR(20) NULL AFTER category_code');
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('clients', 'priority')) {
+            $this->db->execute('UPDATE clients SET priority_code = priority WHERE priority_code IS NULL AND priority IS NOT NULL');
+            $this->db->execute('ALTER TABLE clients DROP COLUMN priority');
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('clients', 'priority_code')) {
+            $this->db->execute('ALTER TABLE clients MODIFY COLUMN priority_code VARCHAR(20) NOT NULL');
+            $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureClientStatusCode(): void
+    {
+        if (!$this->db->columnExists('clients', 'status_code')) {
+            $this->db->execute('ALTER TABLE clients ADD COLUMN status_code VARCHAR(50) NULL AFTER priority_code');
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('clients', 'status')) {
+            $this->db->execute('UPDATE clients SET status_code = status WHERE status_code IS NULL AND status IS NOT NULL');
+            $this->db->execute('ALTER TABLE clients DROP COLUMN status');
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('clients', 'status_code')) {
+            $this->db->execute('ALTER TABLE clients MODIFY COLUMN status_code VARCHAR(50) NOT NULL');
+            $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureClientRiskCode(): void
+    {
+        if (!$this->db->columnExists('clients', 'risk_code')) {
+            $this->db->execute('ALTER TABLE clients ADD COLUMN risk_code VARCHAR(30) NULL AFTER nps');
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('clients', 'risk_level')) {
+            $this->db->execute('UPDATE clients SET risk_code = risk_level WHERE risk_code IS NULL AND risk_level IS NOT NULL');
+            $this->db->execute('ALTER TABLE clients DROP COLUMN risk_level');
+            $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureClientAreaCode(): void
+    {
+        if (!$this->db->columnExists('clients', 'area_code')) {
+            $this->db->execute('ALTER TABLE clients ADD COLUMN area_code VARCHAR(120) NULL AFTER tags');
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('clients', 'area')) {
+            $this->db->execute('UPDATE clients SET area_code = area WHERE area_code IS NULL AND area IS NOT NULL');
+            $this->db->execute('ALTER TABLE clients DROP COLUMN area');
+            $this->db->clearColumnCache();
         }
     }
 

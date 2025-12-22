@@ -35,7 +35,7 @@
         </label>
         <label class="input">
             <span>Prioridad</span>
-            <select name="priority" required>
+            <select name="priority_code" required>
                 <?php foreach($priorities as $priority): ?>
                     <option value="<?= htmlspecialchars($priority['code']) ?>"><?= htmlspecialchars($priority['label']) ?></option>
                 <?php endforeach; ?>
@@ -64,7 +64,7 @@
         </label>
         <label class="input">
             <span>Riesgo de la relación</span>
-            <select name="risk_level">
+            <select name="risk_code">
                 <option value="">Selecciona riesgo</option>
                 <?php foreach($risks as $risk): ?>
                     <option value="<?= htmlspecialchars($risk['code']) ?>"><?= htmlspecialchars($risk['label']) ?></option>
@@ -77,7 +77,7 @@
         </label>
         <label class="input">
             <span>Área</span>
-            <select name="area">
+            <select name="area_code">
                 <option value="">Selecciona área</option>
                 <?php foreach($areas as $area): ?>
                     <option value="<?= htmlspecialchars($area['code']) ?>"><?= htmlspecialchars($area['label']) ?></option>
