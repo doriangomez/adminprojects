@@ -67,6 +67,48 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureProjectManagementPermission(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                [
+                    ':code' => 'projects.manage',
+                    ':name' => 'Gestionar proyectos',
+                ]
+            );
+
+            $roles = $this->db->fetchAll(
+                "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')"
+            );
+
+            foreach ($roles as $role) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :roleId, p.id
+                     FROM permissions p
+                     WHERE p.code = :code
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':roleId' => (int) $role['id'],
+                        ':code' => 'projects.manage',
+                    ]
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos de gestión de proyectos: ' . $e->getMessage());
+        }
+    }
+
     private function enhancePortfolioSchema(): void
     {
         if (!$this->db->tableExists('client_portfolios')) {

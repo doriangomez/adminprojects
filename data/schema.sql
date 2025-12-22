@@ -268,6 +268,7 @@ INSERT INTO permissions (code, name) VALUES
     ('clients.view', 'Ver clientes'),
     ('clients.manage', 'Gestionar clientes'),
     ('projects.view', 'Ver proyectos'),
+    ('projects.manage', 'Gestionar proyectos'),
     ('tasks.view', 'Ver tareas'),
     ('talents.view', 'Ver talento'),
     ('timesheets.view', 'Ver timesheets'),
