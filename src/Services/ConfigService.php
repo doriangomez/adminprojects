@@ -8,7 +8,7 @@ class ConfigService
 
     private array $defaults = [
         'theme' => [
-            'logo' => '/project/public/logo.png',
+            'logo' => '/project/public/uploads/logos/default.svg',
             'primary' => '#2563eb',
             'secondary' => '#111827',
             'accent' => '#f59e0b',
@@ -156,6 +156,30 @@ class ConfigService
         return $updated;
     }
 
+    public function getBranding(): array
+    {
+        $config = $this->getConfig();
+        $theme = $config['theme'] ?? [];
+
+        $basePublicPath = '/project/public';
+        $uploadsPrefix = $basePublicPath . '/uploads/logos/';
+        $defaultLogo = $this->defaults['theme']['logo'];
+
+        $logoUrl = is_string($theme['logo'] ?? null) ? trim((string) $theme['logo']) : '';
+        if (!str_starts_with($logoUrl, $uploadsPrefix)) {
+            $logoUrl = $defaultLogo;
+        }
+
+        $logoPath = $this->publicPathFromUrl($logoUrl, $basePublicPath);
+        if (!$logoPath || !is_file($logoPath)) {
+            $logoUrl = $defaultLogo;
+        }
+
+        return [
+            'theme' => array_merge($this->defaults['theme'], $theme, ['logo' => $logoUrl]),
+        ];
+    }
+
     public function storeLogo(?array $file): ?string
     {
         if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -206,5 +230,17 @@ class ConfigService
         }
 
         file_put_contents($this->filePath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
+    private function publicPathFromUrl(string $url, string $basePublicPath): ?string
+    {
+        if (!str_starts_with($url, $basePublicPath)) {
+            return null;
+        }
+
+        $relativePath = substr($url, strlen($basePublicPath));
+        $fullPath = __DIR__ . '/../../public' . $relativePath;
+
+        return $fullPath;
     }
 }

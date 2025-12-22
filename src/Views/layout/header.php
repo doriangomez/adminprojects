@@ -1,7 +1,5 @@
 <?php
-$config = require __DIR__ . '/../../config.php';
-$appName = $config['app']['name'];
-$theme = $config['theme'];
+$theme = $branding['theme'] ?? [];
 $basePath = '/project/public';
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $normalizedPath = str_starts_with($requestPath, $basePath)
@@ -55,6 +53,9 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             flex-direction: column;
             gap: 18px;
         }
+        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:10px; border:1px solid var(--border); background: rgb(249, 250, 251); }
+        .brand-box img { height: 30px; object-fit: contain; }
+        .brand-box span { font-weight: 800; color: var(--text-strong); font-size: 15px; }
         .sidebar .user-panel {
             display: flex;
             align-items: center;
@@ -335,6 +336,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
 </head>
 <body>
     <aside class="sidebar">
+        <div class="brand-box">
+            <?php if (!empty($theme['logo'])): ?>
+                <img src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo" onerror="this.style.display='none'">
+            <?php endif; ?>
+            <span><?= htmlspecialchars($appName ?? 'PMO') ?></span>
+        </div>
         <div class="user-panel">
             <div class="avatar"><?= strtoupper(substr($user['name'] ?? 'U', 0, 1)) ?></div>
             <div class="user-meta">
@@ -399,7 +406,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
                 <?php if(!empty($theme['logo'])): ?>
                     <img src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo AOS" class="brand-logo" onerror="this.style.display='none'">
                 <?php endif; ?>
-                <div class="brand-title">Sistema de Gestión de Proyectos</div>
+                <div class="brand-title"><?= htmlspecialchars($appName ?? 'PMO') ?></div>
             </div>
             <div class="spacer"></div>
             <?php if(isset($user)): ?>

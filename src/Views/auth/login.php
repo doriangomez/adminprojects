@@ -1,13 +1,13 @@
 <?php
-$config = require __DIR__ . '/../../config.php';
-$theme = $config['theme'];
+$theme = $branding['theme'] ?? [];
+$config = $configData ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ingreso | <?= htmlspecialchars($config['app']['name']) ?></title>
+    <title>Ingreso | <?= htmlspecialchars($appName ?? 'PMO') ?></title>
     <style>
         :root {
             --primary: <?= htmlspecialchars($theme['primary']) ?>;
@@ -80,7 +80,7 @@ $theme = $config['theme'];
         </div>
         <div style="margin-bottom:8px;">
             <span class="pill">Identidad PMO</span>
-            <span class="pill">Roles: <?= htmlspecialchars(implode(' · ', $config['access']['roles'])) ?></span>
+            <span class="pill">Roles: <?= htmlspecialchars(implode(' · ', $config['access']['roles'] ?? [])) ?></span>
         </div>
         <?php if(isset($error)): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>

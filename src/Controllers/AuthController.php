@@ -6,15 +6,26 @@ class AuthController extends Controller
 {
     public function showLogin(): void
     {
+        $configService = new ConfigService();
+        $branding = $configService->getBranding();
+        $configData = $configService->getConfig();
+        $appName = $this->getAppName();
+
         if ($this->auth->check()) {
             header('Location: /project/public/dashboard');
             return;
         }
+
         include __DIR__ . '/../Views/auth/login.php';
     }
 
     public function login(): void
     {
+        $configService = new ConfigService();
+        $branding = $configService->getBranding();
+        $configData = $configService->getConfig();
+        $appName = $this->getAppName();
+
         $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
         if (!$this->auth->attempt($email, $password)) {
