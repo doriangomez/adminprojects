@@ -61,6 +61,10 @@ class App
                 $controller->destroy();
                 return;
             }
+            if (preg_match('#^/clients/(\\d+)$#', $path, $matches)) {
+                $controller->show((int) $matches[1]);
+                return;
+            }
             $controller->index();
             return;
         }

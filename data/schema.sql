@@ -53,16 +53,44 @@ CREATE TABLE project_health (
     label VARCHAR(50) NOT NULL
 );
 
+CREATE TABLE client_sectors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    label VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE client_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    label VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE client_status (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    label VARCHAR(100) NOT NULL
+);
+
 CREATE TABLE clients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
-    industry VARCHAR(100) NOT NULL,
+    sector_code VARCHAR(50) NOT NULL,
+    category_code VARCHAR(50) NOT NULL,
     priority VARCHAR(20) NOT NULL,
+    status_code VARCHAR(50) NOT NULL,
+    pm_id INT NOT NULL,
     satisfaction INT,
     nps INT,
+    risk_level VARCHAR(30),
+    tags VARCHAR(255),
+    area VARCHAR(120),
+    feedback_notes TEXT,
+    feedback_history TEXT,
+    operational_context TEXT,
     active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
 CREATE TABLE projects (
@@ -189,12 +217,25 @@ INSERT INTO permissions (code, name) VALUES
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.nombre IN ('Administrador', 'PMO');
 
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN ('dashboard.view', 'clients.view')
+WHERE r.nombre = 'Líder de Proyecto';
+
 INSERT INTO users (name, email, password_hash, role_id) VALUES
 ('Admin', 'admin@example.com', '$2y$12$TEU2ChKY7WJdBOxzBaU52envKOeRT8vosBZZQXAfx/Qm/TLoRHDl.', 1),
 ('Usuario Demo', 'usuario.demo@example.com', '$2y$12$aKNSIj0oDylU1ZEAcSDMEesIt8xtQWYEzzYBOnCzwKCFKFyThAfTW', 2);
 
-INSERT INTO clients (name, industry, priority, satisfaction, nps) VALUES
-('Acme Corp', 'Tecnología', 'high', 85, 70);
+INSERT INTO priorities (code, label) VALUES ('high', 'Alta'), ('medium', 'Media'), ('low', 'Baja');
+INSERT INTO project_status (code, label) VALUES ('ideation', 'Ideación'), ('execution', 'Ejecución'), ('closed', 'Cerrado');
+INSERT INTO project_health (code, label) VALUES ('on_track', 'En curso'), ('at_risk', 'En riesgo'), ('critical', 'Crítico');
+
+INSERT INTO client_sectors (code, label) VALUES ('tech', 'Tecnología'), ('finance', 'Finanzas'), ('retail', 'Retail');
+INSERT INTO client_categories (code, label) VALUES ('enterprise', 'Enterprise'), ('scaleup', 'Scale-Up'), ('public', 'Sector público');
+INSERT INTO client_status (code, label) VALUES ('active', 'Activo'), ('on_hold', 'En pausa'), ('prospect', 'Prospecto');
+
+INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, feedback_notes, feedback_history, operational_context)
+VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderado', 'innovación,cloud', 'Transformación Digital', 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
 INSERT INTO projects (client_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
 VALUES (1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());

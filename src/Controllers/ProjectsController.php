@@ -10,7 +10,7 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.view');
         $this->render('projects/index', [
             'title' => 'Portafolio de Proyectos',
-            'projects' => $repo->summary(),
+            'projects' => $repo->summary($this->auth->user() ?? []),
         ]);
     }
 }

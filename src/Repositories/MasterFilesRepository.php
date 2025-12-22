@@ -8,6 +8,9 @@ class MasterFilesRepository
         'priorities' => ['code', 'label'],
         'project_status' => ['code', 'label'],
         'project_health' => ['code', 'label'],
+        'client_sectors' => ['code', 'label'],
+        'client_categories' => ['code', 'label'],
+        'client_status' => ['code', 'label'],
     ];
 
     public function __construct(private Database $db)

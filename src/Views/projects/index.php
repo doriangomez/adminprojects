@@ -18,9 +18,9 @@
                 <tr>
                     <td><?= htmlspecialchars($project['name']) ?></td>
                     <td><?= htmlspecialchars($project['client']) ?></td>
-                    <td><?= htmlspecialchars($project['status']) ?></td>
-                    <td><span class="badge <?= $project['health'] === 'on_track' ? 'success' : ($project['health'] === 'at_risk' ? 'warning' : 'danger') ?>"><?= htmlspecialchars($project['health']) ?></span></td>
-                    <td><span class="pill <?= htmlspecialchars($project['priority']) ?>"><?= htmlspecialchars($project['priority']) ?></span></td>
+                    <td><?= htmlspecialchars($project['status_label'] ?? $project['status']) ?></td>
+                    <td><span class="badge <?= $project['health'] === 'on_track' ? 'success' : ($project['health'] === 'at_risk' ? 'warning' : 'danger') ?>"><?= htmlspecialchars($project['health_label'] ?? $project['health']) ?></span></td>
+                    <td><span class="pill <?= htmlspecialchars($project['priority']) ?>"><?= htmlspecialchars($project['priority_label'] ?? $project['priority']) ?></span></td>
                     <td><?= $project['progress'] ?>%</td>
                     <td>$<?= number_format($project['budget'], 0, ',', '.') ?></td>
                     <td>$<?= number_format($project['actual_cost'], 0, ',', '.') ?></td>
