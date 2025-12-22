@@ -1,0 +1,22 @@
+{
+  "theme": {
+    "logo": "/project/public/logo.png",
+    "primary": "#2563eb",
+    "secondary": "#0f172a",
+    "accent": "#f97316",
+    "background": "#0b1224",
+    "login_hero": "Centraliza, automatiza y escala tu PMO",
+    "login_message": "Personaliza la experiencia: identidad visual, roles y gobierno de usuarios en un solo lugar."
+  },
+  "master_files": {
+    "data_file": "data/data.json",
+    "schema_file": "data/schema.sql"
+  },
+  "access": {
+    "roles": ["Administrador", "PMO", "Talento"],
+    "user_management": {
+      "allow_self_registration": false,
+      "require_approval": true
+    }
+  }
+}

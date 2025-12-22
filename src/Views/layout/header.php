@@ -1,6 +1,7 @@
 <?php
 $config = require __DIR__ . '/../../config.php';
 $appName = $config['app']['name'];
+$theme = $config['theme'];
 $basePath = '/project/public';
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $normalizedPath = str_starts_with($requestPath, $basePath)
@@ -15,8 +16,10 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
     <style>
         :root {
-            --primary: #2563eb;
-            --secondary: #111827;
+            --primary: <?= htmlspecialchars($theme['primary']) ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary']) ?>;
+            --accent: <?= htmlspecialchars($theme['accent']) ?>;
+            --background: <?= htmlspecialchars($theme['background']) ?>;
             --gray: #6b7280;
             --bg: #f3f4f6;
             --success: #16a34a;
@@ -25,8 +28,9 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         }
         * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         body { margin: 0; display: flex; background: var(--bg); color: #111827; }
-        .sidebar { width: 240px; background: #0f172a; color: white; min-height: 100vh; padding: 24px 16px; position: sticky; top: 0; }
-        .sidebar h1 { margin: 0 0 24px 0; font-size: 20px; }
+        .sidebar { width: 240px; background: linear-gradient(180deg, var(--secondary), #0b1224); color: white; min-height: 100vh; padding: 24px 16px; position: sticky; top: 0; }
+        .sidebar h1 { margin: 0 0 24px 0; font-size: 20px; display:flex; align-items:center; gap:8px; }
+        .sidebar h1 img { height: 28px; border-radius: 6px; background:white; padding:4px; }
         .sidebar a { display: block; color: #cbd5e1; text-decoration: none; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; }
         .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.08); color: white; }
         header { background: white; padding: 16px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
@@ -62,7 +66,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
 </head>
 <body>
     <aside class="sidebar">
-        <h1><?= htmlspecialchars($appName) ?></h1>
+        <h1>
+            <?php if(!empty($theme['logo'])): ?>
+                <img src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo" onerror="this.style.display='none'">
+            <?php endif; ?>
+            <?= htmlspecialchars($appName) ?>
+        </h1>
         <nav>
             <a href="<?= $basePath ?>/dashboard" class="<?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>">Dashboard</a>
             <a href="<?= $basePath ?>/clients" class="<?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>">Clientes</a>
@@ -70,6 +79,9 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             <a href="<?= $basePath ?>/tasks" class="<?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>">Tareas / Kanban</a>
             <a href="<?= $basePath ?>/talents" class="<?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">Talento</a>
             <a href="<?= $basePath ?>/timesheets" class="<?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">Timesheet</a>
+            <?php if(($user['role'] ?? '') === 'Administrador'): ?>
+                <a href="<?= $basePath ?>/config" class="<?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>">Configuración</a>
+            <?php endif; ?>
             <a href="<?= $basePath ?>/logout">Salir</a>
         </nav>
     </aside>
