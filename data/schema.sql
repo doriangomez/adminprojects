@@ -183,7 +183,8 @@ INSERT INTO permissions (code, name) VALUES
     ('projects.view', 'Ver proyectos'),
     ('tasks.view', 'Ver tareas'),
     ('talents.view', 'Ver talento'),
-    ('timesheets.view', 'Ver timesheets');
+    ('timesheets.view', 'Ver timesheets'),
+    ('config.manage', 'Administrar configuración');
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.nombre IN ('Administrador', 'PMO');

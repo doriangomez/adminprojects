@@ -9,11 +9,18 @@ $theme = $config['theme'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingreso | <?= htmlspecialchars($config['app']['name']) ?></title>
     <style>
+        :root {
+            --primary: <?= htmlspecialchars($theme['primary']) ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary']) ?>;
+            --background: <?= htmlspecialchars($theme['background']) ?>;
+            --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
+            --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
+        }
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-family);
             background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 40%),
                         radial-gradient(circle at 80% 0%, rgba(255,255,255,0.05), transparent 35%),
-                        linear-gradient(135deg, <?= htmlspecialchars($theme['background']) ?> 0%, <?= htmlspecialchars($theme['secondary']) ?> 100%);
+                        linear-gradient(135deg, var(--background) 0%, var(--secondary) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -35,7 +42,7 @@ $theme = $config['theme'];
         label { display:block; margin-bottom: 6px; font-weight: 600; color: #f8fafc; }
         input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); margin-bottom: 12px; background: rgba(255,255,255,0.06); color: white; }
         input::placeholder { color: rgba(255,255,255,0.6); }
-        button { width: 100%; padding: 12px; border-radius: 12px; background: <?= htmlspecialchars($theme['primary']) ?>; color: white; border: none; font-weight:700; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        button { width: 100%; padding: 12px; border-radius: 12px; background: var(--primary); color: white; border: none; font-weight:700; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
         .error { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
         .hero { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
         .hero img { height: 42px; background: white; padding: 8px; border-radius: 12px; }
