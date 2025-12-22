@@ -84,17 +84,18 @@ $groupedPortfolios = array_values($grouped);
                     </div>
                     <div class="meta-badges">
                         <span class="pill neutral">Portafolios: <?= count($group['portfolios']) ?></span>
-                        <span class="pill neutral">Proyectos activos: <?= array_sum(array_map(fn ($p) => count($p['projects']), $group['portfolios'])) ?></span>
+                        <span class="pill neutral">Proyectos activos: <?= array_sum(array_map(fn ($p) => count(is_array($p['projects'] ?? null) ? $p['projects'] : []), $group['portfolios'])) ?></span>
                     </div>
                 </header>
 
                 <div class="portfolio-grid">
                     <?php foreach ($group['portfolios'] as $portfolio): ?>
                         <?php
-                            $hoursUsed = array_sum(array_map(fn ($p) => (float) ($p['actual_hours'] ?? 0), $portfolio['projects']));
-                            $plannedHours = array_sum(array_map(fn ($p) => (float) ($p['planned_hours'] ?? 0), $portfolio['projects']));
-                            $budgetUsed = array_sum(array_map(fn ($p) => (float) ($p['actual_cost'] ?? 0), $portfolio['projects']));
-                            $budgetPlanned = array_sum(array_map(fn ($p) => (float) ($p['budget'] ?? 0), $portfolio['projects']));
+                            $projects = is_array($portfolio['projects'] ?? null) ? $portfolio['projects'] : [];
+                            $hoursUsed = array_sum(array_map(fn ($p) => (float) ($p['actual_hours'] ?? 0), $projects));
+                            $plannedHours = array_sum(array_map(fn ($p) => (float) ($p['planned_hours'] ?? 0), $projects));
+                            $budgetUsed = array_sum(array_map(fn ($p) => (float) ($p['actual_cost'] ?? 0), $projects));
+                            $budgetPlanned = array_sum(array_map(fn ($p) => (float) ($p['budget'] ?? 0), $projects));
                             $hoursCap = (float) ($portfolio['hours_limit'] ?? 0) ?: $plannedHours;
                             $budgetCap = (float) ($portfolio['budget_limit'] ?? 0) ?: $budgetPlanned;
                             $hoursRatio = $hoursCap > 0 ? round(($hoursUsed / $hoursCap) * 100, 1) : null;
@@ -102,8 +103,9 @@ $groupedPortfolios = array_values($grouped);
                             $riskText = $riskLevelText[$portfolio['kpis']['risk_level'] ?? ''] ?? 'Riesgo no calculado';
                             $generalStatus = $signalTextMap[$portfolio['signal']['code'] ?? ''] ?? 'Estado no disponible';
                             $portfolioId = 'pf-' . $portfolio['id'];
-                            $hasScrum = array_filter($portfolio['projects'], fn ($project) => in_array($project['project_type'] ?? '', ['agil', 'scrum', 'agile'], true));
-                            $alerts = $portfolio['alerts'] ?? [];
+                            $hasScrum = array_filter($projects, fn ($project) => in_array($project['project_type'] ?? '', ['agil', 'scrum', 'agile'], true));
+                            $alerts = is_array($portfolio['alerts'] ?? null) ? $portfolio['alerts'] : [];
+                            $assignmentsByProject = is_array($portfolio['assignments'] ?? null) ? $portfolio['assignments'] : [];
                         ?>
                         <article class="portfolio-card-grid" id="<?= htmlspecialchars($portfolioId) ?>">
                             <header class="portfolio-summary">
@@ -174,7 +176,7 @@ $groupedPortfolios = array_values($grouped);
 
                             <div class="tab-content hidden" id="projects-<?= $portfolioId ?>">
                                 <div class="projects-list">
-                                    <?php foreach ($portfolio['projects'] as $project): ?>
+                                    <?php foreach ($projects as $project): ?>
                                         <?php
                                             $projectStatus = $signalTextMap[$project['signal']['code'] ?? ''] ?? 'Estado no disponible';
                                             $costDeviation = $project['signal']['cost_deviation'];
@@ -205,14 +207,14 @@ $groupedPortfolios = array_values($grouped);
 
                             <div class="tab-content hidden" id="talent-<?= $portfolioId ?>">
                                 <div class="chip-grid">
-                                    <?php foreach ($portfolio['assignments'] as $projectId => $assignments): ?>
+                                    <?php foreach ($assignmentsByProject as $projectId => $assignments): ?>
                                         <?php foreach ($assignments as $assignment): ?>
                                             <span class="pill neutral">
                                                 <?= htmlspecialchars($assignment['talent_name']) ?> — <?= htmlspecialchars($assignment['role']) ?> (<?= $assignment['weekly_hours'] ?>h / <?= $assignment['allocation_percent'] ?>%)
                                             </span>
                                         <?php endforeach; ?>
                                     <?php endforeach; ?>
-                                    <?php if (empty(array_filter($portfolio['assignments']))): ?>
+                                    <?php if (empty(array_filter($assignmentsByProject))): ?>
                                         <p class="muted">Sin talento asignado. Gestiona desde Talento o los tabs del proyecto.</p>
                                     <?php endif; ?>
                                 </div>
@@ -242,7 +244,7 @@ $groupedPortfolios = array_values($grouped);
                                 <div class="tab-content hidden" id="scrum-<?= $portfolioId ?>">
                                     <p class="muted">Scrum aplica en proyectos ágiles del portafolio.</p>
                                     <ul class="muted">
-                                        <?php foreach ($portfolio['projects'] as $project): ?>
+                                        <?php foreach ($projects as $project): ?>
                                             <?php if (in_array($project['project_type'] ?? '', ['agil', 'scrum', 'agile'], true)): ?>
                                                 <li><strong><?= htmlspecialchars($project['name']) ?>:</strong> Avance <?= $project['progress'] ?>%, salud <?= $signalTextMap[$project['signal']['code'] ?? ''] ?? 'N/D' ?>.</li>
                                             <?php endif; ?>
