@@ -76,22 +76,63 @@ class ClientsRepository
         $params = [':clientId' => $clientId];
         $where = 'WHERE p.client_id = :clientId';
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority');
+        $hasStatusColumn = $this->db->columnExists('projects', 'status');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $where .= ' AND p.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
 
-        return $this->db->fetchAll(
-            'SELECT p.*, pr.label AS priority_label, st.label AS status_label, h.label AS health_label
-             FROM projects p
-             LEFT JOIN priorities pr ON pr.code = p.priority
-             LEFT JOIN project_status st ON st.code = p.status
-             LEFT JOIN project_health h ON h.code = p.health
-             ' . $where . '
-             ORDER BY p.created_at DESC',
-            $params
+        $select = [
+            'p.id',
+            'p.name',
+            'p.progress',
+            'p.pm_id',
+            'p.client_id',
+            'p.project_type',
+            'p.created_at',
+            'p.updated_at',
+        ];
+
+        $joins = [];
+
+        if ($hasPriorityColumn) {
+            $select[] = 'p.priority';
+            $select[] = 'pr.label AS priority_label';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority';
+        } else {
+            $select[] = 'NULL AS priority';
+            $select[] = 'NULL AS priority_label';
+        }
+
+        if ($hasStatusColumn) {
+            $select[] = 'p.status';
+            $select[] = 'st.label AS status_label';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status';
+        } else {
+            $select[] = "'' AS status";
+            $select[] = 'NULL AS status_label';
+        }
+
+        if ($hasHealthColumn) {
+            $select[] = 'p.health';
+            $select[] = 'h.label AS health_label';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health';
+        } else {
+            $select[] = 'NULL AS health';
+            $select[] = 'NULL AS health_label';
+        }
+
+        $sql = sprintf(
+            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
+            implode(', ', $select),
+            implode(' ', $joins),
+            $where
         );
+
+        return $this->db->fetchAll($sql, $params);
     }
 
     public function projectSnapshot(int $clientId, array $user = []): array
