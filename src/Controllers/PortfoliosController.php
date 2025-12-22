@@ -29,6 +29,29 @@ class PortfoliosController extends Controller
         ]);
     }
 
+    public function create(): void
+    {
+        $this->requirePermission('projects.manage');
+
+        $user = $this->auth->user() ?? [];
+        $config = (new ConfigService())->getConfig();
+        $clientsRepo = new ClientsRepository($this->db);
+        $projectsRepo = new ProjectsRepository($this->db);
+
+        $clients = $clientsRepo->listForUser($user);
+        $projectsByClient = [];
+        foreach ($clients as $client) {
+            $projectsByClient[$client['id']] = $projectsRepo->projectsForClient((int) $client['id'], $user);
+        }
+
+        $this->render('portfolios/create', [
+            'title' => 'Nuevo portafolio',
+            'clients' => $clients,
+            'projectsByClient' => $projectsByClient,
+            'operationalRules' => $config['operational_rules'],
+        ]);
+    }
+
     public function store(): void
     {
         $this->requirePermission('projects.manage');
@@ -66,6 +89,8 @@ class PortfoliosController extends Controller
 
     private function payload(?string $attachmentPath): array
     {
+        $selectedProjects = array_map('intval', $_POST['projects_included'] ?? []);
+
         return [
             'client_id' => (int) ($_POST['client_id'] ?? 0),
             'name' => trim($_POST['name'] ?? ''),
@@ -74,6 +99,9 @@ class PortfoliosController extends Controller
             'hours_limit' => $this->nullableFloat($_POST['hours_limit'] ?? ''),
             'budget_limit' => $this->nullableFloat($_POST['budget_limit'] ?? ''),
             'attachment_path' => $attachmentPath,
+            'projects_included' => $selectedProjects ? json_encode($selectedProjects) : null,
+            'rules_notes' => trim($_POST['rules_notes'] ?? ''),
+            'alerting_policy' => trim($_POST['alerting_policy'] ?? ''),
         ];
     }
 

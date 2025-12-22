@@ -61,8 +61,31 @@ class DatabaseMigrator
     {
         try {
             $this->createPortfolioTableIfMissing();
+            $this->enhancePortfolioSchema();
         } catch (\PDOException $e) {
             error_log('Error asegurando tabla client_portfolios: ' . $e->getMessage());
+        }
+    }
+
+    private function enhancePortfolioSchema(): void
+    {
+        if (!$this->db->tableExists('client_portfolios')) {
+            return;
+        }
+
+        $columns = [
+            'projects_included' => "ALTER TABLE client_portfolios ADD COLUMN projects_included TEXT NULL AFTER attachment_path",
+            'rules_notes' => "ALTER TABLE client_portfolios ADD COLUMN rules_notes TEXT NULL AFTER projects_included",
+            'alerting_policy' => "ALTER TABLE client_portfolios ADD COLUMN alerting_policy TEXT NULL AFTER rules_notes",
+        ];
+
+        foreach ($columns as $column => $statement) {
+            if ($this->db->columnExists('client_portfolios', $column)) {
+                continue;
+            }
+
+            $this->db->execute($statement);
+            $this->db->clearColumnCache();
         }
     }
 
@@ -222,6 +245,9 @@ class DatabaseMigrator
                 hours_limit DECIMAL(12,2) NULL,
                 budget_limit DECIMAL(14,2) NULL,
                 attachment_path VARCHAR(255) NULL,
+                projects_included TEXT NULL,
+                rules_notes TEXT NULL,
+                alerting_policy TEXT NULL,
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL,
                 CONSTRAINT fk_client_portfolios_client FOREIGN KEY (client_id) REFERENCES clients(id)
