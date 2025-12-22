@@ -90,6 +90,20 @@ class Database
         return $exists;
     }
 
+    public function tableExists(string $table): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = :schema AND table_name = :table'
+        );
+
+        $stmt->execute([
+            ':schema' => $this->databaseName,
+            ':table' => $table,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function foreignKeyExists(string $table, string $column, string $referencedTable): bool
     {
         $stmt = $this->pdo->prepare(

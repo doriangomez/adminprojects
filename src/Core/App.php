@@ -86,7 +86,24 @@ class App
         }
 
         if (str_starts_with($path, '/projects')) {
-            (new ProjectsController($this->db, $this->auth))->index();
+            $controller = new ProjectsController($this->db, $this->auth);
+
+            if ($path === '/projects/portfolio') {
+                $controller->portfolio();
+                return;
+            }
+
+            if ($path === '/projects/assign-talent' && $method === 'POST') {
+                $controller->assignTalent();
+                return;
+            }
+
+            $controller->index();
+            return;
+        }
+
+        if ($path === '/portfolio') {
+            (new ProjectsController($this->db, $this->auth))->portfolio();
             return;
         }
 

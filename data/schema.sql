@@ -109,10 +109,12 @@ CREATE TABLE clients (
 CREATE TABLE projects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
+    pm_id INT NOT NULL,
     name VARCHAR(180) NOT NULL,
     status VARCHAR(20) NOT NULL,
     health VARCHAR(20) NOT NULL,
     priority VARCHAR(20) NOT NULL,
+    project_type VARCHAR(20) NOT NULL DEFAULT 'convencional',
     budget DECIMAL(12,2) DEFAULT 0,
     actual_cost DECIMAL(12,2) DEFAULT 0,
     planned_hours INT DEFAULT 0,
@@ -122,7 +124,8 @@ CREATE TABLE projects (
     end_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES clients(id)
+    FOREIGN KEY (client_id) REFERENCES clients(id),
+    FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
 CREATE TABLE tasks (
@@ -180,6 +183,26 @@ CREATE TABLE timesheets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (talent_id) REFERENCES talents(id)
+);
+
+CREATE TABLE project_talent_assignments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    talent_id INT NOT NULL,
+    role VARCHAR(120) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    allocation_percent DECIMAL(5,2),
+    weekly_hours DECIMAL(8,2),
+    cost_type VARCHAR(20) NOT NULL,
+    cost_value DECIMAL(12,2) NOT NULL,
+    is_external TINYINT(1) DEFAULT 0,
+    requires_timesheet TINYINT(1) DEFAULT 0,
+    requires_approval TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (talent_id) REFERENCES talents(id)
 );
 
@@ -252,8 +275,11 @@ INSERT INTO client_areas (code, label) VALUES ('digital_transformation', 'Transf
 INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, logo_path, feedback_notes, feedback_history, operational_context)
 VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderate', 'innovación,cloud', 'digital_transformation', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
-INSERT INTO projects (client_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
-VALUES (1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());
+INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
+VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 'convencional', 120000, 45000, 800, 320, 40, CURDATE());
+
+INSERT INTO project_talent_assignments (project_id, talent_id, role, start_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_approval)
+VALUES (1, 1, 'Project Manager', CURDATE(), 50, 20, 'fijo_mensual', 5000, 0, 1, 1);
 
 INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, hourly_cost, hourly_rate)
 VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 35, 70);
