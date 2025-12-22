@@ -1,4 +1,7 @@
 <?php
+$clients = is_array($clients ?? null) ? $clients : [];
+$portfolios = is_array($portfolios ?? null) ? $portfolios : [];
+
 $signalTextMap = [
     'green' => 'Operación estable',
     'yellow' => 'Atención requerida',

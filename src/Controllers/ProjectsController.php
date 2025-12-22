@@ -23,7 +23,7 @@ class ProjectsController extends Controller
         $portfolioRepo = new PortfoliosRepository($this->db, $config['operational_rules']);
         $clientsRepo = new ClientsRepository($this->db);
 
-        $portfolios = $portfolioRepo->listWithUsage($user);
+        $portfolios = $portfolioRepo->listWithUsage($user) ?? [];
         $clients = $clientsRepo->listForUser($user);
         $portfolioView = [];
         $clientsIndex = [];
@@ -33,7 +33,7 @@ class ProjectsController extends Controller
         }
 
         foreach ($portfolios as $portfolio) {
-            $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user);
+            $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user) ?? [];
             $assignments = $projectsRepo->assignmentsForClient((int) $portfolio['client_id'], $user);
             $assignmentsByProject = [];
             foreach ($assignments as $assignment) {
