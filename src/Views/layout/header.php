@@ -22,20 +22,13 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             --background: <?= htmlspecialchars($theme['background']) ?>;
             --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif") ?>;
-            --text: color-mix(in srgb, var(--secondary) 74%, var(--background) 26%);
-            --muted: color-mix(in srgb, var(--text) 62%, var(--background) 38%);
-            --panel: color-mix(in srgb, var(--surface) 86%, var(--background) 14%);
-            --panel-strong: color-mix(in srgb, var(--surface) 70%, var(--background) 30%);
-            --border: color-mix(in srgb, var(--surface) 58%, var(--background) 42%);
-            --border-strong: color-mix(in srgb, var(--secondary) 18%, var(--border) 82%);
-            --shadow: 0 18px 46px color-mix(in srgb, var(--secondary) 12%, transparent);
-            --soft-primary: color-mix(in srgb, var(--primary) 16%, var(--panel) 84%);
-            --soft-secondary: color-mix(in srgb, var(--secondary) 12%, var(--panel) 88%);
-            --soft-accent: color-mix(in srgb, var(--accent) 16%, var(--panel) 84%);
-            --positive: color-mix(in srgb, var(--primary) 55%, var(--accent) 45%);
-            --warning: color-mix(in srgb, var(--accent) 64%, var(--secondary) 36%);
+            --text: color-mix(in srgb, var(--secondary) 70%, var(--background) 30%);
+            --muted: color-mix(in srgb, var(--text) 60%, var(--background) 40%);
+            --panel: color-mix(in srgb, var(--surface) 85%, var(--background) 15%);
+            --border: color-mix(in srgb, var(--surface) 55%, var(--background) 45%);
+            --positive: color-mix(in srgb, var(--primary) 52%, var(--accent) 48%);
+            --warning: color-mix(in srgb, var(--accent) 60%, var(--secondary) 40%);
             --danger: color-mix(in srgb, var(--accent) 55%, var(--secondary) 45%);
-            --surface-veil: color-mix(in srgb, var(--panel) 82%, transparent);
         }
         * {
             box-sizing: border-box;
@@ -44,93 +37,81 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         body {
             margin: 0;
             display: flex;
-            background: linear-gradient(165deg, color-mix(in srgb, var(--background) 88%, var(--surface) 12%), color-mix(in srgb, var(--surface) 90%, var(--background) 10%));
+            background: color-mix(in srgb, var(--background) 96%, var(--surface) 4%);
             color: var(--text);
         }
         .sidebar {
-            width: 270px;
-            background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
+            width: 240px;
+            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
             color: var(--muted);
             min-height: 100vh;
-            padding: 30px 22px;
+            padding: 32px 20px;
             position: sticky;
             top: 0;
             border-right: 1px solid var(--border);
-            box-shadow: 10px 0 26px color-mix(in srgb, var(--secondary) 8%, transparent);
         }
         .sidebar h1 {
-            margin: 0 0 28px 0;
-            font-size: 19px;
+            margin: 0 0 24px 0;
+            font-size: 18px;
             display:flex;
             align-items:center;
-            gap:12px;
-            letter-spacing: 0.04em;
+            gap:10px;
+            letter-spacing: 0.02em;
             color: var(--text);
+            font-weight: 700;
         }
         .sidebar h1 img {
-            height: 32px;
-            border-radius: 10px;
-            background: var(--panel);
+            height: 30px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--surface) 90%, transparent);
             padding:6px;
-            box-shadow: 0 10px 20px color-mix(in srgb, var(--secondary) 12%, transparent);
         }
         .sidebar nav {
             display:flex;
             flex-direction:column;
-            gap:10px;
+            gap:4px;
         }
         .sidebar a {
-            display: flex;
-            align-items:center;
+            display: block;
             color: var(--muted);
             text-decoration: none;
-            padding: 12px 14px;
-            border-radius: 12px;
-            font-weight: 700;
+            padding: 10px 4px;
+            border-radius: 6px;
+            font-weight: 600;
             letter-spacing: 0.01em;
-            transition: all 0.18s ease;
-            border: 1px solid transparent;
-            background: color-mix(in srgb, var(--surface) 6%, transparent);
+            border-left: 2px solid transparent;
         }
-        .sidebar a:hover {
-            color: var(--text);
-            background: color-mix(in srgb, var(--surface) 12%, transparent);
-            border-color: color-mix(in srgb, var(--border) 80%, var(--surface) 20%);
-        }
+        .sidebar a:hover { color: var(--text); }
         .sidebar a.active {
             color: var(--text);
-            background: color-mix(in srgb, var(--surface) 18%, transparent);
-            border-color: color-mix(in srgb, var(--border) 60%, var(--primary) 40%);
-            box-shadow: inset 3px 0 0 var(--primary);
+            border-left-color: var(--primary);
+            font-weight: 700;
         }
         .topbar {
-            background: color-mix(in srgb, var(--panel) 90%, transparent);
-            padding: 18px 24px;
-            border-bottom: 1px solid var(--border);
+            padding: 22px 28px 10px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             position: sticky;
             top: 0;
             z-index: 10;
-            backdrop-filter: blur(8px);
-            box-shadow: 0 10px 24px color-mix(in srgb, var(--secondary) 10%, transparent);
+            background: color-mix(in srgb, var(--background) 98%, var(--surface) 2%);
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
         }
         main {
             flex: 1;
             min-height: 100vh;
         }
         .content {
-            padding: 28px 32px 40px;
+            padding: 12px 28px 40px;
             display: flex;
             flex-direction: column;
             gap: 18px;
-            background: linear-gradient(180deg, color-mix(in srgb, var(--background) 88%, var(--surface) 12%), color-mix(in srgb, var(--surface) 92%, var(--background) 8%));
         }
         .page-heading h2 {
-            margin:0;
+            margin:0 0 4px 0;
             font-size: 22px;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.01em;
         }
         .page-heading p {
             margin:0;
@@ -139,164 +120,157 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .user-chip {
             display:flex;
             flex-direction:column;
-            gap:4px;
+            gap:2px;
             text-align:right;
-            padding: 10px 14px;
-            border-radius: 12px;
-            background: color-mix(in srgb, var(--surface) 14%, transparent);
-            border: 1px solid color-mix(in srgb, var(--border) 86%, var(--surface) 14%);
+            padding: 8px 0;
+            color: var(--muted);
         }
         .card {
-            background: color-mix(in srgb, var(--panel) 94%, transparent);
-            border-radius: 18px;
-            padding: 22px;
-            box-shadow: var(--shadow);
-            border: 1px solid color-mix(in srgb, var(--border) 78%, var(--surface) 22%);
+            background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
+            border-radius: 12px;
+            padding: 18px;
+            border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
         }
         .card.ghosted {
-            background: color-mix(in srgb, var(--panel) 70%, transparent);
+            background: transparent;
             border-style: dashed;
         }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 14px;
         }
-        .grid.tight { gap: 12px; }
+        .grid.tight { gap: 10px; }
         .kpi {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
         .kpi .label {
             color: var(--muted);
             font-size: 12px;
+            letter-spacing: 0.03em;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
         }
         .kpi .value {
             font-weight: 800;
-            font-size: 32px;
+            font-size: 30px;
             letter-spacing: -0.01em;
         }
         .badge {
             display: inline-block;
-            padding: 5px 10px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            background: transparent;
             color: var(--muted);
-            border: 1px solid var(--border);
+            border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
         }
-        .badge.success { background: color-mix(in srgb, var(--positive) 12%, var(--panel) 88%); color: var(--positive); }
-        .badge.warning { background: color-mix(in srgb, var(--warning) 12%, var(--panel) 88%); color: var(--warning); }
-        .badge.danger { background: color-mix(in srgb, var(--danger) 14%, var(--panel) 86%); color: var(--danger); }
-        .badge.neutral { background: color-mix(in srgb, var(--accent) 16%, var(--panel) 84%); color: color-mix(in srgb, var(--accent) 78%, var(--secondary) 22%); }
+        .badge.success { color: var(--positive); border-color: color-mix(in srgb, var(--positive) 40%, var(--border) 60%); }
+        .badge.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
+        .badge.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
+        .badge.neutral { color: color-mix(in srgb, var(--accent) 70%, var(--secondary) 30%); }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
-            background: color-mix(in srgb, var(--panel) 96%, transparent);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
+            margin-top: 8px;
+            background: transparent;
         }
         th, td {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border);
+            padding: 12px 10px;
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
             text-align: left;
         }
         th {
-            background: color-mix(in srgb, var(--surface) 82%, var(--background) 18%);
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             color: var(--muted);
+            font-weight: 700;
+            background: transparent;
         }
         tr:last-child td { border-bottom: none; }
-        tbody tr:hover { background: color-mix(in srgb, var(--surface) 16%, transparent); }
+        tbody tr:hover { background: color-mix(in srgb, var(--surface) 20%, transparent); }
         .toolbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
             gap: 10px;
         }
         .btn {
-            padding: 10px 16px;
-            border-radius: 12px;
-            border: 1px solid transparent;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
             cursor: pointer;
             font-weight: 700;
             letter-spacing: 0.01em;
-            transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            background: transparent;
+            color: var(--text);
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
         .btn.primary {
-            background: color-mix(in srgb, var(--primary) 82%, var(--secondary) 18%);
+            background: color-mix(in srgb, var(--primary) 85%, var(--secondary) 15%);
             color: white;
-            box-shadow: 0 10px 26px color-mix(in srgb, var(--primary) 16%, transparent);
-            border-color: color-mix(in srgb, var(--primary) 36%, transparent);
+            border-color: color-mix(in srgb, var(--primary) 55%, transparent);
         }
         .btn.secondary {
-            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
-            color: var(--text);
-            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
         }
         .btn.ghost {
             background: transparent;
-            color: var(--text);
-            border: 1px dashed var(--border-strong);
+            border-style: dashed;
         }
-        .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px color-mix(in srgb, var(--secondary) 12%, transparent); }
+        .btn:hover { background: color-mix(in srgb, var(--surface) 92%, transparent); }
         form.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         input, select, textarea {
             padding: 10px 12px;
-            border: 1px solid var(--border);
+            border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
             border-radius: 10px;
             width: 100%;
-            background: color-mix(in srgb, var(--surface) 92%, transparent);
+            background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
             color: var(--text);
         }
         input[type="file"] {
-            border: 1px dashed var(--border-strong);
-            background: var(--soft-secondary);
+            border-style: dashed;
         }
         textarea { resize: vertical; }
         label { font-weight: 700; color: var(--text); display:block; margin-bottom:4px; }
         .hint { color: var(--muted); font-size: 13px; }
-        .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .column { background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); padding: 12px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 6px 14px color-mix(in srgb, var(--secondary) 10%, transparent); }
-        .column h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .card-task { background: color-mix(in srgb, var(--panel) 96%, transparent); border-radius: 12px; padding: 12px; box-shadow: 0 8px 18px color-mix(in srgb, var(--secondary) 10%, transparent); margin-bottom: 8px; border: 1px solid var(--border); }
-        .pill { border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700; background: var(--soft-secondary); color: var(--text); border: 1px solid var(--border); }
-        .pill.high { background: color-mix(in srgb, var(--danger) 16%, var(--panel) 84%); color: var(--danger); }
-        .pill.medium { background: color-mix(in srgb, var(--warning) 16%, var(--panel) 84%); color: var(--warning); }
-        .pill.low { background: color-mix(in srgb, var(--positive) 16%, var(--panel) 84%); color: var(--positive); }
-        .section-grid { display:grid; gap:18px; align-items:start; }
+        .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .column { background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); }
+        .column h3 { margin: 0 0 8px 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+        .card-task { background: transparent; border-radius: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); margin-bottom: 8px; }
+        .pill { border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700; background: transparent; color: var(--text); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+        .pill.high { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
+        .pill.medium { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
+        .pill.low { color: var(--positive); border-color: color-mix(in srgb, var(--positive) 40%, var(--border) 60%); }
+        .section-grid { display:grid; gap:16px; align-items:start; }
         .section-grid.twothirds { grid-template-columns: 3fr 2fr; }
         .section-grid.wide { grid-template-columns: 2fr 3fr; }
         .card-overlay { position:relative; overflow:hidden; }
-        .card-overlay::after { content:''; position:absolute; inset:10px; border-radius:14px; border:1px solid color-mix(in srgb, var(--panel) 30%, transparent); opacity:0.6; }
-        .stack { display:flex; flex-direction:column; gap:12px; }
-        .pillset { display:flex; gap:8px; flex-wrap:wrap; }
+        .card-overlay::after { content:''; position:absolute; inset:10px; border-radius:12px; border:1px solid color-mix(in srgb, var(--panel) 26%, transparent); opacity:0.5; }
+        .stack { display:flex; flex-direction:column; gap:10px; }
+        .pillset { display:flex; gap:6px; flex-wrap:wrap; }
         .text-muted { color: var(--muted); }
-        .alert { padding:12px; border-radius: 12px; border:1px solid var(--border); background: var(--soft-secondary); color: var(--text); }
-        .alert.success { background: color-mix(in srgb, var(--positive) 14%, var(--panel) 86%); color: var(--positive); border-color: color-mix(in srgb, var(--positive) 40%, var(--border) 60%); }
+        .alert { padding:12px; border-radius: 12px; border:1px solid color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%); color: var(--text); }
+        .alert.success { color: var(--positive); border-color: color-mix(in srgb, var(--positive) 40%, var(--border) 60%); }
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
-        .subtle-card { background: var(--soft-secondary); border: 1px dashed var(--border-strong); box-shadow: none; }
+        .subtle-card { background: transparent; border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); box-shadow: none; }
         .table-wrapper { overflow-x: auto; }
         @media (max-width: 1024px) {
             body { flex-direction: column; }
-            .sidebar { position: relative; width: 100%; flex-direction: row; display:flex; align-items:center; gap:16px; min-height: unset; border-bottom: 1px solid var(--border); box-shadow: none; }
+            .sidebar { position: relative; width: 100%; flex-direction: row; display:flex; align-items:center; gap:14px; min-height: unset; border-bottom: 1px solid var(--border); }
             .sidebar nav { flex-direction: row; flex-wrap: wrap; }
-            .sidebar a { flex: 1 1 140px; justify-content: center; }
+            .sidebar a { flex: 1 1 140px; text-align: center; border-left: none; border-top: 2px solid transparent; }
+            .sidebar a.active { border-top-color: var(--primary); }
             main { width: 100%; }
-            .content { padding: 20px; }
+            .content { padding: 16px; }
         }
         @media (max-width: 720px) {
-            .topbar { flex-direction: column; align-items: flex-start; gap:10px; }
+            .topbar { flex-direction: column; align-items: flex-start; gap:10px; padding-inline: 18px; }
             .user-chip { width: 100%; text-align:left; }
             .toolbar { flex-direction: column; align-items: flex-start; }
         }
