@@ -18,10 +18,10 @@ class ConfigController extends Controller
 
         $roles = $rolesRepo->all();
         $rolesWithPermissions = array_map(
-            fn ($role) => [
-                ...$role,
-                'permissions' => $rolesRepo->permissionsByRole((int) $role['id']),
-            ],
+            fn ($role) => array_merge(
+                $role,
+                ['permissions' => $rolesRepo->permissionsByRole((int) $role['id'])]
+            ),
             $roles
         );
 
