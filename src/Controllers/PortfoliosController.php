@@ -65,6 +65,12 @@ class PortfoliosController extends Controller
         ]);
     }
 
+    public function wizard(?string $error = null): void
+    {
+        $this->requirePermission('projects.manage');
+        $this->render('portfolios/wizard', $this->wizardData($error));
+    }
+
     public function store(): void
     {
         $this->requirePermission('projects.manage');
@@ -79,6 +85,65 @@ class PortfoliosController extends Controller
         } catch (\Throwable $e) {
             error_log('Error al crear portafolio: ' . $e->getMessage());
             $this->index('No se pudo registrar el portafolio: ' . $e->getMessage());
+        }
+    }
+
+    public function storeWizard(): void
+    {
+        $this->requirePermission('projects.manage');
+
+        $config = (new ConfigService())->getConfig();
+        $portfolioRepo = new PortfoliosRepository($this->db, $config['operational_rules']);
+        $clientsRepo = new ClientsRepository($this->db);
+        $projectsRepo = new ProjectsRepository($this->db);
+        $masterRepo = new MasterFilesRepository($this->db);
+        $riskCatalog = $masterRepo->list('client_risk');
+        $pdo = $this->db->connection();
+
+        try {
+            $pdo->beginTransaction();
+
+            $clientId = $this->resolveClient($clientsRepo);
+            $attachment = $portfolioRepo->storeAttachment($_FILES['portfolio_attachment'] ?? null);
+            $riskSelection = array_filter($_POST['portfolio_risks'] ?? []);
+            $riskRegister = $this->riskRegisterText($riskSelection, $riskCatalog);
+            $riskLevel = $this->riskLevelFromSelection($riskSelection);
+
+            $portfolioName = trim($_POST['portfolio_name'] ?? '');
+            if ($portfolioName === '') {
+                throw new InvalidArgumentException('Asigna un nombre al portafolio.');
+            }
+
+            $portfolioId = $portfolioRepo->create([
+                'client_id' => $clientId,
+                'name' => $portfolioName,
+                'objective' => trim($_POST['portfolio_objective'] ?? ''),
+                'description' => trim($_POST['portfolio_description'] ?? ''),
+                'start_date' => $_POST['portfolio_start'] ?? null,
+                'end_date' => $_POST['portfolio_end'] ?? null,
+                'budget_limit' => $this->nullableFloat($_POST['portfolio_budget'] ?? ''),
+                'attachment_path' => $attachment,
+                'risk_register' => $riskRegister,
+                'risk_level_text' => $riskLevel,
+            ]);
+
+            $projects = $this->collectProjects($masterRepo, $clientId, $portfolioId);
+            if (empty($projects)) {
+                throw new InvalidArgumentException('Agrega al menos un proyecto para el portafolio.');
+            }
+
+            foreach ($projects as $project) {
+                $projectsRepo->create($project);
+            }
+
+            $pdo->commit();
+            header('Location: /project/public/projects/portfolio');
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('Error en wizard de portafolio: ' . $e->getMessage());
+            $this->wizard('No se pudo completar el wizard: ' . $e->getMessage());
         }
     }
 
@@ -107,6 +172,8 @@ class PortfoliosController extends Controller
         return [
             'client_id' => (int) ($_POST['client_id'] ?? 0),
             'name' => trim($_POST['name'] ?? ''),
+            'objective' => trim($_POST['objective'] ?? ''),
+            'description' => trim($_POST['description'] ?? ''),
             'start_date' => $_POST['start_date'] ?? null,
             'end_date' => $_POST['end_date'] ?? null,
             'hours_limit' => $this->nullableFloat($_POST['hours_limit'] ?? ''),
@@ -115,6 +182,8 @@ class PortfoliosController extends Controller
             'projects_included' => $selectedProjects ? json_encode($selectedProjects) : null,
             'rules_notes' => trim($_POST['rules_notes'] ?? ''),
             'alerting_policy' => trim($_POST['alerting_policy'] ?? ''),
+            'risk_register' => isset($_POST['risk_register']) ? trim((string) $_POST['risk_register']) : null,
+            'risk_level_text' => isset($_POST['risk_level_text']) ? trim((string) $_POST['risk_level_text']) : null,
         ];
     }
 
@@ -144,5 +213,173 @@ class PortfoliosController extends Controller
         ];
 
         return array_merge($defaults, $kpis);
+    }
+
+    private function wizardData(?string $error = null): array
+    {
+        $config = (new ConfigService())->getConfig();
+        $clientsRepo = new ClientsRepository($this->db);
+        $masterRepo = new MasterFilesRepository($this->db);
+        $usersRepo = new UsersRepository($this->db);
+        $user = $this->auth->user() ?? [];
+
+        $projectManagers = array_filter(
+            $usersRepo->all(),
+            fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
+        );
+
+        return [
+            'title' => 'Wizard de creación de portafolio',
+            'clients' => $clientsRepo->listForUser($user),
+            'sectors' => $masterRepo->list('client_sectors'),
+            'categories' => $masterRepo->list('client_categories'),
+            'priorities' => $masterRepo->list('priorities'),
+            'statuses' => $masterRepo->list('client_status'),
+            'riskCatalog' => $masterRepo->list('client_risk'),
+            'projectManagers' => $projectManagers,
+            'projectTypes' => [
+                'convencional' => 'Convencional',
+                'agil' => 'Ágil',
+                'soporte' => 'Soporte continuo',
+            ],
+            'operationalRules' => $config['operational_rules'],
+            'error' => $error,
+            'oldInput' => $_POST ?? [],
+        ];
+    }
+
+    private function resolveClient(ClientsRepository $clientsRepo): int
+    {
+        $masterRepo = new MasterFilesRepository($this->db);
+        $mode = $_POST['client_mode'] ?? 'existing';
+
+        if ($mode === 'new') {
+            $payload = [
+                'name' => trim($_POST['client_name'] ?? ''),
+                'sector_code' => $this->validatedCatalogValue($_POST['client_sector'] ?? '', $masterRepo->list('client_sectors'), 'sector'),
+                'category_code' => $this->validatedCatalogValue($_POST['client_category'] ?? '', $masterRepo->list('client_categories'), 'categoría'),
+                'priority_code' => $this->validatedCatalogValue($_POST['client_priority'] ?? '', $masterRepo->list('priorities'), 'prioridad'),
+                'status_code' => $this->validatedCatalogValue($_POST['client_status'] ?? '', $masterRepo->list('client_status'), 'estado'),
+                'pm_id' => $this->validatedPmId((int) ($_POST['client_pm'] ?? 0)),
+            ];
+
+            if ($payload['name'] === '') {
+                throw new InvalidArgumentException('Define el nombre del cliente.');
+            }
+
+            return $clientsRepo->create($payload);
+        }
+
+        $clientId = (int) ($_POST['client_id'] ?? 0);
+        $user = $this->auth->user() ?? [];
+
+        if ($clientId <= 0) {
+            throw new InvalidArgumentException('Selecciona un cliente válido.');
+        }
+
+        $client = $clientsRepo->findForUser($clientId, $user);
+
+        if (!$client) {
+            throw new InvalidArgumentException('Selecciona un cliente válido.');
+        }
+
+        return (int) $client['id'];
+    }
+
+    private function collectProjects(MasterFilesRepository $masterRepo, int $clientId, int $portfolioId): array
+    {
+        $projects = [];
+        $projectEntries = $_POST['projects'] ?? [];
+        $priorityCatalog = $masterRepo->list('priorities');
+
+        foreach ($projectEntries as $project) {
+            $name = trim($project['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+
+            $pmId = $this->validatedPmId((int) ($project['pm_id'] ?? 0));
+            $projectType = $project['project_type'] ?? 'convencional';
+            $allowedTypes = ['convencional', 'agil', 'soporte'];
+            if (!in_array($projectType, $allowedTypes, true)) {
+                $projectType = 'convencional';
+            }
+            $projects[] = [
+                'client_id' => $clientId,
+                'portfolio_id' => $portfolioId,
+                'pm_id' => $pmId,
+                'name' => $name,
+                'status' => 'ideation',
+                'health' => 'on_track',
+                'priority' => $this->validatedCatalogValue($project['priority'] ?? '', $priorityCatalog, 'prioridad'),
+                'project_type' => $projectType,
+                'budget' => $this->nullableFloat($project['budget'] ?? '') ?? 0,
+                'actual_cost' => 0,
+                'planned_hours' => 0,
+                'actual_hours' => 0,
+                'progress' => 0,
+                'start_date' => $project['start_date'] ?? null,
+                'end_date' => $project['end_date'] ?? null,
+            ];
+        }
+
+        return $projects;
+    }
+
+    private function validatedCatalogValue(string $value, array $catalog, string $label): string
+    {
+        $clean = trim($value);
+        foreach ($catalog as $item) {
+            if (($item['code'] ?? '') === $clean) {
+                return $clean;
+            }
+        }
+
+        throw new InvalidArgumentException("Selecciona un valor válido para {$label}.");
+    }
+
+    private function validatedPmId(int $pmId): int
+    {
+        $usersRepo = new UsersRepository($this->db);
+        if ($pmId > 0 && $usersRepo->isValidProjectManager($pmId)) {
+            return $pmId;
+        }
+
+        throw new InvalidArgumentException('Selecciona un PM válido para el proyecto/cliente.');
+    }
+
+    private function riskRegisterText(array $riskCodes, array $catalog): ?string
+    {
+        if (empty($riskCodes)) {
+            return null;
+        }
+
+        $labels = [];
+        foreach ($catalog as $risk) {
+            if (in_array($risk['code'] ?? '', $riskCodes, true)) {
+                $labels[] = $risk['label'] ?? $risk['code'];
+            }
+        }
+
+        return $labels ? implode(', ', $labels) : null;
+    }
+
+    private function riskLevelFromSelection(array $riskCodes): string
+    {
+        if (empty($riskCodes)) {
+            return 'bajo';
+        }
+
+        $severity = 'bajo';
+        foreach ($riskCodes as $risk) {
+            if ($risk === 'high') {
+                return 'alto';
+            }
+            if ($risk === 'moderate') {
+                $severity = 'medio';
+            }
+        }
+
+        return $severity;
     }
 }

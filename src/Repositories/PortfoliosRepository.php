@@ -34,11 +34,13 @@ class PortfoliosRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO client_portfolios (client_id, name, start_date, end_date, hours_limit, budget_limit, attachment_path, projects_included, rules_notes, alerting_policy, created_at, updated_at)
-             VALUES (:client_id, :name, :start_date, :end_date, :hours_limit, :budget_limit, :attachment_path, :projects_included, :rules_notes, :alerting_policy, NOW(), NOW())',
+            'INSERT INTO client_portfolios (client_id, name, objective, description, start_date, end_date, hours_limit, budget_limit, attachment_path, projects_included, rules_notes, alerting_policy, risk_register, risk_level_text, created_at, updated_at)'
+             . ' VALUES (:client_id, :name, :objective, :description, :start_date, :end_date, :hours_limit, :budget_limit, :attachment_path, :projects_included, :rules_notes, :alerting_policy, :risk_register, :risk_level_text, NOW(), NOW())',
             [
                 ':client_id' => (int) $payload['client_id'],
                 ':name' => $payload['name'],
+                ':objective' => $payload['objective'] ?? null,
+                ':description' => $payload['description'] ?? null,
                 ':start_date' => $payload['start_date'] ?: null,
                 ':end_date' => $payload['end_date'] ?: null,
                 ':hours_limit' => $payload['hours_limit'] ?? null,
@@ -47,6 +49,8 @@ class PortfoliosRepository
                 ':projects_included' => $payload['projects_included'] ?? null,
                 ':rules_notes' => $payload['rules_notes'] ?? null,
                 ':alerting_policy' => $payload['alerting_policy'] ?? null,
+                ':risk_register' => $payload['risk_register'] ?? null,
+                ':risk_level_text' => $payload['risk_level_text'] ?? null,
             ]
         );
     }
@@ -55,14 +59,17 @@ class PortfoliosRepository
     {
         $this->db->execute(
             'UPDATE client_portfolios
-             SET name = :name, start_date = :start_date, end_date = :end_date,
+             SET name = :name, objective = :objective, description = :description, start_date = :start_date, end_date = :end_date,
                  hours_limit = :hours_limit, budget_limit = :budget_limit, attachment_path = :attachment_path,
                  projects_included = :projects_included, rules_notes = :rules_notes, alerting_policy = :alerting_policy,
+                 risk_register = :risk_register, risk_level_text = :risk_level_text,
                  updated_at = NOW()
              WHERE id = :id',
             [
                 ':id' => $id,
                 ':name' => $payload['name'],
+                ':objective' => $payload['objective'] ?? null,
+                ':description' => $payload['description'] ?? null,
                 ':start_date' => $payload['start_date'] ?: null,
                 ':end_date' => $payload['end_date'] ?: null,
                 ':hours_limit' => $payload['hours_limit'] ?? null,
@@ -71,6 +78,8 @@ class PortfoliosRepository
                 ':projects_included' => $payload['projects_included'] ?? null,
                 ':rules_notes' => $payload['rules_notes'] ?? null,
                 ':alerting_policy' => $payload['alerting_policy'] ?? null,
+                ':risk_register' => $payload['risk_register'] ?? null,
+                ':risk_level_text' => $payload['risk_level_text'] ?? null,
             ]
         );
     }
