@@ -44,7 +44,7 @@
                         <?php endif; ?>
                         <div>
                             <strong><?= htmlspecialchars($client['name']) ?></strong><br>
-                            <small style="color: var(--muted);">Área: <?= htmlspecialchars($client['area'] ?? 'No definida') ?></small>
+                            <small style="color: var(--muted);">Área: <?= htmlspecialchars($client['area_label'] ?? ($client['area'] ?? 'No definida')) ?></small>
                         </div>
                     </td>
                     <td><?= htmlspecialchars($client['sector_label'] ?? $client['sector_code'] ?? '-') ?></td>

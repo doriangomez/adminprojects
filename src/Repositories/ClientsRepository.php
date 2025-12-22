@@ -25,12 +25,14 @@ class ClientsRepository
         $pmJoin = $hasPmColumn ? 'LEFT JOIN users u ON u.id = c.pm_id' : '';
 
         return $this->db->fetchAll(
-            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, ' . $pmFields . '
+            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, risk.label AS risk_label, area.label AS area_label, ' . $pmFields . '
              FROM clients c
              LEFT JOIN client_sectors sec ON sec.code = c.sector_code
              LEFT JOIN client_categories cat ON cat.code = c.category_code
              LEFT JOIN priorities pr ON pr.code = c.priority
              LEFT JOIN client_status st ON st.code = c.status_code
+             LEFT JOIN client_risk risk ON risk.code = c.risk_level
+             LEFT JOIN client_areas area ON area.code = c.area
              ' . $pmJoin . '
              ' . $where . '
              ORDER BY c.created_at DESC',
@@ -53,12 +55,14 @@ class ClientsRepository
         $pmJoin = $hasPmColumn ? 'LEFT JOIN users u ON u.id = c.pm_id' : '';
 
         $client = $this->db->fetchOne(
-            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, ' . $pmFields . '
+            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, risk.label AS risk_label, area.label AS area_label, ' . $pmFields . '
              FROM clients c
              LEFT JOIN client_sectors sec ON sec.code = c.sector_code
              LEFT JOIN client_categories cat ON cat.code = c.category_code
              LEFT JOIN priorities pr ON pr.code = c.priority
              LEFT JOIN client_status st ON st.code = c.status_code
+             LEFT JOIN client_risk risk ON risk.code = c.risk_level
+             LEFT JOIN client_areas area ON area.code = c.area
              ' . $pmJoin . '
              WHERE ' . implode(' AND ', $conditions),
             $params

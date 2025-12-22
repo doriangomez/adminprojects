@@ -50,7 +50,7 @@
             </div>
             <div>
                 <p class="muted">Riesgo</p>
-                <strong><?= htmlspecialchars($client['risk_level'] ?? 'Sin definir') ?></strong>
+                <strong><?= htmlspecialchars($client['risk_label'] ?? ($client['risk_level'] ?? 'Sin definir')) ?></strong>
             </div>
             <div>
                 <p class="muted">Etiquetas</p>
@@ -58,7 +58,7 @@
             </div>
             <div>
                 <p class="muted">Área</p>
-                <strong><?= htmlspecialchars($client['area'] ?? 'No registrada') ?></strong>
+                <strong><?= htmlspecialchars($client['area_label'] ?? ($client['area'] ?? 'No registrada')) ?></strong>
             </div>
         </div>
         <div style="margin-top:12px;">

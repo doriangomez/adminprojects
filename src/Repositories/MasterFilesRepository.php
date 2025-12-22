@@ -11,6 +11,8 @@ class MasterFilesRepository
         'client_sectors' => ['code', 'label'],
         'client_categories' => ['code', 'label'],
         'client_status' => ['code', 'label'],
+        'client_risk' => ['code', 'label'],
+        'client_areas' => ['code', 'label'],
     ];
 
     public function __construct(private Database $db)
