@@ -16,19 +16,19 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
     <style>
         :root {
-            --primary: <?= htmlspecialchars($theme['primary']) ?>;
-            --secondary: <?= htmlspecialchars($theme['secondary']) ?>;
+            --primary: rgb(37, 99, 235);
+            --primary-hover: rgb(59, 130, 246);
+            --primary-strong: rgb(30, 64, 175);
+            --secondary: rgb(17, 24, 39);
             --accent: <?= htmlspecialchars($theme['accent']) ?>;
-            --background: <?= htmlspecialchars($theme['background']) ?>;
-            --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
-            --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif") ?>;
-            --text-strong: color-mix(in srgb, var(--secondary) 80%, var(--background) 20%);
-            --text: color-mix(in srgb, var(--secondary) 65%, var(--background) 35%);
-            --muted: color-mix(in srgb, var(--secondary) 45%, var(--background) 55%);
-            --border: color-mix(in srgb, var(--secondary) 14%, var(--background) 86%);
-            --on-primary: color-mix(in srgb, var(--surface) 85%, var(--secondary) 15%);
-            --surface-strong: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
-            --shadow-soft: 0 16px 38px color-mix(in srgb, var(--secondary) 7%, var(--background) 93%);
+            --background: rgb(243, 244, 246);
+            --surface: rgb(255, 255, 255);
+            --font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --text-strong: rgb(17, 24, 39);
+            --text: rgb(55, 65, 81);
+            --muted: rgb(75, 85, 99);
+            --border: rgb(229, 231, 235);
+            --on-primary: #ffffff;
         }
         * {
             box-sizing: border-box;
@@ -40,11 +40,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             background: var(--background);
             color: var(--text);
             min-height: 100vh;
+            font-weight: 500;
         }
         .sidebar {
             width: 280px;
             background: var(--surface);
-            color: var(--muted);
+            color: var(--text);
             min-height: 100vh;
             padding: 20px 18px;
             position: sticky;
@@ -68,13 +69,13 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: color-mix(in srgb, var(--primary) 20%, var(--surface) 80%);
+            background: rgb(219, 234, 254);
             color: var(--text-strong);
-            border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border) 75%);
+            border: 1px solid rgb(191, 219, 254);
         }
         .user-meta { display: flex; flex-direction: column; gap: 3px; }
-        .user-meta strong { color: var(--text-strong); font-size: 15px; }
-        .user-meta small { color: var(--muted); font-size: 13px; }
+        .user-meta strong { color: var(--text-strong); font-size: 15px; font-weight: 700; }
+        .user-meta small { color: var(--text); font-size: 13px; font-weight: 500; }
         .nav-title {
             margin: 0;
             font-size: 13px;
@@ -82,6 +83,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             text-transform: uppercase;
             color: var(--muted);
             padding-inline: 10px;
+            font-weight: 600;
         }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
@@ -108,26 +110,26 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             background: transparent;
         }
         .nav-link:hover {
-            color: var(--text-strong);
-            background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%);
-            border-color: color-mix(in srgb, var(--primary) 18%, var(--border) 82%);
+            color: var(--primary);
+            background: rgb(219, 234, 254);
+            border-color: rgb(191, 219, 254);
         }
         .nav-link.active {
-            color: var(--text-strong);
+            color: var(--on-primary);
             font-weight: 700;
-            background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
-            border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%);
+            background: var(--primary);
+            border-color: var(--primary);
         }
-        .nav-link.active::before { background: var(--primary); }
+        .nav-link.active::before { background: var(--primary-strong); }
         .nav-icon {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             color: inherit;
         }
-        .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 1.8; }
+        .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; }
         .topbar {
             padding: 10px 22px;
             display: flex;
@@ -149,21 +151,21 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .brand-title {
             font-weight: 800;
             color: var(--text-strong);
-            font-size: 18px;
+            font-size: 20px;
             white-space: nowrap;
         }
         .topbar .spacer { flex: 1; }
         .user-actions { display: flex; align-items: center; gap: 12px; }
         .user-summary { display:flex; align-items:center; gap:10px; padding:6px 0; }
         .user-identity { display:flex; flex-direction:column; gap:3px; }
-        .user-identity strong { color: var(--text-strong); font-size: 14px; }
-        .role-badge { display:inline-flex; align-items:center; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%); color: var(--text-strong); font-size:12px; font-weight:600; }
-        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: transparent; color: var(--text-strong); text-decoration:none; font-weight:600; }
-        .logout-btn:hover { background: color-mix(in srgb, var(--primary) 10%, var(--surface) 90%); border-color: color-mix(in srgb, var(--primary) 25%, var(--border) 75%); }
+        .user-identity strong { color: var(--text-strong); font-size: 14px; font-weight: 700; }
+        .role-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: rgb(219, 234, 254); color: var(--secondary); font-size:12px; font-weight:600; }
+        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-strong); text-decoration:none; font-weight:600; }
+        .logout-btn:hover { background: rgb(219, 234, 254); border-color: rgb(191, 219, 254); color: var(--primary); }
         main {
             flex: 1;
             min-height: 100vh;
-            background: color-mix(in srgb, var(--background) 94%, var(--surface) 6%);
+            background: var(--background);
         }
         .content {
             padding: 24px 32px 48px;
@@ -171,8 +173,8 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             flex-direction: column;
             gap: 20px;
         }
-        .page-heading h2 { margin:0 0 6px 0; font-size: 22px; color: var(--text-strong); }
-        .page-heading p { margin:0; color: var(--muted); }
+        .page-heading h2 { margin:0 0 6px 0; font-size: 25px; color: var(--text-strong); font-weight: 700; }
+        .page-heading p { margin:0; color: var(--text); font-weight: 500; }
         .section-grid { display:grid; gap:20px; align-items:start; }
         .section-grid.twothirds { grid-template-columns: 3fr 2fr; }
         .section-grid.wide { grid-template-columns: 2fr 3fr; }
@@ -181,16 +183,16 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: 10px;
             padding: 18px;
         }
         .card.ghosted { background: transparent; border-style: dashed; }
         .kpi { display: flex; align-items: center; gap: 14px; }
-        .kpi .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-        .kpi .value { font-weight: 800; font-size: 32px; color: var(--text-strong); }
-        .kpi .meta { color: var(--muted); font-size: 13px; }
-        .kpi-icon { width: 42px; height: 42px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 15%, var(--surface) 85%); display: inline-flex; align-items: center; justify-content: center; color: var(--text-strong); }
-        .kpi-icon svg { width: 24px; height: 24px; stroke: currentColor; }
+        .kpi .label { color: var(--text); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .kpi .value { font-weight: 700; font-size: 34px; color: var(--text-strong); }
+        .kpi .meta { color: var(--text); font-size: 13px; font-weight: 500; }
+        .kpi-icon { width: 56px; height: 56px; border-radius: 12px; background: rgb(219, 234, 254); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
+        .kpi-icon svg { width: 32px; height: 32px; stroke: currentColor; }
         .kpi-body { display: flex; flex-direction: column; gap: 4px; }
         .badge {
             display: inline-flex;
@@ -200,12 +202,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             border-radius: 8px;
             font-size: 12px;
             font-weight: 600;
-            background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
+            background: rgb(243, 244, 246);
             color: var(--text-strong);
             border: 1px solid var(--border);
         }
-        .badge.success { background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%); color: var(--text-strong); }
-        .badge.danger { background: color-mix(in srgb, var(--accent) 15%, var(--surface) 85%); color: var(--text-strong); }
+        .badge.success { background: rgb(219, 234, 254); color: var(--primary); }
+        .badge.danger { background: rgb(254, 226, 226); color: rgb(185, 28, 28); }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -223,10 +225,10 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             letter-spacing: 0.03em;
             color: var(--muted);
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+            background: rgb(249, 250, 251);
         }
         tr:last-child td { border-bottom: none; }
-        tbody tr:hover { background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
+        tbody tr:hover { background: rgb(243, 244, 246); }
         .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
         .btn {
             padding: 10px 14px;
@@ -234,14 +236,15 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             border: 1px solid var(--border);
             cursor: pointer;
             font-weight: 600;
-            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+            background: var(--surface);
             color: var(--text-strong);
-            transition: background-color 120ms ease, border-color 120ms ease;
+            transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
         }
-        .btn.primary { background: var(--primary); color: var(--on-primary); border-color: color-mix(in srgb, var(--primary) 70%, var(--border) 30%); }
+        .btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
         .btn.secondary { background: var(--surface); }
         .btn.ghost { background: transparent; border-style: dashed; }
-        .btn:hover { background: color-mix(in srgb, var(--primary) 8%, var(--surface) 92%); border-color: color-mix(in srgb, var(--primary) 25%, var(--border) 75%); }
+        .btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-primary); }
+        .btn:active { background: var(--primary-strong); border-color: var(--primary-strong); color: var(--on-primary); }
         form.inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         input, select, textarea {
             padding: 10px 12px;
@@ -250,19 +253,20 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             width: 100%;
             background: var(--surface);
             color: var(--text-strong);
+            font-weight: 500;
         }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: color-mix(in srgb, var(--primary) 50%, var(--border) 50%); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, var(--background) 82%); }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-hover); box-shadow: 0 0 0 2px rgb(219, 234, 254); }
         textarea { resize: vertical; }
         label { font-weight: 600; color: var(--text-strong); display:block; margin-bottom:6px; }
         .hint { color: var(--muted); font-size: 13px; }
         .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
         .column { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
-        .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-        .card-task { background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
-        .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); color: var(--text-strong); border: 1px solid var(--border); }
+        .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+        .card-task { background: rgb(249, 250, 251); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
+        .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: rgb(243, 244, 246); color: var(--text-strong); border: 1px solid var(--border); }
         .pillset { display:flex; gap:6px; flex-wrap:wrap; }
         .text-muted { color: var(--muted); }
-        .alert { padding:12px; border-radius: 12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); color: var(--text-strong); }
+        .alert { padding:12px; border-radius: 12px; border:1px solid var(--border); background: rgb(249, 250, 251); color: var(--text-strong); }
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
         .table-wrapper { overflow-x: auto; }
