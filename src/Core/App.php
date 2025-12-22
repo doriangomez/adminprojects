@@ -109,6 +109,10 @@ class App
 
         if (str_starts_with($path, '/portfolio')) {
             $controller = new PortfoliosController($this->db, $this->auth);
+            if ($path === '/portfolio/create') {
+                $controller->create();
+                return;
+            }
             if ($path === '/portfolio' && $method === 'POST') {
                 $controller->store();
                 return;

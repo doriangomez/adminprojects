@@ -34,8 +34,8 @@ class PortfoliosRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO client_portfolios (client_id, name, start_date, end_date, hours_limit, budget_limit, attachment_path, created_at, updated_at)
-             VALUES (:client_id, :name, :start_date, :end_date, :hours_limit, :budget_limit, :attachment_path, NOW(), NOW())',
+            'INSERT INTO client_portfolios (client_id, name, start_date, end_date, hours_limit, budget_limit, attachment_path, projects_included, rules_notes, alerting_policy, created_at, updated_at)
+             VALUES (:client_id, :name, :start_date, :end_date, :hours_limit, :budget_limit, :attachment_path, :projects_included, :rules_notes, :alerting_policy, NOW(), NOW())',
             [
                 ':client_id' => (int) $payload['client_id'],
                 ':name' => $payload['name'],
@@ -44,6 +44,9 @@ class PortfoliosRepository
                 ':hours_limit' => $payload['hours_limit'] ?? null,
                 ':budget_limit' => $payload['budget_limit'] ?? null,
                 ':attachment_path' => $payload['attachment_path'] ?? null,
+                ':projects_included' => $payload['projects_included'] ?? null,
+                ':rules_notes' => $payload['rules_notes'] ?? null,
+                ':alerting_policy' => $payload['alerting_policy'] ?? null,
             ]
         );
     }
@@ -53,7 +56,9 @@ class PortfoliosRepository
         $this->db->execute(
             'UPDATE client_portfolios
              SET name = :name, start_date = :start_date, end_date = :end_date,
-                 hours_limit = :hours_limit, budget_limit = :budget_limit, attachment_path = :attachment_path, updated_at = NOW()
+                 hours_limit = :hours_limit, budget_limit = :budget_limit, attachment_path = :attachment_path,
+                 projects_included = :projects_included, rules_notes = :rules_notes, alerting_policy = :alerting_policy,
+                 updated_at = NOW()
              WHERE id = :id',
             [
                 ':id' => $id,
@@ -63,6 +68,9 @@ class PortfoliosRepository
                 ':hours_limit' => $payload['hours_limit'] ?? null,
                 ':budget_limit' => $payload['budget_limit'] ?? null,
                 ':attachment_path' => $payload['attachment_path'] ?? null,
+                ':projects_included' => $payload['projects_included'] ?? null,
+                ':rules_notes' => $payload['rules_notes'] ?? null,
+                ':alerting_policy' => $payload['alerting_policy'] ?? null,
             ]
         );
     }
