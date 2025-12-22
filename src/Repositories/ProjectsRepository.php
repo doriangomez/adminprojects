@@ -45,6 +45,15 @@ class ProjectsRepository
             'JOIN clients c ON c.id = p.client_id',
         ];
 
+        if ($hasPmColumn) {
+            $select[] = 'p.pm_id';
+            $select[] = 'u.name AS pm_name';
+            $joins[] = 'LEFT JOIN users u ON u.id = p.pm_id';
+        } else {
+            $select[] = 'NULL AS pm_id';
+            $select[] = 'NULL AS pm_name';
+        }
+
         if ($hasPriorityColumn) {
             $select[] = 'p.priority_code AS priority';
             $select[] = 'pr.label AS priority_label';
