@@ -18,13 +18,11 @@ class ProjectsController extends Controller
     {
         $this->requirePermission('projects.view');
         $repo = new ProjectsRepository($this->db);
-        $talentsRepo = new TalentsRepository($this->db);
         $user = $this->auth->user() ?? [];
 
         $this->render('projects/portfolio', [
             'title' => 'Portafolio por cliente',
             'clients' => $repo->portfolio($user),
-            'talents' => $talentsRepo->summary(),
             'error' => $error,
         ]);
     }
