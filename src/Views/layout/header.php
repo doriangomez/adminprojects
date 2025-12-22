@@ -258,6 +258,9 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-hover); box-shadow: 0 0 0 2px rgb(219, 234, 254); }
         textarea { resize: vertical; }
         label { font-weight: 600; color: var(--text-strong); display:block; margin-bottom:6px; }
+        .input { display:flex; flex-direction:column; gap:6px; }
+        .input span { color: var(--text-strong); font-weight:700; font-size: 14px; }
+        .muted { color: var(--muted); font-size: 13px; }
         .hint { color: var(--muted); font-size: 13px; }
         .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
         .column { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }

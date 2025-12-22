@@ -10,8 +10,8 @@ class TimesheetsController extends Controller
         $this->requirePermission('timesheets.view');
         $this->render('timesheets/index', [
             'title' => 'Timesheets',
-            'rows' => $repo->weekly(),
-            'kpis' => $repo->kpis(),
+            'rows' => $repo->weekly($this->auth->user() ?? []),
+            'kpis' => $repo->kpis($this->auth->user() ?? []),
         ]);
     }
 }

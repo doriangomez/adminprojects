@@ -4,16 +4,33 @@ declare(strict_types=1);
 
 class DashboardService
 {
+    private const ADMIN_ROLES = ['Administrador', 'PMO'];
+
     public function __construct(private Database $db)
     {
     }
 
-    public function executiveSummary(): array
+    public function executiveSummary(array $user): array
     {
-        $clients = $this->db->fetchOne('SELECT COUNT(*) AS total FROM clients WHERE active = 1');
-        $projects = $this->db->fetchOne("SELECT COUNT(*) AS total FROM projects WHERE status NOT IN ('archived','cancelled')");
-        $income = $this->db->fetchOne('SELECT SUM(amount) AS total FROM revenues');
-        $atRisk = $this->db->fetchOne("SELECT COUNT(*) AS total FROM projects WHERE health IN ('at_risk','red','yellow')");
+        [$whereClients, $params] = $this->visibilityForUser($user);
+
+        $clients = $this->db->fetchOne('SELECT COUNT(*) AS total FROM clients c ' . $whereClients, $params);
+
+        $projectsCondition = $whereClients ?: 'WHERE 1=1';
+        $projects = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $projectsCondition AND p.status NOT IN ('archived','cancelled')",
+            $params
+        );
+
+        $income = $this->db->fetchOne(
+            'SELECT SUM(r.amount) AS total FROM revenues r JOIN projects p ON p.id = r.project_id JOIN clients c ON c.id = p.client_id ' . ($whereClients ?: ''),
+            $params
+        );
+
+        $atRisk = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $projectsCondition AND p.health IN ('at_risk','critical','red','yellow')",
+            $params
+        );
 
         return [
             'clientes_activos' => (int) ($clients['total'] ?? 0),
@@ -23,11 +40,23 @@ class DashboardService
         ];
     }
 
-    public function profitability(): array
+    public function profitability(array $user): array
     {
+        [$where, $params] = $this->visibilityForUser($user);
+
         return $this->db->fetchAll(
             'SELECT p.id, p.name, p.budget, p.actual_cost, (p.budget - p.actual_cost) AS margin, p.actual_hours
-             FROM projects p ORDER BY p.created_at DESC'
+             FROM projects p JOIN clients c ON c.id = p.client_id ' . $where . ' ORDER BY p.created_at DESC',
+            $params
         );
+    }
+
+    private function visibilityForUser(array $user): array
+    {
+        if (in_array($user['role'] ?? '', self::ADMIN_ROLES, true)) {
+            return ['', []];
+        }
+
+        return ['WHERE c.pm_id = :pmId', [':pmId' => $user['id']]];
     }
 }
