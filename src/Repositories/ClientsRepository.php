@@ -102,8 +102,8 @@ class ClientsRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, feedback_notes, feedback_history, operational_context, created_at, updated_at)
-             VALUES (:name, :sector_code, :category_code, :priority, :status_code, :pm_id, :satisfaction, :nps, :risk_level, :tags, :area, :feedback_notes, :feedback_history, :operational_context, NOW(), NOW())',
+            'INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, feedback_notes, feedback_history, operational_context, logo_path, created_at, updated_at)
+             VALUES (:name, :sector_code, :category_code, :priority, :status_code, :pm_id, :satisfaction, :nps, :risk_level, :tags, :area, :feedback_notes, :feedback_history, :operational_context, :logo_path, NOW(), NOW())',
             [
                 ':name' => $payload['name'],
                 ':sector_code' => $payload['sector_code'],
@@ -119,6 +119,7 @@ class ClientsRepository
                 ':feedback_notes' => $payload['feedback_notes'] ?? null,
                 ':feedback_history' => $payload['feedback_history'] ?? null,
                 ':operational_context' => $payload['operational_context'] ?? null,
+                ':logo_path' => $payload['logo_path'] ?? null,
             ]
         );
     }
@@ -126,7 +127,7 @@ class ClientsRepository
     public function update(int $id, array $payload): void
     {
         $this->db->execute(
-            'UPDATE clients SET name = :name, sector_code = :sector_code, category_code = :category_code, priority = :priority, status_code = :status_code, pm_id = :pm_id, satisfaction = :satisfaction, nps = :nps, risk_level = :risk_level, tags = :tags, area = :area, feedback_notes = :feedback_notes, feedback_history = :feedback_history, operational_context = :operational_context, updated_at = NOW() WHERE id = :id',
+            'UPDATE clients SET name = :name, sector_code = :sector_code, category_code = :category_code, priority = :priority, status_code = :status_code, pm_id = :pm_id, satisfaction = :satisfaction, nps = :nps, risk_level = :risk_level, tags = :tags, area = :area, feedback_notes = :feedback_notes, feedback_history = :feedback_history, operational_context = :operational_context, logo_path = :logo_path, updated_at = NOW() WHERE id = :id',
             [
                 ':name' => $payload['name'],
                 ':sector_code' => $payload['sector_code'],
@@ -142,6 +143,7 @@ class ClientsRepository
                 ':feedback_notes' => $payload['feedback_notes'] ?? null,
                 ':feedback_history' => $payload['feedback_history'] ?? null,
                 ':operational_context' => $payload['operational_context'] ?? null,
+                ':logo_path' => $payload['logo_path'] ?? null,
                 ':id' => $id,
             ]
         );
