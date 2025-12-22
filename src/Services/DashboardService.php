@@ -57,6 +57,10 @@ class DashboardService
             return ['', []];
         }
 
+        if (!$this->db->columnExists('clients', 'pm_id')) {
+            return ['', []];
+        }
+
         return ['WHERE c.pm_id = :pmId', [':pmId' => $user['id']]];
     }
 }

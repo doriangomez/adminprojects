@@ -5,6 +5,8 @@ declare(strict_types=1);
 class Database
 {
     private \PDO $pdo;
+    private string $databaseName;
+    private array $columnCache = [];
 
     public function __construct(array $config)
     {
@@ -23,6 +25,7 @@ class Database
         ];
 
         $this->pdo = new \PDO($dsn, $config['username'], $config['password'], $options);
+        $this->databaseName = $config['database'];
     }
 
     public function connection(): \PDO
@@ -56,5 +59,29 @@ class Database
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return (int) $this->pdo->lastInsertId();
+    }
+
+    public function columnExists(string $table, string $column): bool
+    {
+        $cacheKey = $table . '.' . $column;
+        if (array_key_exists($cacheKey, $this->columnCache)) {
+            return $this->columnCache[$cacheKey];
+        }
+
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = :schema AND table_name = :table AND column_name = :column'
+        );
+
+        $stmt->execute([
+            ':schema' => $this->databaseName,
+            ':table' => $table,
+            ':column' => $column,
+        ]);
+
+        $exists = (bool) $stmt->fetchColumn();
+        $this->columnCache[$cacheKey] = $exists;
+
+        return $exists;
     }
 }
