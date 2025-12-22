@@ -42,8 +42,8 @@ class ClientsController extends Controller
         $client = $repo->findForUser($id, $user);
         $dependencies = $repo->dependencySummary($id);
         $hasDependencies = $dependencies['has_dependencies'] ?? false;
-        $canDelete = $isAdmin && !$hasDependencies;
-        $canInactivate = $isAdmin && $hasDependencies;
+        $canDelete = $isAdmin;
+        $canInactivate = $isAdmin;
 
         if (!$client) {
             http_response_code(404);
@@ -58,6 +58,7 @@ class ClientsController extends Controller
             'canManage' => $canManage,
             'canDelete' => $canDelete,
             'canInactivate' => $canInactivate,
+            'isAdmin' => $isAdmin,
             'dependencies' => $dependencies,
         ]);
     }
@@ -173,7 +174,7 @@ class ClientsController extends Controller
                 $this->json([
                     'success' => false,
                     'can_inactivate' => true,
-                    'message' => 'El cliente tiene dependencias activas. Puede ser inactivado.',
+                    'message' => 'El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.',
                     'dependencies' => $dependencies,
                 ], 409);
                 return;
@@ -203,7 +204,7 @@ class ClientsController extends Controller
             $errorCode = (string) ($result['error_code'] ?? '');
             $status = $errorCode === '23000' ? 409 : 500;
             $message = $errorCode === 'DEPENDENCIES'
-                ? 'El cliente tiene dependencias activas. Puede ser inactivado.'
+                ? 'El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.'
                 : 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
 
             error_log('Error al eliminar cliente: ' . ($result['error'] ?? 'operación desconocida'));

@@ -255,6 +255,75 @@ class ProjectsRepository
         return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
     }
 
+    public function projectsForPortfolio(int $portfolioId, array $user): array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $conditions[] = 'p.portfolio_id = :portfolioId';
+        $params[':portfolioId'] = $portfolioId;
+        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
+
+        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+        $select = [
+            'p.id',
+            'p.name',
+            'p.progress',
+            'p.project_type',
+            'p.budget',
+            'p.actual_cost',
+            'p.pm_id',
+            'u.name AS pm_name',
+            'p.actual_hours',
+            'p.planned_hours',
+        ];
+
+        $joins = [
+            'JOIN client_portfolios pf ON pf.id = p.portfolio_id',
+            'JOIN clients c ON c.id = pf.client_id',
+            'LEFT JOIN users u ON u.id = p.pm_id',
+        ];
+
+        if ($hasPriorityColumn) {
+            $select[] = 'p.priority_code AS priority';
+            $select[] = 'pr.label AS priority_label';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
+        } else {
+            $select[] = 'NULL AS priority';
+            $select[] = 'NULL AS priority_label';
+        }
+
+        if ($hasStatusColumn) {
+            $select[] = 'p.status_code AS status';
+            $select[] = 'st.label AS status_label';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
+        } else {
+            $select[] = "'' AS status";
+            $select[] = 'NULL AS status_label';
+        }
+
+        if ($hasHealthColumn) {
+            $select[] = 'p.health_code AS health';
+            $select[] = 'h.label AS health_label';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
+        } else {
+            $select[] = 'NULL AS health';
+            $select[] = 'NULL AS health_label';
+        }
+
+        $sql = sprintf(
+            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
+            implode(', ', $select),
+            implode(' ', $joins),
+            $whereClause
+        );
+
+        $projects = $this->db->fetchAll($sql, $params);
+
+        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+    }
+
     public function assignmentsForClient(int $clientId, array $user): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
@@ -421,6 +490,40 @@ class ProjectsRepository
             'capacity_used' => $usedHours,
             'capacity_available' => $availableHours,
             'capacity_percent' => $capacityPercent,
+        ];
+    }
+
+    public function portfolioKpisFromProjects(array $projects): array
+    {
+        $activeProjects = array_filter(
+            $projects,
+            fn (array $project) => ($project['status'] ?? '') !== 'closed' && ($project['status'] ?? '') !== 'cancelled'
+        );
+        $progressValues = array_column($activeProjects, 'progress');
+        $avgProgress = $progressValues ? array_sum($progressValues) / count($progressValues) : 0.0;
+
+        $riskLevel = 'bajo';
+        foreach ($activeProjects as $project) {
+            $health = $project['health'] ?? '';
+            if (in_array($health, ['critical', 'red'], true)) {
+                $riskLevel = 'alto';
+                break;
+            }
+            if (in_array($health, ['at_risk', 'yellow'], true)) {
+                $riskLevel = 'medio';
+            }
+        }
+
+        $actualCost = array_sum(array_map(fn ($p) => (float) ($p['actual_cost'] ?? 0), $projects));
+        $budgetPlanned = array_sum(array_map(fn ($p) => (float) ($p['budget'] ?? 0), $projects));
+
+        return [
+            'avg_progress' => round($avgProgress, 1),
+            'risk_level' => $riskLevel,
+            'active_projects' => count($activeProjects),
+            'total_projects' => count($projects),
+            'budget_used' => $actualCost,
+            'budget_planned' => $budgetPlanned,
         ];
     }
 
