@@ -11,6 +11,7 @@ class App
     {
         $config = require __DIR__ . '/../config.php';
         $this->db = new Database($config['db']);
+        (new DatabaseMigrator($this->db))->ensureClientPmIntegrity();
         $this->auth = new Auth($this->db);
     }
 

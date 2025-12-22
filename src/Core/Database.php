@@ -61,6 +61,11 @@ class Database
         return (int) $this->pdo->lastInsertId();
     }
 
+    public function databaseName(): string
+    {
+        return $this->databaseName;
+    }
+
     public function columnExists(string $table, string $column): bool
     {
         $cacheKey = $table . '.' . $column;
@@ -83,5 +88,27 @@ class Database
         $this->columnCache[$cacheKey] = $exists;
 
         return $exists;
+    }
+
+    public function foreignKeyExists(string $table, string $column, string $referencedTable): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table AND COLUMN_NAME = :column AND REFERENCED_TABLE_NAME = :referenced'
+        );
+
+        $stmt->execute([
+            ':schema' => $this->databaseName,
+            ':table' => $table,
+            ':column' => $column,
+            ':referenced' => $referencedTable,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function clearColumnCache(): void
+    {
+        $this->columnCache = [];
     }
 }

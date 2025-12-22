@@ -18,6 +18,35 @@ class UsersRepository
         return $this->db->fetchOne('SELECT * FROM users WHERE id = :id', [':id' => $id]);
     }
 
+    public function isValidProjectManager(int $id): bool
+    {
+        $stmt = $this->db->connection()->prepare(
+            "SELECT COUNT(*) FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE u.id = :id AND u.active = 1 AND r.nombre IN ('Administrador', 'PMO', 'Líder de Proyecto')"
+        );
+
+        $stmt->execute([':id' => $id]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function firstAvailablePmId(): ?int
+    {
+        $stmt = $this->db->connection()->prepare(
+            "SELECT u.id FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE u.active = 1 AND r.nombre IN ('Administrador', 'PMO', 'Líder de Proyecto')
+             ORDER BY u.id ASC
+             LIMIT 1"
+        );
+
+        $stmt->execute();
+        $user = $stmt->fetch();
+
+        return $user ? (int) ($user['id'] ?? 0) : null;
+    }
+
     public function create(array $payload): int
     {
         return $this->db->insert(

@@ -77,24 +77,60 @@ class ClientsController extends Controller
     {
         $this->requirePermission('clients.manage');
         $repo = new ClientsRepository($this->db);
-        $repo->create($this->collectPayload());
-        header('Location: /project/public/clients');
+
+        try {
+            $repo->create($this->collectPayload());
+            header('Location: /project/public/clients');
+        } catch (\PDOException $e) {
+            error_log('Error al crear cliente: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('clients/create', array_merge($this->formData(), [
+                'title' => 'Registrar cliente',
+                'error' => 'No se pudo guardar el cliente. Intenta nuevamente o contacta al administrador.',
+            ]));
+        }
     }
 
     public function update(int $id): void
     {
         $this->requirePermission('clients.manage');
         $repo = new ClientsRepository($this->db);
-        $repo->update($id, $this->collectPayload($_POST['current_logo'] ?? ''));
-        header('Location: /project/public/clients');
+
+        try {
+            $repo->update($id, $this->collectPayload($_POST['current_logo'] ?? ''));
+            header('Location: /project/public/clients');
+        } catch (\PDOException $e) {
+            error_log('Error al actualizar cliente: ' . $e->getMessage());
+            http_response_code(500);
+
+            $user = $this->auth->user() ?? [];
+            $client = (new ClientsRepository($this->db))->findForUser($id, $user);
+
+            if (!$client) {
+                exit('Cliente no encontrado');
+            }
+
+            $this->render('clients/edit', array_merge($this->formData(), [
+                'title' => 'Editar cliente',
+                'client' => $client,
+                'error' => 'No se pudo actualizar el cliente. Intenta nuevamente o contacta al administrador.',
+            ]));
+        }
     }
 
     public function destroy(): void
     {
         $this->requirePermission('clients.manage');
         $repo = new ClientsRepository($this->db);
-        $repo->delete((int) $_POST['id']);
-        header('Location: /project/public/clients');
+
+        try {
+            $repo->delete((int) $_POST['id']);
+            header('Location: /project/public/clients');
+        } catch (\PDOException $e) {
+            error_log('Error al eliminar cliente: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.');
+        }
     }
 
     private function collectPayload(string $currentLogoPath = ''): array
@@ -114,7 +150,7 @@ class ClientsController extends Controller
             'category_code' => $categoryCode,
             'priority' => $priority,
             'status_code' => $statusCode,
-            'pm_id' => $_POST['pm_id'] ?? null,
+            'pm_id' => $this->validatedPmId(),
             'satisfaction' => ($_POST['satisfaction'] ?? '') !== '' ? (int) $_POST['satisfaction'] : null,
             'nps' => ($_POST['nps'] ?? '') !== '' ? (int) $_POST['nps'] : null,
             'risk_level' => $riskCode,
@@ -192,6 +228,23 @@ class ClientsController extends Controller
             'risks' => $masterRepo->list('client_risk'),
             'areas' => $masterRepo->list('client_areas'),
         ];
+    }
+
+    private function validatedPmId(): int
+    {
+        $pmId = (int) ($_POST['pm_id'] ?? 0);
+        if ($pmId <= 0) {
+            http_response_code(400);
+            exit('Debes seleccionar un PM válido para el cliente.');
+        }
+
+        $usersRepo = new UsersRepository($this->db);
+        if (!$usersRepo->isValidProjectManager($pmId)) {
+            http_response_code(400);
+            exit('El PM seleccionado no está disponible o no tiene permisos para gestionar clientes.');
+        }
+
+        return $pmId;
     }
 
     private function validatedCatalogValue(string $value, array $catalog, string $fieldLabel, bool $required = true): ?string
