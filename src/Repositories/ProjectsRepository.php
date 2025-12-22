@@ -138,6 +138,7 @@ class ProjectsRepository
             $portfolio[] = [
                 'id' => (int) $client['id'],
                 'name' => $client['name'],
+                'signal' => $this->clientSignal($projects),
                 'projects' => $projects,
                 'kpis' => $this->clientKpis($projects, $assignments),
                 'assignments' => $byProject,
@@ -163,6 +164,8 @@ class ProjectsRepository
             'p.name',
             'p.progress',
             'p.project_type',
+            'p.budget',
+            'p.actual_cost',
             'p.pm_id',
             'u.name AS pm_name',
             'p.actual_hours',
@@ -208,7 +211,9 @@ class ProjectsRepository
             $whereClause
         );
 
-        return $this->db->fetchAll($sql, $params);
+        $projects = $this->db->fetchAll($sql, $params);
+
+        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
     }
 
     public function assignmentsForClient(int $clientId, array $user): array
@@ -353,6 +358,133 @@ class ProjectsRepository
             'capacity_available' => $availableHours,
             'capacity_percent' => $capacityPercent,
         ];
+    }
+
+    private function attachProjectSignal(array $project): array
+    {
+        $project['signal'] = $this->projectSignal($project);
+
+        return $project;
+    }
+
+    private function projectSignal(array $project): array
+    {
+        $severity = 'green';
+        $reasons = [];
+
+        $health = $project['health'] ?? '';
+        if (in_array($health, ['critical', 'red'], true)) {
+            $severity = 'red';
+            $reasons[] = 'Salud crítica reportada por el equipo.';
+        } elseif (in_array($health, ['at_risk', 'yellow'], true)) {
+            $severity = $this->maxSeverity($severity, 'yellow');
+            $reasons[] = 'El proyecto fue marcado como en riesgo.';
+        }
+
+        $costDeviation = $this->deviationPercent((float) ($project['actual_cost'] ?? 0), (float) ($project['budget'] ?? 0));
+        if ($costDeviation !== null) {
+            if ($costDeviation > 0.10) {
+                $severity = 'red';
+                $reasons[] = 'El costo supera el presupuesto en más de 10%.';
+            } elseif ($costDeviation > 0.05) {
+                $severity = $this->maxSeverity($severity, 'yellow');
+                $reasons[] = 'El costo supera el presupuesto en más de 5%.';
+            }
+        }
+
+        $hoursDeviation = $this->deviationPercent((float) ($project['actual_hours'] ?? 0), (float) ($project['planned_hours'] ?? 0));
+        if ($hoursDeviation !== null) {
+            if ($hoursDeviation > 0.10) {
+                $severity = 'red';
+                $reasons[] = 'Las horas ejecutadas superan el plan en más de 10%.';
+            } elseif ($hoursDeviation > 0.05) {
+                $severity = $this->maxSeverity($severity, 'yellow');
+                $reasons[] = 'Las horas ejecutadas superan el plan en más de 5%.';
+            }
+        }
+
+        $progress = (float) ($project['progress'] ?? 0);
+        if ($progress < 25) {
+            $severity = 'red';
+            $reasons[] = 'El avance está por debajo del 25%.';
+        } elseif ($progress < 50) {
+            $severity = $this->maxSeverity($severity, 'yellow');
+            $reasons[] = 'El avance está rezagado (<50%).';
+        }
+
+        $label = match ($severity) {
+            'red' => 'Rojo',
+            'yellow' => 'Amarillo',
+            default => 'Verde',
+        };
+
+        return [
+            'code' => $severity,
+            'label' => $label,
+            'reasons' => $reasons ?: ['Sin alertas operativas detectadas.'],
+            'cost_deviation' => $costDeviation,
+            'hours_deviation' => $hoursDeviation,
+            'progress' => $progress,
+        ];
+    }
+
+    private function clientSignal(array $projects): array
+    {
+        $hasRed = false;
+        $hasYellow = false;
+
+        foreach ($projects as $project) {
+            $signal = $project['signal']['code'] ?? 'green';
+            if ($signal === 'red') {
+                $hasRed = true;
+                break;
+            }
+            if ($signal === 'yellow') {
+                $hasYellow = true;
+            }
+        }
+
+        $code = $hasRed ? 'red' : ($hasYellow ? 'yellow' : 'green');
+        $label = match ($code) {
+            'red' => 'Rojo',
+            'yellow' => 'Amarillo',
+            default => 'Verde',
+        };
+
+        return [
+            'code' => $code,
+            'label' => $label,
+            'summary' => $this->clientSignalSummary($projects, $code),
+        ];
+    }
+
+    private function clientSignalSummary(array $projects, string $code): string
+    {
+        $totalProjects = count($projects);
+        $redProjects = count(array_filter($projects, fn ($p) => ($p['signal']['code'] ?? '') === 'red'));
+        $yellowProjects = count(array_filter($projects, fn ($p) => ($p['signal']['code'] ?? '') === 'yellow'));
+
+        return match ($code) {
+            'red' => "Al menos $redProjects de $totalProjects proyectos requieren atención inmediata.",
+            'yellow' => "Hay $yellowProjects proyecto(s) con alertas preventivas.",
+            default => 'Todos los proyectos están dentro de los parámetros operativos.',
+        };
+    }
+
+    private function maxSeverity(string $current, string $candidate): string
+    {
+        $rank = ['green' => 1, 'yellow' => 2, 'red' => 3];
+
+        return ($rank[$candidate] ?? 1) > ($rank[$current] ?? 1) ? $candidate : $current;
+    }
+
+    private function deviationPercent(float $actual, float $planned): ?float
+    {
+        if ($planned <= 0.0) {
+            return null;
+        }
+
+        return ($actual - $planned) / $planned;
     }
 
     private function isPrivileged(array $user): bool

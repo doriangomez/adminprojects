@@ -26,9 +26,12 @@
             <details>
                 <summary>
                     <div class="client-header">
-                        <div>
-                            <strong><?= htmlspecialchars($client['name']) ?></strong>
-                            <p style="margin:0; color: var(--muted);">Proyectos activos: <?= $client['kpis']['active_projects'] ?> / <?= $client['kpis']['total_projects'] ?></p>
+                        <div class="client-title">
+                            <span class="signal-badge <?= $client['signal']['code'] ?>" title="<?= htmlspecialchars($client['signal']['summary']) ?>">● <?= $client['signal']['label'] ?></span>
+                            <div>
+                                <strong><?= htmlspecialchars($client['name']) ?></strong>
+                                <p style="margin:0; color: var(--muted);">Proyectos activos: <?= $client['kpis']['active_projects'] ?> / <?= $client['kpis']['total_projects'] ?></p>
+                            </div>
                         </div>
                         <div class="kpi-row">
                             <span class="badge">Avance: <?= $client['kpis']['avg_progress'] ?>%</span>
@@ -67,11 +70,15 @@
                             <details class="project-accordion">
                                 <summary>
                                     <div class="project-summary">
-                                        <div>
-                                            <strong><?= htmlspecialchars($project['name']) ?></strong>
-                                            <p class="muted">Tipo: <?= ucfirst($project['project_type'] ?? 'convencional') ?> · PM: <?= htmlspecialchars($project['pm_name'] ?? 'N/D') ?></p>
+                                        <div class="project-title">
+                                            <span class="signal-dot <?= $project['signal']['code'] ?>" title="<?= htmlspecialchars(implode(' · ', $project['signal']['reasons'])) ?>"></span>
+                                            <div>
+                                                <strong><?= htmlspecialchars($project['name']) ?></strong>
+                                                <p class="muted">Tipo: <?= ucfirst($project['project_type'] ?? 'convencional') ?> · PM: <?= htmlspecialchars($project['pm_name'] ?? 'N/D') ?></p>
+                                            </div>
                                         </div>
                                         <div class="project-badges">
+                                            <span class="badge ghost">Semáforo: <?= $project['signal']['label'] ?></span>
                                             <span class="badge <?= $project['health'] === 'on_track' ? 'success' : ($project['health'] === 'at_risk' ? 'warning' : 'danger') ?>"><?= htmlspecialchars($project['health_label'] ?? $project['health']) ?></span>
                                             <span class="badge ghost">Avance <?= $project['progress'] ?>%</span>
                                             <span class="badge secondary">Estado <?= htmlspecialchars($project['status_label'] ?? $project['status']) ?></span>
@@ -94,6 +101,20 @@
                                             <strong>Solo desde tab Talento</strong>
                                             <span class="subtext">Abre modal corto para asignar recursos</span>
                                         </div>
+                                        <div>
+                                            <small>Control operativo</small>
+                                            <strong class="badge <?= $project['signal']['code'] === 'red' ? 'danger' : ($project['signal']['code'] === 'yellow' ? 'warning' : 'success') ?>" style="padding:4px 10px;">Semáforo <?= $project['signal']['label'] ?></strong>
+                                            <span class="subtext">Costos: <?= $project['signal']['cost_deviation'] !== null ? round($project['signal']['cost_deviation'] * 100, 1) . '%' : 'N/D' ?> · Horas: <?= $project['signal']['hours_deviation'] !== null ? round($project['signal']['hours_deviation'] * 100, 1) . '%' : 'N/D' ?></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="project-alerts">
+                                        <small>Alertas operativas</small>
+                                        <ul>
+                                            <?php foreach ($project['signal']['reasons'] as $reason): ?>
+                                                <li><?= htmlspecialchars($reason) ?></li>
+                                            <?php endforeach; ?>
+                                        </ul>
                                     </div>
 
                                     <div class="tab-guidance">
@@ -154,10 +175,22 @@
     .project-accordion summary { cursor: pointer; }
     .project-summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .project-summary .muted { margin: 0; color: var(--muted); }
+    .project-title { display: flex; align-items: center; gap: 8px; }
+    .client-title { display: flex; align-items: center; gap: 10px; }
+    .signal-badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 6px 10px; border-radius: 999px; }
+    .signal-badge.green { background: rgba(26, 148, 49, 0.12); color: #1a9431; }
+    .signal-badge.yellow { background: rgba(250, 184, 20, 0.16); color: #b38100; }
+    .signal-badge.red { background: rgba(235, 87, 87, 0.15); color: #b42318; }
+    .signal-dot { width: 14px; height: 14px; border-radius: 999px; display: inline-block; border: 2px solid var(--surface-2); }
+    .signal-dot.green { background: #2ecc71; }
+    .signal-dot.yellow { background: #f5a524; }
+    .signal-dot.red { background: #e2554d; }
     .project-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .project-body { margin-top: 10px; display: flex; flex-direction: column; gap: 12px; }
     .project-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
     .project-meta-grid small { color: var(--muted); }
+    .project-alerts ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
+    .project-alerts li { margin-bottom: 4px; }
     .tab-guidance { display: flex; gap: 6px; flex-wrap: wrap; }
     .tab-pill { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); background: var(--surface-2); }
     .tab-pill.active { border-color: var(--primary); color: var(--primary); background: rgba(74, 144, 226, 0.08); }
