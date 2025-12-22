@@ -7,6 +7,9 @@
 </div>
 
 <div class="card">
+    <?php if (!empty($error)): ?>
+        <div class="alert error"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
     <form class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;" method="POST" action="/project/public/clients/create" enctype="multipart/form-data">
         <label class="input">
             <span>Nombre</span>

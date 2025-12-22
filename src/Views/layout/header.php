@@ -186,6 +186,18 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             border-radius: 10px;
             padding: 18px;
         }
+        .alert {
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgb(249, 250, 251);
+            color: var(--text-strong);
+        }
+        .alert.error {
+            border-color: rgb(248, 113, 113);
+            background: rgb(254, 226, 226);
+            color: rgb(153, 27, 27);
+        }
         .card.ghosted { background: transparent; border-style: dashed; }
         .kpi { display: flex; align-items: center; gap: 14px; }
         .kpi .label { color: var(--text); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/Core/Database.php';
+require_once __DIR__ . '/../src/Core/DatabaseMigrator.php';
 require_once __DIR__ . '/../src/Core/Auth.php';
 require_once __DIR__ . '/../src/Core/Controller.php';
 require_once __DIR__ . '/../src/Core/App.php';
