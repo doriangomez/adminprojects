@@ -79,7 +79,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             <a href="<?= $basePath ?>/tasks" class="<?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>">Tareas / Kanban</a>
             <a href="<?= $basePath ?>/talents" class="<?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">Talento</a>
             <a href="<?= $basePath ?>/timesheets" class="<?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">Timesheet</a>
-            <?php if(($user['role'] ?? '') === 'Administrador'): ?>
+            <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <a href="<?= $basePath ?>/config" class="<?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>">Configuración</a>
             <?php endif; ?>
             <a href="<?= $basePath ?>/logout">Salir</a>
