@@ -14,20 +14,24 @@ class ClientsRepository
     {
         $params = [];
         $where = '';
+        $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
 
-        if (!$this->isPrivileged($user)) {
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
             $where = 'WHERE c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
 
+        $pmFields = $hasPmColumn ? 'u.name AS pm_name' : 'NULL AS pm_name';
+        $pmJoin = $hasPmColumn ? 'LEFT JOIN users u ON u.id = c.pm_id' : '';
+
         return $this->db->fetchAll(
-            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, u.name AS pm_name
+            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, ' . $pmFields . '
              FROM clients c
              LEFT JOIN client_sectors sec ON sec.code = c.sector_code
              LEFT JOIN client_categories cat ON cat.code = c.category_code
              LEFT JOIN priorities pr ON pr.code = c.priority
              LEFT JOIN client_status st ON st.code = c.status_code
-             LEFT JOIN users u ON u.id = c.pm_id
+             ' . $pmJoin . '
              ' . $where . '
              ORDER BY c.created_at DESC',
             $params
@@ -38,20 +42,24 @@ class ClientsRepository
     {
         $params = [':id' => $id];
         $conditions = ['c.id = :id'];
+        $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
 
-        if (!$this->isPrivileged($user)) {
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
 
+        $pmFields = $hasPmColumn ? 'u.name AS pm_name, u.email AS pm_email' : 'NULL AS pm_name, NULL AS pm_email';
+        $pmJoin = $hasPmColumn ? 'LEFT JOIN users u ON u.id = c.pm_id' : '';
+
         $client = $this->db->fetchOne(
-            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, u.name AS pm_name, u.email AS pm_email
+            'SELECT c.*, sec.label AS sector_label, cat.label AS category_label, pr.label AS priority_label, st.label AS status_label, ' . $pmFields . '
              FROM clients c
              LEFT JOIN client_sectors sec ON sec.code = c.sector_code
              LEFT JOIN client_categories cat ON cat.code = c.category_code
              LEFT JOIN priorities pr ON pr.code = c.priority
              LEFT JOIN client_status st ON st.code = c.status_code
-             LEFT JOIN users u ON u.id = c.pm_id
+             ' . $pmJoin . '
              WHERE ' . implode(' AND ', $conditions),
             $params
         );

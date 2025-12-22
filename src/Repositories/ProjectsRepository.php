@@ -14,8 +14,9 @@ class ProjectsRepository
     {
         $conditions = [];
         $params = [];
+        $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
 
-        if (!$this->isPrivileged($user)) {
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
@@ -39,8 +40,9 @@ class ProjectsRepository
     {
         $conditions = [];
         $params = [];
+        $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
 
-        if (!$this->isPrivileged($user)) {
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
