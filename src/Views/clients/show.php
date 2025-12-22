@@ -187,7 +187,7 @@
                 <input type="hidden" name="math_operand1" id="math_operand1" value="<?= $mathOperand1 ?>">
                 <input type="hidden" name="math_operand2" id="math_operand2" value="<?= $mathOperand2 ?>">
                 <input type="hidden" name="math_operator" id="math_operator" value="<?= $mathOperator ?>">
-                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid #fed7aa; background:#fffbeb; border-radius:10px; color:#9a3412; font-weight:600;">Este cliente tiene proyectos o portafolios asociados.</div>
+                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid #fed7aa; background:#fffbeb; border-radius:10px; color:#9a3412; font-weight:600;">El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.</div>
                 <div>
                     <p style="margin:0 0 4px 0; color:var(--text); font-weight:600;">Confirmación obligatoria</p>
                     <p style="margin:0 0 8px 0; color:var(--muted);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
@@ -228,6 +228,7 @@
             const modalContext = document.querySelector('[data-modal-context]');
             const clientId = <?= (int) $client['id'] ?>;
             const hasDependencies = <?= $dependencies['has_dependencies'] ? 'true' : 'false' ?>;
+            const dependencyMessage = 'El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.';
 
             const actions = {
                 delete: {
@@ -273,7 +274,10 @@
                     form.setAttribute('action', config.actionUrl);
                 }
 
-                dependencyNotice.style.display = (action === 'inactivate' || hasDependencies) ? 'block' : 'none';
+                if (dependencyNotice) {
+                    dependencyNotice.textContent = dependencyMessage;
+                    dependencyNotice.style.display = (action === 'inactivate' || hasDependencies) ? 'block' : 'none';
+                }
             };
 
             openButtons.forEach((btn) => btn.addEventListener('click', (event) => {
@@ -303,6 +307,13 @@
                 if (!form) return;
                 actionFeedback.style.display = 'none';
                 actionFeedback.textContent = '';
+
+                if (currentAction === 'delete' && hasDependencies) {
+                    actionFeedback.textContent = dependencyMessage;
+                    actionFeedback.style.display = 'block';
+                    setAction('inactivate');
+                    return;
+                }
 
                 const payload = new FormData(form);
                 let responseData;
