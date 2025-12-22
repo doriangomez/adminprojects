@@ -134,7 +134,10 @@ class ClientsController extends Controller
         $repo = new ClientsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $clientId = (int) ($_POST['id'] ?? 0);
-        $confirmation = trim((string) ($_POST['confirmation_name'] ?? ''));
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
         $client = $repo->find($clientId);
 
         if ($clientId <= 0 || !$client) {
@@ -142,9 +145,16 @@ class ClientsController extends Controller
             exit('Cliente no encontrado');
         }
 
-        if ($client['name'] !== $confirmation) {
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
             http_response_code(400);
-            exit('La confirmación no coincide con el nombre del cliente.');
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
         }
 
         try {
