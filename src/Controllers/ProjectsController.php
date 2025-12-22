@@ -26,6 +26,11 @@ class ProjectsController extends Controller
         $portfolios = $portfolioRepo->listWithUsage($user);
         $clients = $clientsRepo->listForUser($user);
         $portfolioView = [];
+        $clientsIndex = [];
+
+        foreach ($clients as $client) {
+            $clientsIndex[(int) $client['id']] = $client;
+        }
 
         foreach ($portfolios as $portfolio) {
             $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user);
@@ -52,6 +57,7 @@ class ProjectsController extends Controller
                 'kpis' => $projectsRepo->clientKpis($projects, $assignments),
                 'signal' => $projectsRepo->clientSignal($projects),
                 'assignments' => $assignmentsByProject,
+                'client_meta' => $clientsIndex[(int) $portfolio['client_id']] ?? [],
             ];
         }
 
