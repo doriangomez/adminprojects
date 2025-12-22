@@ -82,6 +82,11 @@ class App
                 return;
             }
 
+            if (preg_match('#^/clients/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
+                $controller->inactivate((int) $matches[1]);
+                return;
+            }
+
             if (preg_match('#^/clients/(\\d+)$#', $path, $matches)) {
                 $controller->show((int) $matches[1]);
                 return;

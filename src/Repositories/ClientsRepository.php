@@ -13,13 +13,20 @@ class ClientsRepository
     public function listForUser(array $user): array
     {
         $params = [];
-        $where = '';
+        $conditions = [];
         $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
+        $hasActiveColumn = $this->db->columnExists('clients', 'active');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $where = 'WHERE c.pm_id = :pmId';
+            $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
+
+        if ($hasActiveColumn) {
+            $conditions[] = 'c.active = 1';
+        }
+
+        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         $priorityField = 'c.priority_code AS priority';
         $priorityJoin = 'LEFT JOIN priorities pr ON pr.code = c.priority_code';
@@ -47,10 +54,15 @@ class ClientsRepository
         $params = [':id' => $id];
         $conditions = ['c.id = :id'];
         $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
+        $hasActiveColumn = $this->db->columnExists('clients', 'active');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
+        }
+
+        if ($hasActiveColumn) {
+            $conditions[] = 'c.active = 1';
         }
 
         $priorityField = 'c.priority_code AS priority';
@@ -223,83 +235,66 @@ class ClientsRepository
         return $client ?: null;
     }
 
-    public function deleteWithCascade(int $id, ?string $clientLogoPath = null): array
+    public function dependencySummary(int $id): array
     {
-        $pdo = $this->db->connection();
-        $pdo->beginTransaction();
+        $projects = 0;
+        $portfolios = 0;
+        $contracts = 0;
+
+        if ($this->db->tableExists('projects')) {
+            $projects = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM projects WHERE client_id = :id', [':id' => $id])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('client_portfolios')) {
+            $portfolios = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM client_portfolios WHERE client_id = :id', [':id' => $id])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('contracts') && $this->db->columnExists('contracts', 'client_id')) {
+            $contracts = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM contracts WHERE client_id = :id', [':id' => $id])['total'] ?? 0);
+        }
+
+        $hasDependencies = ($projects + $portfolios + $contracts) > 0;
+
+        return [
+            'projects' => $projects,
+            'portfolios' => $portfolios,
+            'contracts' => $contracts,
+            'has_dependencies' => $hasDependencies,
+        ];
+    }
+
+    public function deleteWithoutDependencies(int $id, ?string $clientLogoPath = null): array
+    {
+        $dependencies = $this->dependencySummary($id);
+
+        if ($dependencies['has_dependencies']) {
+            return [
+                'success' => false,
+                'error_code' => 'DEPENDENCIES',
+                'dependencies' => $dependencies,
+            ];
+        }
 
         try {
-            $portfolioRecords = $this->db->tableExists('client_portfolios')
-                ? $this->db->fetchAll('SELECT id, attachment_path FROM client_portfolios WHERE client_id = :id', [':id' => $id])
-                : [];
-            $portfolioCount = count($portfolioRecords);
-
-            $projectRecords = $this->db->tableExists('projects')
-                ? $this->db->fetchAll('SELECT id FROM projects WHERE client_id = :id', [':id' => $id])
-                : [];
-            $projectIds = array_map(fn ($row) => (int) $row['id'], $projectRecords);
-            $projectCount = count($projectIds);
-
-            if ($projectIds) {
-                $placeholders = $this->placeholders($projectIds);
-
-                if ($this->db->tableExists('timesheets') && $this->db->tableExists('tasks')) {
-                    $this->db->execute(
-                        "DELETE ts FROM timesheets ts JOIN tasks t ON t.id = ts.task_id WHERE t.project_id IN ($placeholders)",
-                        $projectIds
-                    );
-                }
-
-                if ($this->db->tableExists('project_talent_assignments')) {
-                    $this->db->execute(
-                        "DELETE FROM project_talent_assignments WHERE project_id IN ($placeholders)",
-                        $projectIds
-                    );
-                }
-
-                if ($this->db->tableExists('tasks')) {
-                    $this->db->execute(
-                        "DELETE FROM tasks WHERE project_id IN ($placeholders)",
-                        $projectIds
-                    );
-                }
-
-                $this->db->execute(
-                    "DELETE FROM projects WHERE id IN ($placeholders)",
-                    $projectIds
-                );
-            }
-
-            if ($this->db->tableExists('client_portfolios')) {
-                $this->db->execute('DELETE FROM client_portfolios WHERE client_id = :id', [':id' => $id]);
-            }
-
             $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $id]);
 
-            $pdo->commit();
-
-            $this->deleteFiles(array_filter(array_column($portfolioRecords, 'attachment_path')));
             if ($clientLogoPath) {
                 $this->deleteFiles([$clientLogoPath]);
             }
 
-            return [
-                'success' => true,
-                'projects' => $projectCount,
-                'portfolios' => $portfolioCount,
-            ];
+            return ['success' => true];
         } catch (\PDOException $e) {
-            $pdo->rollBack();
-
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
                 'error_code' => $e->getCode(),
             ];
-        } catch (\Throwable $e) {
-            $pdo->rollBack();
-            throw $e;
         }
+    }
+
+    public function inactivate(int $id): bool
+    {
+        return $this->db->execute('UPDATE clients SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
     }
 
     private function isPrivileged(array $user): bool
