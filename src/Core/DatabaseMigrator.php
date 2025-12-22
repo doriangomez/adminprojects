@@ -13,6 +13,20 @@ class DatabaseMigrator
         $this->ensurePmIntegrity('clients', 'status_code');
     }
 
+    public function ensureClientSchema(): void
+    {
+        if (!$this->db->tableExists('clients')) {
+            return;
+        }
+
+        try {
+            $this->addClientPriorityColumn();
+            $this->addClientHealthColumn();
+        } catch (\PDOException $e) {
+            error_log('Error ejecutando migración de clients.priority/health: ' . $e->getMessage());
+        }
+    }
+
     public function ensureProjectPmIntegrity(): void
     {
         $this->ensurePmIntegrity('projects', 'client_id');
@@ -28,6 +42,26 @@ class DatabaseMigrator
         } catch (\PDOException $e) {
             error_log("Error ejecutando migración de {$table}.pm_id: " . $e->getMessage());
         }
+    }
+
+    private function addClientPriorityColumn(): void
+    {
+        if ($this->db->columnExists('clients', 'priority')) {
+            return;
+        }
+
+        $this->db->execute("ALTER TABLE clients ADD COLUMN priority VARCHAR(20) NOT NULL DEFAULT '' AFTER category_code");
+        $this->db->clearColumnCache();
+    }
+
+    private function addClientHealthColumn(): void
+    {
+        if ($this->db->columnExists('clients', 'health')) {
+            return;
+        }
+
+        $this->db->execute("ALTER TABLE clients ADD COLUMN health VARCHAR(20) NOT NULL DEFAULT '' AFTER priority");
+        $this->db->clearColumnCache();
     }
 
     private function addPmColumnIfMissing(string $table, string $afterColumn): void
