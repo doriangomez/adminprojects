@@ -13,8 +13,8 @@ class DashboardService
     public function executiveSummary(array $user): array
     {
         [$whereProjects, $params] = $this->visibilityForUser($user);
-        $hasStatusColumn = $this->db->columnExists('projects', 'status');
-        $hasHealthColumn = $this->db->columnExists('projects', 'health');
+        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
 
         $clients = $this->db->fetchOne(
             'SELECT COUNT(DISTINCT c.id) AS total FROM clients c JOIN projects p ON p.client_id = c.id ' . ($whereProjects ?: ''),
@@ -22,7 +22,7 @@ class DashboardService
         );
 
         $projectsCondition = $whereProjects ?: 'WHERE 1=1';
-        $activeStatusFilter = $hasStatusColumn ? " AND p.status NOT IN ('archived','cancelled')" : '';
+        $activeStatusFilter = $hasStatusColumn ? " AND p.status_code NOT IN ('archived','cancelled')" : '';
         $projects = $this->db->fetchOne(
             "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $projectsCondition$activeStatusFilter",
             $params
@@ -35,7 +35,7 @@ class DashboardService
 
         $atRisk = $hasHealthColumn
             ? $this->db->fetchOne(
-                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $projectsCondition AND p.health IN ('at_risk','critical','red','yellow')",
+                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $projectsCondition AND p.health_code IN ('at_risk','critical','red','yellow')",
                 $params
             )
             : ['total' => 0];

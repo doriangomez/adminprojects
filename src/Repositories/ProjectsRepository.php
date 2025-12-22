@@ -15,9 +15,9 @@ class ProjectsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        $hasStatusColumn = $this->db->columnExists('projects', 'status');
-        $hasHealthColumn = $this->db->columnExists('projects', 'health');
-        $hasPriorityColumn = $this->db->columnExists('projects', 'priority');
+        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -42,27 +42,27 @@ class ProjectsRepository
         ];
 
         if ($hasPriorityColumn) {
-            $select[] = 'p.priority';
+            $select[] = 'p.priority_code AS priority';
             $select[] = 'pr.label AS priority_label';
-            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
         } else {
             $select[] = 'NULL AS priority';
             $select[] = 'NULL AS priority_label';
         }
 
         if ($hasStatusColumn) {
-            $select[] = 'p.status';
+            $select[] = 'p.status_code AS status';
             $select[] = 'st.label AS status_label';
-            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
         } else {
             $select[] = "'' AS status";
             $select[] = 'NULL AS status_label';
         }
 
         if ($hasHealthColumn) {
-            $select[] = 'p.health';
+            $select[] = 'p.health_code AS health';
             $select[] = 'h.label AS health_label';
-            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
         } else {
             $select[] = 'NULL AS health';
             $select[] = 'NULL AS health_label';
@@ -83,7 +83,7 @@ class ProjectsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        $hasHealthColumn = $this->db->columnExists('projects', 'health');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -99,7 +99,7 @@ class ProjectsRepository
         );
         $atRisk = $hasHealthColumn
             ? $this->db->fetchOne(
-                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND p.health IN ('at_risk','critical','red','yellow')",
+                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND p.health_code IN ('at_risk','critical','red','yellow')",
                 $params
             )
             : ['total' => 0];
@@ -152,9 +152,9 @@ class ProjectsRepository
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
         $conditions[] = 'c.id = :clientId';
         $params[':clientId'] = $clientId;
-        $hasStatusColumn = $this->db->columnExists('projects', 'status');
-        $hasHealthColumn = $this->db->columnExists('projects', 'health');
-        $hasPriorityColumn = $this->db->columnExists('projects', 'priority');
+        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
 
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
@@ -175,27 +175,27 @@ class ProjectsRepository
         ];
 
         if ($hasPriorityColumn) {
-            $select[] = 'p.priority';
+            $select[] = 'p.priority_code AS priority';
             $select[] = 'pr.label AS priority_label';
-            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
         } else {
             $select[] = 'NULL AS priority';
             $select[] = 'NULL AS priority_label';
         }
 
         if ($hasStatusColumn) {
-            $select[] = 'p.status';
+            $select[] = 'p.status_code AS status';
             $select[] = 'st.label AS status_label';
-            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
         } else {
             $select[] = "'' AS status";
             $select[] = 'NULL AS status_label';
         }
 
         if ($hasHealthColumn) {
-            $select[] = 'p.health';
+            $select[] = 'p.health_code AS health';
             $select[] = 'h.label AS health_label';
-            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
         } else {
             $select[] = 'NULL AS health';
             $select[] = 'NULL AS health_label';
