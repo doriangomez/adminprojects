@@ -45,21 +45,19 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         body {
             margin: 0;
             display: flex;
-            background: radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--primary) 6%, transparent), transparent 35%),
-                        radial-gradient(circle at 82% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 30%),
-                        linear-gradient(135deg, color-mix(in srgb, var(--background) 80%, var(--surface) 20%), color-mix(in srgb, var(--surface) 68%, var(--background) 32%));
+            background: linear-gradient(160deg, color-mix(in srgb, var(--background) 92%, var(--surface) 8%), color-mix(in srgb, var(--surface) 94%, var(--background) 6%));
             color: var(--text);
         }
         .sidebar {
             width: 270px;
-            background: linear-gradient(180deg, color-mix(in srgb, var(--secondary) 90%, var(--primary) 10%), color-mix(in srgb, var(--secondary) 74%, var(--background) 26%));
-            color: color-mix(in srgb, white 90%, var(--secondary) 10%);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--secondary) 86%, var(--background) 14%), color-mix(in srgb, var(--secondary) 78%, var(--background) 22%));
+            color: color-mix(in srgb, white 82%, var(--secondary) 18%);
             min-height: 100vh;
             padding: 28px 20px;
             position: sticky;
             top: 0;
-            box-shadow: 10px 0 30px var(--glow);
-            backdrop-filter: blur(10px);
+            box-shadow: 12px 0 30px color-mix(in srgb, var(--secondary) 10%, transparent);
+            backdrop-filter: blur(12px);
         }
         .sidebar h1 {
             margin: 0 0 32px 0;
@@ -79,12 +77,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .sidebar nav {
             display:flex;
             flex-direction:column;
-            gap:6px;
+            gap:4px;
         }
         .sidebar a {
             display: flex;
             align-items:center;
-            color: color-mix(in srgb, white 82%, var(--secondary) 18%);
+            color: color-mix(in srgb, white 70%, var(--secondary) 30%);
             text-decoration: none;
             padding: 12px 14px;
             border-radius: 12px;
@@ -92,17 +90,21 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             letter-spacing: 0.01em;
             transition: all 0.18s ease;
             border: 1px solid transparent;
-            background: color-mix(in srgb, transparent, var(--surface-veil));
+            background: color-mix(in srgb, var(--secondary) 12%, transparent);
         }
-        .sidebar a:hover, .sidebar a.active {
-            background: color-mix(in srgb, var(--soft-accent) 30%, transparent);
-            color: white;
-            border-color: color-mix(in srgb, var(--accent) 40%, var(--primary) 60%);
-            transform: translateX(2px);
-            box-shadow: inset 0 1px 0 color-mix(in srgb, var(--panel) 20%, transparent);
+        .sidebar a:hover {
+            color: color-mix(in srgb, white 78%, var(--secondary) 22%);
+            background: color-mix(in srgb, var(--secondary) 16%, transparent);
+            border-color: color-mix(in srgb, var(--secondary) 16%, transparent);
+        }
+        .sidebar a.active {
+            color: color-mix(in srgb, white 88%, var(--secondary) 12%);
+            background: color-mix(in srgb, var(--primary) 16%, transparent);
+            border-color: color-mix(in srgb, var(--primary) 34%, transparent);
+            box-shadow: inset 3px 0 0 var(--primary);
         }
         .topbar {
-            background: color-mix(in srgb, var(--panel) 88%, transparent);
+            background: color-mix(in srgb, var(--panel) 82%, transparent);
             padding: 18px 24px;
             border-bottom: 1px solid var(--border);
             display: flex;
@@ -111,8 +113,8 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             position: sticky;
             top: 0;
             z-index: 10;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 8px 24px color-mix(in srgb, var(--secondary) 8%, transparent);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 12px 26px color-mix(in srgb, var(--secondary) 8%, transparent);
         }
         main {
             flex: 1;
@@ -123,6 +125,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             display: flex;
             flex-direction: column;
             gap: 18px;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--background) 86%, var(--surface) 14%), color-mix(in srgb, var(--surface) 90%, var(--background) 10%));
         }
         .page-heading h2 {
             margin:0;
@@ -140,15 +143,15 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             text-align:right;
             padding: 10px 14px;
             border-radius: 12px;
-            background: var(--soft-secondary);
-            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--secondary) 10%, transparent);
+            border: 1px solid color-mix(in srgb, var(--secondary) 18%, var(--border) 82%);
         }
         .card {
-            background: var(--panel);
-            border-radius: 16px;
-            padding: 18px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--panel) 95%, transparent);
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 16px 32px color-mix(in srgb, var(--secondary) 10%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border) 80%, var(--surface) 20%);
         }
         .card.ghosted {
             background: color-mix(in srgb, var(--panel) 70%, transparent);
@@ -163,7 +166,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .kpi {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
         .kpi .label {
             color: var(--muted);
@@ -173,7 +176,8 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         }
         .kpi .value {
             font-weight: 800;
-            font-size: 28px;
+            font-size: 32px;
+            letter-spacing: -0.01em;
         }
         .badge {
             display: inline-block;
@@ -181,21 +185,21 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             border-radius: 999px;
             font-size: 12px;
             font-weight: 700;
-            background: var(--soft-secondary);
+            background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
             color: var(--text);
             border: 1px solid var(--border);
         }
-        .badge.success { background: color-mix(in srgb, var(--positive) 16%, var(--panel) 84%); color: var(--positive); }
-        .badge.warning { background: color-mix(in srgb, var(--warning) 16%, var(--panel) 84%); color: var(--warning); }
-        .badge.danger { background: color-mix(in srgb, var(--danger) 16%, var(--panel) 84%); color: var(--danger); }
-        .badge.neutral { background: var(--soft-accent); color: color-mix(in srgb, var(--accent) 80%, var(--secondary) 20%); }
+        .badge.success { background: color-mix(in srgb, var(--positive) 12%, var(--panel) 88%); color: var(--positive); }
+        .badge.warning { background: color-mix(in srgb, var(--warning) 12%, var(--panel) 88%); color: var(--warning); }
+        .badge.danger { background: color-mix(in srgb, var(--danger) 14%, var(--panel) 86%); color: var(--danger); }
+        .badge.neutral { background: color-mix(in srgb, var(--accent) 16%, var(--panel) 84%); color: color-mix(in srgb, var(--accent) 78%, var(--secondary) 22%); }
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 12px;
-            background: var(--panel);
+            background: color-mix(in srgb, var(--panel) 96%, transparent);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 14px;
             overflow: hidden;
         }
         th, td {
@@ -204,13 +208,14 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             text-align: left;
         }
         th {
-            background: color-mix(in srgb, var(--soft-secondary) 65%, var(--panel) 35%);
+            background: color-mix(in srgb, var(--surface) 82%, var(--background) 18%);
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             color: var(--muted);
         }
         tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: color-mix(in srgb, var(--surface) 16%, transparent); }
         .toolbar {
             display: flex;
             justify-content: space-between;
@@ -225,31 +230,31 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             cursor: pointer;
             font-weight: 700;
             letter-spacing: 0.01em;
-            transition: transform 0.15s ease, box-shadow 0.2s ease;
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
         .btn.primary {
-            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--accent) 30%));
+            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--secondary) 28%));
             color: white;
-            box-shadow: 0 10px 30px var(--glow);
+            box-shadow: 0 10px 30px color-mix(in srgb, var(--primary) 18%, transparent);
         }
         .btn.secondary {
-            background: var(--panel);
+            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
             color: var(--text);
             border: 1px solid var(--border);
         }
         .btn.ghost {
             background: transparent;
-            color: color-mix(in srgb, var(--accent) 70%, var(--secondary) 30%);
+            color: var(--text);
             border: 1px dashed var(--border-strong);
         }
-        .btn:hover { transform: translateY(-1px); }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px color-mix(in srgb, var(--secondary) 12%, transparent); }
         form.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         input, select, textarea {
             padding: 10px 12px;
             border: 1px solid var(--border);
             border-radius: 10px;
             width: 100%;
-            background: color-mix(in srgb, var(--panel) 94%, transparent);
+            background: color-mix(in srgb, var(--surface) 92%, transparent);
             color: var(--text);
         }
         input[type="file"] {
@@ -260,9 +265,9 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         label { font-weight: 700; color: var(--text); display:block; margin-bottom:4px; }
         .hint { color: var(--muted); font-size: 13px; }
         .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .column { background: var(--soft-secondary); padding: 12px; border-radius: 12px; border: 1px solid var(--border); }
+        .column { background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); padding: 12px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 6px 14px color-mix(in srgb, var(--secondary) 10%, transparent); }
         .column h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .card-task { background: var(--panel); border-radius: 12px; padding: 12px; box-shadow: 0 1px 2px var(--glow); margin-bottom: 8px; border: 1px solid var(--border); }
+        .card-task { background: color-mix(in srgb, var(--panel) 96%, transparent); border-radius: 12px; padding: 12px; box-shadow: 0 8px 18px color-mix(in srgb, var(--secondary) 10%, transparent); margin-bottom: 8px; border: 1px solid var(--border); }
         .pill { border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700; background: var(--soft-secondary); color: var(--text); border: 1px solid var(--border); }
         .pill.high { background: color-mix(in srgb, var(--danger) 16%, var(--panel) 84%); color: var(--danger); }
         .pill.medium { background: color-mix(in srgb, var(--warning) 16%, var(--panel) 84%); color: var(--warning); }
