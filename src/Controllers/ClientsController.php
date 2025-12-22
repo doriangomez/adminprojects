@@ -139,23 +139,23 @@ class ClientsController extends Controller
         $catalogs = $this->catalogData();
         $sectorCode = $this->validatedCatalogValue($_POST['sector_code'] ?? '', $catalogs['sectors'], 'sector');
         $categoryCode = $this->validatedCatalogValue($_POST['category_code'] ?? '', $catalogs['categories'], 'categoría');
-        $priority = $this->validatedCatalogValue($_POST['priority'] ?? '', $catalogs['priorities'], 'prioridad');
+        $priorityCode = $this->validatedCatalogValue($_POST['priority_code'] ?? '', $catalogs['priorities'], 'prioridad');
         $statusCode = $this->validatedCatalogValue($_POST['status_code'] ?? '', $catalogs['statuses'], 'estado');
-        $riskCode = $this->validatedCatalogValue($_POST['risk_level'] ?? '', $catalogs['risks'], 'riesgo', false);
-        $areaCode = $this->validatedCatalogValue($_POST['area'] ?? '', $catalogs['areas'], 'área', false);
+        $riskCode = $this->validatedCatalogValue($_POST['risk_code'] ?? '', $catalogs['risks'], 'riesgo', false);
+        $areaCode = $this->validatedCatalogValue($_POST['area_code'] ?? '', $catalogs['areas'], 'área', false);
 
         return [
             'name' => trim($_POST['name'] ?? ''),
             'sector_code' => $sectorCode,
             'category_code' => $categoryCode,
-            'priority' => $priority,
+            'priority_code' => $priorityCode,
             'status_code' => $statusCode,
             'pm_id' => $this->validatedPmId(),
             'satisfaction' => ($_POST['satisfaction'] ?? '') !== '' ? (int) $_POST['satisfaction'] : null,
             'nps' => ($_POST['nps'] ?? '') !== '' ? (int) $_POST['nps'] : null,
-            'risk_level' => $riskCode,
+            'risk_code' => $riskCode,
             'tags' => trim($_POST['tags'] ?? ''),
-            'area' => $areaCode,
+            'area_code' => $areaCode,
             'feedback_notes' => trim($_POST['feedback_notes'] ?? ''),
             'feedback_history' => trim($_POST['feedback_history'] ?? ''),
             'operational_context' => trim($_POST['operational_context'] ?? ''),

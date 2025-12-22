@@ -8,6 +8,22 @@ class DatabaseMigrator
     {
     }
 
+    public function normalizeClientsSchema(): void
+    {
+        if (!$this->db->tableExists('clients')) {
+            return;
+        }
+
+        try {
+            $this->ensureClientPriorityCode();
+            $this->ensureClientStatusCode();
+            $this->ensureClientRiskCode();
+            $this->ensureClientAreaCode();
+        } catch (\PDOException $e) {
+            error_log('Error normalizando tabla clients: ' . $e->getMessage());
+        }
+    }
+
     public function ensureClientPmIntegrity(): void
     {
         $this->ensurePmIntegrity('clients', 'status_code');
