@@ -4,15 +4,16 @@
         <h3 style="margin:8px 0 0 0;">Detalle del cliente</h3>
         <p style="margin:4px 0 0 0; color: var(--muted);">Gobierno y contexto de la relación. La información contractual permanece en los proyectos.</p>
     </div>
-    <?php if($canManage): ?>
-        <div style="display:flex; gap:8px; align-items:center;">
+    <div style="display:flex; gap:8px; align-items:center;">
+        <?php if($canManage): ?>
             <a class="btn secondary" href="/project/public/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
-            <form class="inline" method="POST" action="/project/public/clients/delete" onsubmit="return confirm('Eliminar cliente?');">
-                <input type="hidden" name="id" value="<?= (int) $client['id'] ?>">
-                <button type="submit" class="btn ghost">Eliminar</button>
-            </form>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+        <?php if($canDelete): ?>
+            <button type="button" class="btn ghost" style="color:#b91c1c; border-color: #fecaca; background: #fef2f2;" data-open-delete>
+                Eliminar cliente
+            </button>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div class="section-grid twothirds">
@@ -152,3 +153,61 @@
         </tbody>
     </table>
 </div>
+
+<?php if($canDelete): ?>
+    <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.45); align-items:center; justify-content:center; padding:16px;">
+        <div class="card" style="max-width:520px; width:100%; border:1px solid #fecaca; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
+            <div class="toolbar">
+                <div>
+                    <p class="badge danger" style="margin:0;">Acción crítica</p>
+                    <h4 style="margin:4px 0 0 0;">Eliminar cliente</h4>
+                    <p style="margin:4px 0 0 0; color:var(--muted);">Esta acción es irreversible y eliminará proyectos, portafolios y registros asociados.</p>
+                </div>
+                <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--muted);">✕</button>
+            </div>
+            <form method="POST" action="/project/public/clients/delete" class="grid" style="gap:12px;">
+                <input type="hidden" name="id" value="<?= (int) $client['id'] ?>">
+                <div>
+                    <p style="margin:0 0 4px 0; color:var(--text); font-weight:600;">Confirmación obligatoria</p>
+                    <p style="margin:0 0 8px 0; color:var(--muted);">Escriba <strong><?= htmlspecialchars($client['name']) ?></strong> para confirmar la eliminación.</p>
+                    <input type="text" name="confirmation_name" id="confirmation_name" data-expected="<?= htmlspecialchars($client['name']) ?>" placeholder="<?= htmlspecialchars($client['name']) ?>" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" class="btn ghost" data-close-delete>Cancelar</button>
+                    <button type="submit" class="btn ghost" id="confirm-delete-btn" style="color:#b91c1c; border-color:#fecaca; background:#fef2f2;" disabled>Eliminar permanentemente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const modal = document.getElementById('delete-modal');
+            const openBtn = document.querySelector('[data-open-delete]');
+            const closeButtons = document.querySelectorAll('[data-close-delete]');
+            const confirmationInput = document.getElementById('confirmation_name');
+            const confirmButton = document.getElementById('confirm-delete-btn');
+            const expected = confirmationInput ? confirmationInput.getAttribute('data-expected') : '';
+
+            const syncState = () => {
+                if (!confirmationInput || !confirmButton) return;
+                confirmButton.disabled = confirmationInput.value.trim() !== expected;
+            };
+
+            openBtn?.addEventListener('click', () => {
+                if (!modal) return;
+                modal.style.display = 'flex';
+                confirmationInput?.focus();
+                syncState();
+            });
+
+            closeButtons.forEach((btn) => btn.addEventListener('click', () => {
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }));
+
+            confirmationInput?.addEventListener('input', syncState);
+        })();
+    </script>
+<?php endif; ?>

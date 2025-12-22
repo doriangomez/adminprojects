@@ -9,6 +9,7 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
+        $canDelete = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
 
@@ -16,6 +17,7 @@ class ClientsController extends Controller
             'title' => 'Clientes',
             'clients' => $repo->listForUser($user),
             'canManage' => $canManage,
+            'canDelete' => $canDelete,
         ]);
     }
 
@@ -34,6 +36,7 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
+        $canDelete = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
         $client = $repo->findForUser($id, $user);
@@ -49,6 +52,7 @@ class ClientsController extends Controller
             'projects' => $repo->projectsForClient($id, $user),
             'snapshot' => $repo->projectSnapshot($id, $user),
             'canManage' => $canManage,
+            'canDelete' => $canDelete,
         ]);
     }
 
@@ -121,12 +125,42 @@ class ClientsController extends Controller
     public function destroy(): void
     {
         $this->requirePermission('clients.manage');
+
+        if (!$this->isAdmin()) {
+            http_response_code(403);
+            exit('Solo administradores pueden eliminar clientes.');
+        }
+
         $repo = new ClientsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $clientId = (int) ($_POST['id'] ?? 0);
+        $confirmation = trim((string) ($_POST['confirmation_name'] ?? ''));
+        $client = $repo->find($clientId);
+
+        if ($clientId <= 0 || !$client) {
+            http_response_code(404);
+            exit('Cliente no encontrado');
+        }
+
+        if ($client['name'] !== $confirmation) {
+            http_response_code(400);
+            exit('La confirmación no coincide con el nombre del cliente.');
+        }
 
         try {
-            $repo->delete((int) $_POST['id']);
+            $summary = $repo->deleteWithCascade($clientId, $client['logo_path'] ?? null);
+            error_log(sprintf(
+                '[audit] Usuario %s (ID: %d) eliminó cliente "%s" (ID: %d) con %d portafolios y %d proyectos a las %s',
+                $user['name'] ?? 'desconocido',
+                (int) ($user['id'] ?? 0),
+                $client['name'],
+                $clientId,
+                (int) $summary['portfolios'],
+                (int) $summary['projects'],
+                date('c')
+            ));
             header('Location: /project/public/clients');
-        } catch (\PDOException $e) {
+        } catch (\Throwable $e) {
             error_log('Error al eliminar cliente: ' . $e->getMessage());
             http_response_code(500);
             exit('No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.');
@@ -265,5 +299,10 @@ class ClientsController extends Controller
         }
 
         return $trimmed;
+    }
+
+    private function isAdmin(): bool
+    {
+        return ($this->auth->user()['role'] ?? '') === 'Administrador';
     }
 }

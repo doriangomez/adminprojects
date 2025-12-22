@@ -216,13 +216,119 @@ class ClientsRepository
         );
     }
 
-    public function delete(int $id): void
+    public function find(int $id): ?array
     {
-        $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $id]);
+        $client = $this->db->fetchOne('SELECT * FROM clients WHERE id = :id', [':id' => $id]);
+
+        return $client ?: null;
+    }
+
+    public function deleteWithCascade(int $id, ?string $clientLogoPath = null): array
+    {
+        $pdo = $this->db->connection();
+        $pdo->beginTransaction();
+
+        try {
+            $portfolioRecords = $this->db->tableExists('client_portfolios')
+                ? $this->db->fetchAll('SELECT id, attachment_path FROM client_portfolios WHERE client_id = :id', [':id' => $id])
+                : [];
+            $portfolioCount = count($portfolioRecords);
+
+            $projectRecords = $this->db->tableExists('projects')
+                ? $this->db->fetchAll('SELECT id FROM projects WHERE client_id = :id', [':id' => $id])
+                : [];
+            $projectIds = array_map(fn ($row) => (int) $row['id'], $projectRecords);
+            $projectCount = count($projectIds);
+
+            if ($projectIds) {
+                $placeholders = $this->placeholders($projectIds);
+
+                if ($this->db->tableExists('timesheets') && $this->db->tableExists('tasks')) {
+                    $this->db->execute(
+                        "DELETE ts FROM timesheets ts JOIN tasks t ON t.id = ts.task_id WHERE t.project_id IN ($placeholders)",
+                        $projectIds
+                    );
+                }
+
+                if ($this->db->tableExists('project_talent_assignments')) {
+                    $this->db->execute(
+                        "DELETE FROM project_talent_assignments WHERE project_id IN ($placeholders)",
+                        $projectIds
+                    );
+                }
+
+                if ($this->db->tableExists('tasks')) {
+                    $this->db->execute(
+                        "DELETE FROM tasks WHERE project_id IN ($placeholders)",
+                        $projectIds
+                    );
+                }
+
+                $this->db->execute(
+                    "DELETE FROM projects WHERE id IN ($placeholders)",
+                    $projectIds
+                );
+            }
+
+            if ($this->db->tableExists('client_portfolios')) {
+                $this->db->execute('DELETE FROM client_portfolios WHERE client_id = :id', [':id' => $id]);
+            }
+
+            $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $id]);
+
+            $pdo->commit();
+
+            $this->deleteFiles(array_filter(array_column($portfolioRecords, 'attachment_path')));
+            if ($clientLogoPath) {
+                $this->deleteFiles([$clientLogoPath]);
+            }
+
+            return [
+                'projects' => $projectCount,
+                'portfolios' => $portfolioCount,
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
 
     private function isPrivileged(array $user): bool
     {
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
+    }
+
+    private function placeholders(array $items): string
+    {
+        return implode(', ', array_fill(0, count($items), '?'));
+    }
+
+    private function deleteFiles(array $paths): void
+    {
+        foreach ($paths as $path) {
+            $fullPath = $this->normalizePath($path);
+            if ($fullPath && file_exists($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
+    }
+
+    private function normalizePath(string $path): ?string
+    {
+        $trimmed = trim($path);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (str_starts_with($trimmed, '/project/public/')) {
+            $relative = substr($trimmed, strlen('/project/public/'));
+            return __DIR__ . '/../../public/' . ltrim($relative, '/');
+        }
+
+        if (str_starts_with($trimmed, '/uploads/')) {
+            return __DIR__ . '/../../public/' . ltrim($trimmed, '/');
+        }
+
+        return null;
     }
 }
