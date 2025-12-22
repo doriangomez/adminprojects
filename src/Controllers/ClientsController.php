@@ -19,7 +19,7 @@ class ClientsController extends Controller
         $this->requirePermission('clients.manage');
         $repo = new ClientsRepository($this->db);
         $repo->create($_POST);
-        header('Location: /clients');
+        header('Location: /project/public/clients');
     }
 
     public function update(): void
@@ -27,7 +27,7 @@ class ClientsController extends Controller
         $this->requirePermission('clients.manage');
         $repo = new ClientsRepository($this->db);
         $repo->update((int) $_POST['id'], $_POST);
-        header('Location: /clients');
+        header('Location: /project/public/clients');
     }
 
     public function destroy(): void
@@ -35,6 +35,6 @@ class ClientsController extends Controller
         $this->requirePermission('clients.manage');
         $repo = new ClientsRepository($this->db);
         $repo->delete((int) $_POST['id']);
-        header('Location: /clients');
+        header('Location: /project/public/clients');
     }
 }

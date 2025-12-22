@@ -38,7 +38,7 @@ class App
         }
 
         if (!$this->auth->check()) {
-            header('Location: /login');
+            header('Location: /project/public/login');
             return;
         }
 
