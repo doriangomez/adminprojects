@@ -36,10 +36,14 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
-        $canDelete = $this->isAdmin();
+        $isAdmin = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
         $client = $repo->findForUser($id, $user);
+        $dependencies = $repo->dependencySummary($id);
+        $hasDependencies = $dependencies['has_dependencies'] ?? false;
+        $canDelete = $isAdmin && !$hasDependencies;
+        $canInactivate = $isAdmin && $hasDependencies;
 
         if (!$client) {
             http_response_code(404);
@@ -53,6 +57,8 @@ class ClientsController extends Controller
             'snapshot' => $repo->projectSnapshot($id, $user),
             'canManage' => $canManage,
             'canDelete' => $canDelete,
+            'canInactivate' => $canInactivate,
+            'dependencies' => $dependencies,
         ]);
     }
 
@@ -134,6 +140,7 @@ class ClientsController extends Controller
         $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
         $mathResult = trim((string) ($_POST['math_result'] ?? ''));
         $client = $repo->find($clientId);
+        $dependencies = $repo->dependencySummary($clientId);
 
         if ($clientId <= 0 || !$client) {
             http_response_code(404);
@@ -157,12 +164,22 @@ class ClientsController extends Controller
                 http_response_code(403);
                 $this->json([
                     'success' => false,
-                    'message' => 'Solo un administrador puede eliminar clientes.',
+                    'message' => 'Acción no permitida por permisos',
                 ], 403);
                 return;
             }
 
-            $result = $repo->deleteWithCascade($clientId, $client['logo_path'] ?? null);
+            if ($dependencies['has_dependencies'] ?? false) {
+                $this->json([
+                    'success' => false,
+                    'can_inactivate' => true,
+                    'message' => 'El cliente tiene dependencias activas. Puede ser inactivado.',
+                    'dependencies' => $dependencies,
+                ], 409);
+                return;
+            }
+
+            $result = $repo->deleteWithoutDependencies($clientId, $client['logo_path'] ?? null);
 
             if (($result['success'] ?? false) === true) {
                 error_log(sprintf(
@@ -171,22 +188,22 @@ class ClientsController extends Controller
                     (int) ($user['id'] ?? 0),
                     $client['name'],
                     $clientId,
-                    (int) ($result['portfolios'] ?? 0),
-                    (int) ($result['projects'] ?? 0),
+                    (int) ($dependencies['portfolios'] ?? 0),
+                    (int) ($dependencies['projects'] ?? 0),
                     date('c')
                 ));
 
                 $this->json([
                     'success' => true,
-                    'message' => 'Cliente eliminado correctamente junto con su información asociada.',
+                    'message' => 'Eliminado correctamente',
                 ]);
                 return;
             }
 
             $errorCode = (string) ($result['error_code'] ?? '');
             $status = $errorCode === '23000' ? 409 : 500;
-            $message = $errorCode === '23000'
-                ? 'No se pudo eliminar el cliente por dependencias activas.'
+            $message = $errorCode === 'DEPENDENCIES'
+                ? 'El cliente tiene dependencias activas. Puede ser inactivado.'
                 : 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
 
             error_log('Error al eliminar cliente: ' . ($result['error'] ?? 'operación desconocida'));
@@ -199,6 +216,68 @@ class ClientsController extends Controller
             error_log('Error al eliminar cliente: ' . $e->getMessage());
             http_response_code(500);
             exit('No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.');
+        }
+    }
+
+    public function inactivate(int $id): void
+    {
+        $this->requirePermission('clients.manage');
+
+        $repo = new ClientsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $clientId = $id;
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+        $client = $repo->find($clientId);
+
+        if ($clientId <= 0 || !$client) {
+            http_response_code(404);
+            exit('Cliente no encontrado');
+        }
+
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
+            http_response_code(400);
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
+        }
+
+        if (!$this->isAdmin()) {
+            http_response_code(403);
+            $this->json([
+                'success' => false,
+                'message' => 'Acción no permitida por permisos',
+            ], 403);
+            return;
+        }
+
+        try {
+            $repo->inactivate($clientId);
+
+            error_log(sprintf(
+                '[audit] Usuario %s (ID: %d) inactivó cliente "%s" (ID: %d) a las %s',
+                $user['name'] ?? 'desconocido',
+                (int) ($user['id'] ?? 0),
+                $client['name'],
+                $clientId,
+                date('c')
+            ));
+
+            $this->json([
+                'success' => true,
+                'message' => 'Cliente inactivado correctamente',
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Error al inactivar cliente: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo inactivar el cliente. Intenta nuevamente o contacta al administrador.');
         }
     }
 
