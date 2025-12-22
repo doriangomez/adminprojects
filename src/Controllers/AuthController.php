@@ -7,7 +7,7 @@ class AuthController extends Controller
     public function showLogin(): void
     {
         if ($this->auth->check()) {
-            header('Location: /dashboard');
+            header('Location: /project/public/dashboard');
             return;
         }
         include __DIR__ . '/../Views/auth/login.php';
@@ -22,12 +22,12 @@ class AuthController extends Controller
             include __DIR__ . '/../Views/auth/login.php';
             return;
         }
-        header('Location: /dashboard');
+        header('Location: /project/public/dashboard');
     }
 
     public function logout(): void
     {
         $this->auth->logout();
-        header('Location: /login');
+        header('Location: /project/public/login');
     }
 }

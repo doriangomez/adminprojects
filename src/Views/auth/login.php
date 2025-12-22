@@ -23,7 +23,7 @@
         <?php if(isset($error)): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
-        <form method="POST" action="/login">
+        <form method="POST" action="/project/public/login">
             <label for="email">Correo</label>
             <input type="email" name="email" id="email" required>
             <label for="password">Contraseña</label>

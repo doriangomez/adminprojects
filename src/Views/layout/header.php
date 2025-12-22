@@ -1,6 +1,11 @@
 <?php
 $config = require __DIR__ . '/../../config.php';
 $appName = $config['app']['name'];
+$basePath = '/project/public';
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$normalizedPath = str_starts_with($requestPath, $basePath)
+    ? (substr($requestPath, strlen($basePath)) ?: '/')
+    : $requestPath;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -59,13 +64,13 @@ $appName = $config['app']['name'];
     <aside class="sidebar">
         <h1><?= htmlspecialchars($appName) ?></h1>
         <nav>
-            <a href="/dashboard" class="<?= ($_SERVER['REQUEST_URI'] === '/dashboard' || $_SERVER['REQUEST_URI'] === '/') ? 'active' : '' ?>">Dashboard</a>
-            <a href="/clients" class="<?= str_starts_with($_SERVER['REQUEST_URI'], '/clients') ? 'active' : '' ?>">Clientes</a>
-            <a href="/projects" class="<?= str_starts_with($_SERVER['REQUEST_URI'], '/projects') ? 'active' : '' ?>">Proyectos</a>
-            <a href="/tasks" class="<?= str_starts_with($_SERVER['REQUEST_URI'], '/tasks') ? 'active' : '' ?>">Tareas / Kanban</a>
-            <a href="/talents" class="<?= str_starts_with($_SERVER['REQUEST_URI'], '/talents') ? 'active' : '' ?>">Talento</a>
-            <a href="/timesheets" class="<?= str_starts_with($_SERVER['REQUEST_URI'], '/timesheets') ? 'active' : '' ?>">Timesheet</a>
-            <a href="/logout">Salir</a>
+            <a href="<?= $basePath ?>/dashboard" class="<?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>">Dashboard</a>
+            <a href="<?= $basePath ?>/clients" class="<?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>">Clientes</a>
+            <a href="<?= $basePath ?>/projects" class="<?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>">Proyectos</a>
+            <a href="<?= $basePath ?>/tasks" class="<?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>">Tareas / Kanban</a>
+            <a href="<?= $basePath ?>/talents" class="<?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">Talento</a>
+            <a href="<?= $basePath ?>/timesheets" class="<?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">Timesheet</a>
+            <a href="<?= $basePath ?>/logout">Salir</a>
         </nav>
     </aside>
     <main>

@@ -1,6 +1,6 @@
 <div class="toolbar">
     <h3 style="margin:0;">Clientes</h3>
-    <form class="inline" method="POST" action="/clients/create">
+    <form class="inline" method="POST" action="/project/public/clients/create">
         <input type="text" name="name" placeholder="Nombre" required>
         <input type="text" name="industry" placeholder="Sector" required>
         <select name="priority">
@@ -34,7 +34,7 @@
                     <td><?= $client['satisfaction'] ?? '-' ?></td>
                     <td><?= $client['nps'] ?? '-' ?></td>
                     <td>
-                        <form class="inline" method="POST" action="/clients/delete" onsubmit="return confirm('Eliminar cliente?');">
+                        <form class="inline" method="POST" action="/project/public/clients/delete" onsubmit="return confirm('Eliminar cliente?');">
                             <input type="hidden" name="id" value="<?= $client['id'] ?>">
                             <button type="submit" class="btn secondary">Eliminar</button>
                         </form>
