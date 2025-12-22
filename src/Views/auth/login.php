@@ -12,21 +12,22 @@ $theme = $branding['theme'] ?? [];
             --primary: <?= htmlspecialchars($theme['primary']) ?>;
             --secondary: <?= htmlspecialchars($theme['secondary']) ?>;
             --accent: <?= htmlspecialchars($theme['accent'] ?? $theme['primary']) ?>;
-            --background: <?= htmlspecialchars($theme['background']) ?>;
-            --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
-            --surface-muted: color-mix(in srgb, var(--surface) 90%, white 10%);
+            --background: <?= htmlspecialchars($theme['background'] ?? '#f5f7fb') ?>;
+            --surface: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
+            --surface-muted: color-mix(in srgb, var(--surface) 92%, white 8%);
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
-            --text-strong: color-mix(in srgb, var(--secondary) 80%, var(--background) 20%);
-            --text: color-mix(in srgb, var(--secondary) 65%, var(--background) 35%);
-            --muted: color-mix(in srgb, var(--secondary) 45%, var(--background) 55%);
-            --border: color-mix(in srgb, var(--surface) 55%, var(--background) 45%);
-            --shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
+            --text-strong: color-mix(in srgb, #1f2937 88%, var(--secondary) 12%);
+            --text: color-mix(in srgb, #374151 82%, var(--secondary) 18%);
+            --muted: color-mix(in srgb, #6b7280 82%, var(--secondary) 18%);
+            --border: color-mix(in srgb, #e5e7eb 70%, var(--primary) 30%);
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+            --page-gradient: linear-gradient(135deg, #f5f7fb 0%, #e9edf5 100%);
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
-            background: var(--background);
+            background: var(--page-gradient);
             font-family: var(--font-family);
             color: var(--text);
             display: flex;
@@ -39,9 +40,10 @@ $theme = $branding['theme'] ?? [];
         }
         .branding {
             padding: 64px 72px;
-            background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 18%, var(--secondary) 82%), var(--secondary)),
-                        linear-gradient(135deg, color-mix(in srgb, var(--secondary) 92%, black 8%), var(--background));
-            color: #e6ecff;
+            background:
+                radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--primary) 18%, #f7f9fc 82%), #e6ebf2),
+                linear-gradient(135deg, color-mix(in srgb, var(--background) 85%, white 15%), #f5f7fb);
+            color: #1f2937;
             position: relative;
             display: flex;
             flex-direction: column;
@@ -53,7 +55,7 @@ $theme = $branding['theme'] ?? [];
             content: "";
             position: absolute;
             inset: 32px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(31, 41, 55, 0.06);
             border-radius: 28px;
             pointer-events: none;
         }
@@ -61,7 +63,7 @@ $theme = $branding['theme'] ?? [];
         .logo {
             height: 56px;
             margin-bottom: 12px;
-            filter: drop-shadow(0 6px 18px rgba(0,0,0,0.35));
+            filter: drop-shadow(0 8px 20px rgba(148, 163, 184, 0.25));
         }
         .claim {
             font-size: 32px;
@@ -69,10 +71,11 @@ $theme = $branding['theme'] ?? [];
             font-weight: 700;
             letter-spacing: -0.02em;
             margin: 0 0 10px 0;
+            color: #1f2937;
         }
         .subtitle {
             font-size: 16px;
-            color: rgba(230, 236, 255, 0.78);
+            color: #4b5563;
             margin: 0 0 20px 0;
             max-width: 440px;
         }
@@ -83,8 +86,8 @@ $theme = $branding['theme'] ?? [];
             gap: 12px;
             align-items: center;
             padding: 12px 14px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(148, 163, 184, 0.25);
             border-radius: 14px;
             backdrop-filter: blur(4px);
         }
@@ -94,14 +97,14 @@ $theme = $branding['theme'] ?? [];
             border-radius: 12px;
             display: grid;
             place-items: center;
-            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 55%, white 45%), color-mix(in srgb, var(--accent) 45%, var(--primary) 55%));
+            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 32%, #e0e7ff 68%), color-mix(in srgb, var(--accent) 28%, #cffafe 72%));
             color: #0f172a;
             font-weight: 800;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14);
         }
-        .bullet-text { margin: 0; color: #f8fbff; font-weight: 600; letter-spacing: -0.01em; }
+        .bullet-text { margin: 0; color: #1f2937; font-weight: 600; letter-spacing: -0.01em; }
 
-        .auth { display: grid; place-items: center; padding: 48px; background: color-mix(in srgb, var(--surface-muted) 60%, var(--background) 40%); }
+        .auth { display: grid; place-items: center; padding: 48px; background: color-mix(in srgb, #ffffff 70%, var(--background) 30%); }
         .card {
             width: min(520px, 100%);
             background: var(--surface);
@@ -153,9 +156,14 @@ $theme = $branding['theme'] ?? [];
             cursor: pointer;
             letter-spacing: 0.01em;
             box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
         }
-        button:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(37, 99, 235, 0.28); }
+        button:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 72%, #0f172a 28%), color-mix(in srgb, var(--accent) 68%, var(--primary) 32%));
+            border-color: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%);
+            box-shadow: 0 14px 32px rgba(37, 99, 235, 0.32);
+        }
         button:active { transform: translateY(0); }
         .link { text-align: center; }
         .link a { color: color-mix(in srgb, var(--primary) 80%, var(--accent) 20%); text-decoration: none; font-weight: 600; font-size: 14px; }
