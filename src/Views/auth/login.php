@@ -26,36 +26,36 @@ $theme = $config['theme'];
         }
         body {
             font-family: var(--font-family);
-            background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 40%),
-                        radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 35%),
-                        linear-gradient(135deg, color-mix(in srgb, var(--background) 70%, var(--surface) 30%), color-mix(in srgb, var(--surface) 60%, var(--secondary) 40%));
+            background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent 42%),
+                        radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 40%),
+                        linear-gradient(135deg, color-mix(in srgb, var(--background) 40%, var(--surface) 60%), color-mix(in srgb, var(--surface) 54%, var(--secondary) 46%));
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin:0;
-            color: color-mix(in srgb, white 90%, var(--secondary) 10%);
-            padding: 18px;
+            color: color-mix(in srgb, white 88%, var(--secondary) 12%);
+            padding: 22px;
         }
         .panel {
-            background: color-mix(in srgb, var(--panel) 40%, transparent);
-            padding: 32px;
-            border-radius: 20px;
-            width: min(460px, 100%);
-            box-shadow: 0 26px 60px var(--glow);
-            backdrop-filter: blur(16px);
-            border: 1px solid color-mix(in srgb, var(--panel) 30%, transparent);
+            background: color-mix(in srgb, var(--panel) 18%, rgba(0,0,0,0.6));
+            padding: 36px;
+            border-radius: 18px;
+            width: min(480px, 100%);
+            box-shadow: 0 30px 70px color-mix(in srgb, var(--secondary) 22%, transparent);
+            backdrop-filter: blur(14px);
+            border: 1px solid color-mix(in srgb, var(--panel) 28%, transparent);
         }
-        h1 { margin: 0 0 8px 0; color: white; font-size: 28px; letter-spacing: 0.02em; }
-        p { margin: 0 0 16px 0; color: color-mix(in srgb, white 82%, transparent); }
-        label { display:block; margin-bottom: 6px; font-weight: 700; color: white; }
-        input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--panel) 40%, transparent); margin-bottom: 12px; background: color-mix(in srgb, var(--panel) 22%, transparent); color: white; }
+        h1 { margin: 0 0 8px 0; color: white; font-size: 28px; letter-spacing: 0.03em; }
+        p { margin: 0 0 18px 0; color: color-mix(in srgb, white 78%, transparent); }
+        label { display:block; margin-bottom: 6px; font-weight: 700; color: white; letter-spacing: 0.01em; }
+        input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--panel) 36%, transparent); margin-bottom: 14px; background: color-mix(in srgb, var(--panel) 28%, rgba(255,255,255,0.02)); color: white; }
         input::placeholder { color: color-mix(in srgb, white 70%, transparent); }
-        button { width: 100%; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--accent) 30%)); color: white; border: none; font-weight:700; cursor: pointer; box-shadow: 0 10px 30px var(--glow); }
-        .error { background: color-mix(in srgb, var(--positive) 16%, var(--panel) 84%); color: var(--positive); padding: 10px; border-radius: 10px; margin-bottom: 12px; border:1px solid color-mix(in srgb, var(--positive) 40%, transparent); }
-        .hero { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-        .hero img { height: 48px; background: var(--panel); padding: 10px; border-radius: 14px; box-shadow: 0 12px 30px var(--glow); }
-        .pill { display:inline-block; padding:6px 10px; border-radius:999px; background: color-mix(in srgb, white 16%, transparent); color:white; font-size:12px; margin-right:6px; border:1px solid color-mix(in srgb, var(--panel) 40%, transparent); }
+        button { width: 100%; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 82%, var(--secondary) 18%); color: white; border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); font-weight:700; cursor: pointer; box-shadow: 0 12px 34px color-mix(in srgb, var(--primary) 20%, transparent); }
+        .error { background: color-mix(in srgb, var(--positive) 12%, rgba(255,255,255,0.04)); color: var(--positive); padding: 10px; border-radius: 10px; margin-bottom: 12px; border:1px solid color-mix(in srgb, var(--positive) 30%, transparent); }
+        .hero { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+        .hero img { height: 48px; background: color-mix(in srgb, var(--panel) 30%, transparent); padding: 10px; border-radius: 14px; box-shadow: 0 12px 30px color-mix(in srgb, var(--secondary) 20%, transparent); }
+        .pill { display:inline-block; padding:6px 10px; border-radius:999px; background: color-mix(in srgb, white 10%, transparent); color:white; font-size:12px; margin-right:6px; border:1px solid color-mix(in srgb, var(--panel) 32%, transparent); }
     </style>
 </head>
 <body>

@@ -22,21 +22,20 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             --background: <?= htmlspecialchars($theme['background']) ?>;
             --surface: <?= htmlspecialchars($theme['surface'] ?? $theme['background']) ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif") ?>;
-            --text: color-mix(in srgb, var(--secondary) 78%, var(--background) 22%);
-            --muted: color-mix(in srgb, var(--text) 65%, var(--background) 35%);
-            --panel: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
-            --panel-strong: color-mix(in srgb, var(--surface) 72%, var(--background) 28%);
-            --border: color-mix(in srgb, var(--surface) 60%, var(--background) 40%);
-            --border-strong: color-mix(in srgb, var(--secondary) 22%, var(--border) 78%);
-            --glow: color-mix(in srgb, var(--primary) 18%, transparent);
-            --shadow: 0 18px 42px var(--glow);
-            --soft-primary: color-mix(in srgb, var(--primary) 18%, var(--panel) 82%);
-            --soft-secondary: color-mix(in srgb, var(--secondary) 14%, var(--panel) 86%);
-            --soft-accent: color-mix(in srgb, var(--accent) 18%, var(--panel) 82%);
+            --text: color-mix(in srgb, var(--secondary) 74%, var(--background) 26%);
+            --muted: color-mix(in srgb, var(--text) 62%, var(--background) 38%);
+            --panel: color-mix(in srgb, var(--surface) 86%, var(--background) 14%);
+            --panel-strong: color-mix(in srgb, var(--surface) 70%, var(--background) 30%);
+            --border: color-mix(in srgb, var(--surface) 58%, var(--background) 42%);
+            --border-strong: color-mix(in srgb, var(--secondary) 18%, var(--border) 82%);
+            --shadow: 0 18px 46px color-mix(in srgb, var(--secondary) 12%, transparent);
+            --soft-primary: color-mix(in srgb, var(--primary) 16%, var(--panel) 84%);
+            --soft-secondary: color-mix(in srgb, var(--secondary) 12%, var(--panel) 88%);
+            --soft-accent: color-mix(in srgb, var(--accent) 16%, var(--panel) 84%);
             --positive: color-mix(in srgb, var(--primary) 55%, var(--accent) 45%);
-            --warning: color-mix(in srgb, var(--accent) 70%, var(--secondary) 30%);
+            --warning: color-mix(in srgb, var(--accent) 64%, var(--secondary) 36%);
             --danger: color-mix(in srgb, var(--accent) 55%, var(--secondary) 45%);
-            --surface-veil: color-mix(in srgb, var(--panel) 86%, transparent);
+            --surface-veil: color-mix(in srgb, var(--panel) 82%, transparent);
         }
         * {
             box-sizing: border-box;
@@ -45,44 +44,45 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         body {
             margin: 0;
             display: flex;
-            background: linear-gradient(160deg, color-mix(in srgb, var(--background) 92%, var(--surface) 8%), color-mix(in srgb, var(--surface) 94%, var(--background) 6%));
+            background: linear-gradient(165deg, color-mix(in srgb, var(--background) 88%, var(--surface) 12%), color-mix(in srgb, var(--surface) 90%, var(--background) 10%));
             color: var(--text);
         }
         .sidebar {
             width: 270px;
-            background: linear-gradient(180deg, color-mix(in srgb, var(--secondary) 86%, var(--background) 14%), color-mix(in srgb, var(--secondary) 78%, var(--background) 22%));
-            color: color-mix(in srgb, white 82%, var(--secondary) 18%);
+            background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
+            color: var(--muted);
             min-height: 100vh;
-            padding: 28px 20px;
+            padding: 30px 22px;
             position: sticky;
             top: 0;
-            box-shadow: 12px 0 30px color-mix(in srgb, var(--secondary) 10%, transparent);
-            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border);
+            box-shadow: 10px 0 26px color-mix(in srgb, var(--secondary) 8%, transparent);
         }
         .sidebar h1 {
-            margin: 0 0 32px 0;
-            font-size: 20px;
+            margin: 0 0 28px 0;
+            font-size: 19px;
             display:flex;
             align-items:center;
             gap:12px;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.04em;
+            color: var(--text);
         }
         .sidebar h1 img {
             height: 32px;
             border-radius: 10px;
             background: var(--panel);
             padding:6px;
-            box-shadow: 0 10px 26px var(--glow);
+            box-shadow: 0 10px 20px color-mix(in srgb, var(--secondary) 12%, transparent);
         }
         .sidebar nav {
             display:flex;
             flex-direction:column;
-            gap:4px;
+            gap:10px;
         }
         .sidebar a {
             display: flex;
             align-items:center;
-            color: color-mix(in srgb, white 70%, var(--secondary) 30%);
+            color: var(--muted);
             text-decoration: none;
             padding: 12px 14px;
             border-radius: 12px;
@@ -90,21 +90,21 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             letter-spacing: 0.01em;
             transition: all 0.18s ease;
             border: 1px solid transparent;
-            background: color-mix(in srgb, var(--secondary) 12%, transparent);
+            background: color-mix(in srgb, var(--surface) 6%, transparent);
         }
         .sidebar a:hover {
-            color: color-mix(in srgb, white 78%, var(--secondary) 22%);
-            background: color-mix(in srgb, var(--secondary) 16%, transparent);
-            border-color: color-mix(in srgb, var(--secondary) 16%, transparent);
+            color: var(--text);
+            background: color-mix(in srgb, var(--surface) 12%, transparent);
+            border-color: color-mix(in srgb, var(--border) 80%, var(--surface) 20%);
         }
         .sidebar a.active {
-            color: color-mix(in srgb, white 88%, var(--secondary) 12%);
-            background: color-mix(in srgb, var(--primary) 16%, transparent);
-            border-color: color-mix(in srgb, var(--primary) 34%, transparent);
+            color: var(--text);
+            background: color-mix(in srgb, var(--surface) 18%, transparent);
+            border-color: color-mix(in srgb, var(--border) 60%, var(--primary) 40%);
             box-shadow: inset 3px 0 0 var(--primary);
         }
         .topbar {
-            background: color-mix(in srgb, var(--panel) 82%, transparent);
+            background: color-mix(in srgb, var(--panel) 90%, transparent);
             padding: 18px 24px;
             border-bottom: 1px solid var(--border);
             display: flex;
@@ -113,19 +113,19 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             position: sticky;
             top: 0;
             z-index: 10;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 12px 26px color-mix(in srgb, var(--secondary) 8%, transparent);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 24px color-mix(in srgb, var(--secondary) 10%, transparent);
         }
         main {
             flex: 1;
             min-height: 100vh;
         }
         .content {
-            padding: 28px;
+            padding: 28px 32px 40px;
             display: flex;
             flex-direction: column;
             gap: 18px;
-            background: linear-gradient(180deg, color-mix(in srgb, var(--background) 86%, var(--surface) 14%), color-mix(in srgb, var(--surface) 90%, var(--background) 10%));
+            background: linear-gradient(180deg, color-mix(in srgb, var(--background) 88%, var(--surface) 12%), color-mix(in srgb, var(--surface) 92%, var(--background) 8%));
         }
         .page-heading h2 {
             margin:0;
@@ -143,15 +143,15 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             text-align:right;
             padding: 10px 14px;
             border-radius: 12px;
-            background: color-mix(in srgb, var(--secondary) 10%, transparent);
-            border: 1px solid color-mix(in srgb, var(--secondary) 18%, var(--border) 82%);
+            background: color-mix(in srgb, var(--surface) 14%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border) 86%, var(--surface) 14%);
         }
         .card {
-            background: color-mix(in srgb, var(--panel) 95%, transparent);
+            background: color-mix(in srgb, var(--panel) 94%, transparent);
             border-radius: 18px;
-            padding: 20px;
-            box-shadow: 0 16px 32px color-mix(in srgb, var(--secondary) 10%, transparent);
-            border: 1px solid color-mix(in srgb, var(--border) 80%, var(--surface) 20%);
+            padding: 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid color-mix(in srgb, var(--border) 78%, var(--surface) 22%);
         }
         .card.ghosted {
             background: color-mix(in srgb, var(--panel) 70%, transparent);
@@ -181,12 +181,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         }
         .badge {
             display: inline-block;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 999px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
-            color: var(--text);
+            background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+            color: var(--muted);
             border: 1px solid var(--border);
         }
         .badge.success { background: color-mix(in srgb, var(--positive) 12%, var(--panel) 88%); color: var(--positive); }
@@ -224,18 +224,19 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             gap: 10px;
         }
         .btn {
-            padding: 10px 14px;
+            padding: 10px 16px;
             border-radius: 12px;
             border: 1px solid transparent;
             cursor: pointer;
             font-weight: 700;
             letter-spacing: 0.01em;
-            transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+            transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
         }
         .btn.primary {
-            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--secondary) 28%));
+            background: color-mix(in srgb, var(--primary) 82%, var(--secondary) 18%);
             color: white;
-            box-shadow: 0 10px 30px color-mix(in srgb, var(--primary) 18%, transparent);
+            box-shadow: 0 10px 26px color-mix(in srgb, var(--primary) 16%, transparent);
+            border-color: color-mix(in srgb, var(--primary) 36%, transparent);
         }
         .btn.secondary {
             background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
