@@ -29,6 +29,32 @@ class ConfigService
                 'require_approval' => true,
             ],
         ],
+        'operational_rules' => [
+            'semaforization' => [
+                'progress' => [
+                    'yellow_below' => 50.0,
+                    'red_below' => 25.0,
+                ],
+                'hours' => [
+                    'yellow_above' => 0.05,
+                    'red_above' => 0.10,
+                ],
+                'cost' => [
+                    'yellow_above' => 0.05,
+                    'red_above' => 0.10,
+                ],
+            ],
+            'alerts' => [
+                'portfolio_days_before_end' => 15,
+            ],
+            'portfolio_limits' => [
+                'warning_ratio' => 0.85,
+            ],
+            'approvals' => [
+                'external_talent_requires_approval' => true,
+                'budget_change_requires_approval' => true,
+            ],
+        ],
     ];
 
     public function __construct(?string $filePath = null)
@@ -50,6 +76,34 @@ class ConfigService
                     $stored['access']['user_management'] ?? []
                 ),
             ],
+            'operational_rules' => [
+                'semaforization' => [
+                    'progress' => array_merge(
+                        $this->defaults['operational_rules']['semaforization']['progress'],
+                        $stored['operational_rules']['semaforization']['progress'] ?? []
+                    ),
+                    'hours' => array_merge(
+                        $this->defaults['operational_rules']['semaforization']['hours'],
+                        $stored['operational_rules']['semaforization']['hours'] ?? []
+                    ),
+                    'cost' => array_merge(
+                        $this->defaults['operational_rules']['semaforization']['cost'],
+                        $stored['operational_rules']['semaforization']['cost'] ?? []
+                    ),
+                ],
+                'alerts' => array_merge(
+                    $this->defaults['operational_rules']['alerts'],
+                    $stored['operational_rules']['alerts'] ?? []
+                ),
+                'portfolio_limits' => array_merge(
+                    $this->defaults['operational_rules']['portfolio_limits'],
+                    $stored['operational_rules']['portfolio_limits'] ?? []
+                ),
+                'approvals' => array_merge(
+                    $this->defaults['operational_rules']['approvals'],
+                    $stored['operational_rules']['approvals'] ?? []
+                ),
+            ],
         ];
     }
 
@@ -65,6 +119,34 @@ class ConfigService
                 'user_management' => array_merge(
                     $current['access']['user_management'],
                     $payload['access']['user_management'] ?? []
+                ),
+            ],
+            'operational_rules' => [
+                'semaforization' => [
+                    'progress' => array_merge(
+                        $current['operational_rules']['semaforization']['progress'],
+                        $payload['operational_rules']['semaforization']['progress'] ?? []
+                    ),
+                    'hours' => array_merge(
+                        $current['operational_rules']['semaforization']['hours'],
+                        $payload['operational_rules']['semaforization']['hours'] ?? []
+                    ),
+                    'cost' => array_merge(
+                        $current['operational_rules']['semaforization']['cost'],
+                        $payload['operational_rules']['semaforization']['cost'] ?? []
+                    ),
+                ],
+                'alerts' => array_merge(
+                    $current['operational_rules']['alerts'],
+                    $payload['operational_rules']['alerts'] ?? []
+                ),
+                'portfolio_limits' => array_merge(
+                    $current['operational_rules']['portfolio_limits'],
+                    $payload['operational_rules']['portfolio_limits'] ?? []
+                ),
+                'approvals' => array_merge(
+                    $current['operational_rules']['approvals'],
+                    $payload['operational_rules']['approvals'] ?? []
                 ),
             ],
         ];

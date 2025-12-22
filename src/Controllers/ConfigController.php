@@ -73,6 +73,32 @@ class ConfigController extends Controller
                     'require_approval' => isset($_POST['require_approval']),
                 ],
             ],
+            'operational_rules' => [
+                'semaforization' => [
+                    'progress' => [
+                        'yellow_below' => $this->toFloat($_POST['progress_yellow'] ?? '50'),
+                        'red_below' => $this->toFloat($_POST['progress_red'] ?? '25'),
+                    ],
+                    'hours' => [
+                        'yellow_above' => $this->toFloat($_POST['hours_yellow'] ?? '0.05'),
+                        'red_above' => $this->toFloat($_POST['hours_red'] ?? '0.10'),
+                    ],
+                    'cost' => [
+                        'yellow_above' => $this->toFloat($_POST['cost_yellow'] ?? '0.05'),
+                        'red_above' => $this->toFloat($_POST['cost_red'] ?? '0.10'),
+                    ],
+                ],
+                'alerts' => [
+                    'portfolio_days_before_end' => (int) ($_POST['portfolio_days_before_end'] ?? 15),
+                ],
+                'portfolio_limits' => [
+                    'warning_ratio' => $this->toFloat($_POST['portfolio_warning_ratio'] ?? '0.85'),
+                ],
+                'approvals' => [
+                    'external_talent_requires_approval' => isset($_POST['external_talent_requires_approval']),
+                    'budget_change_requires_approval' => isset($_POST['budget_change_requires_approval']),
+                ],
+            ],
         ];
 
         $configService->updateConfig($payload);
@@ -203,5 +229,10 @@ class ConfigController extends Controller
                 exit('Acceso denegado');
             }
         }
+    }
+
+    private function toFloat(string $value): float
+    {
+        return (float) str_replace(',', '.', $value);
     }
 }

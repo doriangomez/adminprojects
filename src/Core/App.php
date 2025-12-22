@@ -16,6 +16,7 @@ class App
         $migrator->ensureClientPmIntegrity();
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureAssignmentsTable();
+        $migrator->ensurePortfoliosTable();
         $this->auth = new Auth($this->db);
     }
 
@@ -106,8 +107,19 @@ class App
             return;
         }
 
-        if ($path === '/portfolio') {
-            (new ProjectsController($this->db, $this->auth))->portfolio();
+        if (str_starts_with($path, '/portfolio')) {
+            $controller = new PortfoliosController($this->db, $this->auth);
+            if ($path === '/portfolio' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
+
+            if ($path === '/portfolio/update' && $method === 'POST') {
+                $controller->update();
+                return;
+            }
+
+            $controller->index();
             return;
         }
 

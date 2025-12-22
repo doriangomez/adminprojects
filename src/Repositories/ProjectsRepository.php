@@ -6,8 +6,12 @@ class ProjectsRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];
 
+    private array $signalRules;
+
     public function __construct(private Database $db)
     {
+        $config = (new ConfigService())->getConfig();
+        $this->signalRules = $config['operational_rules']['semaforization'] ?? [];
     }
 
     public function summary(array $user): array
@@ -318,7 +322,7 @@ class ProjectsRepository
         return [$conditions, $params];
     }
 
-    private function clientKpis(array $projects, array $assignments): array
+    public function clientKpis(array $projects, array $assignments): array
     {
         $activeProjects = array_filter($projects, fn (array $p) => $p['status'] !== 'closed' && $p['status'] !== 'cancelled');
         $progressValues = array_column($activeProjects, 'progress');
@@ -383,33 +387,42 @@ class ProjectsRepository
 
         $costDeviation = $this->deviationPercent((float) ($project['actual_cost'] ?? 0), (float) ($project['budget'] ?? 0));
         if ($costDeviation !== null) {
-            if ($costDeviation > 0.10) {
+            $costRules = $this->signalRules['cost'] ?? [];
+            $redCost = (float) ($costRules['red_above'] ?? 0.1);
+            $yellowCost = (float) ($costRules['yellow_above'] ?? 0.05);
+            if ($costDeviation > $redCost) {
                 $severity = 'red';
-                $reasons[] = 'El costo supera el presupuesto en más de 10%.';
-            } elseif ($costDeviation > 0.05) {
+                $reasons[] = 'El costo supera el presupuesto en más de ' . (int) round($redCost * 100) . '%.';
+            } elseif ($costDeviation > $yellowCost) {
                 $severity = $this->maxSeverity($severity, 'yellow');
-                $reasons[] = 'El costo supera el presupuesto en más de 5%.';
+                $reasons[] = 'El costo supera el presupuesto en más de ' . (int) round($yellowCost * 100) . '%.';
             }
         }
 
         $hoursDeviation = $this->deviationPercent((float) ($project['actual_hours'] ?? 0), (float) ($project['planned_hours'] ?? 0));
         if ($hoursDeviation !== null) {
-            if ($hoursDeviation > 0.10) {
+            $hoursRules = $this->signalRules['hours'] ?? [];
+            $redHours = (float) ($hoursRules['red_above'] ?? 0.1);
+            $yellowHours = (float) ($hoursRules['yellow_above'] ?? 0.05);
+            if ($hoursDeviation > $redHours) {
                 $severity = 'red';
-                $reasons[] = 'Las horas ejecutadas superan el plan en más de 10%.';
-            } elseif ($hoursDeviation > 0.05) {
+                $reasons[] = 'Las horas ejecutadas superan el plan en más de ' . (int) round($redHours * 100) . '%.';
+            } elseif ($hoursDeviation > $yellowHours) {
                 $severity = $this->maxSeverity($severity, 'yellow');
-                $reasons[] = 'Las horas ejecutadas superan el plan en más de 5%.';
+                $reasons[] = 'Las horas ejecutadas superan el plan en más de ' . (int) round($yellowHours * 100) . '%.';
             }
         }
 
         $progress = (float) ($project['progress'] ?? 0);
-        if ($progress < 25) {
+        $progressRules = $this->signalRules['progress'] ?? [];
+        $redProgress = (float) ($progressRules['red_below'] ?? 25.0);
+        $yellowProgress = (float) ($progressRules['yellow_below'] ?? 50.0);
+        if ($progress < $redProgress) {
             $severity = 'red';
-            $reasons[] = 'El avance está por debajo del 25%.';
-        } elseif ($progress < 50) {
+            $reasons[] = 'El avance está por debajo del ' . $redProgress . '% configurado.';
+        } elseif ($progress < $yellowProgress) {
             $severity = $this->maxSeverity($severity, 'yellow');
-            $reasons[] = 'El avance está rezagado (<50%).';
+            $reasons[] = 'El avance está rezagado (<' . $yellowProgress . '%).';
         }
 
         $label = match ($severity) {
@@ -428,7 +441,7 @@ class ProjectsRepository
         ];
     }
 
-    private function clientSignal(array $projects): array
+    public function clientSignal(array $projects): array
     {
         $hasRed = false;
         $hasYellow = false;

@@ -2,9 +2,9 @@
     <div class="card stretch">
         <div class="toolbar">
             <div>
-                <p class="badge neutral" style="margin:0;">Tema & identidad</p>
+                <p class="badge neutral" style="margin:0;">Identidad del sistema</p>
                 <h3 style="margin:6px 0 2px 0;">Personaliza la aplicación sin tocar código</h3>
-                <small class="text-muted">Logo seguro, paleta viva y tipografía unificada</small>
+                <small class="text-muted">Logo, paleta y mensajes institucionales</small>
             </div>
             <?php if(!empty($savedMessage)): ?>
                 <span class="badge success">Guardado</span>
@@ -17,7 +17,7 @@
                     <div class="input-stack">
                         <label>Logo (sube uno nuevo o pega una URL)</label>
                         <input type="file" name="logo_file" accept="image/*">
-                        <input name="logo" value="<?= htmlspecialchars($configData['theme']['logo']) ?>" placeholder="https://...png">
+                        <input name="logo" value="<?= htmlspecialchars($configData['theme']['logo']) ?>" placeholder="https://..png">
                     </div>
                 </div>
                 <div class="form-block">
@@ -45,8 +45,55 @@
                         <textarea name="login_message" rows="3"><?= htmlspecialchars($configData['theme']['login_message']) ?></textarea>
                     </div>
                 </div>
+
                 <div class="form-block">
-                    <span class="section-label">Archivos y acceso</span>
+                    <span class="section-label">Reglas operativas: semaforización</span>
+                    <div class="rules-grid">
+                        <label>Avance – umbral amarillo (%)
+                            <input type="number" name="progress_yellow" step="0.1" value="<?= htmlspecialchars($configData['operational_rules']['semaforization']['progress']['yellow_below']) ?>">
+                        </label>
+                        <label>Avance – umbral rojo (%)
+                            <input type="number" name="progress_red" step="0.1" value="<?= htmlspecialchars($configData['operational_rules']['semaforization']['progress']['red_below']) ?>">
+                        </label>
+                        <label>Horas – umbral amarillo (desvío)
+                            <input type="number" name="hours_yellow" step="0.01" value="<?= htmlspecialchars($configData['operational_rules']['semaforization']['hours']['yellow_above']) ?>">
+                            <small class="subtext">Ej. 0.05 = 5%</small>
+                        </label>
+                        <label>Horas – umbral rojo (desvío)
+                            <input type="number" name="hours_red" step="0.01" value="<?= htmlspecialchars($configData['operational_rules']['semaforization']['hours']['red_above']) ?>">
+                        </label>
+                        <label>Costo – umbral amarillo (desvío)
+                            <input type="number" name="cost_yellow" step="0.01" value="<?= htmlspecialchars($configData['operational_rules']['semaforization']['cost']['yellow_above']) ?>">
+                        </label>
+                        <label>Costo – umbral rojo (desvío)
+                            <input type="number" name="cost_red" step="0.01" value="<?= htmlspecialchars($configData['operational_rules']['semaforization']['cost']['red_above']) ?>">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-block">
+                    <span class="section-label">Reglas operativas: alertas y aprobaciones</span>
+                    <div class="rules-grid">
+                        <label>Días antes de vencer portafolio
+                            <input type="number" name="portfolio_days_before_end" value="<?= htmlspecialchars($configData['operational_rules']['alerts']['portfolio_days_before_end']) ?>">
+                        </label>
+                        <label>Umbral preventivo de límites
+                            <input type="number" name="portfolio_warning_ratio" step="0.01" value="<?= htmlspecialchars($configData['operational_rules']['portfolio_limits']['warning_ratio']) ?>">
+                            <small class="subtext">Ej. 0.85 = 85%.</small>
+                        </label>
+                        <label class="option">
+                            <input type="checkbox" name="external_talent_requires_approval" <?= $configData['operational_rules']['approvals']['external_talent_requires_approval'] ? 'checked' : '' ?>>
+                            Talento externo requiere aprobación
+                        </label>
+                        <label class="option">
+                            <input type="checkbox" name="budget_change_requires_approval" <?= $configData['operational_rules']['approvals']['budget_change_requires_approval'] ? 'checked' : '' ?>>
+                            Cambios de presupuesto requieren aprobación
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-block">
+                    <span class="section-label">Catálogos maestros (rutas de archivo)</span>
                     <div class="input-stack">
                         <label>Archivo de datos principal</label>
                         <input name="data_file" value="<?= htmlspecialchars($configData['master_files']['data_file']) ?>" required>
@@ -55,6 +102,10 @@
                         <label>Archivo de esquema / bootstrap</label>
                         <input name="schema_file" value="<?= htmlspecialchars($configData['master_files']['schema_file']) ?>" required>
                     </div>
+                </div>
+
+                <div class="form-block">
+                    <span class="section-label">Roles y acceso</span>
                     <div class="input-stack">
                         <label>Roles permitidos (separados por coma)</label>
                         <input name="roles" value="<?= htmlspecialchars(implode(', ', $configData['access']['roles'])) ?>">
@@ -70,6 +121,7 @@
                         </label>
                     </div>
                 </div>
+
                 <div class="form-footer">
                     <span class="text-muted">Los cambios se aplican en todo el sistema.</span>
                     <button class="btn primary" type="submit">Guardar y aplicar</button>
@@ -83,7 +135,7 @@
         </div>
     </div>
 
-    <div class="card card-overlay stretch" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color: color-mix(in srgb, white 90%, var(--secondary) 10%);">
+    <div class="card card-overlay stretch" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color:color-mix(in srgb, white 90%, var(--secondary) 10%);">
         <div class="card-content" style="position:relative;">
             <div class="toolbar" style="margin-bottom:4px;">
                 <h3 style="margin:0;">Previsualización en vivo</h3>
@@ -100,9 +152,9 @@
                     </div>
                 <?php endif; ?>
                 <div class="pillset">
-                    <span class="badge" style="background:var(--panel); color: var(--primary);"><?= htmlspecialchars($configData['theme']['primary']) ?></span>
-                    <span class="badge" style="background:var(--panel); color: var(--secondary);"><?= htmlspecialchars($configData['theme']['secondary']) ?></span>
-                    <span class="badge" style="background:var(--panel); color: var(--accent);"><?= htmlspecialchars($configData['theme']['accent']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--primary);">Primario <?= htmlspecialchars($configData['theme']['primary']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--secondary);">Secundario <?= htmlspecialchars($configData['theme']['secondary']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--accent);">Acento <?= htmlspecialchars($configData['theme']['accent']) ?></span>
                 </div>
                 <small style="color: color-mix(in srgb, white 75%, transparent);">Roles activos: <?= htmlspecialchars(implode('· ', $configData['access']['roles'])) ?></small>
             </div>
@@ -115,6 +167,60 @@
 </section>
 
 <section class="section-grid config-columns">
+    <div class="card stretch">
+        <div class="toolbar">
+            <div>
+                <p class="badge neutral" style="margin:0;">Roles y permisos</p>
+                <h3 style="margin:6px 0 0 0;">Gobernanza de acceso</h3>
+            </div>
+        </div>
+        <div class="card-content">
+            <form method="POST" action="/project/public/config/roles/create" class="config-form-grid">
+                <input name="nombre" placeholder="Nombre del rol" required>
+                <input name="descripcion" placeholder="Descripción">
+                <div class="pillset full-span">
+                    <?php foreach($permissions as $permission): ?>
+                        <label class="pill" style="background: var(--soft-secondary); border: 1px solid var(--border);">
+                            <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
+                            <?= htmlspecialchars($permission['name']) ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <div class="form-footer">
+                    <div></div>
+                    <button class="btn primary" type="submit">Crear rol</button>
+                </div>
+            </form>
+            <div class="card-stack">
+                <?php foreach($roles as $role): ?>
+                    <form method="POST" action="/project/public/config/roles/update" class="card subtle-card stretch">
+                        <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
+                        <div class="toolbar">
+                            <div>
+                                <strong><?= htmlspecialchars($role['nombre']) ?></strong>
+                                <p style="margin:0; color: var(--muted); font-size:13px;"><?= htmlspecialchars($role['descripcion'] ?? 'Rol operativo') ?></p>
+                            </div>
+                            <button class="btn secondary" type="submit">Actualizar rol</button>
+                        </div>
+                        <div class="config-form-grid tight">
+                            <label>Nombre<input name="nombre" value="<?= htmlspecialchars($role['nombre']) ?>"></label>
+                            <label>Descripción<input name="descripcion" value="<?= htmlspecialchars($role['descripcion'] ?? '') ?>"></label>
+                        </div>
+                        <div class="pillset">
+                            <?php foreach($permissions as $permission): ?>
+                                <?php $assigned = array_filter($role['permissions'], fn($p) => (int)$p['id'] === (int)$permission['id']); ?>
+                                <label class="pill" style="background: var(--panel); border: 1px solid var(--border);">
+                                    <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $assigned ? 'checked' : '' ?>>
+                                    <?= htmlspecialchars($permission['name']) ?>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
     <div class="card stretch">
         <div class="toolbar">
             <div>
@@ -190,69 +296,15 @@
             </div>
         </div>
     </div>
-
-    <div class="card stretch">
-        <div class="toolbar">
-            <div>
-                <p class="badge neutral" style="margin:0;">Roles y permisos</p>
-                <h3 style="margin:6px 0 0 0;">Orquesta la gobernanza de acceso</h3>
-            </div>
-        </div>
-        <div class="card-content">
-            <form method="POST" action="/project/public/config/roles/create" class="config-form-grid">
-                <input name="nombre" placeholder="Nombre del rol" required>
-                <input name="descripcion" placeholder="Descripción">
-                <div class="pillset full-span">
-                    <?php foreach($permissions as $permission): ?>
-                        <label class="pill" style="background: var(--soft-secondary); border: 1px solid var(--border);">
-                            <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
-                            <?= htmlspecialchars($permission['name']) ?>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-                <div class="form-footer">
-                    <div></div>
-                    <button class="btn primary" type="submit">Crear rol</button>
-                </div>
-            </form>
-            <div class="card-stack">
-                <?php foreach($roles as $role): ?>
-                    <form method="POST" action="/project/public/config/roles/update" class="card subtle-card stretch">
-                        <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
-                        <div class="toolbar">
-                            <div>
-                                <strong><?= htmlspecialchars($role['nombre']) ?></strong>
-                                <p style="margin:0; color: var(--muted); font-size:13px;"><?= htmlspecialchars($role['descripcion'] ?? 'Rol operativo') ?></p>
-                            </div>
-                            <button class="btn secondary" type="submit">Actualizar rol</button>
-                        </div>
-                        <div class="config-form-grid tight">
-                            <label>Nombre<input name="nombre" value="<?= htmlspecialchars($role['nombre']) ?>"></label>
-                            <label>Descripción<input name="descripcion" value="<?= htmlspecialchars($role['descripcion'] ?? '') ?>"></label>
-                        </div>
-                        <div class="pillset">
-                            <?php foreach($permissions as $permission): ?>
-                                <?php $assigned = array_filter($role['permissions'], fn($p) => (int)$p['id'] === (int)$permission['id']); ?>
-                                <label class="pill" style="background: var(--panel); border: 1px solid var(--border);">
-                                    <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $assigned ? 'checked' : '' ?>>
-                                    <?= htmlspecialchars($permission['name']) ?>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </form>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </div>
 </section>
 
 <section class="card stretch">
     <div class="toolbar">
         <div>
-            <p class="badge neutral" style="margin:0;">Archivos maestros</p>
-            <h3 style="margin:6px 0 0 0;">Catálogos críticos del sistema</h3>
+            <p class="badge neutral" style="margin:0;">Catálogos maestros</p>
+            <h3 style="margin:6px 0 0 0;">CRUD seguro sobre catálogos base</h3>
         </div>
-        <small style="color: var(--muted);">CRUD seguro sobre catálogos base</small>
+        <small style="color: var(--muted);">Solo altas, ediciones y bajas de catálogos operativos</small>
     </div>
     <div class="config-columns cards-grid">
         <?php foreach($masterData as $table => $items): ?>

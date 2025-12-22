@@ -17,12 +17,48 @@ class ProjectsController extends Controller
     public function portfolio(?string $error = null): void
     {
         $this->requirePermission('projects.view');
-        $repo = new ProjectsRepository($this->db);
+        $config = (new ConfigService())->getConfig();
         $user = $this->auth->user() ?? [];
+        $projectsRepo = new ProjectsRepository($this->db);
+        $portfolioRepo = new PortfoliosRepository($this->db, $config['operational_rules']);
+        $clientsRepo = new ClientsRepository($this->db);
+
+        $portfolios = $portfolioRepo->listWithUsage($user);
+        $clients = $clientsRepo->listForUser($user);
+        $portfolioView = [];
+
+        foreach ($portfolios as $portfolio) {
+            $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user);
+            $assignments = $projectsRepo->assignmentsForClient((int) $portfolio['client_id'], $user);
+            $assignmentsByProject = [];
+            foreach ($assignments as $assignment) {
+                $assignmentsByProject[$assignment['project_id']][] = $assignment;
+            }
+
+            $portfolioView[] = [
+                'id' => (int) $portfolio['id'],
+                'client_id' => (int) $portfolio['client_id'],
+                'client_name' => $portfolio['client_name'],
+                'name' => $portfolio['name'],
+                'start_date' => $portfolio['start_date'],
+                'end_date' => $portfolio['end_date'],
+                'hours_limit' => $portfolio['hours_limit'],
+                'budget_limit' => $portfolio['budget_limit'],
+                'attachment_path' => $portfolio['attachment_path'],
+                'alerts' => $portfolio['alerts'],
+                'hours_ratio' => $portfolio['hours_ratio'],
+                'budget_ratio' => $portfolio['budget_ratio'],
+                'projects' => $projects,
+                'kpis' => $projectsRepo->clientKpis($projects, $assignments),
+                'signal' => $projectsRepo->clientSignal($projects),
+                'assignments' => $assignmentsByProject,
+            ];
+        }
 
         $this->render('projects/portfolio', [
             'title' => 'Portafolio por cliente',
-            'clients' => $repo->portfolio($user),
+            'clients' => $clients,
+            'portfolios' => $portfolioView,
             'error' => $error,
         ]);
     }
