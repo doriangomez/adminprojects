@@ -29,6 +29,20 @@ class DatabaseMigrator
         $this->ensurePmIntegrity('clients', 'status_code');
     }
 
+    public function ensureClientSchema(): void
+    {
+        if (!$this->db->tableExists('clients')) {
+            return;
+        }
+
+        try {
+            $this->addClientPriorityColumn();
+            $this->addClientHealthColumn();
+        } catch (\PDOException $e) {
+            error_log('Error ejecutando migración de clients.priority/health: ' . $e->getMessage());
+        }
+    }
+
     public function ensureProjectPmIntegrity(): void
     {
         $this->ensurePmIntegrity('projects', 'client_id');
@@ -46,70 +60,24 @@ class DatabaseMigrator
         }
     }
 
-    private function ensureClientPriorityCode(): void
+    private function addClientPriorityColumn(): void
     {
-        if (!$this->db->columnExists('clients', 'priority_code')) {
-            $this->db->execute('ALTER TABLE clients ADD COLUMN priority_code VARCHAR(20) NULL AFTER category_code');
-            $this->db->clearColumnCache();
-        }
-
         if ($this->db->columnExists('clients', 'priority')) {
-            $this->db->execute('UPDATE clients SET priority_code = priority WHERE priority_code IS NULL AND priority IS NOT NULL');
-            $this->db->execute('ALTER TABLE clients DROP COLUMN priority');
-            $this->db->clearColumnCache();
+            return;
         }
 
-        if ($this->db->columnExists('clients', 'priority_code')) {
-            $this->db->execute('ALTER TABLE clients MODIFY COLUMN priority_code VARCHAR(20) NOT NULL');
-            $this->db->clearColumnCache();
-        }
+        $this->db->execute("ALTER TABLE clients ADD COLUMN priority VARCHAR(20) NOT NULL DEFAULT '' AFTER category_code");
+        $this->db->clearColumnCache();
     }
 
-    private function ensureClientStatusCode(): void
+    private function addClientHealthColumn(): void
     {
-        if (!$this->db->columnExists('clients', 'status_code')) {
-            $this->db->execute('ALTER TABLE clients ADD COLUMN status_code VARCHAR(50) NULL AFTER priority_code');
-            $this->db->clearColumnCache();
+        if ($this->db->columnExists('clients', 'health')) {
+            return;
         }
 
-        if ($this->db->columnExists('clients', 'status')) {
-            $this->db->execute('UPDATE clients SET status_code = status WHERE status_code IS NULL AND status IS NOT NULL');
-            $this->db->execute('ALTER TABLE clients DROP COLUMN status');
-            $this->db->clearColumnCache();
-        }
-
-        if ($this->db->columnExists('clients', 'status_code')) {
-            $this->db->execute('ALTER TABLE clients MODIFY COLUMN status_code VARCHAR(50) NOT NULL');
-            $this->db->clearColumnCache();
-        }
-    }
-
-    private function ensureClientRiskCode(): void
-    {
-        if (!$this->db->columnExists('clients', 'risk_code')) {
-            $this->db->execute('ALTER TABLE clients ADD COLUMN risk_code VARCHAR(30) NULL AFTER nps');
-            $this->db->clearColumnCache();
-        }
-
-        if ($this->db->columnExists('clients', 'risk_level')) {
-            $this->db->execute('UPDATE clients SET risk_code = risk_level WHERE risk_code IS NULL AND risk_level IS NOT NULL');
-            $this->db->execute('ALTER TABLE clients DROP COLUMN risk_level');
-            $this->db->clearColumnCache();
-        }
-    }
-
-    private function ensureClientAreaCode(): void
-    {
-        if (!$this->db->columnExists('clients', 'area_code')) {
-            $this->db->execute('ALTER TABLE clients ADD COLUMN area_code VARCHAR(120) NULL AFTER tags');
-            $this->db->clearColumnCache();
-        }
-
-        if ($this->db->columnExists('clients', 'area')) {
-            $this->db->execute('UPDATE clients SET area_code = area WHERE area_code IS NULL AND area IS NOT NULL');
-            $this->db->execute('ALTER TABLE clients DROP COLUMN area');
-            $this->db->clearColumnCache();
-        }
+        $this->db->execute("ALTER TABLE clients ADD COLUMN health VARCHAR(20) NOT NULL DEFAULT '' AFTER priority");
+        $this->db->clearColumnCache();
     }
 
     private function addPmColumnIfMissing(string $table, string $afterColumn): void

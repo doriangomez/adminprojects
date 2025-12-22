@@ -12,7 +12,7 @@ class App
         $config = require __DIR__ . '/../config.php';
         $this->db = new Database($config['db']);
         $migrator = new DatabaseMigrator($this->db);
-        $migrator->normalizeClientsSchema();
+        $migrator->ensureClientSchema();
         $migrator->ensureClientPmIntegrity();
         $migrator->ensureProjectPmIntegrity();
         $this->auth = new Auth($this->db);
