@@ -84,6 +84,7 @@ CREATE TABLE clients (
     risk_level VARCHAR(30),
     tags VARCHAR(255),
     area VARCHAR(120),
+    logo_path VARCHAR(255),
     feedback_notes TEXT,
     feedback_history TEXT,
     operational_context TEXT,
@@ -234,8 +235,8 @@ INSERT INTO client_sectors (code, label) VALUES ('tech', 'Tecnología'), ('finan
 INSERT INTO client_categories (code, label) VALUES ('enterprise', 'Enterprise'), ('scaleup', 'Scale-Up'), ('public', 'Sector público');
 INSERT INTO client_status (code, label) VALUES ('active', 'Activo'), ('on_hold', 'En pausa'), ('prospect', 'Prospecto');
 
-INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, feedback_notes, feedback_history, operational_context)
-VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderado', 'innovación,cloud', 'Transformación Digital', 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
+INSERT INTO clients (name, sector_code, category_code, priority, status_code, pm_id, satisfaction, nps, risk_level, tags, area, logo_path, feedback_notes, feedback_history, operational_context)
+VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderado', 'innovación,cloud', 'Transformación Digital', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
 INSERT INTO projects (client_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
 VALUES (1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());

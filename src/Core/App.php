@@ -49,22 +49,37 @@ class App
 
         if (str_starts_with($path, '/clients')) {
             $controller = new ClientsController($this->db, $this->auth);
-            if ($path === '/clients/create' && $method === 'POST') {
-                $controller->store();
+            if ($path === '/clients/create') {
+                if ($method === 'POST') {
+                    $controller->store();
+                    return;
+                }
+
+                $controller->create();
                 return;
             }
-            if ($path === '/clients/edit' && $method === 'POST') {
-                $controller->update();
+
+            if (preg_match('#^/clients/(\\d+)/edit$#', $path, $matches)) {
+                $clientId = (int) $matches[1];
+                if ($method === 'POST') {
+                    $controller->update($clientId);
+                    return;
+                }
+
+                $controller->edit($clientId);
                 return;
             }
+
             if ($path === '/clients/delete' && $method === 'POST') {
                 $controller->destroy();
                 return;
             }
+
             if (preg_match('#^/clients/(\\d+)$#', $path, $matches)) {
                 $controller->show((int) $matches[1]);
                 return;
             }
+
             $controller->index();
             return;
         }
