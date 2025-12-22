@@ -218,12 +218,29 @@ class ProjectsRepository
         $params[':clientId'] = $clientId;
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
+        $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
+
+        $select = ['a.*', 'p.id AS project_id'];
+        $joins = [
+            'JOIN projects p ON p.id = a.project_id',
+            'JOIN clients c ON c.id = p.client_id',
+        ];
+
+        if ($hasTalentColumn) {
+            $select[] = 't.name AS talent_name';
+            $select[] = 't.weekly_capacity';
+            $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
+        } else {
+            $select[] = 'u.name AS talent_name';
+            $select[] = '0 AS weekly_capacity';
+            $select[] = 'a.user_id AS talent_id';
+            $joins[] = 'LEFT JOIN users u ON u.id = a.user_id';
+        }
+
         return $this->db->fetchAll(
-            'SELECT a.*, t.name AS talent_name, t.weekly_capacity, p.id AS project_id
+            'SELECT ' . implode(', ', $select) . '
              FROM project_talent_assignments a
-             JOIN projects p ON p.id = a.project_id
-             JOIN clients c ON c.id = p.client_id
-             JOIN talents t ON t.id = a.talent_id
+             ' . implode(' ', $joins) . '
              ' . $whereClause,
             $params
         );
