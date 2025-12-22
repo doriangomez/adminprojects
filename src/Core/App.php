@@ -17,6 +17,7 @@ class App
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureAssignmentsTable();
         $migrator->ensurePortfoliosTable();
+        $migrator->ensureProjectPortfolioLink();
         $migrator->ensureProjectManagementPermission();
         $this->auth = new Auth($this->db);
     }
@@ -117,6 +118,15 @@ class App
             $controller = new PortfoliosController($this->db, $this->auth);
             if ($path === '/portfolio/create') {
                 $controller->create();
+                return;
+            }
+            if ($path === '/portfolio/wizard') {
+                if ($method === 'POST') {
+                    $controller->storeWizard();
+                    return;
+                }
+
+                $controller->wizard();
                 return;
             }
             if ($path === '/portfolio' && $method === 'POST') {
