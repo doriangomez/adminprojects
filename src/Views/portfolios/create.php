@@ -48,7 +48,7 @@ $warningRatio = (float) ($operationalRules['portfolio_limits']['warning_ratio'] 
 
             <section class="wizard-panel hidden" data-step-panel="2">
                 <h3>Alcance</h3>
-                <p class="muted">Define fechas, horas y costos esperados del portafolio.</p>
+                <p class="muted">Define fechas y presupuesto estratégico del portafolio. La operación vive en los proyectos.</p>
                 <div class="grid three-cols">
                     <label>Inicio
                         <input type="date" name="start_date">
@@ -61,15 +61,12 @@ $warningRatio = (float) ($operationalRules['portfolio_limits']['warning_ratio'] 
                         <input type="file" name="attachment" accept="application/pdf,image/png,image/jpeg">
                         <small class="subtext">SOW o alcance firmado.</small>
                     </label>
-                    <label>Límite de horas
-                        <input type="number" step="0.1" name="hours_limit" placeholder="Ej. 1200">
-                    </label>
-                    <label>Presupuesto límite
-                        <input type="number" step="0.01" name="budget_limit" placeholder="Ej. 250000">
+                    <label>Presupuesto total (estratégico)
+                        <input type="number" step="0.01" name="budget_total" placeholder="Ej. 250000">
                     </label>
                     <div class="tip-box">
                         <strong>Umbral preventivo</strong>
-                        <p class="muted">Se alerta al alcanzar el <?= (int) ($warningRatio * 100) ?>% de horas o costos.</p>
+                        <p class="muted">Se alerta al alcanzar el <?= (int) ($warningRatio * 100) ?>% del presupuesto estratégico.</p>
                     </div>
                 </div>
             </section>

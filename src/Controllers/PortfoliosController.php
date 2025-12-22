@@ -16,18 +16,11 @@ class PortfoliosController extends Controller
 
         $portfolios = [];
         foreach ($portfolioRepo->listWithUsage($user) as $portfolio) {
-            $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user) ?? [];
-            $assignments = $projectsRepo->assignmentsForClient((int) $portfolio['client_id'], $user);
-            $assignmentsByProject = [];
-            foreach ($assignments as $assignment) {
-                $assignmentsByProject[$assignment['project_id']][] = $assignment;
-            }
-
-            $kpis = $this->defaultKpis($projectsRepo->clientKpis($projects, $assignments));
+            $projects = $projectsRepo->projectsForPortfolio((int) $portfolio['id'], $user) ?? [];
+            $kpis = $this->defaultKpis($projectsRepo->portfolioKpisFromProjects($projects));
 
             $portfolioData = $portfolio;
             $portfolioData['projects'] = $projects;
-            $portfolioData['assignments'] = $assignmentsByProject;
             $portfolioData['kpis'] = $kpis;
             $portfolioData['signal'] = $projectsRepo->clientSignal($projects);
 
@@ -74,7 +67,9 @@ class PortfoliosController extends Controller
 
         try {
             $attachment = $repo->storeAttachment($_FILES['attachment'] ?? null);
-            $repo->create($this->payload($attachment));
+            $payload = $this->payload($attachment);
+            $portfolioId = $repo->create($payload);
+            $repo->syncProjects($portfolioId, $payload['selected_projects']);
             header('Location: /project/public/portfolio');
         } catch (\Throwable $e) {
             error_log('Error al crear portafolio: ' . $e->getMessage());
@@ -92,7 +87,9 @@ class PortfoliosController extends Controller
 
         try {
             $attachment = $repo->storeAttachment($_FILES['attachment'] ?? null) ?: ($_POST['current_attachment'] ?? null);
-            $repo->update($id, $this->payload($attachment));
+            $payload = $this->payload($attachment);
+            $repo->update($id, $payload);
+            $repo->syncProjects($id, $payload['selected_projects']);
             header('Location: /project/public/portfolio');
         } catch (\Throwable $e) {
             error_log('Error al actualizar portafolio: ' . $e->getMessage());
@@ -109,10 +106,11 @@ class PortfoliosController extends Controller
             'name' => trim($_POST['name'] ?? ''),
             'start_date' => $_POST['start_date'] ?? null,
             'end_date' => $_POST['end_date'] ?? null,
-            'hours_limit' => $this->nullableFloat($_POST['hours_limit'] ?? ''),
-            'budget_limit' => $this->nullableFloat($_POST['budget_limit'] ?? ''),
+            'budget_total' => $this->nullableFloat($_POST['budget_total'] ?? ''),
+            'risk_level' => null,
             'attachment_path' => $attachmentPath,
             'projects_included' => $selectedProjects ? json_encode($selectedProjects) : null,
+            'selected_projects' => $selectedProjects,
             'rules_notes' => trim($_POST['rules_notes'] ?? ''),
             'alerting_policy' => trim($_POST['alerting_policy'] ?? ''),
         ];
@@ -138,9 +136,8 @@ class PortfoliosController extends Controller
             'avg_progress' => 0.0,
             'active_projects' => 0,
             'total_projects' => 0,
-            'capacity_used' => 0.0,
-            'capacity_available' => 0.0,
-            'capacity_percent' => 0.0,
+            'budget_used' => 0.0,
+            'budget_planned' => 0.0,
         ];
 
         return array_merge($defaults, $kpis);
