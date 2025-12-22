@@ -1,10 +1,10 @@
-<section class="grid" style="grid-template-columns: 3fr 2fr; align-items: start;">
+<section class="section-grid twothirds">
     <div class="card">
         <div class="toolbar">
             <div>
                 <p class="badge neutral" style="margin:0;">Tema & identidad</p>
                 <h3 style="margin:6px 0 2px 0;">Personaliza la aplicación sin tocar código</h3>
-                <small style="color: var(--muted);">Logo seguro, paleta viva y tipografía unificada</small>
+                <small class="text-muted">Logo seguro, paleta viva y tipografía unificada</small>
             </div>
             <?php if(!empty($savedMessage)): ?>
                 <span class="badge success">Guardado</span>
@@ -13,7 +13,7 @@
         <form method="POST" action="/project/public/config/theme" enctype="multipart/form-data" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
             <div>
                 <label>Logo (sube uno nuevo o pega una URL)</label>
-                <input type="file" name="logo_file" accept="image/*" style="border:1px dashed #cbd5e1;">
+                <input type="file" name="logo_file" accept="image/*">
                 <input name="logo" value="<?= htmlspecialchars($configData['theme']['logo']) ?>" placeholder="https://...png">
             </div>
             <div>
@@ -52,46 +52,47 @@
                 </div>
             </div>
             <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; grid-column: 1 / -1;">
-                <span style="color: var(--muted);">Los cambios se aplican en todo el sistema.</span>
+                <span class="text-muted">Los cambios se aplican en todo el sistema.</span>
                 <button class="btn primary" type="submit">Guardar y aplicar</button>
             </div>
             <?php if(!empty($savedMessage)): ?>
-                <div style="grid-column:1 / -1; padding:12px; background:#ecfdf3; color:#166534; border:1px solid #bbf7d0; border-radius:10px;"><?= htmlspecialchars($savedMessage) ?></div>
+                <div class="alert success" style="grid-column:1 / -1;">
+                    <?= htmlspecialchars($savedMessage) ?>
+                </div>
             <?php endif; ?>
         </form>
     </div>
 
-    <div class="card" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color:white; position: relative; overflow:hidden;">
-        <div style="position:absolute; inset:12px; border:1px solid rgba(255,255,255,0.14); border-radius:14px; opacity:0.4;"></div>
+    <div class="card card-overlay" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color: color-mix(in srgb, white 90%, var(--secondary) 10%);">
         <div style="position:relative; display:flex; flex-direction:column; gap:12px;">
             <h3 style="margin:0;">Previsualización en vivo</h3>
-            <p style="margin:0; color: rgba(255,255,255,0.82);">Así se verá tu login y barra lateral.</p>
-            <div style="background: rgba(255,255,255,0.08); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:10px;">
+            <p style="margin:0; color: color-mix(in srgb, white 78%, transparent);">Así se verá tu login y barra lateral.</p>
+            <div style="background: color-mix(in srgb, white 12%, transparent); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:10px;">
                 <?php if(!empty($configData['theme']['logo'])): ?>
                     <div style="display:flex; align-items:center; gap:12px;">
-                        <img src="<?= htmlspecialchars($configData['theme']['logo']) ?>" alt="Logo" style="height:42px; background:white; padding:8px; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,0.15);">
+                        <img src="<?= htmlspecialchars($configData['theme']['logo']) ?>" alt="Logo" style="height:42px; background:var(--panel); padding:8px; border-radius:10px; box-shadow:0 8px 20px var(--glow);">
                         <div>
                             <strong><?= htmlspecialchars($configData['theme']['login_hero']) ?></strong>
-                            <div style="color: rgba(255,255,255,0.8); font-size:13px;">"<?= htmlspecialchars($configData['theme']['login_message']) ?>"</div>
+                            <div style="color: color-mix(in srgb, white 80%, transparent); font-size:13px;">"<?= htmlspecialchars($configData['theme']['login_message']) ?>"</div>
                         </div>
                     </div>
                 <?php endif; ?>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <span class="badge" style="background:white; color: var(--primary);"><?= htmlspecialchars($configData['theme']['primary']) ?></span>
-                    <span class="badge" style="background:white; color: var(--secondary);"><?= htmlspecialchars($configData['theme']['secondary']) ?></span>
-                    <span class="badge" style="background:white; color: var(--accent);"><?= htmlspecialchars($configData['theme']['accent']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--primary);"><?= htmlspecialchars($configData['theme']['primary']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--secondary);"><?= htmlspecialchars($configData['theme']['secondary']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--accent);"><?= htmlspecialchars($configData['theme']['accent']) ?></span>
                 </div>
-                <small style="color: rgba(255,255,255,0.75);">Roles activos: <?= htmlspecialchars(implode(' · ', $configData['access']['roles'])) ?></small>
+                <small style="color: color-mix(in srgb, white 75%, transparent);">Roles activos: <?= htmlspecialchars(implode(' · ', $configData['access']['roles'])) ?></small>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <span class="pill" style="background: rgba(255,255,255,0.15); color:white;">Fuente: <?= htmlspecialchars($configData['theme']['font_family']) ?></span>
-                <span class="pill" style="background: rgba(255,255,255,0.15); color:white;">Fondo: <?= htmlspecialchars($configData['theme']['background']) ?></span>
+                <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fuente: <?= htmlspecialchars($configData['theme']['font_family']) ?></span>
+                <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fondo: <?= htmlspecialchars($configData['theme']['background']) ?></span>
             </div>
         </div>
     </div>
 </section>
 
-<section class="grid" style="grid-template-columns: 2fr 3fr; align-items:start;">
+<section class="section-grid wide">
     <div class="card">
         <div class="toolbar">
             <div>
@@ -173,7 +174,7 @@
             <input name="descripcion" placeholder="Descripción">
             <div style="grid-column:1 / -1; display:flex; gap:8px; flex-wrap:wrap;">
                 <?php foreach($permissions as $permission): ?>
-                    <label style="display:flex; gap:6px; align-items:center; background:#f8fafc; padding:8px 10px; border-radius:10px; border:1px solid #e2e8f0;">
+                    <label class="pill" style="background: var(--soft-secondary); border: 1px solid var(--border);">
                         <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
                         <?= htmlspecialchars($permission['name']) ?>
                     </label>
@@ -185,7 +186,7 @@
         </form>
         <div style="display:flex; flex-direction:column; gap:10px;">
             <?php foreach($roles as $role): ?>
-                <form method="POST" action="/project/public/config/roles/update" class="card" style="background:#f8fafc; box-shadow:none; border:1px solid #e2e8f0;">
+                <form method="POST" action="/project/public/config/roles/update" class="card subtle-card">
                     <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
                     <div class="toolbar">
                         <div>
@@ -201,7 +202,7 @@
                     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
                         <?php foreach($permissions as $permission): ?>
                             <?php $assigned = array_filter($role['permissions'], fn($p) => (int)$p['id'] === (int)$permission['id']); ?>
-                            <label style="display:flex; gap:6px; align-items:center; background:white; padding:8px 10px; border-radius:10px; border:1px solid #e2e8f0;">
+                            <label class="pill" style="background: var(--panel); border: 1px solid var(--border);">
                                 <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $assigned ? 'checked' : '' ?>>
                                 <?= htmlspecialchars($permission['name']) ?>
                             </label>
@@ -223,7 +224,7 @@
     </div>
     <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
         <?php foreach($masterData as $table => $items): ?>
-            <div class="card" style="border:1px dashed #e2e8f0; box-shadow:none;">
+            <div class="card subtle-card">
                 <div class="toolbar">
                     <div>
                         <p class="badge neutral" style="margin:0;"><?= htmlspecialchars($table) ?></p>
