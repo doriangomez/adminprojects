@@ -25,13 +25,13 @@ class PortfoliosController extends Controller
 
             $kpis = $this->defaultKpis($projectsRepo->clientKpis($projects, $assignments));
 
-            $portfolios[] = [
-                ...$portfolio,
-                'projects' => $projects,
-                'assignments' => $assignmentsByProject,
-                'kpis' => $kpis,
-                'signal' => $projectsRepo->clientSignal($projects),
-            ];
+            $portfolioData = $portfolio;
+            $portfolioData['projects'] = $projects;
+            $portfolioData['assignments'] = $assignmentsByProject;
+            $portfolioData['kpis'] = $kpis;
+            $portfolioData['signal'] = $projectsRepo->clientSignal($projects);
+
+            $portfolios[] = $portfolioData;
         }
 
         $this->render('projects/portfolio', [
