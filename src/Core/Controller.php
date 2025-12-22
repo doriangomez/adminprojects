@@ -10,9 +10,14 @@ abstract class Controller
 
     protected function render(string $view, array $data = []): void
     {
-        extract($data);
+        $branding = (new ConfigService())->getBranding();
+        $appName = $this->getAppName();
+        extract(array_merge($data, [
+            'branding' => $branding,
+            'appName' => $appName,
+        ]));
         $user = $this->auth->user();
-        $title = $data['title'] ?? 'PMO';
+        $title = $data['title'] ?? $appName;
         include __DIR__ . '/../Views/layout/header.php';
         include __DIR__ . '/../Views/' . $view . '.php';
         include __DIR__ . '/../Views/layout/footer.php';
@@ -31,5 +36,18 @@ abstract class Controller
             http_response_code(403);
             exit('Acceso denegado');
         }
+    }
+
+    protected function getAppName(): string
+    {
+        $configPath = __DIR__ . '/../config.php';
+        if (file_exists($configPath)) {
+            $config = require $configPath;
+            if (isset($config['app']['name'])) {
+                return (string) $config['app']['name'];
+            }
+        }
+
+        return 'Sistema de Gestión de Proyectos';
     }
 }
