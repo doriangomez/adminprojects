@@ -142,6 +142,7 @@ class ClientsController extends Controller
         $mathResult = trim((string) ($_POST['math_result'] ?? ''));
         $client = $repo->find($clientId);
         $dependencies = $repo->dependencySummary($clientId);
+        $forceDelete = $this->isAdmin() && (int) ($_POST['force_delete'] ?? 0) === 1;
 
         if ($clientId <= 0 || !$client) {
             http_response_code(404);
@@ -170,17 +171,7 @@ class ClientsController extends Controller
                 return;
             }
 
-            if ($dependencies['has_dependencies'] ?? false) {
-                $this->json([
-                    'success' => false,
-                    'can_inactivate' => true,
-                    'message' => 'El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.',
-                    'dependencies' => $dependencies,
-                ], 409);
-                return;
-            }
-
-            $result = $repo->deleteWithoutDependencies($clientId, $client['logo_path'] ?? null);
+            $result = $repo->deleteClient($clientId, $client['logo_path'] ?? null, $forceDelete);
 
             if (($result['success'] ?? false) === true) {
                 error_log(sprintf(
@@ -202,9 +193,9 @@ class ClientsController extends Controller
             }
 
             $errorCode = (string) ($result['error_code'] ?? '');
-            $status = $errorCode === '23000' ? 409 : 500;
+            $status = in_array($errorCode, ['23000', 'DEPENDENCIES'], true) ? 409 : 500;
             $message = $errorCode === 'DEPENDENCIES'
-                ? 'El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.'
+                ? 'El cliente tiene dependencias activas. Puede inactivarse o forzar la eliminación como administrador.'
                 : 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
 
             error_log('Error al eliminar cliente: ' . ($result['error'] ?? 'operación desconocida'));
@@ -212,6 +203,8 @@ class ClientsController extends Controller
             $this->json([
                 'success' => false,
                 'message' => $message,
+                'can_inactivate' => $errorCode === 'DEPENDENCIES',
+                'dependencies' => $errorCode === 'DEPENDENCIES' ? $dependencies : null,
             ], $status);
         } catch (\Throwable $e) {
             error_log('Error al eliminar cliente: ' . $e->getMessage());

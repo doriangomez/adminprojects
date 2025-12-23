@@ -177,7 +177,7 @@
                     <div>
                         <p class="badge danger" style="margin:0;" data-modal-context>Acción crítica</p>
                         <h4 style="margin:4px 0 0 0;" data-modal-title>Eliminar cliente</h4>
-                        <p style="margin:4px 0 0 0; color:var(--muted);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada portafolios, proyectos, talento y timesheets asociados.</p>
+                        <p style="margin:4px 0 0 0; color:var(--muted);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada portafolios, proyectos, asignaciones de talento, timesheets, costos y adjuntos asociados.</p>
                     </div>
                 </div>
                 <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--muted);">✕</button>
@@ -187,7 +187,8 @@
                 <input type="hidden" name="math_operand1" id="math_operand1" value="<?= $mathOperand1 ?>">
                 <input type="hidden" name="math_operand2" id="math_operand2" value="<?= $mathOperand2 ?>">
                 <input type="hidden" name="math_operator" id="math_operator" value="<?= $mathOperator ?>">
-                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid #fed7aa; background:#fffbeb; border-radius:10px; color:#9a3412; font-weight:600;">El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.</div>
+                <input type="hidden" name="force_delete" id="force_delete" value="1">
+                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid #fed7aa; background:#fffbeb; border-radius:10px; color:#9a3412; font-weight:600;">El cliente tiene dependencias activas. La eliminación permanente las borrará en cascada.</div>
                 <div>
                     <p style="margin:0 0 4px 0; color:var(--text); font-weight:600;">Confirmación obligatoria</p>
                     <p style="margin:0 0 8px 0; color:var(--muted);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
@@ -228,14 +229,16 @@
             const modalContext = document.querySelector('[data-modal-context]');
             const clientId = <?= (int) $client['id'] ?>;
             const hasDependencies = <?= $dependencies['has_dependencies'] ? 'true' : 'false' ?>;
-            const dependencyMessage = 'El cliente tiene dependencias activas. Puede inactivarse pero no eliminarse.';
+            const isAdmin = <?= $isAdmin ? 'true' : 'false' ?>;
+            const forceDeleteInput = document.getElementById('force_delete');
+            const dependencyMessage = 'El cliente tiene dependencias activas. La eliminación permanente borrará todo lo relacionado de forma definitiva.';
 
-            const actions = {
-                delete: {
-                    title: 'Eliminar cliente',
-                    subtitle: 'Esta acción elimina definitivamente la ficha. Solo procede si no hay dependencias activas.',
-                    context: 'Acción crítica',
-                    actionUrl: '/project/public/clients/delete',
+                const actions = {
+                    delete: {
+                        title: 'Eliminar cliente',
+                        subtitle: 'Esta acción elimina definitivamente la ficha. Los administradores pueden forzar la eliminación incluso con dependencias activas.',
+                        context: 'Acción crítica',
+                        actionUrl: '/project/public/clients/delete',
                     buttonLabel: 'Eliminar permanentemente',
                     buttonStyle: 'color:#b91c1c; border-color:#fecaca; background:#fef2f2;'
                 },
@@ -249,7 +252,7 @@
                 }
             };
 
-            let currentAction = hasDependencies ? 'inactivate' : 'delete';
+            let currentAction = hasDependencies && !isAdmin ? 'inactivate' : 'delete';
 
             const syncState = () => {
                 if (!resultInput || !confirmButton) return;
@@ -276,7 +279,11 @@
 
                 if (dependencyNotice) {
                     dependencyNotice.textContent = dependencyMessage;
-                    dependencyNotice.style.display = (action === 'inactivate' || hasDependencies) ? 'block' : 'none';
+                    dependencyNotice.style.display = hasDependencies || action === 'inactivate' ? 'block' : 'none';
+                }
+
+                if (forceDeleteInput) {
+                    forceDeleteInput.value = action === 'delete' ? '1' : '0';
                 }
             };
 
@@ -308,7 +315,7 @@
                 actionFeedback.style.display = 'none';
                 actionFeedback.textContent = '';
 
-                if (currentAction === 'delete' && hasDependencies) {
+                if (currentAction === 'delete' && hasDependencies && !isAdmin) {
                     actionFeedback.textContent = dependencyMessage;
                     actionFeedback.style.display = 'block';
                     setAction('inactivate');
