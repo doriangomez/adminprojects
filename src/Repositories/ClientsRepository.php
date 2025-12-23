@@ -263,11 +263,11 @@ class ClientsRepository
         ];
     }
 
-    public function deleteWithoutDependencies(int $id, ?string $clientLogoPath = null): array
+    public function deleteClient(int $id, ?string $clientLogoPath = null, bool $forceDelete = false): array
     {
         $dependencies = $this->dependencySummary($id);
 
-        if ($dependencies['has_dependencies']) {
+        if ($dependencies['has_dependencies'] && !$forceDelete) {
             return [
                 'success' => false,
                 'error_code' => 'DEPENDENCIES',
@@ -275,6 +275,18 @@ class ClientsRepository
             ];
         }
 
+        return $forceDelete
+            ? $this->forceDeleteWithCascade($id, $clientLogoPath)
+            : $this->deleteWithoutDependencies($id, $clientLogoPath);
+    }
+
+    public function inactivate(int $id): bool
+    {
+        return $this->db->execute('UPDATE clients SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
+    }
+
+    public function deleteWithoutDependencies(int $id, ?string $clientLogoPath = null): array
+    {
         try {
             $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $id]);
 
@@ -290,11 +302,6 @@ class ClientsRepository
                 'error_code' => $e->getCode(),
             ];
         }
-    }
-
-    public function inactivate(int $id): bool
-    {
-        return $this->db->execute('UPDATE clients SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
     }
 
     private function isPrivileged(array $user): bool
@@ -315,6 +322,129 @@ class ClientsRepository
                 @unlink($fullPath);
             }
         }
+    }
+
+    private function forceDeleteWithCascade(int $clientId, ?string $clientLogoPath = null): array
+    {
+        $pdo = $this->db->connection();
+        $attachments = $this->portfolioAttachments($clientId);
+
+        if ($clientLogoPath) {
+            $attachments[] = $clientLogoPath;
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            $this->deleteTimesheets($clientId);
+            $this->deleteTasks($clientId);
+            $this->deleteAssignments($clientId);
+            $this->deleteProjects($clientId);
+            $this->deletePortfolios($clientId);
+            $this->deleteContracts($clientId);
+
+            $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $clientId]);
+
+            $pdo->commit();
+        } catch (\PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+            ];
+        }
+
+        if ($attachments) {
+            $this->deleteFiles($attachments);
+        }
+
+        return ['success' => true];
+    }
+
+    private function deleteTimesheets(int $clientId): void
+    {
+        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks') || !$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $this->db->execute(
+            'DELETE ts FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             JOIN projects p ON p.id = t.project_id
+             WHERE p.client_id = :clientId',
+            [':clientId' => $clientId]
+        );
+    }
+
+    private function deleteTasks(int $clientId): void
+    {
+        if (!$this->db->tableExists('tasks') || !$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $this->db->execute(
+            'DELETE t FROM tasks t JOIN projects p ON p.id = t.project_id WHERE p.client_id = :clientId',
+            [':clientId' => $clientId]
+        );
+    }
+
+    private function deleteAssignments(int $clientId): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $this->db->execute(
+            'DELETE a FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             WHERE p.client_id = :clientId',
+            [':clientId' => $clientId]
+        );
+    }
+
+    private function deleteProjects(int $clientId): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $this->db->execute('DELETE FROM projects WHERE client_id = :clientId', [':clientId' => $clientId]);
+    }
+
+    private function deletePortfolios(int $clientId): void
+    {
+        if (!$this->db->tableExists('client_portfolios')) {
+            return;
+        }
+
+        $this->db->execute('DELETE FROM client_portfolios WHERE client_id = :clientId', [':clientId' => $clientId]);
+    }
+
+    private function deleteContracts(int $clientId): void
+    {
+        if (!$this->db->tableExists('contracts') || !$this->db->columnExists('contracts', 'client_id')) {
+            return;
+        }
+
+        $this->db->execute('DELETE FROM contracts WHERE client_id = :clientId', [':clientId' => $clientId]);
+    }
+
+    private function portfolioAttachments(int $clientId): array
+    {
+        if (!$this->db->tableExists('client_portfolios') || !$this->db->columnExists('client_portfolios', 'attachment_path')) {
+            return [];
+        }
+
+        $attachments = $this->db->fetchAll(
+            'SELECT attachment_path FROM client_portfolios WHERE client_id = :clientId AND attachment_path IS NOT NULL',
+            [':clientId' => $clientId]
+        );
+
+        return array_unique(array_filter(array_map(fn ($row) => $row['attachment_path'] ?? null, $attachments)));
     }
 
     private function normalizePath(string $path): ?string
