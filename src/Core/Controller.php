@@ -10,12 +10,8 @@ abstract class Controller
 
     protected function render(string $view, array $data = []): void
     {
-        $branding = (new ConfigService())->getBranding();
-        $appName = $this->getAppName();
-        extract(array_merge($data, [
-            'branding' => $branding,
-            'appName' => $appName,
-        ]));
+        extract($data);
+        $auth = $this->auth;
         $user = $this->auth->user();
         $title = $data['title'] ?? $appName;
         include __DIR__ . '/../Views/layout/header.php';

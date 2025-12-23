@@ -8,8 +8,8 @@
         <?php if($canManage): ?>
             <a class="btn secondary" href="/project/public/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
         <?php endif; ?>
-        <?php if($canDelete): ?>
-            <button type="button" class="btn ghost" style="color:#b91c1c; border-color: #fecaca; background: #fef2f2;" data-open-action="delete">
+        <?php if($auth->canDeleteClients()): ?>
+            <button type="button" class="btn ghost" style="color:#b91c1c; border-color: #fecaca; background: #fef2f2;" data-open-delete>
                 Eliminar cliente
             </button>
         <?php endif; ?>
@@ -159,16 +159,7 @@
     </table>
 </div>
 
-<?php if($canDelete || $canInactivate): ?>
-    <?php
-        $mathOperand1 = random_int(1, 10);
-        $mathOperand2 = random_int(1, 10);
-        $mathOperator = random_int(0, 1) === 0 ? '+' : '-';
-
-        if ($mathOperator === '-' && $mathOperand2 > $mathOperand1) {
-            [$mathOperand1, $mathOperand2] = [$mathOperand2, $mathOperand1];
-        }
-    ?>
+<?php if($auth->canDeleteClients()): ?>
     <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.45); align-items:center; justify-content:center; padding:16px;">
         <div class="card" style="max-width:520px; width:100%; border:1px solid #fecaca; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
             <div class="toolbar">

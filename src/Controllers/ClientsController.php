@@ -9,7 +9,6 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
-        $canDelete = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
 
@@ -17,7 +16,6 @@ class ClientsController extends Controller
             'title' => 'Clientes',
             'clients' => $repo->listForUser($user),
             'canManage' => $canManage,
-            'canDelete' => $canDelete,
         ]);
     }
 
@@ -36,7 +34,6 @@ class ClientsController extends Controller
         $this->requirePermission('clients.view');
         $repo = new ClientsRepository($this->db);
         $canManage = $this->auth->can('clients.manage');
-        $isAdmin = $this->isAdmin();
 
         $user = $this->auth->user() ?? [];
         $client = $repo->findForUser($id, $user);
@@ -56,10 +53,6 @@ class ClientsController extends Controller
             'projects' => $repo->projectsForClient($id, $user),
             'snapshot' => $repo->projectSnapshot($id, $user),
             'canManage' => $canManage,
-            'canDelete' => $canDelete,
-            'canInactivate' => $canInactivate,
-            'isAdmin' => $isAdmin,
-            'dependencies' => $dependencies,
         ]);
     }
 
@@ -131,22 +124,9 @@ class ClientsController extends Controller
 
     public function destroy(): void
     {
-        $this->requirePermission('clients.manage');
-
-        $repo = new ClientsRepository($this->db);
-        $user = $this->auth->user() ?? [];
-        $clientId = (int) ($_POST['id'] ?? 0);
-        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
-        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
-        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
-        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
-        $client = $repo->find($clientId);
-        $dependencies = $repo->dependencySummary($clientId);
-        $forceDelete = $this->isAdmin() && (int) ($_POST['force_delete'] ?? 0) === 1;
-
-        if ($clientId <= 0 || !$client) {
-            http_response_code(404);
-            exit('Cliente no encontrado');
+        if (!$this->auth->canDeleteClients()) {
+            http_response_code(403);
+            exit('Solo administradores pueden eliminar clientes.');
         }
 
         if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
@@ -409,8 +389,4 @@ class ClientsController extends Controller
         return $trimmed;
     }
 
-    private function isAdmin(): bool
-    {
-        return ($this->auth->user()['role'] ?? '') === 'Administrador';
-    }
 }
