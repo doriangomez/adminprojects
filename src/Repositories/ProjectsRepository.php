@@ -22,6 +22,9 @@ class ProjectsRepository
         $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
         $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
         $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
+        $hasPriorityTextColumn = $this->db->columnExists('projects', 'priority');
+        $hasStatusTextColumn = $this->db->columnExists('projects', 'status');
+        $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -32,6 +35,7 @@ class ProjectsRepository
 
         $select = [
             'p.id',
+            'p.portfolio_id',
             'p.name',
             'p.progress',
             'p.budget',
@@ -45,10 +49,22 @@ class ProjectsRepository
             'JOIN clients c ON c.id = p.client_id',
         ];
 
+        if ($hasPmColumn) {
+            $select[] = 'p.pm_id';
+            $select[] = 'u.name AS pm_name';
+            $joins[] = 'LEFT JOIN users u ON u.id = p.pm_id';
+        } else {
+            $select[] = 'NULL AS pm_id';
+            $select[] = 'NULL AS pm_name';
+        }
+
         if ($hasPriorityColumn) {
             $select[] = 'p.priority_code AS priority';
             $select[] = 'pr.label AS priority_label';
             $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
+        } elseif ($hasPriorityTextColumn) {
+            $select[] = 'p.priority AS priority';
+            $select[] = 'p.priority AS priority_label';
         } else {
             $select[] = 'NULL AS priority';
             $select[] = 'NULL AS priority_label';
@@ -58,6 +74,9 @@ class ProjectsRepository
             $select[] = 'p.status_code AS status';
             $select[] = 'st.label AS status_label';
             $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
+        } elseif ($hasStatusTextColumn) {
+            $select[] = 'p.status AS status';
+            $select[] = 'p.status AS status_label';
         } else {
             $select[] = "'' AS status";
             $select[] = 'NULL AS status_label';
@@ -67,6 +86,9 @@ class ProjectsRepository
             $select[] = 'p.health_code AS health';
             $select[] = 'h.label AS health_label';
             $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
+        } elseif ($hasHealthTextColumn) {
+            $select[] = 'p.health AS health';
+            $select[] = 'p.health AS health_label';
         } else {
             $select[] = 'NULL AS health';
             $select[] = 'NULL AS health_label';
@@ -160,6 +182,87 @@ class ProjectsRepository
         $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
         $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
         $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
+        $hasPriorityTextColumn = $this->db->columnExists('projects', 'priority');
+        $hasStatusTextColumn = $this->db->columnExists('projects', 'status');
+        $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
+
+        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+        $select = [
+            'p.id',
+            'p.portfolio_id',
+            'p.name',
+            'p.progress',
+            'p.project_type',
+            'p.budget',
+            'p.actual_cost',
+            'p.pm_id',
+            'u.name AS pm_name',
+            'p.actual_hours',
+            'p.planned_hours',
+        ];
+
+        $joins = [
+            'JOIN clients c ON c.id = p.client_id',
+            'LEFT JOIN users u ON u.id = p.pm_id',
+        ];
+
+        if ($hasPriorityColumn) {
+            $select[] = 'p.priority_code AS priority';
+            $select[] = 'pr.label AS priority_label';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
+        } elseif ($hasPriorityTextColumn) {
+            $select[] = 'p.priority AS priority';
+            $select[] = 'p.priority AS priority_label';
+        } else {
+            $select[] = 'NULL AS priority';
+            $select[] = 'NULL AS priority_label';
+        }
+
+        if ($hasStatusColumn) {
+            $select[] = 'p.status_code AS status';
+            $select[] = 'st.label AS status_label';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
+        } elseif ($hasStatusTextColumn) {
+            $select[] = 'p.status AS status';
+            $select[] = 'p.status AS status_label';
+        } else {
+            $select[] = "'' AS status";
+            $select[] = 'NULL AS status_label';
+        }
+
+        if ($hasHealthColumn) {
+            $select[] = 'p.health_code AS health';
+            $select[] = 'h.label AS health_label';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
+        } elseif ($hasHealthTextColumn) {
+            $select[] = 'p.health AS health';
+            $select[] = 'p.health AS health_label';
+        } else {
+            $select[] = 'NULL AS health';
+            $select[] = 'NULL AS health_label';
+        }
+
+        $sql = sprintf(
+            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
+            implode(', ', $select),
+            implode(' ', $joins),
+            $whereClause
+        );
+
+        $projects = $this->db->fetchAll($sql, $params);
+
+        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+    }
+
+    public function projectsForPortfolio(int $portfolioId, array $user): array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $conditions[] = 'p.portfolio_id = :portfolioId';
+        $params[':portfolioId'] = $portfolioId;
+        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
 
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
@@ -177,7 +280,8 @@ class ProjectsRepository
         ];
 
         $joins = [
-            'JOIN clients c ON c.id = p.client_id',
+            'JOIN client_portfolios pf ON pf.id = p.portfolio_id',
+            'JOIN clients c ON c.id = pf.client_id',
             'LEFT JOIN users u ON u.id = p.pm_id',
         ];
 
@@ -300,6 +404,31 @@ class ProjectsRepository
         );
     }
 
+    public function create(array $payload): int
+    {
+        return $this->db->insert(
+            'INSERT INTO projects (client_id, portfolio_id, pm_id, name, status, health, priority, project_type, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
+             VALUES (:client_id, :portfolio_id, :pm_id, :name, :status, :health, :priority, :project_type, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
+            [
+                ':client_id' => (int) $payload['client_id'],
+                ':portfolio_id' => $payload['portfolio_id'] ?? null,
+                ':pm_id' => (int) $payload['pm_id'],
+                ':name' => $payload['name'],
+                ':status' => $payload['status'] ?? 'ideation',
+                ':health' => $payload['health'] ?? 'on_track',
+                ':priority' => $payload['priority'],
+                ':project_type' => $payload['project_type'] ?? 'convencional',
+                ':budget' => $payload['budget'] ?? 0,
+                ':actual_cost' => $payload['actual_cost'] ?? 0,
+                ':planned_hours' => $payload['planned_hours'] ?? 0,
+                ':actual_hours' => $payload['actual_hours'] ?? 0,
+                ':progress' => $payload['progress'] ?? 0,
+                ':start_date' => $payload['start_date'] ?? null,
+                ':end_date' => $payload['end_date'] ?? null,
+            ]
+        );
+    }
+
     private function visibilityConditions(array $user, string $clientAlias, string $projectAlias): array
     {
         $conditions = [];
@@ -361,6 +490,40 @@ class ProjectsRepository
             'capacity_used' => $usedHours,
             'capacity_available' => $availableHours,
             'capacity_percent' => $capacityPercent,
+        ];
+    }
+
+    public function portfolioKpisFromProjects(array $projects): array
+    {
+        $activeProjects = array_filter(
+            $projects,
+            fn (array $project) => ($project['status'] ?? '') !== 'closed' && ($project['status'] ?? '') !== 'cancelled'
+        );
+        $progressValues = array_column($activeProjects, 'progress');
+        $avgProgress = $progressValues ? array_sum($progressValues) / count($progressValues) : 0.0;
+
+        $riskLevel = 'bajo';
+        foreach ($activeProjects as $project) {
+            $health = $project['health'] ?? '';
+            if (in_array($health, ['critical', 'red'], true)) {
+                $riskLevel = 'alto';
+                break;
+            }
+            if (in_array($health, ['at_risk', 'yellow'], true)) {
+                $riskLevel = 'medio';
+            }
+        }
+
+        $actualCost = array_sum(array_map(fn ($p) => (float) ($p['actual_cost'] ?? 0), $projects));
+        $budgetPlanned = array_sum(array_map(fn ($p) => (float) ($p['budget'] ?? 0), $projects));
+
+        return [
+            'avg_progress' => round($avgProgress, 1),
+            'risk_level' => $riskLevel,
+            'active_projects' => count($activeProjects),
+            'total_projects' => count($projects),
+            'budget_used' => $actualCost,
+            'budget_planned' => $budgetPlanned,
         ];
     }
 

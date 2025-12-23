@@ -17,6 +17,7 @@ class App
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureAssignmentsTable();
         $migrator->ensurePortfoliosTable();
+        $migrator->ensureProjectPortfolioLink();
         $migrator->ensureProjectManagementPermission();
         $this->auth = new Auth($this->db);
     }
@@ -82,6 +83,11 @@ class App
                 return;
             }
 
+            if (preg_match('#^/clients/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
+                $controller->inactivate((int) $matches[1]);
+                return;
+            }
+
             if (preg_match('#^/clients/(\\d+)$#', $path, $matches)) {
                 $controller->show((int) $matches[1]);
                 return;
@@ -112,6 +118,15 @@ class App
             $controller = new PortfoliosController($this->db, $this->auth);
             if ($path === '/portfolio/create') {
                 $controller->create();
+                return;
+            }
+            if ($path === '/portfolio/wizard') {
+                if ($method === 'POST') {
+                    $controller->storeWizard();
+                    return;
+                }
+
+                $controller->wizard();
                 return;
             }
             if ($path === '/portfolio' && $method === 'POST') {

@@ -13,6 +13,11 @@
                 Eliminar cliente
             </button>
         <?php endif; ?>
+        <?php if($canInactivate): ?>
+            <button type="button" class="btn ghost" style="color:#9a3412; border-color:#fed7aa; background:#fffbeb;" data-open-action="inactivate">
+                Inactivar cliente
+            </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -158,20 +163,36 @@
     <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.45); align-items:center; justify-content:center; padding:16px;">
         <div class="card" style="max-width:520px; width:100%; border:1px solid #fecaca; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
             <div class="toolbar">
-                <div>
-                    <p class="badge danger" style="margin:0;">Acción crítica</p>
-                    <h4 style="margin:4px 0 0 0;">Eliminar cliente</h4>
-                    <p style="margin:4px 0 0 0; color:var(--muted);">Esta acción es irreversible y eliminará proyectos, portafolios y registros asociados.</p>
+                <div style="display:flex; gap:10px; align-items:flex-start;">
+                    <span aria-hidden="true" style="width:36px; height:36px; border-radius:12px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; display:inline-flex; align-items:center; justify-content:center; font-weight:800;">!</span>
+                    <div>
+                        <p class="badge danger" style="margin:0;" data-modal-context>Acción crítica</p>
+                        <h4 style="margin:4px 0 0 0;" data-modal-title>Eliminar cliente</h4>
+                        <p style="margin:4px 0 0 0; color:var(--muted);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada portafolios, proyectos, asignaciones de talento, timesheets, costos y adjuntos asociados.</p>
+                    </div>
                 </div>
                 <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--muted);">✕</button>
             </div>
-            <form method="POST" action="/project/public/clients/delete" class="grid" style="gap:12px;">
+            <form method="POST" action="/project/public/clients/delete" class="grid" style="gap:12px;" id="delete-form">
                 <input type="hidden" name="id" value="<?= (int) $client['id'] ?>">
+                <input type="hidden" name="math_operand1" id="math_operand1" value="<?= $mathOperand1 ?>">
+                <input type="hidden" name="math_operand2" id="math_operand2" value="<?= $mathOperand2 ?>">
+                <input type="hidden" name="math_operator" id="math_operator" value="<?= $mathOperator ?>">
+                <input type="hidden" name="force_delete" id="force_delete" value="1">
+                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid #fed7aa; background:#fffbeb; border-radius:10px; color:#9a3412; font-weight:600;">El cliente tiene dependencias activas. La eliminación permanente las borrará en cascada.</div>
                 <div>
                     <p style="margin:0 0 4px 0; color:var(--text); font-weight:600;">Confirmación obligatoria</p>
-                    <p style="margin:0 0 8px 0; color:var(--muted);">Escriba <strong><?= htmlspecialchars($client['name']) ?></strong> para confirmar la eliminación.</p>
-                    <input type="text" name="confirmation_name" id="confirmation_name" data-expected="<?= htmlspecialchars($client['name']) ?>" placeholder="<?= htmlspecialchars($client['name']) ?>" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+                    <p style="margin:0 0 8px 0; color:var(--muted);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="flex:1;">
+                            <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgb(249, 250, 251); font-weight:700;">
+                                <?= $mathOperand1 ?> <?= $mathOperator ?> <?= $mathOperand2 ?> =
+                            </div>
+                        </div>
+                        <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado" style="width:120px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+                    </div>
                 </div>
+                <div id="action-feedback" style="display:none; padding:10px 12px; border-radius:10px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; font-weight:600;"></div>
                 <div style="display:flex; justify-content:flex-end; gap:8px;">
                     <button type="button" class="btn ghost" data-close-delete>Cancelar</button>
                     <button type="submit" class="btn ghost" id="confirm-delete-btn" style="color:#b91c1c; border-color:#fecaca; background:#fef2f2;" disabled>Eliminar permanentemente</button>
@@ -183,23 +204,93 @@
     <script>
         (function() {
             const modal = document.getElementById('delete-modal');
-            const openBtn = document.querySelector('[data-open-delete]');
+            const openButtons = document.querySelectorAll('[data-open-action]');
             const closeButtons = document.querySelectorAll('[data-close-delete]');
-            const confirmationInput = document.getElementById('confirmation_name');
+            const resultInput = document.getElementById('math_result');
             const confirmButton = document.getElementById('confirm-delete-btn');
-            const expected = confirmationInput ? confirmationInput.getAttribute('data-expected') : '';
+            const form = document.getElementById('delete-form');
+            const operand1 = Number(document.getElementById('math_operand1')?.value || 0);
+            const operand2 = Number(document.getElementById('math_operand2')?.value || 0);
+            const operator = (document.getElementById('math_operator')?.value || '').trim();
+            const expected = operator === '+' ? operand1 + operand2 : operand1 - operand2;
+            const dependencyNotice = document.getElementById('dependency-notice');
+            const actionFeedback = document.getElementById('action-feedback');
+            const modalTitle = document.querySelector('[data-modal-title]');
+            const modalSubtitle = document.querySelector('[data-modal-subtitle]');
+            const modalContext = document.querySelector('[data-modal-context]');
+            const clientId = <?= (int) $client['id'] ?>;
+            const hasDependencies = <?= $dependencies['has_dependencies'] ? 'true' : 'false' ?>;
+            const isAdmin = <?= $isAdmin ? 'true' : 'false' ?>;
+            const forceDeleteInput = document.getElementById('force_delete');
+            const dependencyMessage = 'El cliente tiene dependencias activas. La eliminación permanente borrará todo lo relacionado de forma definitiva.';
 
-            const syncState = () => {
-                if (!confirmationInput || !confirmButton) return;
-                confirmButton.disabled = confirmationInput.value.trim() !== expected;
+                const actions = {
+                    delete: {
+                        title: 'Eliminar cliente',
+                        subtitle: 'Esta acción elimina definitivamente la ficha. Los administradores pueden forzar la eliminación incluso con dependencias activas.',
+                        context: 'Acción crítica',
+                        actionUrl: '/project/public/clients/delete',
+                    buttonLabel: 'Eliminar permanentemente',
+                    buttonStyle: 'color:#b91c1c; border-color:#fecaca; background:#fef2f2;'
+                },
+                inactivate: {
+                    title: 'Inactivar cliente',
+                    subtitle: 'Se deshabilita el cliente y se conserva la información asociada.',
+                    context: 'Acción segura',
+                    actionUrl: `/project/public/clients/${clientId}/inactivate`,
+                    buttonLabel: 'Inactivar cliente',
+                    buttonStyle: 'color:#9a3412; border-color:#fed7aa; background:#fffbeb;'
+                }
             };
 
-            openBtn?.addEventListener('click', () => {
+            let currentAction = hasDependencies && !isAdmin ? 'inactivate' : 'delete';
+
+            const syncState = () => {
+                if (!resultInput || !confirmButton) return;
+                const current = Number(resultInput.value.trim());
+                const isValid = !Number.isNaN(current) && current === expected;
+                confirmButton.disabled = !isValid;
+            };
+
+            const setAction = (action) => {
+                currentAction = action;
+                const config = actions[action];
+                if (!config) return;
+
+                if (modalTitle) modalTitle.textContent = config.title;
+                if (modalSubtitle) modalSubtitle.textContent = config.subtitle;
+                if (modalContext) modalContext.textContent = config.context;
+                if (confirmButton) {
+                    confirmButton.textContent = config.buttonLabel;
+                    confirmButton.style.cssText = `${confirmButton.getAttribute('style') || ''}; ${config.buttonStyle}`;
+                }
+                if (form) {
+                    form.setAttribute('action', config.actionUrl);
+                }
+
+                if (dependencyNotice) {
+                    dependencyNotice.textContent = dependencyMessage;
+                    dependencyNotice.style.display = hasDependencies || action === 'inactivate' ? 'block' : 'none';
+                }
+
+                if (forceDeleteInput) {
+                    forceDeleteInput.value = action === 'delete' ? '1' : '0';
+                }
+            };
+
+            openButtons.forEach((btn) => btn.addEventListener('click', (event) => {
                 if (!modal) return;
+                const action = event.currentTarget?.getAttribute('data-open-action') || currentAction;
+                setAction(action);
                 modal.style.display = 'flex';
-                confirmationInput?.focus();
+                if (resultInput) {
+                    resultInput.value = '';
+                }
+                actionFeedback.style.display = 'none';
+                actionFeedback.textContent = '';
+                resultInput?.focus();
                 syncState();
-            });
+            }));
 
             closeButtons.forEach((btn) => btn.addEventListener('click', () => {
                 if (modal) {
@@ -207,7 +298,56 @@
                 }
             }));
 
-            confirmationInput?.addEventListener('input', syncState);
+            resultInput?.addEventListener('input', syncState);
+
+            form?.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                if (!form) return;
+                actionFeedback.style.display = 'none';
+                actionFeedback.textContent = '';
+
+                if (currentAction === 'delete' && hasDependencies && !isAdmin) {
+                    actionFeedback.textContent = dependencyMessage;
+                    actionFeedback.style.display = 'block';
+                    setAction('inactivate');
+                    return;
+                }
+
+                const payload = new FormData(form);
+                let responseData;
+
+                try {
+                    const response = await fetch(form.getAttribute('action') || '', {
+                        method: 'POST',
+                        body: payload,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    responseData = await response.json();
+                } catch (error) {
+                    actionFeedback.textContent = 'No se pudo completar la acción. Intenta nuevamente.';
+                    actionFeedback.style.display = 'block';
+                    return;
+                }
+
+                if (responseData?.success) {
+                    alert(responseData.message || 'Acción completada.');
+                    window.location.href = '/project/public/clients';
+                    return;
+                }
+
+                const message = responseData?.message || 'No se pudo completar la acción.';
+                actionFeedback.textContent = message;
+                actionFeedback.style.display = 'block';
+
+                if (responseData?.can_inactivate) {
+                    setAction('inactivate');
+                }
+            });
+
+            setAction(currentAction);
         })();
     </script>
 <?php endif; ?>

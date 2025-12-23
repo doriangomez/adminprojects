@@ -33,12 +33,7 @@ class ProjectsController extends Controller
         }
 
         foreach ($portfolios as $portfolio) {
-            $projects = $projectsRepo->projectsForClient((int) $portfolio['client_id'], $user) ?? [];
-            $assignments = $projectsRepo->assignmentsForClient((int) $portfolio['client_id'], $user);
-            $assignmentsByProject = [];
-            foreach ($assignments as $assignment) {
-                $assignmentsByProject[$assignment['project_id']][] = $assignment;
-            }
+            $projects = $projectsRepo->projectsForPortfolio((int) $portfolio['id'], $user) ?? [];
 
             $portfolioView[] = [
                 'id' => (int) $portfolio['id'],
@@ -47,19 +42,17 @@ class ProjectsController extends Controller
                 'name' => $portfolio['name'],
                 'start_date' => $portfolio['start_date'],
                 'end_date' => $portfolio['end_date'],
-                'hours_limit' => $portfolio['hours_limit'],
-                'budget_limit' => $portfolio['budget_limit'],
+                'budget_total' => $portfolio['budget_total'],
+                'risk_level' => $portfolio['risk_level'],
                 'attachment_path' => $portfolio['attachment_path'],
                 'projects_included' => $portfolio['projects_included'] ?? null,
                 'rules_notes' => $portfolio['rules_notes'] ?? null,
                 'alerting_policy' => $portfolio['alerting_policy'] ?? null,
                 'alerts' => $portfolio['alerts'],
-                'hours_ratio' => $portfolio['hours_ratio'],
                 'budget_ratio' => $portfolio['budget_ratio'],
                 'projects' => $projects,
-                'kpis' => $this->defaultKpis($projectsRepo->clientKpis($projects, $assignments)),
+                'kpis' => $this->defaultKpis($projectsRepo->portfolioKpisFromProjects($projects)),
                 'signal' => $projectsRepo->clientSignal($projects),
-                'assignments' => $assignmentsByProject,
                 'client_meta' => $clientsIndex[(int) $portfolio['client_id']] ?? [],
             ];
         }
@@ -117,9 +110,8 @@ class ProjectsController extends Controller
             'avg_progress' => 0.0,
             'active_projects' => 0,
             'total_projects' => 0,
-            'capacity_used' => 0.0,
-            'capacity_available' => 0.0,
-            'capacity_percent' => 0.0,
+            'budget_used' => 0.0,
+            'budget_planned' => 0.0,
         ];
 
         return array_merge($defaults, $kpis);

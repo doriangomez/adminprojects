@@ -17,11 +17,13 @@ class PortfoliosRepository
 
         $portfolios = $this->db->fetchAll(
             'SELECT p.*, c.name AS client_name, c.pm_id,
-                    SUM(pr.actual_hours) AS actual_hours, SUM(pr.planned_hours) AS planned_hours,
-                    SUM(pr.actual_cost) AS actual_cost, SUM(pr.budget) AS budget
+                    COUNT(pr.id) AS projects_total,
+                    AVG(pr.progress) AS avg_progress,
+                    SUM(pr.actual_cost) AS actual_cost,
+                    SUM(pr.budget) AS budget_committed
              FROM client_portfolios p
              JOIN clients c ON c.id = p.client_id
-             LEFT JOIN projects pr ON pr.client_id = p.client_id
+             LEFT JOIN projects pr ON pr.portfolio_id = p.id
              ' . $whereClause . '
              GROUP BY p.id, c.name, c.pm_id
              ORDER BY c.name ASC, p.start_date ASC',
@@ -34,19 +36,23 @@ class PortfoliosRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO client_portfolios (client_id, name, start_date, end_date, hours_limit, budget_limit, attachment_path, projects_included, rules_notes, alerting_policy, created_at, updated_at)
-             VALUES (:client_id, :name, :start_date, :end_date, :hours_limit, :budget_limit, :attachment_path, :projects_included, :rules_notes, :alerting_policy, NOW(), NOW())',
+            'INSERT INTO client_portfolios (client_id, name, objective, description, start_date, end_date, hours_limit, budget_limit, attachment_path, projects_included, rules_notes, alerting_policy, risk_register, risk_level_text, created_at, updated_at)'
+             . ' VALUES (:client_id, :name, :objective, :description, :start_date, :end_date, :hours_limit, :budget_limit, :attachment_path, :projects_included, :rules_notes, :alerting_policy, :risk_register, :risk_level_text, NOW(), NOW())',
             [
                 ':client_id' => (int) $payload['client_id'],
                 ':name' => $payload['name'],
+                ':objective' => $payload['objective'] ?? null,
+                ':description' => $payload['description'] ?? null,
                 ':start_date' => $payload['start_date'] ?: null,
                 ':end_date' => $payload['end_date'] ?: null,
-                ':hours_limit' => $payload['hours_limit'] ?? null,
-                ':budget_limit' => $payload['budget_limit'] ?? null,
+                ':budget_total' => $payload['budget_total'] ?? null,
+                ':risk_level' => $payload['risk_level'] ?? null,
                 ':attachment_path' => $payload['attachment_path'] ?? null,
                 ':projects_included' => $payload['projects_included'] ?? null,
                 ':rules_notes' => $payload['rules_notes'] ?? null,
                 ':alerting_policy' => $payload['alerting_policy'] ?? null,
+                ':risk_register' => $payload['risk_register'] ?? null,
+                ':risk_level_text' => $payload['risk_level_text'] ?? null,
             ]
         );
     }
@@ -55,22 +61,27 @@ class PortfoliosRepository
     {
         $this->db->execute(
             'UPDATE client_portfolios
-             SET name = :name, start_date = :start_date, end_date = :end_date,
+             SET name = :name, objective = :objective, description = :description, start_date = :start_date, end_date = :end_date,
                  hours_limit = :hours_limit, budget_limit = :budget_limit, attachment_path = :attachment_path,
                  projects_included = :projects_included, rules_notes = :rules_notes, alerting_policy = :alerting_policy,
+                 risk_register = :risk_register, risk_level_text = :risk_level_text,
                  updated_at = NOW()
              WHERE id = :id',
             [
                 ':id' => $id,
                 ':name' => $payload['name'],
+                ':objective' => $payload['objective'] ?? null,
+                ':description' => $payload['description'] ?? null,
                 ':start_date' => $payload['start_date'] ?: null,
                 ':end_date' => $payload['end_date'] ?: null,
-                ':hours_limit' => $payload['hours_limit'] ?? null,
-                ':budget_limit' => $payload['budget_limit'] ?? null,
+                ':budget_total' => $payload['budget_total'] ?? null,
+                ':risk_level' => $payload['risk_level'] ?? null,
                 ':attachment_path' => $payload['attachment_path'] ?? null,
                 ':projects_included' => $payload['projects_included'] ?? null,
                 ':rules_notes' => $payload['rules_notes'] ?? null,
                 ':alerting_policy' => $payload['alerting_policy'] ?? null,
+                ':risk_register' => $payload['risk_register'] ?? null,
+                ':risk_level_text' => $payload['risk_level_text'] ?? null,
             ]
         );
     }
@@ -105,6 +116,21 @@ class PortfoliosRepository
         return '/project/public/uploads/portfolios/' . $safeName;
     }
 
+    public function syncProjects(int $portfolioId, array $projectIds): void
+    {
+        if (empty($projectIds)) {
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($projectIds), '?'));
+        $params = array_merge([$portfolioId], array_map('intval', $projectIds));
+
+        $this->db->execute(
+            "UPDATE projects SET portfolio_id = ? WHERE id IN ($placeholders)",
+            $params
+        );
+    }
+
     private function visibilityConditions(array $user): array
     {
         $conditions = [];
@@ -134,33 +160,10 @@ class PortfoliosRepository
             }
         }
 
-        $hoursLimit = (float) ($portfolio['hours_limit'] ?? 0);
-        $budgetLimit = (float) ($portfolio['budget_limit'] ?? 0);
-        $hoursUsed = (float) ($portfolio['actual_hours'] ?? 0);
-        $budgetUsed = (float) ($portfolio['actual_cost'] ?? 0);
-
-        $hoursRatio = $hoursLimit > 0 ? $hoursUsed / $hoursLimit : null;
-        $budgetRatio = $budgetLimit > 0 ? $budgetUsed / $budgetLimit : null;
-
-        if ($hoursRatio !== null) {
-            if ($hoursRatio >= 1) {
-                $alerts[] = 'Horas consumidas superan el límite del portafolio.';
-            } elseif ($hoursRatio >= $warningRatio) {
-                $alerts[] = 'Horas consumidas rebasan el umbral preventivo.';
-            }
-        }
-
-        if ($budgetRatio !== null) {
-            if ($budgetRatio >= 1) {
-                $alerts[] = 'Costos reales superan el presupuesto definido.';
-            } elseif ($budgetRatio >= $warningRatio) {
-                $alerts[] = 'Costos reales alcanzan el umbral preventivo.';
-            }
-        }
-
         $portfolio['alerts'] = $alerts;
-        $portfolio['hours_ratio'] = $hoursRatio;
-        $portfolio['budget_ratio'] = $budgetRatio;
+        $budgetLimit = (float) ($portfolio['budget_total'] ?? 0);
+        $budgetUsed = (float) ($portfolio['actual_cost'] ?? 0);
+        $portfolio['budget_ratio'] = $budgetLimit > 0 ? $budgetUsed / $budgetLimit : null;
 
         return $portfolio;
     }
