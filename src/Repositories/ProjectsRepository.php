@@ -226,6 +226,8 @@ class ProjectsRepository
     public function aggregatedKpis(array $user, array $filters = []): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
 
         if (!empty($filters['client_id'])) {
             $conditions[] = 'c.id = :client';
@@ -254,10 +256,26 @@ class ProjectsRepository
              FROM projects p JOIN clients c ON c.id = p.client_id ' . $whereClause,
             $params
         );
-        $atRisk = $this->db->fetchOne(
-            "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND (p.health IN ('at_risk','critical','red','yellow') OR p.health_code IN ('at_risk','critical','red','yellow'))",
-            $params
-        );
+
+        $healthConditions = [];
+        if ($hasHealthTextColumn) {
+            $healthConditions[] = "p.health IN ('at_risk','critical','red','yellow')";
+        }
+        if ($hasHealthColumn) {
+            $healthConditions[] = "p.health_code IN ('at_risk','critical','red','yellow')";
+        }
+
+        if ($healthConditions) {
+            $atRiskConditions = $conditions;
+            $atRiskConditions[] = '(' . implode(' OR ', $healthConditions) . ')';
+            $atRiskWhere = 'WHERE ' . implode(' AND ', $atRiskConditions);
+            $atRisk = $this->db->fetchOne(
+                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $atRiskWhere",
+                $params
+            );
+        } else {
+            $atRisk = ['total' => 0];
+        }
 
         return [
             'total_projects' => (int) ($totals['total'] ?? 0),
