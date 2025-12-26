@@ -33,6 +33,19 @@ class PortfoliosRepository
         return array_map(fn (array $portfolio) => $this->attachAlerts($portfolio), $portfolios);
     }
 
+    public function find(int $id): ?array
+    {
+        $portfolio = $this->db->fetchOne(
+            'SELECT p.*, c.name AS client_name, c.pm_id
+             FROM client_portfolios p
+             JOIN clients c ON c.id = p.client_id
+             WHERE p.id = :id',
+            [':id' => $id]
+        );
+
+        return $portfolio ? $this->attachAlerts($portfolio) : null;
+    }
+
     public function create(array $payload): int
     {
         return $this->db->insert(
@@ -131,15 +144,81 @@ class PortfoliosRepository
         );
     }
 
+    public function dependencySummary(int $portfolioId): array
+    {
+        $projects = 0;
+
+        if ($this->db->tableExists('projects')) {
+            $projects = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM projects WHERE portfolio_id = :id', [':id' => $portfolioId])['total'] ?? 0);
+        }
+
+        return [
+            'projects' => $projects,
+            'has_dependencies' => $projects > 0,
+        ];
+    }
+
+    public function inactivate(int $id): bool
+    {
+        if (!$this->db->columnExists('client_portfolios', 'active')) {
+            return false;
+        }
+
+        return $this->db->execute('UPDATE client_portfolios SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
+    }
+
+    public function delete(int $id): array
+    {
+        $portfolio = $this->db->fetchOne('SELECT attachment_path FROM client_portfolios WHERE id = :id', [':id' => $id]);
+
+        if (!$portfolio) {
+            return [
+                'success' => false,
+                'error' => 'PORTFOLIO_NOT_FOUND',
+            ];
+        }
+
+        $pdo = $this->db->connection();
+
+        try {
+            $pdo->beginTransaction();
+
+            $this->detachProjects($id);
+            $this->db->execute('DELETE FROM client_portfolios WHERE id = :id', [':id' => $id]);
+
+            $pdo->commit();
+
+            $this->deleteAttachment($portfolio['attachment_path'] ?? null);
+
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+            ];
+        }
+    }
+
     private function visibilityConditions(array $user): array
     {
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('clients', 'pm_id');
+        $hasActiveColumn = $this->db->columnExists('client_portfolios', 'active');
+        $isAdmin = in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
 
-        if ($hasPmColumn && !in_array($user['role'] ?? '', self::ADMIN_ROLES, true)) {
+        if ($hasPmColumn && !$isAdmin) {
             $conditions[] = 'c.pm_id = :pmId';
             $params[':pmId'] = $user['id'];
+        }
+
+        if ($hasActiveColumn && !$isAdmin) {
+            $conditions[] = 'p.active = 1';
         }
 
         return [$conditions, $params];
@@ -166,5 +245,41 @@ class PortfoliosRepository
         $portfolio['budget_ratio'] = $budgetLimit > 0 ? $budgetUsed / $budgetLimit : null;
 
         return $portfolio;
+    }
+
+    private function detachProjects(int $portfolioId): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $this->db->execute('UPDATE projects SET portfolio_id = NULL WHERE portfolio_id = :id', [':id' => $portfolioId]);
+    }
+
+    private function deleteAttachment(?string $path): void
+    {
+        $fullPath = $this->normalizePath($path);
+        if ($fullPath && file_exists($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+
+    private function normalizePath(?string $path): ?string
+    {
+        $cleanPath = trim((string) $path);
+        if ($cleanPath === '') {
+            return null;
+        }
+
+        if (str_starts_with($cleanPath, '/project/public/')) {
+            $relative = substr($cleanPath, strlen('/project/public/'));
+            return __DIR__ . '/../../public/' . ltrim($relative, '/');
+        }
+
+        if (str_starts_with($cleanPath, '/uploads/')) {
+            return __DIR__ . '/../../public/' . ltrim($cleanPath, '/');
+        }
+
+        return null;
     }
 }

@@ -250,6 +250,7 @@ CREATE TABLE IF NOT EXISTS client_portfolios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     client_id INT NOT NULL,
     name VARCHAR(150) NOT NULL,
+    active TINYINT(1) DEFAULT 1,
     start_date DATE NULL,
     end_date DATE NULL,
     hours_limit DECIMAL(12,2) NULL,

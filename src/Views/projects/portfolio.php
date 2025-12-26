@@ -1,6 +1,7 @@
 <?php
 $clients = is_array($clients ?? null) ? $clients : [];
 $portfolios = is_array($portfolios ?? null) ? $portfolios : [];
+$canAdministrate = $auth->hasRole('Administrador') || $auth->can('config.manage');
 
 $signalTextMap = [
     'green' => 'Operación estable',
@@ -188,6 +189,7 @@ $groupedPortfolios = array_values($grouped);
                             $portfolioId = 'pf-' . $portfolio['id'];
                             $hasScrum = array_filter($projects, fn ($project) => in_array($project['project_type'] ?? '', ['agil', 'scrum', 'agile'], true));
                             $alerts = is_array($portfolio['alerts'] ?? null) ? $portfolio['alerts'] : [];
+                            $isActive = (int) ($portfolio['active'] ?? 1) === 1;
                         ?>
                         <article class="portfolio-card-grid" id="<?= htmlspecialchars($portfolioId) ?>">
                             <header class="portfolio-summary">
@@ -203,6 +205,9 @@ $groupedPortfolios = array_values($grouped);
                                         <p class="eyebrow">Portafolio</p>
                                         <h4><?= htmlspecialchars($portfolio['name']) ?></h4>
                                         <p class="muted"><?= htmlspecialchars($portfolio['signal']['summary'] ?? 'Sin resumen cargado') ?></p>
+                                        <?php if (!$isActive): ?>
+                                            <span class="status-badge inactive">Inactivo</span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="kpi-strip">
@@ -244,6 +249,22 @@ $groupedPortfolios = array_values($grouped);
                                         <span class="subtext">Operación se controla en cada proyecto.</span>
                                     </div>
                                 </div>
+
+                                <?php if ($canAdministrate): ?>
+                                    <div class="portfolio-admin-actions">
+                                        <?php if ($isActive): ?>
+                                            <form method="POST" action="<?= $basePath ?>/portfolio/<?= (int) $portfolio['id'] ?>/inactivate" class="inline-form" onsubmit="return confirm('¿Inactivar el portafolio \"<?= htmlspecialchars($portfolio['name']) ?>\"? Los usuarios dejarán de verlo.');">
+                                                <button type="submit" class="pill-button ghost">Inactivar</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <span class="pill neutral strong">Inactivo</span>
+                                        <?php endif; ?>
+                                        <form method="POST" action="<?= $basePath ?>/portfolio/delete" class="inline-form" onsubmit="return confirm('¿Eliminar definitivamente el portafolio \"<?= htmlspecialchars($portfolio['name']) ?>\"? Los proyectos quedarán sin portafolio asignado.');">
+                                            <input type="hidden" name="id" value="<?= (int) $portfolio['id'] ?>">
+                                            <button type="submit" class="pill-button danger">Eliminar</button>
+                                        </form>
+                                    </div>
+                                <?php endif; ?>
                             </header>
 
                             <div class="tab-nav" role="tablist" aria-label="Drilldown del portafolio">
@@ -490,6 +511,7 @@ tabButtons.forEach(button => {
     .pill.soft-green { background: var(--green-soft); border-color: rgba(16, 185, 129, 0.28); color: #0f766e; }
     .pill.soft-amber { background: var(--amber-soft); border-color: rgba(251, 191, 36, 0.34); color: #b45309; }
     .pill.soft-slate { background: var(--slate-soft); border-color: rgba(148, 163, 184, 0.4); color: #0f172a; }
+    .pill.strong { font-weight: 800; }
 
     .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; }
     .portfolio-card-grid {
@@ -566,4 +588,11 @@ tabButtons.forEach(button => {
     .project-kpis { display: flex; flex-wrap: wrap; gap: 8px; }
     .project-detail { display: grid; gap: 2px; }
     .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .portfolio-admin-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; }
+    .pill-button { border: 1px solid rgba(148, 163, 184, 0.5); background: #fff; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+    .pill-button.ghost { background: #f8fafc; color: #0f172a; }
+    .pill-button.danger { background: #fef2f2; color: #b91c1c; border-color: rgba(248, 113, 113, 0.6); }
+    .pill-button:hover { filter: brightness(0.97); }
+    .inline-form { margin: 0; }
+    .status-badge.inactive { display: inline-block; padding: 6px 10px; border-radius: 10px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; font-weight: 800; margin-top: 6px; }
 </style>

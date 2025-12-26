@@ -146,6 +146,7 @@ class DatabaseMigrator
             'description' => "ALTER TABLE client_portfolios ADD COLUMN description TEXT NULL AFTER objective",
             'risk_register' => "ALTER TABLE client_portfolios ADD COLUMN risk_register TEXT NULL AFTER alerting_policy",
             'risk_level_text' => "ALTER TABLE client_portfolios ADD COLUMN risk_level_text VARCHAR(60) NULL AFTER risk_register",
+            'active' => "ALTER TABLE client_portfolios ADD COLUMN active TINYINT(1) DEFAULT 1 AFTER name",
         ];
 
         foreach ($columns as $column => $statement) {
@@ -309,6 +310,7 @@ class DatabaseMigrator
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 client_id INT NOT NULL,
                 name VARCHAR(150) NOT NULL,
+                active TINYINT(1) DEFAULT 1,
                 objective TEXT NULL,
                 description TEXT NULL,
                 start_date DATE NULL,
