@@ -487,28 +487,86 @@ class ProjectsRepository
 
     public function create(array $payload): int
     {
-        return $this->db->insert(
-            'INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, methodology, phase, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
-             VALUES (:client_id, :pm_id, :name, :status, :health, :priority, :project_type, :methodology, :phase, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
-            [
-                ':client_id' => (int) $payload['client_id'],
-                ':pm_id' => (int) $payload['pm_id'],
-                ':name' => $payload['name'],
-                ':status' => $payload['status'] ?? 'ideation',
-                ':health' => $payload['health'] ?? 'on_track',
-                ':priority' => $payload['priority'],
-                ':project_type' => $payload['project_type'] ?? 'convencional',
-                ':methodology' => $payload['methodology'] ?? 'scrum',
-                ':phase' => $payload['phase'] ?? null,
-                ':budget' => $payload['budget'] ?? 0,
-                ':actual_cost' => $payload['actual_cost'] ?? 0,
-                ':planned_hours' => $payload['planned_hours'] ?? 0,
-                ':actual_hours' => $payload['actual_hours'] ?? 0,
-                ':progress' => $payload['progress'] ?? 0,
-                ':start_date' => $payload['start_date'] ?? null,
-                ':end_date' => $payload['end_date'] ?? null,
-            ]
+        $columns = [];
+        $placeholders = [];
+        $params = [];
+
+        $addField = function (string $column, string $param, $value) use (&$columns, &$placeholders, &$params): void {
+            $columns[] = $column;
+            $placeholders[] = ':' . $param;
+            $params[':' . $param] = $value;
+        };
+
+        $addField('client_id', 'client_id', (int) $payload['client_id']);
+        $addField('pm_id', 'pm_id', (int) $payload['pm_id']);
+        $addField('name', 'name', $payload['name']);
+
+        $statusColumn = $this->db->columnExists('projects', 'status_code') ? 'status_code' : ($this->db->columnExists('projects', 'status') ? 'status' : null);
+        if ($statusColumn) {
+            $addField($statusColumn, 'status', $payload['status'] ?? 'ideation');
+        }
+
+        $healthColumn = $this->db->columnExists('projects', 'health_code') ? 'health_code' : ($this->db->columnExists('projects', 'health') ? 'health' : null);
+        if ($healthColumn) {
+            $addField($healthColumn, 'health', $payload['health'] ?? 'on_track');
+        }
+
+        $priorityColumn = $this->db->columnExists('projects', 'priority_code') ? 'priority_code' : ($this->db->columnExists('projects', 'priority') ? 'priority' : null);
+        if ($priorityColumn) {
+            $addField($priorityColumn, 'priority', $payload['priority'] ?? 'medium');
+        }
+
+        if ($this->db->columnExists('projects', 'project_type')) {
+            $addField('project_type', 'project_type', $payload['project_type'] ?? 'convencional');
+        }
+
+        if ($this->db->columnExists('projects', 'methodology')) {
+            $addField('methodology', 'methodology', $payload['methodology'] ?? 'scrum');
+        }
+
+        if ($this->db->columnExists('projects', 'phase')) {
+            $addField('phase', 'phase', $payload['phase'] ?? null);
+        }
+
+        if ($this->db->columnExists('projects', 'budget')) {
+            $addField('budget', 'budget', $payload['budget'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'actual_cost')) {
+            $addField('actual_cost', 'actual_cost', $payload['actual_cost'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'planned_hours')) {
+            $addField('planned_hours', 'planned_hours', $payload['planned_hours'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'actual_hours')) {
+            $addField('actual_hours', 'actual_hours', $payload['actual_hours'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'progress')) {
+            $addField('progress', 'progress', $payload['progress'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'start_date')) {
+            $addField('start_date', 'start_date', $payload['start_date'] ?? null);
+        }
+
+        if ($this->db->columnExists('projects', 'end_date')) {
+            $addField('end_date', 'end_date', $payload['end_date'] ?? null);
+        }
+
+        if (empty($columns)) {
+            throw new \RuntimeException('No hay columnas disponibles para crear el proyecto.');
+        }
+
+        $sql = sprintf(
+            'INSERT INTO projects (%s) VALUES (%s)',
+            implode(', ', $columns),
+            implode(', ', $placeholders)
         );
+
+        return $this->db->insert($sql, $params);
     }
 
     public function updateProject(int $id, array $payload): void
@@ -649,7 +707,7 @@ class ProjectsRepository
         );
     }
 
-    private function syncProjectRisks(int $projectId, array $risks): void
+    public function syncProjectRisks(int $projectId, array $risks): void
     {
         $trimmed = array_map('trim', $risks);
         $cleanRisks = array_values(array_unique(array_filter($trimmed, fn ($risk) => $risk !== '')));

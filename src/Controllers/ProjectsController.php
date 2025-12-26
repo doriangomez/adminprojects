@@ -91,6 +91,48 @@ class ProjectsController extends Controller
         header('Location: /project/public/projects/' . $id);
     }
 
+    public function create(): void
+    {
+        $this->requirePermission('projects.manage');
+
+        $this->render('projects/create', array_merge($this->projectFormData(), [
+            'title' => 'Nuevo proyecto',
+        ]));
+    }
+
+    public function store(): void
+    {
+        $this->requirePermission('projects.manage');
+        $delivery = (new ConfigService())->getConfig()['delivery'] ?? [];
+        $masterRepo = new MasterFilesRepository($this->db);
+        $usersRepo = new UsersRepository($this->db);
+        $repo = new ProjectsRepository($this->db);
+
+        try {
+            $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
+            $projectId = $repo->create($payload);
+            if (!empty($payload['risks'])) {
+                $repo->syncProjectRisks($projectId, $payload['risks']);
+            }
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/create', array_merge($this->projectFormData(), [
+                'title' => 'Nuevo proyecto',
+                'error' => $e->getMessage(),
+                'old' => $_POST,
+            ]));
+        } catch (\Throwable $e) {
+            error_log('Error al crear proyecto: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('projects/create', array_merge($this->projectFormData(), [
+                'title' => 'Nuevo proyecto',
+                'error' => 'No se pudo crear el proyecto. Intenta nuevamente o contacta al administrador.',
+                'old' => $_POST,
+            ]));
+        }
+    }
+
     public function talent(int $id): void
     {
         $this->requirePermission('projects.manage');
@@ -248,5 +290,176 @@ class ProjectsController extends Controller
         ];
 
         return array_merge($defaults, $kpis);
+    }
+
+    private function projectFormData(): array
+    {
+        $delivery = (new ConfigService())->getConfig()['delivery'] ?? ['methodologies' => [], 'phases' => [], 'risks' => []];
+        $masterRepo = new MasterFilesRepository($this->db);
+        $usersRepo = new UsersRepository($this->db);
+        $clientsRepo = new ClientsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+
+        $catalogs = $this->projectCatalogs($masterRepo);
+        $projectManagers = array_filter(
+            $usersRepo->all(),
+            fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
+        );
+        $clients = $clientsRepo->listForUser($user);
+        $defaultMethodology = $delivery['methodologies'][0] ?? 'scrum';
+        $defaultPhase = $delivery['phases'][$defaultMethodology][0] ?? null;
+
+        return [
+            'delivery' => $delivery,
+            'clients' => $clients,
+            'projectManagers' => $projectManagers,
+            'priorities' => $catalogs['priorities'],
+            'statuses' => $catalogs['statuses'],
+            'healthCatalog' => $catalogs['health'],
+            'defaults' => [
+                'status' => $catalogs['statuses'][0]['code'] ?? 'ideation',
+                'health' => $catalogs['health'][0]['code'] ?? 'on_track',
+                'priority' => $catalogs['priorities'][0]['code'] ?? 'medium',
+                'methodology' => $defaultMethodology,
+                'phase' => $defaultPhase,
+                'pm_id' => $this->defaultPmId($projectManagers, $usersRepo),
+                'project_type' => 'convencional',
+            ],
+            'canCreate' => !empty($clients) && !empty($projectManagers),
+        ];
+    }
+
+    private function projectCatalogs(MasterFilesRepository $masterRepo): array
+    {
+        $safeList = static function (callable $callback, array $fallback): array {
+            try {
+                $items = $callback();
+                return $items ?: $fallback;
+            } catch (\Throwable) {
+                return $fallback;
+            }
+        };
+
+        return [
+            'priorities' => $safeList(fn () => $masterRepo->list('priorities'), [
+                ['code' => 'high', 'label' => 'Alta'],
+                ['code' => 'medium', 'label' => 'Media'],
+                ['code' => 'low', 'label' => 'Baja'],
+            ]),
+            'statuses' => $safeList(fn () => $masterRepo->list('project_status'), [
+                ['code' => 'ideation', 'label' => 'Ideación'],
+                ['code' => 'execution', 'label' => 'Ejecución'],
+                ['code' => 'closed', 'label' => 'Cerrado'],
+            ]),
+            'health' => $safeList(fn () => $masterRepo->list('project_health'), [
+                ['code' => 'on_track', 'label' => 'En curso'],
+                ['code' => 'at_risk', 'label' => 'En riesgo'],
+                ['code' => 'critical', 'label' => 'Crítico'],
+            ]),
+        ];
+    }
+
+    private function validatedProjectPayload(array $delivery, array $catalogs, UsersRepository $usersRepo): array
+    {
+        $name = trim((string) ($_POST['name'] ?? ''));
+        if ($name === '') {
+            throw new \InvalidArgumentException('El nombre del proyecto es obligatorio.');
+        }
+
+        $clientId = (int) ($_POST['client_id'] ?? 0);
+        if ($clientId <= 0 || !(new ClientsRepository($this->db))->find($clientId)) {
+            throw new \InvalidArgumentException('Selecciona un cliente válido para el proyecto.');
+        }
+
+        $pmId = (int) ($_POST['pm_id'] ?? 0);
+        if (!$usersRepo->isValidProjectManager($pmId)) {
+            $pmId = $usersRepo->firstAvailablePmId() ?? 0;
+        }
+        if ($pmId <= 0) {
+            throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
+        }
+
+        $projectType = trim((string) ($_POST['project_type'] ?? 'convencional')) ?: 'convencional';
+        $status = $this->validatedCatalogValue((string) ($_POST['status'] ?? ''), $catalogs['statuses'], 'estado', $catalogs['statuses'][0]['code'] ?? 'ideation');
+        $health = $this->validatedCatalogValue((string) ($_POST['health'] ?? ''), $catalogs['health'], 'salud', $catalogs['health'][0]['code'] ?? 'on_track');
+        $priority = $this->validatedCatalogValue((string) ($_POST['priority'] ?? ''), $catalogs['priorities'], 'prioridad', $catalogs['priorities'][0]['code'] ?? 'medium');
+
+        $methodology = trim((string) ($_POST['methodology'] ?? ($delivery['methodologies'][0] ?? 'scrum')));
+        $methodology = in_array($methodology, $delivery['methodologies'] ?? [], true)
+            ? $methodology
+            : ($delivery['methodologies'][0] ?? 'scrum');
+
+        $phases = is_array($delivery['phases'][$methodology] ?? null) ? $delivery['phases'][$methodology] : [];
+        $phaseInput = trim((string) ($_POST['phase'] ?? ''));
+        $phase = $phaseInput !== '' && in_array($phaseInput, $phases, true)
+            ? $phaseInput
+            : ($phases[0] ?? null);
+
+        $risksCatalog = array_filter(array_map(fn ($risk) => (string) ($risk['code'] ?? ''), $delivery['risks'] ?? []));
+        $risks = array_values(array_filter(
+            $_POST['risks'] ?? [],
+            fn ($risk) => in_array((string) $risk, $risksCatalog, true)
+        ));
+
+        return [
+            'client_id' => $clientId,
+            'pm_id' => $pmId,
+            'name' => $name,
+            'status' => $status,
+            'health' => $health,
+            'priority' => $priority,
+            'project_type' => $projectType,
+            'methodology' => $methodology,
+            'phase' => $phase,
+            'budget' => $this->floatOrZero($_POST['budget'] ?? null),
+            'actual_cost' => $this->floatOrZero($_POST['actual_cost'] ?? null),
+            'planned_hours' => $this->floatOrZero($_POST['planned_hours'] ?? null),
+            'actual_hours' => $this->floatOrZero($_POST['actual_hours'] ?? null),
+            'progress' => $this->floatOrZero($_POST['progress'] ?? null),
+            'start_date' => $this->nullableDate($_POST['start_date'] ?? null),
+            'end_date' => $this->nullableDate($_POST['end_date'] ?? null),
+            'risks' => $risks,
+        ];
+    }
+
+    private function validatedCatalogValue(string $value, array $catalog, string $fieldLabel, string $default): string
+    {
+        $trimmed = trim($value);
+        $codes = array_column($catalog, 'code');
+
+        if ($trimmed !== '' && in_array($trimmed, $codes, true)) {
+            return $trimmed;
+        }
+
+        if ($default !== '' && in_array($default, $codes, true)) {
+            return $default;
+        }
+
+        throw new \InvalidArgumentException('Selecciona un valor válido para ' . $fieldLabel . '.');
+    }
+
+    private function floatOrZero($value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        return (float) $value;
+    }
+
+    private function nullableDate($value): ?string
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function defaultPmId(array $projectManagers, UsersRepository $usersRepo): ?int
+    {
+        if (!empty($projectManagers)) {
+            return (int) ($projectManagers[0]['id'] ?? null);
+        }
+
+        return $usersRepo->firstAvailablePmId();
     }
 }
