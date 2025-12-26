@@ -136,11 +136,6 @@ class ClientsController extends Controller
 
     public function destroy(): void
     {
-        if (!$this->auth->canDeleteClients()) {
-            http_response_code(403);
-            exit('Solo administradores pueden eliminar clientes.');
-        }
-
         $repo = new ClientsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $clientId = isset($_POST['id']) ? (int) $_POST['id'] : 0;
@@ -150,7 +145,7 @@ class ClientsController extends Controller
         $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
         $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
         $mathResult = trim((string) ($_POST['math_result'] ?? ''));
-        $forceDelete = (int) ($_POST['force_delete'] ?? 0) === 1;
+        $forceDelete = filter_var($_POST['force'] ?? $_POST['force_delete'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if ($clientId <= 0 || !$client) {
             http_response_code(404);
@@ -169,15 +164,16 @@ class ClientsController extends Controller
             exit('La confirmación matemática es incorrecta.');
         }
 
+        if (!$this->isAdmin()) {
+            http_response_code(403);
+            $this->json([
+                'success' => false,
+                'message' => 'Solo los administradores pueden eliminar clientes.',
+            ], 403);
+            return;
+        }
+
         try {
-            if (!$this->isAdmin()) {
-                http_response_code(403);
-                $this->json([
-                    'success' => false,
-                    'message' => 'Acción no permitida por permisos',
-                ], 403);
-                return;
-            }
 
             $result = $repo->deleteClient($clientId, $client['logo_path'] ?? null, $forceDelete);
 
