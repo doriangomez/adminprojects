@@ -39,8 +39,12 @@ class ClientsController extends Controller
         $client = $repo->findForUser($id, $user);
         $dependencies = $repo->dependencySummary($id);
         $hasDependencies = $dependencies['has_dependencies'] ?? false;
+        $isAdmin = $this->isAdmin();
         $canDelete = $isAdmin;
         $canInactivate = $isAdmin;
+        $mathOperand1 = random_int(1, 10);
+        $mathOperand2 = random_int(1, 10);
+        $mathOperator = random_int(0, 1) === 0 ? '+' : '-';
 
         if (!$client) {
             http_response_code(404);
@@ -53,6 +57,14 @@ class ClientsController extends Controller
             'projects' => $repo->projectsForClient($id, $user),
             'snapshot' => $repo->projectSnapshot($id, $user),
             'canManage' => $canManage,
+            'dependencies' => $dependencies,
+            'hasDependencies' => $hasDependencies,
+            'canDelete' => $canDelete,
+            'canInactivate' => $canInactivate,
+            'isAdmin' => $isAdmin,
+            'mathOperand1' => $mathOperand1,
+            'mathOperand2' => $mathOperand2,
+            'mathOperator' => $mathOperator,
         ]);
     }
 
@@ -127,6 +139,22 @@ class ClientsController extends Controller
         if (!$this->auth->canDeleteClients()) {
             http_response_code(403);
             exit('Solo administradores pueden eliminar clientes.');
+        }
+
+        $repo = new ClientsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $clientId = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $client = $repo->find($clientId);
+        $dependencies = $repo->dependencySummary($clientId);
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+        $forceDelete = (int) ($_POST['force_delete'] ?? 0) === 1;
+
+        if ($clientId <= 0 || !$client) {
+            http_response_code(404);
+            exit('Cliente no encontrado');
         }
 
         if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
@@ -387,6 +415,11 @@ class ClientsController extends Controller
         }
 
         return $trimmed;
+    }
+
+    private function isAdmin(): bool
+    {
+        return $this->auth->canDeleteClients();
     }
 
 }
