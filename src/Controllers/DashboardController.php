@@ -14,7 +14,7 @@ class DashboardController extends Controller
         $this->render('dashboard/index', [
             'title' => 'Dashboard Ejecutivo',
             'summary' => $service->executiveSummary($user),
-            'portfolio' => $projectsRepo->portfolioKpis($user),
+            'portfolio' => $projectsRepo->aggregatedKpis($user),
             'profitability' => $service->profitability($user),
             'timesheetKpis' => $timesheetsRepo->kpis($user),
         ]);

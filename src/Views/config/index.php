@@ -72,15 +72,26 @@
                 </div>
 
                 <div class="form-block">
-                    <span class="section-label">Reglas operativas: alertas y aprobaciones</span>
+                    <span class="section-label">Ejecución de proyectos: metodologías, fases y riesgos</span>
+                    <div class="input-stack">
+                        <label>Metodologías habilitadas (separadas por coma)</label>
+                        <input name="methodologies" value="<?= htmlspecialchars(implode(', ', $configData['delivery']['methodologies'])) ?>" placeholder="scrum, cascada, kanban">
+                    </div>
+                    <div class="input-stack">
+                        <label>Fases por metodología (JSON)</label>
+                        <textarea name="phases_json" rows="4"><?= htmlspecialchars(json_encode($configData['delivery']['phases'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
+                        <small class="subtext">Estructura: {"scrum": ["descubrimiento", "backlog"], "cascada": [...]}</small>
+                    </div>
+                    <div class="input-stack">
+                        <label>Catálogo maestro de riesgos (JSON)</label>
+                        <textarea name="risks_json" rows="4"><?= htmlspecialchars(json_encode($configData['delivery']['risks'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
+                        <small class="subtext">Estructura: [{"code": "scope_creep", "label": "Desviación de alcance"}, ...]</small>
+                    </div>
+                </div>
+
+                <div class="form-block">
+                    <span class="section-label">Aprobaciones y gobierno</span>
                     <div class="rules-grid">
-                        <label>Días antes de vencer portafolio
-                            <input type="number" name="portfolio_days_before_end" value="<?= htmlspecialchars($configData['operational_rules']['alerts']['portfolio_days_before_end']) ?>">
-                        </label>
-                        <label>Umbral preventivo de límites
-                            <input type="number" name="portfolio_warning_ratio" step="0.01" value="<?= htmlspecialchars($configData['operational_rules']['portfolio_limits']['warning_ratio']) ?>">
-                            <small class="subtext">Ej. 0.85 = 85%.</small>
-                        </label>
                         <label class="option">
                             <input type="checkbox" name="external_talent_requires_approval" <?= $configData['operational_rules']['approvals']['external_talent_requires_approval'] ? 'checked' : '' ?>>
                             Talento externo requiere aprobación

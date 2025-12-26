@@ -168,7 +168,7 @@
                     <div>
                         <p class="badge danger" style="margin:0;" data-modal-context>Acción crítica</p>
                         <h4 style="margin:4px 0 0 0;" data-modal-title>Eliminar cliente</h4>
-                        <p style="margin:4px 0 0 0; color:var(--muted);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada portafolios, proyectos, asignaciones de talento, timesheets, costos y adjuntos asociados.</p>
+                        <p style="margin:4px 0 0 0; color:var(--muted);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada proyectos, asignaciones de talento, timesheets, costos y adjuntos asociados.</p>
                     </div>
                 </div>
                 <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--muted);">✕</button>

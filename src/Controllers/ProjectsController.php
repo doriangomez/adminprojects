@@ -6,62 +6,27 @@ class ProjectsController extends Controller
 {
     public function index(): void
     {
-        $repo = new ProjectsRepository($this->db);
         $this->requirePermission('projects.view');
-        $this->render('projects/index', [
-            'title' => 'Portafolio de Proyectos',
-            'projects' => $repo->summary($this->auth->user() ?? []),
-        ]);
-    }
-
-    public function portfolio(?string $error = null): void
-    {
-        $this->requirePermission('projects.view');
-        $config = (new ConfigService())->getConfig();
         $user = $this->auth->user() ?? [];
-        $projectsRepo = new ProjectsRepository($this->db);
-        $portfolioRepo = new PortfoliosRepository($this->db, $config['operational_rules']);
+
+        $filters = [
+            'client_id' => isset($_GET['client_id']) ? (int) $_GET['client_id'] : null,
+            'status' => trim((string) ($_GET['status'] ?? '')),
+            'methodology' => trim((string) ($_GET['methodology'] ?? '')),
+            'start_date' => $_GET['start_date'] ?? '',
+            'end_date' => $_GET['end_date'] ?? '',
+        ];
+
+        $repo = new ProjectsRepository($this->db);
+        $config = (new ConfigService())->getConfig();
         $clientsRepo = new ClientsRepository($this->db);
 
-        $portfolios = $portfolioRepo->listWithUsage($user) ?? [];
-        $clients = $clientsRepo->listForUser($user);
-        $portfolioView = [];
-        $clientsIndex = [];
-
-        foreach ($clients as $client) {
-            $clientsIndex[(int) $client['id']] = $client;
-        }
-
-        foreach ($portfolios as $portfolio) {
-            $projects = $projectsRepo->projectsForPortfolio((int) $portfolio['id'], $user) ?? [];
-
-            $portfolioView[] = [
-                'id' => (int) $portfolio['id'],
-                'client_id' => (int) $portfolio['client_id'],
-                'client_name' => $portfolio['client_name'],
-                'name' => $portfolio['name'],
-                'start_date' => $portfolio['start_date'],
-                'end_date' => $portfolio['end_date'],
-                'budget_total' => $portfolio['budget_total'],
-                'risk_level' => $portfolio['risk_level'],
-                'attachment_path' => $portfolio['attachment_path'],
-                'projects_included' => $portfolio['projects_included'] ?? null,
-                'rules_notes' => $portfolio['rules_notes'] ?? null,
-                'alerting_policy' => $portfolio['alerting_policy'] ?? null,
-                'alerts' => $portfolio['alerts'],
-                'budget_ratio' => $portfolio['budget_ratio'],
-                'projects' => $projects,
-                'kpis' => $this->defaultKpis($projectsRepo->portfolioKpisFromProjects($projects)),
-                'signal' => $projectsRepo->clientSignal($projects),
-                'client_meta' => $clientsIndex[(int) $portfolio['client_id']] ?? [],
-            ];
-        }
-
-        $this->render('projects/portfolio', [
-            'title' => 'Portafolio por cliente',
-            'clients' => $clients,
-            'portfolios' => $portfolioView,
-            'error' => $error,
+        $this->render('projects/index', [
+            'title' => 'Panel de Proyectos',
+            'projects' => $repo->summary($user, $filters),
+            'filters' => $filters,
+            'clients' => $clientsRepo->listForUser($user),
+            'delivery' => $config['delivery'] ?? [],
         ]);
     }
 
@@ -99,9 +64,12 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
+        $config = (new ConfigService())->getConfig();
+
         $this->render('projects/edit', [
             'title' => 'Editar proyecto',
             'project' => $project,
+            'delivery' => $config['delivery'] ?? [],
         ]);
     }
 
@@ -213,11 +181,12 @@ class ProjectsController extends Controller
             $payload = $this->collectAssignmentPayload($projectId);
             $repo->assignTalent($payload);
             $redirectId = (int) ($payload['project_id'] ?? 0);
-            $destination = $redirectId > 0 ? '/project/public/projects/' . $redirectId . '/talent' : '/project/public/projects/portfolio';
+            $destination = $redirectId > 0 ? '/project/public/projects/' . $redirectId . '/talent' : '/project/public/projects';
             header('Location: ' . $destination);
         } catch (\Throwable $e) {
             error_log('Error al asignar talento: ' . $e->getMessage());
-            $this->portfolio('No se pudo asignar el talento: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo asignar el talento: ' . $e->getMessage());
         }
     }
 
@@ -258,7 +227,9 @@ class ProjectsController extends Controller
             'progress' => (float) ($_POST['progress'] ?? ($current['progress'] ?? 0)),
             'start_date' => $_POST['start_date'] ?? ($current['start_date'] ?? null),
             'end_date' => $_POST['end_date'] ?? ($current['end_date'] ?? null),
-            'portfolio_id' => isset($_POST['portfolio_id']) ? (int) $_POST['portfolio_id'] : ($current['portfolio_id'] ?? null),
+            'methodology' => $_POST['methodology'] ?? ($current['methodology'] ?? 'scrum'),
+            'phase' => $_POST['phase'] ?? ($current['phase'] ?? null),
+            'risks' => array_filter($_POST['risks'] ?? []),
         ];
     }
 

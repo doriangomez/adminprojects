@@ -111,7 +111,7 @@
     <div class="section-grid">
         <div class="card elevated">
             <div class="toolbar">
-                <h3>Salud del portafolio</h3>
+                <h3>Salud de proyectos</h3>
                 <span class="pill <?= $portfolio['at_risk'] > 0 ? 'soft-amber' : 'soft-green' ?>">Riesgo: <?= $portfolio['at_risk'] ?></span>
             </div>
             <p class="muted">Avance promedio</p>
@@ -159,7 +159,7 @@
         <div class="card chart-card">
             <h4>Horas planificadas vs reales</h4>
             <canvas id="hoursChart" height="140"></canvas>
-            <p class="chart-legend">Comparativo de esfuerzo global del portafolio.</p>
+            <p class="chart-legend">Comparativo de esfuerzo global de proyectos.</p>
         </div>
         <div class="card chart-card">
             <h4>Proyectos por estado</h4>
@@ -167,7 +167,7 @@
             <p class="chart-legend">Distribución entre proyectos activos y en riesgo.</p>
         </div>
         <div class="card chart-card">
-            <h4>Avance promedio del portafolio</h4>
+            <h4>Avance promedio de proyectos</h4>
             <canvas id="progressChart" height="140"></canvas>
             <p class="chart-legend">Seguimiento ejecutivo del avance consolidado.</p>
         </div>
@@ -226,7 +226,7 @@
     new Chart(hoursCtx, {
         type: 'bar',
         data: {
-            labels: ['Portafolio'],
+            labels: ['Proyectos'],
             datasets: [
                 { label: 'Planificadas', data: [plannedHours], backgroundColor: pastelPalette.blue, borderColor: pastelPalette.blueBorder, borderWidth: 1.4, borderRadius: 10 },
                 { label: 'Reales', data: [actualHours], backgroundColor: pastelPalette.green, borderColor: pastelPalette.greenBorder, borderWidth: 1.4, borderRadius: 10 }
@@ -256,7 +256,7 @@
     new Chart(progressCtx, {
         type: 'line',
         data: {
-            labels: ['Portafolio'],
+            labels: ['Proyectos'],
             datasets: [{ label: 'Avance promedio', data: progressData, borderColor: pastelPalette.blueBorder, backgroundColor: 'rgba(59, 130, 246, 0.18)', fill: true, tension: 0.35, borderWidth: 2 }]
         },
         options: {

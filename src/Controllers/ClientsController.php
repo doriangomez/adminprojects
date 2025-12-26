@@ -183,12 +183,11 @@ class ClientsController extends Controller
 
             if (($result['success'] ?? false) === true) {
                 error_log(sprintf(
-                    '[audit] Usuario %s (ID: %d) eliminó cliente "%s" (ID: %d) con %d portafolios y %d proyectos a las %s',
+                    '[audit] Usuario %s (ID: %d) eliminó cliente "%s" (ID: %d) con %d proyectos a las %s',
                     $user['name'] ?? 'desconocido',
                     (int) ($user['id'] ?? 0),
                     $client['name'],
                     $clientId,
-                    (int) ($dependencies['portfolios'] ?? 0),
                     (int) ($dependencies['projects'] ?? 0),
                     date('c')
                 ));

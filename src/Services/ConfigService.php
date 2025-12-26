@@ -22,6 +22,19 @@ class ConfigService
             'data_file' => 'data/data.json',
             'schema_file' => 'data/schema.sql',
         ],
+        'delivery' => [
+            'methodologies' => ['scrum', 'cascada', 'kanban'],
+            'phases' => [
+                'scrum' => ['descubrimiento', 'backlog listo', 'sprint', 'deploy'],
+                'cascada' => ['inicio', 'planificación', 'ejecución', 'cierre'],
+                'kanban' => ['por hacer', 'en curso', 'en revisión', 'hecho'],
+            ],
+            'risks' => [
+                ['code' => 'scope_creep', 'label' => 'Desviación de alcance'],
+                ['code' => 'budget_overrun', 'label' => 'Sobrepaso de presupuesto'],
+                ['code' => 'timeline_slip', 'label' => 'Desviación en cronograma'],
+            ],
+        ],
         'access' => [
             'roles' => ['Administrador', 'PMO', 'Talento'],
             'user_management' => [
@@ -44,12 +57,6 @@ class ConfigService
                     'red_above' => 0.10,
                 ],
             ],
-            'alerts' => [
-                'portfolio_days_before_end' => 15,
-            ],
-            'portfolio_limits' => [
-                'warning_ratio' => 0.85,
-            ],
             'approvals' => [
                 'external_talent_requires_approval' => true,
                 'budget_change_requires_approval' => true,
@@ -69,6 +76,11 @@ class ConfigService
         return [
             'theme' => array_merge($this->defaults['theme'], $stored['theme'] ?? []),
             'master_files' => array_merge($this->defaults['master_files'], $stored['master_files'] ?? []),
+            'delivery' => [
+                'methodologies' => $stored['delivery']['methodologies'] ?? $this->defaults['delivery']['methodologies'],
+                'phases' => array_merge($this->defaults['delivery']['phases'], $stored['delivery']['phases'] ?? []),
+                'risks' => $stored['delivery']['risks'] ?? $this->defaults['delivery']['risks'],
+            ],
             'access' => [
                 'roles' => $stored['access']['roles'] ?? $this->defaults['access']['roles'],
                 'user_management' => array_merge(
@@ -91,14 +103,6 @@ class ConfigService
                         $stored['operational_rules']['semaforization']['cost'] ?? []
                     ),
                 ],
-                'alerts' => array_merge(
-                    $this->defaults['operational_rules']['alerts'],
-                    $stored['operational_rules']['alerts'] ?? []
-                ),
-                'portfolio_limits' => array_merge(
-                    $this->defaults['operational_rules']['portfolio_limits'],
-                    $stored['operational_rules']['portfolio_limits'] ?? []
-                ),
                 'approvals' => array_merge(
                     $this->defaults['operational_rules']['approvals'],
                     $stored['operational_rules']['approvals'] ?? []
@@ -114,6 +118,11 @@ class ConfigService
         $updated = [
             'theme' => array_merge($current['theme'], $payload['theme'] ?? []),
             'master_files' => array_merge($current['master_files'], $payload['master_files'] ?? []),
+            'delivery' => [
+                'methodologies' => $payload['delivery']['methodologies'] ?? $current['delivery']['methodologies'],
+                'phases' => array_merge($current['delivery']['phases'], $payload['delivery']['phases'] ?? []),
+                'risks' => $payload['delivery']['risks'] ?? $current['delivery']['risks'],
+            ],
             'access' => [
                 'roles' => $payload['access']['roles'] ?? $current['access']['roles'],
                 'user_management' => array_merge(
@@ -136,14 +145,6 @@ class ConfigService
                         $payload['operational_rules']['semaforization']['cost'] ?? []
                     ),
                 ],
-                'alerts' => array_merge(
-                    $current['operational_rules']['alerts'],
-                    $payload['operational_rules']['alerts'] ?? []
-                ),
-                'portfolio_limits' => array_merge(
-                    $current['operational_rules']['portfolio_limits'],
-                    $payload['operational_rules']['portfolio_limits'] ?? []
-                ),
                 'approvals' => array_merge(
                     $current['operational_rules']['approvals'],
                     $payload['operational_rules']['approvals'] ?? []
