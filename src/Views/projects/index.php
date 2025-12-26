@@ -1,10 +1,19 @@
 <?php
 $projectsList = is_array($projects ?? null) ? $projects : [];
 $basePath = $basePath ?? '/project/public';
+$filters = is_array($filters ?? null) ? $filters : [];
+$clientsList = is_array($clients ?? null) ? $clients : [];
+$deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];
 
 $activeStatuses = ['active', 'activo', 'en_ejecucion', 'en_progreso', 'in_progress', 'running', 'ejecucion'];
 $completedStatuses = ['completed', 'completado', 'cerrado', 'closed', 'finalizado', 'archivado', 'archived'];
 $riskHealth = ['at_risk', 'riesgo', 'risk', 'yellow', 'red', 'warning', 'critical'];
+$riskLabels = [];
+foreach ($deliveryConfig['risks'] as $risk) {
+    if (isset($risk['code'], $risk['label'])) {
+        $riskLabels[$risk['code']] = $risk['label'];
+    }
+}
 
 $activeProjects = 0;
 $riskProjects = 0;
@@ -42,6 +51,7 @@ $budgetCoverage = $budgetTotal > 0
 $progressAverage = $projectsList
     ? round(array_sum(array_map(fn ($p) => (float) ($p['progress'] ?? 0), $projectsList)) / count($projectsList), 1)
     : 0;
+$availableStatuses = array_values(array_unique(array_filter(array_map(fn ($p) => (string) ($p['status'] ?? ''), $projectsList))));
 
 $healthBadgeClass = static function (string $health): string {
     return match ($health) {
@@ -233,16 +243,60 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
             <span aria-hidden="true">＋</span>
             Nuevo proyecto
         </a>
-        <a class="ghost-button" href="<?= $basePath ?>/projects/portfolio">
-            <span aria-hidden="true">↗</span>
-            Ir a portafolios
-        </a>
         <a class="secondary-button" href="<?= $basePath ?>/tasks">
             <span aria-hidden="true">📊</span>
             Ver tablero
         </a>
     </div>
 </div>
+
+<form method="GET" action="<?= $basePath ?>/projects" class="filter-bar" style="margin:16px 0; display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; align-items:end;">
+    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
+        Cliente
+        <select name="client_id" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
+            <option value="">Todos</option>
+            <?php foreach ($clientsList as $client): ?>
+                <option value="<?= (int) $client['id'] ?>" <?= isset($filters['client_id']) && (int) $filters['client_id'] === (int) $client['id'] ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
+        Estado
+        <select name="status" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
+            <option value="">Todos</option>
+            <?php foreach ($availableStatuses as $statusOption): ?>
+                <option value="<?= htmlspecialchars($statusOption) ?>" <?= ($filters['status'] ?? '') === $statusOption ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($statusOption) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
+        Metodología
+        <select name="methodology" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
+            <option value="">Todas</option>
+            <?php foreach ($deliveryConfig['methodologies'] as $methodology): ?>
+                <option value="<?= htmlspecialchars($methodology) ?>" <?= ($filters['methodology'] ?? '') === $methodology ? 'selected' : '' ?>>
+                    <?= htmlspecialchars(ucfirst($methodology)) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
+        Inicio desde
+        <input type="date" name="start_date" value="<?= htmlspecialchars($filters['start_date'] ?? '') ?>" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
+    </label>
+    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
+        Fin hasta
+        <input type="date" name="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? '') ?>" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
+    </label>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Aplicar filtros</button>
+        <a class="ghost-button" href="<?= $basePath ?>/projects">Limpiar</a>
+    </div>
+</form>
 
 <section class="kpi-grid">
     <div class="kpi-card">
@@ -288,7 +342,10 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
                 $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
                 $progress = (float) ($project['progress'] ?? 0);
                 $pmName = $project['pm_name'] ?? 'Sin PM asignado';
-                $portfolioName = $project['portfolio'] ?? 'Portafolio no asignado';
+                $methodology = $project['methodology'] ?? 'No definido';
+                $phase = $project['phase'] ?? 'Sin fase';
+                $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+                $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
             ?>
             <article class="project-card">
                 <header>
@@ -305,10 +362,10 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
 
                 <div class="info-grid">
                     <div class="info-item">
-                        <div class="icon" aria-hidden="true">👥</div>
+                        <div class="icon" aria-hidden="true">📐</div>
                         <div>
-                            <span><?= htmlspecialchars($portfolioName) ?></span>
-                            <small>Portafolio</small>
+                            <span><?= htmlspecialchars(ucfirst($methodology)) ?></span>
+                            <small>Fase: <?= htmlspecialchars($phase ?: 'Sin fase') ?></small>
                         </div>
                     </div>
                     <div class="info-item">
@@ -329,7 +386,14 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
                         <div class="icon" aria-hidden="true">⚠️</div>
                         <div>
                             <span><?= htmlspecialchars($healthLabel) ?></span>
-                            <small>Nivel de riesgo</small>
+                            <small>Salud reportada</small>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="icon" aria-hidden="true">🧱</div>
+                        <div>
+                            <span><?= htmlspecialchars($riskSummary) ?></span>
+                            <small>Riesgos globales</small>
                         </div>
                     </div>
                 </div>

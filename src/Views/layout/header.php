@@ -368,10 +368,6 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M5 7a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm8 1h6l-1 12h-4zM3 21a4 4 0 0 1 8 0"/></svg></span>
                 <span>Clientes</span>
             </a>
-            <a href="<?= $basePath ?>/portfolio" class="nav-link <?= $normalizedPath === '/portfolio' ? 'active' : '' ?>">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/><path d="M9 7v10"/></svg></span>
-                <span>Portafolio</span>
-            </a>
             <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
                 <span>Proyectos</span>
@@ -425,5 +421,5 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         <div class="content">
             <div class="page-heading">
                 <h2><?= htmlspecialchars($title ?? 'Panel') ?></h2>
-                <p>Operaciones críticas del portafolio</p>
+                <p>Operaciones críticas de proyectos</p>
             </div>

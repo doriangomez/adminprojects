@@ -48,45 +48,27 @@ class DatabaseMigrator
         $this->ensurePmIntegrity('projects', 'client_id');
     }
 
-    public function ensureAssignmentsTable(): void
-    {
-        try {
-            $this->createAssignmentsTableIfMissing();
-        } catch (\PDOException $e) {
-            error_log('Error asegurando tabla project_talent_assignments: ' . $e->getMessage());
-        }
-    }
-
-    public function ensurePortfoliosTable(): void
-    {
-        try {
-            $this->createPortfolioTableIfMissing();
-            $this->enhancePortfolioSchema();
-            $this->ensureProjectsHavePortfolio();
-        } catch (\PDOException $e) {
-            error_log('Error asegurando tabla client_portfolios: ' . $e->getMessage());
-        }
-    }
-
-    public function ensureProjectPortfolioLink(): void
+    public function ensureProjectDeliverySchema(): void
     {
         if (!$this->db->tableExists('projects')) {
             return;
         }
 
         try {
-            if (!$this->db->columnExists('projects', 'portfolio_id')) {
-                $this->db->execute('ALTER TABLE projects ADD COLUMN portfolio_id INT NULL AFTER client_id');
-                $this->db->clearColumnCache();
-            }
-
-            if ($this->db->tableExists('client_portfolios') && !$this->db->foreignKeyExists('projects', 'portfolio_id', 'client_portfolios')) {
-                $this->db->execute(
-                    'ALTER TABLE projects ADD CONSTRAINT fk_projects_portfolio FOREIGN KEY (portfolio_id) REFERENCES client_portfolios(id)'
-                );
-            }
+            $this->addProjectMethodology();
+            $this->addProjectPhase();
+            $this->ensureProjectRisksTable();
         } catch (\PDOException $e) {
-            error_log('Error asegurando relación project->portfolio: ' . $e->getMessage());
+            error_log('Error asegurando esquema de entrega de proyectos: ' . $e->getMessage());
+        }
+    }
+
+    public function ensureAssignmentsTable(): void
+    {
+        try {
+            $this->createAssignmentsTableIfMissing();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tabla project_talent_assignments: ' . $e->getMessage());
         }
     }
 
@@ -129,33 +111,6 @@ class DatabaseMigrator
             }
         } catch (\PDOException $e) {
             error_log('Error asegurando permisos de gestión de proyectos: ' . $e->getMessage());
-        }
-    }
-
-    private function enhancePortfolioSchema(): void
-    {
-        if (!$this->db->tableExists('client_portfolios')) {
-            return;
-        }
-
-        $columns = [
-            'projects_included' => "ALTER TABLE client_portfolios ADD COLUMN projects_included TEXT NULL AFTER attachment_path",
-            'rules_notes' => "ALTER TABLE client_portfolios ADD COLUMN rules_notes TEXT NULL AFTER projects_included",
-            'alerting_policy' => "ALTER TABLE client_portfolios ADD COLUMN alerting_policy TEXT NULL AFTER rules_notes",
-            'objective' => "ALTER TABLE client_portfolios ADD COLUMN objective TEXT NULL AFTER name",
-            'description' => "ALTER TABLE client_portfolios ADD COLUMN description TEXT NULL AFTER objective",
-            'risk_register' => "ALTER TABLE client_portfolios ADD COLUMN risk_register TEXT NULL AFTER alerting_policy",
-            'risk_level_text' => "ALTER TABLE client_portfolios ADD COLUMN risk_level_text VARCHAR(60) NULL AFTER risk_register",
-            'active' => "ALTER TABLE client_portfolios ADD COLUMN active TINYINT(1) DEFAULT 1 AFTER name",
-        ];
-
-        foreach ($columns as $column => $statement) {
-            if ($this->db->columnExists('client_portfolios', $column)) {
-                continue;
-            }
-
-            $this->db->execute($statement);
-            $this->db->clearColumnCache();
         }
     }
 
@@ -299,57 +254,24 @@ class DatabaseMigrator
         }
     }
 
-    private function createPortfolioTableIfMissing(): void
+    private function addProjectMethodology(): void
     {
-        if ($this->db->tableExists('client_portfolios')) {
+        if ($this->db->columnExists('projects', 'methodology')) {
             return;
         }
 
-        $this->db->execute(
-            'CREATE TABLE client_portfolios (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                client_id INT NOT NULL,
-                name VARCHAR(150) NOT NULL,
-                active TINYINT(1) DEFAULT 1,
-                objective TEXT NULL,
-                description TEXT NULL,
-                start_date DATE NULL,
-                end_date DATE NULL,
-                hours_limit DECIMAL(12,2) NULL,
-                budget_limit DECIMAL(14,2) NULL,
-                budget_total DECIMAL(14,2) NULL,
-                risk_level VARCHAR(20) NULL,
-                attachment_path VARCHAR(255) NULL,
-                projects_included TEXT NULL,
-                rules_notes TEXT NULL,
-                alerting_policy TEXT NULL,
-                risk_register TEXT NULL,
-                risk_level_text VARCHAR(60) NULL,
-                created_at DATETIME NOT NULL,
-                updated_at DATETIME NOT NULL,
-                CONSTRAINT fk_client_portfolios_client FOREIGN KEY (client_id) REFERENCES clients(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
-        );
+        $this->db->execute("ALTER TABLE projects ADD COLUMN methodology VARCHAR(40) NOT NULL DEFAULT 'scrum' AFTER project_type");
+        $this->db->clearColumnCache();
     }
 
-    private function ensureProjectsHavePortfolio(): void
+    private function addProjectPhase(): void
     {
-        if (!$this->db->tableExists('projects') || !$this->db->tableExists('client_portfolios')) {
+        if ($this->db->columnExists('projects', 'phase')) {
             return;
         }
 
-        if (!$this->db->columnExists('projects', 'portfolio_id')) {
-            $this->db->execute('ALTER TABLE projects ADD COLUMN portfolio_id INT NULL AFTER client_id');
-            $this->db->clearColumnCache();
-        }
-
-        if (!$this->db->foreignKeyExists('projects', 'portfolio_id', 'client_portfolios')) {
-            $this->db->execute(
-                'ALTER TABLE projects
-                 ADD CONSTRAINT fk_projects_portfolio
-                 FOREIGN KEY (portfolio_id) REFERENCES client_portfolios(id)'
-            );
-        }
+        $this->db->execute("ALTER TABLE projects ADD COLUMN phase VARCHAR(80) NULL AFTER methodology");
+        $this->db->clearColumnCache();
     }
 
     private function createAssignmentsTableIfMissing(): void
@@ -385,6 +307,22 @@ class DatabaseMigrator
                 FOREIGN KEY (project_id) REFERENCES projects(id),
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (talent_id) REFERENCES talents(id)
+            ) ENGINE=InnoDB'
+        );
+    }
+
+    private function ensureProjectRisksTable(): void
+    {
+        if ($this->db->tableExists('project_risks')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_risks (
+                project_id INT NOT NULL,
+                risk_code VARCHAR(80) NOT NULL,
+                PRIMARY KEY (project_id, risk_code),
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
             ) ENGINE=InnoDB'
         );
     }

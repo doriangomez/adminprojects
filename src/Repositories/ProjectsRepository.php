@@ -14,7 +14,7 @@ class ProjectsRepository
         $this->signalRules = $config['operational_rules']['semaforization'] ?? [];
     }
 
-    public function summary(array $user): array
+    public function summary(array $user, array $filters = []): array
     {
         $conditions = [];
         $params = [];
@@ -31,22 +31,50 @@ class ProjectsRepository
             $params[':pmId'] = $user['id'];
         }
 
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'p.client_id = :clientId';
+            $params[':clientId'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'p.status = :status';
+            $params[':status'] = $filters['status'];
+        }
+
+        if (!empty($filters['methodology'])) {
+            $conditions[] = 'p.methodology = :methodology';
+            $params[':methodology'] = $filters['methodology'];
+        }
+
+        if (!empty($filters['start_date'])) {
+            $conditions[] = 'p.start_date >= :startDate';
+            $params[':startDate'] = $filters['start_date'];
+        }
+
+        if (!empty($filters['end_date'])) {
+            $conditions[] = 'p.end_date <= :endDate';
+            $params[':endDate'] = $filters['end_date'];
+        }
+
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         $select = [
             'p.id',
-            'p.portfolio_id',
             'p.name',
             'p.progress',
             'p.budget',
             'p.actual_cost',
             'p.planned_hours',
             'p.actual_hours',
+            'p.methodology',
+            'p.phase',
+            'prisk.risks AS risk_codes',
             'c.name AS client',
         ];
 
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
+            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risks GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
         if ($hasPmColumn) {
@@ -101,7 +129,9 @@ class ProjectsRepository
             $whereClause
         );
 
-        return $this->db->fetchAll($sql, $params);
+        $projects = $this->db->fetchAll($sql, $params);
+
+        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
     }
 
     public function findForUser(int $id, array $user): ?array
@@ -121,7 +151,6 @@ class ProjectsRepository
         $select = [
             'p.id',
             'p.client_id',
-            'p.portfolio_id',
             'p.name',
             'p.progress',
             'p.budget',
@@ -132,12 +161,16 @@ class ProjectsRepository
             'p.end_date',
             'p.pm_id',
             'u.name AS pm_name',
+            'p.methodology',
+            'p.phase',
+            'prisk.risks AS risk_codes',
             'c.name AS client_name',
         ];
 
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
             'LEFT JOIN users u ON u.id = p.pm_id',
+            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risks GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
         if ($hasTypeColumn) {
@@ -190,16 +223,28 @@ class ProjectsRepository
         return $project ? $this->attachProjectSignal($project) : null;
     }
 
-    public function portfolioKpis(array $user): array
+    public function aggregatedKpis(array $user, array $filters = []): array
     {
-        $conditions = [];
-        $params = [];
-        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
 
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'c.id = :client';
+            $params[':client'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'p.status = :status';
+            $params[':status'] = $filters['status'];
+        }
+
+        if (!empty($filters['start_date'])) {
+            $conditions[] = 'p.start_date >= :start';
+            $params[':start'] = $filters['start_date'];
+        }
+
+        if (!empty($filters['end_date'])) {
+            $conditions[] = 'p.end_date <= :end';
+            $params[':end'] = $filters['end_date'];
         }
 
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -209,12 +254,10 @@ class ProjectsRepository
              FROM projects p JOIN clients c ON c.id = p.client_id ' . $whereClause,
             $params
         );
-        $atRisk = $hasHealthColumn
-            ? $this->db->fetchOne(
-                "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND p.health_code IN ('at_risk','critical','red','yellow')",
-                $params
-            )
-            : ['total' => 0];
+        $atRisk = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total FROM projects p JOIN clients c ON c.id = p.client_id $whereClause AND (p.health IN ('at_risk','critical','red','yellow') OR p.health_code IN ('at_risk','critical','red','yellow'))",
+            $params
+        );
 
         return [
             'total_projects' => (int) ($totals['total'] ?? 0),
@@ -223,41 +266,6 @@ class ProjectsRepository
             'actual_hours' => (int) ($totals['actual_hours'] ?? 0),
             'at_risk' => (int) ($atRisk['total'] ?? 0),
         ];
-    }
-
-    public function portfolio(array $user): array
-    {
-        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
-        $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
-
-        $clients = $this->db->fetchAll(
-            'SELECT DISTINCT c.id, c.name, c.pm_id
-             FROM clients c
-             JOIN projects p ON p.client_id = c.id
-             ' . $whereClause . '
-             ORDER BY c.name ASC',
-            $params
-        );
-
-        $portfolio = [];
-        foreach ($clients as $client) {
-            $projects = $this->projectsForClient((int) $client['id'], $user);
-            $assignments = $this->assignmentsForClient((int) $client['id'], $user);
-            $byProject = [];
-            foreach ($assignments as $assignment) {
-                $byProject[$assignment['project_id']][] = $assignment;
-            }
-            $portfolio[] = [
-                'id' => (int) $client['id'],
-                'name' => $client['name'],
-                'signal' => $this->clientSignal($projects),
-                'projects' => $projects,
-                'kpis' => $this->clientKpis($projects, $assignments),
-                'assignments' => $byProject,
-            ];
-        }
-
-        return $portfolio;
     }
 
     public function projectsForClient(int $clientId, array $user): array
@@ -276,21 +284,24 @@ class ProjectsRepository
 
         $select = [
             'p.id',
-            'p.portfolio_id',
             'p.name',
             'p.progress',
             'p.project_type',
+            'p.methodology',
+            'p.phase',
             'p.budget',
             'p.actual_cost',
             'p.pm_id',
             'u.name AS pm_name',
             'p.actual_hours',
             'p.planned_hours',
+            'prisk.risks AS risk_codes',
         ];
 
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
             'LEFT JOIN users u ON u.id = p.pm_id',
+            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risks GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
         if ($hasPriorityColumn) {
@@ -324,75 +335,6 @@ class ProjectsRepository
         } elseif ($hasHealthTextColumn) {
             $select[] = 'p.health AS health';
             $select[] = 'p.health AS health_label';
-        } else {
-            $select[] = 'NULL AS health';
-            $select[] = 'NULL AS health_label';
-        }
-
-        $sql = sprintf(
-            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
-            implode(', ', $select),
-            implode(' ', $joins),
-            $whereClause
-        );
-
-        $projects = $this->db->fetchAll($sql, $params);
-
-        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
-    }
-
-    public function projectsForPortfolio(int $portfolioId, array $user): array
-    {
-        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
-        $conditions[] = 'p.portfolio_id = :portfolioId';
-        $params[':portfolioId'] = $portfolioId;
-        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
-        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
-        $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
-
-        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
-
-        $select = [
-            'p.id',
-            'p.name',
-            'p.progress',
-            'p.project_type',
-            'p.budget',
-            'p.actual_cost',
-            'p.pm_id',
-            'u.name AS pm_name',
-            'p.actual_hours',
-            'p.planned_hours',
-        ];
-
-        $joins = [
-            'JOIN client_portfolios pf ON pf.id = p.portfolio_id',
-            'JOIN clients c ON c.id = pf.client_id',
-            'LEFT JOIN users u ON u.id = p.pm_id',
-        ];
-
-        if ($hasPriorityColumn) {
-            $select[] = 'p.priority_code AS priority';
-            $select[] = 'pr.label AS priority_label';
-            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
-        } else {
-            $select[] = 'NULL AS priority';
-            $select[] = 'NULL AS priority_label';
-        }
-
-        if ($hasStatusColumn) {
-            $select[] = 'p.status_code AS status';
-            $select[] = 'st.label AS status_label';
-            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
-        } else {
-            $select[] = "'' AS status";
-            $select[] = 'NULL AS status_label';
-        }
-
-        if ($hasHealthColumn) {
-            $select[] = 'p.health_code AS health';
-            $select[] = 'h.label AS health_label';
-            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
         } else {
             $select[] = 'NULL AS health';
             $select[] = 'NULL AS health_label';
@@ -528,17 +470,18 @@ class ProjectsRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO projects (client_id, portfolio_id, pm_id, name, status, health, priority, project_type, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
-             VALUES (:client_id, :portfolio_id, :pm_id, :name, :status, :health, :priority, :project_type, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
+            'INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, methodology, phase, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
+             VALUES (:client_id, :pm_id, :name, :status, :health, :priority, :project_type, :methodology, :phase, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
             [
                 ':client_id' => (int) $payload['client_id'],
-                ':portfolio_id' => $payload['portfolio_id'] ?? null,
                 ':pm_id' => (int) $payload['pm_id'],
                 ':name' => $payload['name'],
                 ':status' => $payload['status'] ?? 'ideation',
                 ':health' => $payload['health'] ?? 'on_track',
                 ':priority' => $payload['priority'],
                 ':project_type' => $payload['project_type'] ?? 'convencional',
+                ':methodology' => $payload['methodology'] ?? 'scrum',
+                ':phase' => $payload['phase'] ?? null,
                 ':budget' => $payload['budget'] ?? 0,
                 ':actual_cost' => $payload['actual_cost'] ?? 0,
                 ':planned_hours' => $payload['planned_hours'] ?? 0,
@@ -592,6 +535,16 @@ class ProjectsRepository
             $params[':project_type'] = $payload['project_type'];
         }
 
+        if ($this->db->columnExists('projects', 'methodology')) {
+            $fields[] = 'methodology = :methodology';
+            $params[':methodology'] = $payload['methodology'] ?? 'scrum';
+        }
+
+        if ($this->db->columnExists('projects', 'phase')) {
+            $fields[] = 'phase = :phase';
+            $params[':phase'] = $payload['phase'] ?? null;
+        }
+
         if ($this->db->columnExists('projects', 'budget')) {
             $fields[] = 'budget = :budget';
             $params[':budget'] = $payload['budget'];
@@ -627,15 +580,14 @@ class ProjectsRepository
             $params[':end_date'] = $payload['end_date'];
         }
 
-        if ($this->db->columnExists('projects', 'portfolio_id')) {
-            $fields[] = 'portfolio_id = :portfolio_id';
-            $params[':portfolio_id'] = $payload['portfolio_id'];
-        }
-
         $this->db->execute(
             'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
             $params
         );
+
+        if (array_key_exists('risks', $payload) && is_array($payload['risks'])) {
+            $this->syncProjectRisks($id, $payload['risks']);
+        }
     }
 
     public function closeProject(int $id): void
@@ -677,6 +629,29 @@ class ProjectsRepository
             'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
             $params
         );
+    }
+
+    private function syncProjectRisks(int $projectId, array $risks): void
+    {
+        $trimmed = array_map('trim', $risks);
+        $cleanRisks = array_values(array_unique(array_filter($trimmed, fn ($risk) => $risk !== '')));
+
+        $this->db->execute('DELETE FROM project_risks WHERE project_id = :project', [':project' => $projectId]);
+
+        if (empty($cleanRisks)) {
+            return;
+        }
+
+        $stmt = $this->db->connection()->prepare(
+            'INSERT INTO project_risks (project_id, risk_code) VALUES (:project, :risk)'
+        );
+
+        foreach ($cleanRisks as $riskCode) {
+            $stmt->execute([
+                ':project' => $projectId,
+                ':risk' => $riskCode,
+            ]);
+        }
     }
 
     private function visibilityConditions(array $user, string $clientAlias, string $projectAlias): array
@@ -743,43 +718,10 @@ class ProjectsRepository
         ];
     }
 
-    public function portfolioKpisFromProjects(array $projects): array
-    {
-        $activeProjects = array_filter(
-            $projects,
-            fn (array $project) => ($project['status'] ?? '') !== 'closed' && ($project['status'] ?? '') !== 'cancelled'
-        );
-        $progressValues = array_column($activeProjects, 'progress');
-        $avgProgress = $progressValues ? array_sum($progressValues) / count($progressValues) : 0.0;
-
-        $riskLevel = 'bajo';
-        foreach ($activeProjects as $project) {
-            $health = $project['health'] ?? '';
-            if (in_array($health, ['critical', 'red'], true)) {
-                $riskLevel = 'alto';
-                break;
-            }
-            if (in_array($health, ['at_risk', 'yellow'], true)) {
-                $riskLevel = 'medio';
-            }
-        }
-
-        $actualCost = array_sum(array_map(fn ($p) => (float) ($p['actual_cost'] ?? 0), $projects));
-        $budgetPlanned = array_sum(array_map(fn ($p) => (float) ($p['budget'] ?? 0), $projects));
-
-        return [
-            'avg_progress' => round($avgProgress, 1),
-            'risk_level' => $riskLevel,
-            'active_projects' => count($activeProjects),
-            'total_projects' => count($projects),
-            'budget_used' => $actualCost,
-            'budget_planned' => $budgetPlanned,
-        ];
-    }
-
     private function attachProjectSignal(array $project): array
     {
         $project['signal'] = $this->projectSignal($project);
+        $project['risks'] = $this->splitRisks($project['risk_codes'] ?? null);
 
         return $project;
     }
@@ -916,5 +858,16 @@ class ProjectsRepository
     private function isPrivileged(array $user): bool
     {
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
+    }
+
+    private function splitRisks(?string $value): array
+    {
+        if (!$value) {
+            return [];
+        }
+
+        $parts = array_map('trim', explode(',', $value));
+
+        return array_values(array_filter($parts, fn ($risk) => $risk !== ''));
     }
 }

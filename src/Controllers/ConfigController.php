@@ -46,6 +46,7 @@ class ConfigController extends Controller
         $this->ensureConfigAccess();
 
         $configService = new ConfigService();
+        $current = $configService->getConfig();
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
         $logoValue = $logoFromUpload ?: $logoUrl;
@@ -65,6 +66,11 @@ class ConfigController extends Controller
             'master_files' => [
                 'data_file' => trim($_POST['data_file'] ?? 'data/data.json'),
                 'schema_file' => trim($_POST['schema_file'] ?? 'data/schema.sql'),
+            ],
+            'delivery' => [
+                'methodologies' => $this->parseList($_POST['methodologies'] ?? implode(', ', $current['delivery']['methodologies'] ?? [])),
+                'phases' => $this->decodeJson($_POST['phases_json'] ?? '', $current['delivery']['phases'] ?? []),
+                'risks' => $this->decodeJson($_POST['risks_json'] ?? '', $current['delivery']['risks'] ?? []),
             ],
             'access' => [
                 'roles' => $this->parseList($_POST['roles'] ?? ''),
@@ -87,12 +93,6 @@ class ConfigController extends Controller
                         'yellow_above' => $this->toFloat($_POST['cost_yellow'] ?? '0.05'),
                         'red_above' => $this->toFloat($_POST['cost_red'] ?? '0.10'),
                     ],
-                ],
-                'alerts' => [
-                    'portfolio_days_before_end' => (int) ($_POST['portfolio_days_before_end'] ?? 15),
-                ],
-                'portfolio_limits' => [
-                    'warning_ratio' => $this->toFloat($_POST['portfolio_warning_ratio'] ?? '0.85'),
                 ],
                 'approvals' => [
                     'external_talent_requires_approval' => isset($_POST['external_talent_requires_approval']),
@@ -217,6 +217,18 @@ class ConfigController extends Controller
         $parts = array_filter($parts, fn ($part) => $part !== '');
 
         return array_values($parts);
+    }
+
+    private function decodeJson(string $value, array $default = []): array
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return $default;
+        }
+
+        $decoded = json_decode($trimmed, true);
+
+        return is_array($decoded) ? $decoded : $default;
     }
 
     private function ensureConfigAccess(): void

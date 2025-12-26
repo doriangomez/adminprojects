@@ -116,6 +116,8 @@ CREATE TABLE projects (
     health VARCHAR(20) NOT NULL,
     priority VARCHAR(20) NOT NULL,
     project_type VARCHAR(20) NOT NULL DEFAULT 'convencional',
+    methodology VARCHAR(40) NOT NULL DEFAULT 'scrum',
+    phase VARCHAR(80) NULL,
     budget DECIMAL(12,2) DEFAULT 0,
     actual_cost DECIMAL(12,2) DEFAULT 0,
     planned_hours INT DEFAULT 0,
@@ -128,6 +130,13 @@ CREATE TABLE projects (
     FOREIGN KEY (client_id) REFERENCES clients(id),
     FOREIGN KEY (pm_id) REFERENCES users(id)
 );
+
+CREATE TABLE project_risks (
+    project_id INT NOT NULL,
+    risk_code VARCHAR(80) NOT NULL,
+    PRIMARY KEY (project_id, risk_code),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 CREATE TABLE tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -245,21 +254,6 @@ CREATE TABLE audit_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
-
-CREATE TABLE IF NOT EXISTS client_portfolios (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    client_id INT NOT NULL,
-    name VARCHAR(150) NOT NULL,
-    active TINYINT(1) DEFAULT 1,
-    start_date DATE NULL,
-    end_date DATE NULL,
-    hours_limit DECIMAL(12,2) NULL,
-    budget_limit DECIMAL(14,2) NULL,
-    attachment_path VARCHAR(255) NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    CONSTRAINT fk_client_portfolios_client FOREIGN KEY (client_id) REFERENCES clients(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Seeds básicos
 INSERT INTO roles (nombre) VALUES ('Administrador'), ('PMO'), ('Líder de Proyecto'), ('Talento'), ('Visualizador');

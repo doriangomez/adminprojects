@@ -238,26 +238,20 @@ class ClientsRepository
     public function dependencySummary(int $id): array
     {
         $projects = 0;
-        $portfolios = 0;
         $contracts = 0;
 
         if ($this->db->tableExists('projects')) {
             $projects = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM projects WHERE client_id = :id', [':id' => $id])['total'] ?? 0);
         }
 
-        if ($this->db->tableExists('client_portfolios')) {
-            $portfolios = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM client_portfolios WHERE client_id = :id', [':id' => $id])['total'] ?? 0);
-        }
-
         if ($this->db->tableExists('contracts') && $this->db->columnExists('contracts', 'client_id')) {
             $contracts = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM contracts WHERE client_id = :id', [':id' => $id])['total'] ?? 0);
         }
 
-        $hasDependencies = ($projects + $portfolios + $contracts) > 0;
+        $hasDependencies = ($projects + $contracts) > 0;
 
         return [
             'projects' => $projects,
-            'portfolios' => $portfolios,
             'contracts' => $contracts,
             'has_dependencies' => $hasDependencies,
         ];
@@ -327,7 +321,7 @@ class ClientsRepository
     private function forceDeleteWithCascade(int $clientId, ?string $clientLogoPath = null): array
     {
         $pdo = $this->db->connection();
-        $attachments = $this->portfolioAttachments($clientId);
+        $attachments = [];
 
         if ($clientLogoPath) {
             $attachments[] = $clientLogoPath;
@@ -340,7 +334,6 @@ class ClientsRepository
             $this->deleteTasks($clientId);
             $this->deleteAssignments($clientId);
             $this->deleteProjects($clientId);
-            $this->deletePortfolios($clientId);
             $this->deleteContracts($clientId);
 
             $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $clientId]);
@@ -415,15 +408,6 @@ class ClientsRepository
         $this->db->execute('DELETE FROM projects WHERE client_id = :clientId', [':clientId' => $clientId]);
     }
 
-    private function deletePortfolios(int $clientId): void
-    {
-        if (!$this->db->tableExists('client_portfolios')) {
-            return;
-        }
-
-        $this->db->execute('DELETE FROM client_portfolios WHERE client_id = :clientId', [':clientId' => $clientId]);
-    }
-
     private function deleteContracts(int $clientId): void
     {
         if (!$this->db->tableExists('contracts') || !$this->db->columnExists('contracts', 'client_id')) {
@@ -431,20 +415,6 @@ class ClientsRepository
         }
 
         $this->db->execute('DELETE FROM contracts WHERE client_id = :clientId', [':clientId' => $clientId]);
-    }
-
-    private function portfolioAttachments(int $clientId): array
-    {
-        if (!$this->db->tableExists('client_portfolios') || !$this->db->columnExists('client_portfolios', 'attachment_path')) {
-            return [];
-        }
-
-        $attachments = $this->db->fetchAll(
-            'SELECT attachment_path FROM client_portfolios WHERE client_id = :clientId AND attachment_path IS NOT NULL',
-            [':clientId' => $clientId]
-        );
-
-        return array_unique(array_filter(array_map(fn ($row) => $row['attachment_path'] ?? null, $attachments)));
     }
 
     private function normalizePath(string $path): ?string

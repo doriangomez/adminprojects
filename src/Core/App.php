@@ -15,9 +15,8 @@ class App
         $migrator->ensureClientSchema();
         $migrator->ensureClientPmIntegrity();
         $migrator->ensureProjectPmIntegrity();
+        $migrator->ensureProjectDeliverySchema();
         $migrator->ensureAssignmentsTable();
-        $migrator->ensurePortfoliosTable();
-        $migrator->ensureProjectPortfolioLink();
         $migrator->ensureProjectManagementPermission();
         $this->auth = new Auth($this->db);
     }
@@ -100,11 +99,6 @@ class App
         if (str_starts_with($path, '/projects')) {
             $controller = new ProjectsController($this->db, $this->auth);
 
-            if ($path === '/projects/portfolio') {
-                $controller->portfolio();
-                return;
-            }
-
             if ($path === '/projects/assign-talent' && $method === 'POST') {
                 $controller->assignTalent();
                 return;
@@ -139,45 +133,6 @@ class App
                     return;
                 }
                 $controller->confirmClose((int) $matches[1]);
-                return;
-            }
-
-            $controller->index();
-            return;
-        }
-
-        if (str_starts_with($path, '/portfolio')) {
-            $controller = new PortfoliosController($this->db, $this->auth);
-            if ($path === '/portfolio/create') {
-                $controller->create();
-                return;
-            }
-            if ($path === '/portfolio/wizard') {
-                if ($method === 'POST') {
-                    $controller->storeWizard();
-                    return;
-                }
-
-                $controller->wizard();
-                return;
-            }
-            if ($path === '/portfolio' && $method === 'POST') {
-                $controller->store();
-                return;
-            }
-
-            if ($path === '/portfolio/update' && $method === 'POST') {
-                $controller->update();
-                return;
-            }
-
-            if ($path === '/portfolio/delete' && $method === 'POST') {
-                $controller->destroy();
-                return;
-            }
-
-            if (preg_match('#^/portfolio/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
-                $controller->inactivate((int) $matches[1]);
                 return;
             }
 

@@ -3,6 +3,7 @@ $basePath = $basePath ?? '/project/public';
 $project = $project ?? [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $signal = $project['signal'] ?? ['label' => 'Verde', 'code' => 'green', 'reasons' => []];
+$risks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
 ?>
 
 <section class="card" style="padding:16px; border:1px solid var(--border); border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:12px;">
@@ -42,6 +43,18 @@ $signal = $project['signal'] ?? ['label' => 'Verde', 'code' => 'green', 'reasons
         <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
             <strong>Tipo</strong>
             <div><?= htmlspecialchars($project['project_type'] ?? 'convencional') ?></div>
+        </div>
+        <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
+            <strong>Metodología</strong>
+            <div><?= htmlspecialchars($project['methodology'] ?? 'No definida') ?></div>
+        </div>
+        <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
+            <strong>Fase</strong>
+            <div><?= htmlspecialchars($project['phase'] ?? 'Sin fase') ?></div>
+        </div>
+        <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
+            <strong>Riesgos</strong>
+            <div><?= htmlspecialchars($risks ? implode(', ', $risks) : 'Sin riesgos asociados') ?></div>
         </div>
     </div>
 

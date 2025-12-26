@@ -143,7 +143,7 @@ UX clave: dashboards con tarjetas y badges de riesgo, filtros dinámicos, Kanban
 - `CRUD /tareas` + `PATCH /tareas/{id}/estado` para mover en Kanban.
 - `POST /horas`, `PATCH /horas/{id}/aprobar` con reglas por rol.
 - `GET /rentabilidad` → KPIs por proyecto, variación presupuestal.
-- `GET /pmo/portafolio` → consolidado de carga y riesgo por proyecto.
+- `GET /pmo/projects` → consolidado de carga y riesgo por proyecto.
 
 ### Consultas de métricas (ejemplos)
 ```sql
@@ -201,7 +201,7 @@ services:
   db:
     image: mysql:8
     environment:
-      MYSQL_DATABASE: portafolio
+      MYSQL_DATABASE: proyectos
       MYSQL_ROOT_PASSWORD: root
     volumes: ["db_data:/var/lib/mysql"]
   redis:

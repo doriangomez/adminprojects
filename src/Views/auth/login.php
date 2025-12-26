@@ -184,7 +184,7 @@ $theme = $branding['theme'] ?? [];
                     <img class="logo" src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo AOS" onerror="this.style.display='none'">
                 <?php endif; ?>
                 <h2 class="claim"><?= htmlspecialchars($theme['login_hero']) ?></h2>
-                <p class="subtitle">Sistema PMO con visión ejecutiva, control de clientes y portafolios en un solo lugar.</p>
+                <p class="subtitle">Sistema PMO con visión ejecutiva, control de clientes y proyectos en un solo lugar.</p>
                 <div class="bullets">
                     <div class="bullet">
                         <div class="bullet-icon">✦</div>
@@ -192,7 +192,7 @@ $theme = $branding['theme'] ?? [];
                     </div>
                     <div class="bullet">
                         <div class="bullet-icon">⬢</div>
-                        <p class="bullet-text">Orquestación de clientes y portafolios con trazabilidad completa.</p>
+                        <p class="bullet-text">Orquestación de clientes y proyectos con trazabilidad completa.</p>
                     </div>
                     <div class="bullet">
                         <div class="bullet-icon">➜</div>
