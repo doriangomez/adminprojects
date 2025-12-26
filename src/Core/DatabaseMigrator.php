@@ -72,6 +72,16 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureSystemSettings(): void
+    {
+        try {
+            $this->createConfigSettingsTable();
+            $this->seedDefaultConfig();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tabla config_settings: ' . $e->getMessage());
+        }
+    }
+
     public function ensureProjectManagementPermission(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
@@ -341,5 +351,47 @@ class DatabaseMigrator
         $result = $stmt->fetch();
 
         return $result ? (int) ($result['id'] ?? 0) : null;
+    }
+
+    private function createConfigSettingsTable(): void
+    {
+        if ($this->db->tableExists('config_settings')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE config_settings (
+                config_key VARCHAR(120) NOT NULL PRIMARY KEY,
+                config_value JSON NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB'
+        );
+    }
+
+    private function seedDefaultConfig(): void
+    {
+        if (!$this->db->tableExists('config_settings')) {
+            return;
+        }
+
+        $exists = $this->db->fetchOne(
+            'SELECT 1 FROM config_settings WHERE config_key = :key LIMIT 1',
+            [':key' => 'app']
+        );
+
+        if ($exists) {
+            return;
+        }
+
+        $service = new ConfigService($this->db);
+        $defaults = $service->getDefaults();
+
+        $this->db->execute(
+            'INSERT INTO config_settings (config_key, config_value, updated_at) VALUES (:key, :value, NOW())',
+            [
+                ':key' => 'app',
+                ':value' => json_encode($defaults, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            ]
+        );
     }
 }

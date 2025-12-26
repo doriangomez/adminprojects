@@ -17,6 +17,7 @@ class App
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureProjectDeliverySchema();
         $migrator->ensureAssignmentsTable();
+        $migrator->ensureSystemSettings();
         $migrator->ensureProjectManagementPermission();
         $this->auth = new Auth($this->db);
     }

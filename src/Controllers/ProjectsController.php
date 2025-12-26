@@ -18,7 +18,7 @@ class ProjectsController extends Controller
         ];
 
         $repo = new ProjectsRepository($this->db);
-        $config = (new ConfigService())->getConfig();
+        $config = (new ConfigService($this->db))->getConfig();
         $clientsRepo = new ClientsRepository($this->db);
 
         $this->render('projects/index', [
@@ -64,7 +64,7 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $config = (new ConfigService())->getConfig();
+        $config = (new ConfigService($this->db))->getConfig();
 
         $this->render('projects/edit', [
             'title' => 'Editar proyecto',
@@ -85,7 +85,8 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $payload = $this->projectPayload($project);
+        $config = (new ConfigService($this->db))->getConfig();
+        $payload = $this->projectPayload($project, $config['delivery'] ?? []);
         $repo->updateProject($id, $payload);
 
         header('Location: /project/public/projects/' . $id);
@@ -211,25 +212,56 @@ class ProjectsController extends Controller
         ];
     }
 
-    private function projectPayload(array $current): array
+    private function projectPayload(array $current, array $deliveryConfig = []): array
     {
+        $delivery = [
+            'methodologies' => $deliveryConfig['methodologies'] ?? [],
+            'phases' => $deliveryConfig['phases'] ?? [],
+            'risks' => $deliveryConfig['risks'] ?? [],
+        ];
+
+        $projectType = $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional');
+        $projectType = in_array($projectType, ['convencional', 'scrum'], true) ? $projectType : 'convencional';
+
+        $availableMethodologies = $delivery['methodologies'];
+        $defaultMethodology = $projectType === 'scrum'
+            ? ($availableMethodologies[0] ?? 'scrum')
+            : ($availableMethodologies[0] ?? 'cascada');
+        $methodology = $_POST['methodology'] ?? ($current['methodology'] ?? $defaultMethodology);
+        if (!empty($availableMethodologies) && !in_array($methodology, $availableMethodologies, true)) {
+            $methodology = $availableMethodologies[0];
+        }
+
+        $availablePhases = is_array($delivery['phases'][$methodology] ?? null) ? $delivery['phases'][$methodology] : [];
+        $phaseInput = $_POST['phase'] ?? ($current['phase'] ?? null);
+        $phase = ($phaseInput === '' || !in_array($phaseInput, $availablePhases, true)) ? null : $phaseInput;
+
+        $riskCodes = array_values(array_filter(array_map(fn ($risk) => $risk['code'] ?? '', $delivery['risks'])));
+        $risks = array_values(array_intersect(array_filter($_POST['risks'] ?? []), $riskCodes));
+
+        $endDate = $_POST['end_date'] ?? ($current['end_date'] ?? null);
+        if ($projectType === 'scrum') {
+            $endDate = null;
+        }
+
         return [
             'name' => trim($_POST['name'] ?? (string) ($current['name'] ?? '')),
             'status' => $_POST['status'] ?? (string) ($current['status'] ?? ''),
             'health' => $_POST['health'] ?? (string) ($current['health'] ?? ''),
             'priority' => $_POST['priority'] ?? (string) ($current['priority'] ?? ''),
+            'client_id' => (int) ($_POST['client_id'] ?? ($current['client_id'] ?? 0)),
             'pm_id' => (int) ($_POST['pm_id'] ?? ($current['pm_id'] ?? 0)),
-            'project_type' => $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional'),
+            'project_type' => $projectType,
             'budget' => (float) ($_POST['budget'] ?? ($current['budget'] ?? 0)),
             'actual_cost' => (float) ($_POST['actual_cost'] ?? ($current['actual_cost'] ?? 0)),
             'planned_hours' => (float) ($_POST['planned_hours'] ?? ($current['planned_hours'] ?? 0)),
             'actual_hours' => (float) ($_POST['actual_hours'] ?? ($current['actual_hours'] ?? 0)),
             'progress' => (float) ($_POST['progress'] ?? ($current['progress'] ?? 0)),
             'start_date' => $_POST['start_date'] ?? ($current['start_date'] ?? null),
-            'end_date' => $_POST['end_date'] ?? ($current['end_date'] ?? null),
-            'methodology' => $_POST['methodology'] ?? ($current['methodology'] ?? 'scrum'),
-            'phase' => $_POST['phase'] ?? ($current['phase'] ?? null),
-            'risks' => array_filter($_POST['risks'] ?? []),
+            'end_date' => $endDate,
+            'methodology' => $methodology,
+            'phase' => $phase,
+            'risks' => $risks,
         ];
     }
 

@@ -8,7 +8,7 @@ class ConfigController extends Controller
     {
         $this->ensureConfigAccess();
 
-        $service = new ConfigService();
+        $service = new ConfigService($this->db);
         $config = $service->getConfig();
 
         $usersRepo = new UsersRepository($this->db);
@@ -45,7 +45,7 @@ class ConfigController extends Controller
     {
         $this->ensureConfigAccess();
 
-        $configService = new ConfigService();
+        $configService = new ConfigService($this->db);
         $current = $configService->getConfig();
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');

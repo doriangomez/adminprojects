@@ -10,7 +10,7 @@ class ProjectsRepository
 
     public function __construct(private Database $db)
     {
-        $config = (new ConfigService())->getConfig();
+        $config = (new ConfigService($this->db))->getConfig();
         $this->signalRules = $config['operational_rules']['semaforization'] ?? [];
     }
 
@@ -487,7 +487,7 @@ class ProjectsRepository
 
     public function create(array $payload): int
     {
-        return $this->db->insert(
+        $projectId = $this->db->insert(
             'INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, methodology, phase, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
              VALUES (:client_id, :pm_id, :name, :status, :health, :priority, :project_type, :methodology, :phase, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
             [
@@ -509,6 +509,12 @@ class ProjectsRepository
                 ':end_date' => $payload['end_date'] ?? null,
             ]
         );
+
+        if (array_key_exists('risks', $payload) && is_array($payload['risks'])) {
+            $this->syncProjectRisks($projectId, $payload['risks']);
+        }
+
+        return $projectId;
     }
 
     public function updateProject(int $id, array $payload): void
