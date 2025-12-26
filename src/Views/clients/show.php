@@ -9,7 +9,7 @@
             <a class="btn secondary" href="/project/public/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
         <?php endif; ?>
         <?php if($auth->canDeleteClients()): ?>
-            <button type="button" class="btn ghost" style="color:#b91c1c; border-color: #fecaca; background: #fef2f2;" data-open-delete>
+            <button type="button" class="btn ghost" style="color:#b91c1c; border-color: #fecaca; background: #fef2f2;" data-open-action="delete">
                 Eliminar cliente
             </button>
         <?php endif; ?>
