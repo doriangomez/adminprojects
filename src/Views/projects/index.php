@@ -354,7 +354,7 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
                         <span aria-hidden="true">✏️</span>
                         Editar
                     </a>
-                    <a class="action-btn" href="<?= $basePath ?>/projects/assign-talent">
+                    <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent">
                         <span aria-hidden="true">👤</span>
                         Gestionar talento
                     </a>
@@ -362,10 +362,12 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
                         <span aria-hidden="true">💵</span>
                         Costos
                     </a>
-                    <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close">
-                        <span aria-hidden="true">🛑</span>
-                        Cerrar proyecto
-                    </a>
+                    <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET" style="margin:0">
+                        <button class="action-btn" type="submit">
+                            <span aria-hidden="true">🛑</span>
+                            Cerrar proyecto
+                        </button>
+                    </form>
                 </div>
             </article>
         <?php endforeach; ?>
