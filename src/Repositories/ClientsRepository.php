@@ -262,10 +262,13 @@ class ClientsRepository
         $dependencies = $this->dependencySummary($id);
 
         if ($dependencies['has_dependencies'] && !$forceDelete) {
+            $inactivated = $this->inactivate($id);
+
             return [
                 'success' => false,
                 'error_code' => 'DEPENDENCIES',
                 'dependencies' => $dependencies,
+                'inactivated' => $inactivated,
             ];
         }
 
@@ -333,6 +336,7 @@ class ClientsRepository
             $this->deleteTimesheets($clientId);
             $this->deleteTasks($clientId);
             $this->deleteAssignments($clientId);
+            $this->deleteProjectRisks($clientId);
             $this->deleteProjects($clientId);
             $this->deleteContracts($clientId);
 
@@ -368,6 +372,20 @@ class ClientsRepository
             'DELETE ts FROM timesheets ts
              JOIN tasks t ON t.id = ts.task_id
              JOIN projects p ON p.id = t.project_id
+             WHERE p.client_id = :clientId',
+            [':clientId' => $clientId]
+        );
+    }
+
+    private function deleteProjectRisks(int $clientId): void
+    {
+        if (!$this->db->tableExists('project_risks') || !$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $this->db->execute(
+            'DELETE pr FROM project_risks pr
+             JOIN projects p ON p.id = pr.project_id
              WHERE p.client_id = :clientId',
             [':clientId' => $clientId]
         );
