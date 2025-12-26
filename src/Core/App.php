@@ -100,6 +100,15 @@ class App
         if (str_starts_with($path, '/projects')) {
             $controller = new ProjectsController($this->db, $this->auth);
 
+            if ($path === '/projects/create') {
+                if ($method === 'POST') {
+                    $controller->store();
+                    return;
+                }
+                $controller->create();
+                return;
+            }
+
             if ($path === '/projects/assign-talent' && $method === 'POST') {
                 $controller->assignTalent();
                 return;

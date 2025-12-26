@@ -655,7 +655,7 @@ class ProjectsRepository
         );
     }
 
-    private function syncProjectRisks(int $projectId, array $risks): void
+    public function syncProjectRisks(int $projectId, array $risks): void
     {
         $trimmed = array_map('trim', $risks);
         $cleanRisks = array_values(array_unique(array_filter($trimmed, fn ($risk) => $risk !== '')));
