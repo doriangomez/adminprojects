@@ -162,6 +162,69 @@ class PortfoliosController extends Controller
         }
     }
 
+    public function destroy(): void
+    {
+        $this->requirePermission('projects.manage');
+
+        if (!$this->isAdmin()) {
+            http_response_code(403);
+            exit('Solo administradores pueden eliminar portafolios.');
+        }
+
+        $config = (new ConfigService())->getConfig();
+        $repo = new PortfoliosRepository($this->db, $config['operational_rules']);
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id <= 0) {
+            http_response_code(400);
+            $this->index('Portafolio no encontrado.');
+            return;
+        }
+
+        $result = $repo->delete($id);
+        if (($result['success'] ?? false) === true) {
+            header('Location: /project/public/portfolio');
+            return;
+        }
+
+        $message = ($result['error'] ?? '') === 'PORTFOLIO_NOT_FOUND'
+            ? 'El portafolio no existe.'
+            : 'No se pudo eliminar el portafolio. Intenta nuevamente o contacta al administrador.';
+
+        $this->index($message);
+    }
+
+    public function inactivate(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+
+        if (!$this->isAdmin()) {
+            http_response_code(403);
+            exit('Solo administradores pueden inactivar portafolios.');
+        }
+
+        $config = (new ConfigService())->getConfig();
+        $repo = new PortfoliosRepository($this->db, $config['operational_rules']);
+
+        if ($id <= 0) {
+            http_response_code(404);
+            $this->index('Portafolio no encontrado.');
+            return;
+        }
+
+        try {
+            if ($repo->inactivate($id)) {
+                header('Location: /project/public/portfolio');
+                return;
+            }
+
+            $this->index('No se pudo inactivar el portafolio.');
+        } catch (\Throwable $e) {
+            error_log('Error al inactivar portafolio: ' . $e->getMessage());
+            $this->index('No se pudo inactivar el portafolio: ' . $e->getMessage());
+        }
+    }
+
     private function payload(?string $attachmentPath): array
     {
         $selectedProjects = array_map('intval', $_POST['projects_included'] ?? []);
@@ -378,5 +441,10 @@ class PortfoliosController extends Controller
         }
 
         return $severity;
+    }
+
+    private function isAdmin(): bool
+    {
+        return $this->auth->hasRole('Administrador') || $this->auth->can('config.manage');
     }
 }

@@ -171,6 +171,16 @@ class App
                 return;
             }
 
+            if ($path === '/portfolio/delete' && $method === 'POST') {
+                $controller->destroy();
+                return;
+            }
+
+            if (preg_match('#^/portfolio/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
+                $controller->inactivate((int) $matches[1]);
+                return;
+            }
+
             $controller->index();
             return;
         }
