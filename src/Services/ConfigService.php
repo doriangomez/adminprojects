@@ -5,6 +5,7 @@ declare(strict_types=1);
 class ConfigService
 {
     private string $filePath;
+    private ?Database $db;
 
     private array $defaults = [
         'theme' => [
@@ -64,14 +65,15 @@ class ConfigService
         ],
     ];
 
-    public function __construct(?string $filePath = null)
+    public function __construct(?Database $db = null, ?string $filePath = null)
     {
+        $this->db = $db;
         $this->filePath = $filePath ?: __DIR__ . '/../../data/config.json';
     }
 
     public function getConfig(): array
     {
-        $stored = $this->readConfigFile();
+        $stored = $this->readConfigStorage();
 
         return [
             'theme' => array_merge($this->defaults['theme'], $stored['theme'] ?? []),
@@ -152,7 +154,7 @@ class ConfigService
             ],
         ];
 
-        $this->writeConfigFile($updated);
+        $this->writeConfigStorage($updated);
 
         return $updated;
     }
@@ -205,6 +207,69 @@ class ConfigService
         }
 
         return '/project/public/uploads/logos/' . $safeName;
+    }
+
+    public function getDefaults(): array
+    {
+        return $this->defaults;
+    }
+
+    private function readConfigStorage(): array
+    {
+        $dbConfig = $this->readConfigFromDatabase();
+        if ($dbConfig !== null) {
+            return $dbConfig;
+        }
+
+        return $this->readConfigFile();
+    }
+
+    private function writeConfigStorage(array $config): void
+    {
+        if ($this->writeConfigToDatabase($config)) {
+            return;
+        }
+
+        $this->writeConfigFile($config);
+    }
+
+    private function readConfigFromDatabase(): ?array
+    {
+        if (!$this->db || !$this->db->tableExists('config_settings')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT config_value FROM config_settings WHERE config_key = :key LIMIT 1',
+            [':key' => 'app']
+        );
+
+        if (!$row || !isset($row['config_value'])) {
+            return null;
+        }
+
+        $decoded = json_decode((string) $row['config_value'], true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function writeConfigToDatabase(array $config): bool
+    {
+        if (!$this->db || !$this->db->tableExists('config_settings')) {
+            return false;
+        }
+
+        $this->db->execute(
+            'INSERT INTO config_settings (config_key, config_value, updated_at)
+             VALUES (:key, :value, NOW())
+             ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = NOW()',
+            [
+                ':key' => 'app',
+                ':value' => json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+            ]
+        );
+
+        return true;
     }
 
     private function readConfigFile(): array

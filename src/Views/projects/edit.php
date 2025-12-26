@@ -8,10 +8,13 @@ $riskCatalog = $deliveryConfig['risks'] ?? [];
 $currentMethodology = $project['methodology'] ?? ($methodologies[0] ?? '');
 $currentPhases = is_array($phasesByMethodology[$currentMethodology] ?? null) ? $phasesByMethodology[$currentMethodology] : [];
 $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+$projectType = $project['project_type'] ?? 'convencional';
+$formAction = $formAction ?? ($basePath . '/projects/' . (int) ($project['id'] ?? 0) . '/edit');
+$formTitle = $formTitle ?? 'Editar proyecto';
 ?>
 
-<form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit" method="POST" style="display:flex; flex-direction:column; gap:12px; background: var(--surface); border:1px solid var(--border); padding:16px; border-radius:14px;">
-    <h3 style="margin:0;">Editar proyecto</h3>
+<form action="<?= htmlspecialchars($formAction) ?>" method="POST" style="display:flex; flex-direction:column; gap:12px; background: var(--surface); border:1px solid var(--border); padding:16px; border-radius:14px;">
+    <h3 style="margin:0;"><?= htmlspecialchars($formTitle) ?></h3>
     <label>Nombre
         <input name="name" value="<?= htmlspecialchars($project['name'] ?? '') ?>" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
     </label>
@@ -28,7 +31,11 @@ $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
         <input type="number" name="pm_id" value="<?= (int) ($project['pm_id'] ?? 0) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
     </label>
     <label>Tipo de proyecto
-        <input name="project_type" value="<?= htmlspecialchars($project['project_type'] ?? 'convencional') ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+        <select name="project_type" id="projectTypeSelect" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+            <option value="convencional" <?= $projectType === 'convencional' ? 'selected' : '' ?>>Convencional (fechas y fases)</option>
+            <option value="scrum" <?= $projectType === 'scrum' ? 'selected' : '' ?>>Scrum (sprints y backlog)</option>
+        </select>
+        <small class="subtext">Convencional usa hitos secuenciales; Scrum trabaja en sprints sin fecha fin rígida.</small>
     </label>
     <label>Metodología
         <select name="methodology" id="methodologySelect" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
@@ -39,7 +46,7 @@ $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
             <?php endforeach; ?>
         </select>
     </label>
-    <label>Fase
+    <label data-role="phase-label"><span class="label-text">Fase / sprint</span>
         <select name="phase" id="phaseSelect" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
             <option value="">Sin fase</option>
             <?php foreach ($currentPhases as $phase): ?>
@@ -61,8 +68,8 @@ $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
     <label>Horas reales
         <input type="number" step="0.01" name="actual_hours" value="<?= htmlspecialchars((string) ($project['actual_hours'] ?? 0)) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
     </label>
-    <label>Progreso (%)
-        <input type="number" step="0.1" name="progress" value="<?= htmlspecialchars((string) ($project['progress'] ?? 0)) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+    <label id="progressGroup">Progreso (%)
+        <input type="number" step="0.1" name="progress" id="progressInput" value="<?= htmlspecialchars((string) ($project['progress'] ?? 0)) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;" placeholder="Seguimiento porcentual o por sprint">
     </label>
     <fieldset style="border:1px solid var(--border); padding:10px; border-radius:12px;">
         <legend style="font-weight:700; color:var(--text);">Riesgos (catálogo global)</legend>
@@ -83,9 +90,12 @@ $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
         <label>Inicio
             <input type="date" name="start_date" value="<?= htmlspecialchars((string) ($project['start_date'] ?? '')) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
         </label>
-        <label>Fin
-            <input type="date" name="end_date" value="<?= htmlspecialchars((string) ($project['end_date'] ?? '')) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+        <label data-role="end-date">Fin
+            <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) ($project['end_date'] ?? '')) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
         </label>
+    </div>
+    <div id="scrumHint" style="display: <?= $projectType === 'scrum' ? 'block' : 'none' ?>; background:#ecfeff; border:1px solid #06b6d4; color:#0f172a; padding:10px; border-radius:10px;">
+        Para proyectos Scrum, administra sprints y backlog sin fecha de cierre fija. El progreso refleja el avance del sprint actual.
     </div>
     <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Guardar cambios</button>
 </form>
@@ -94,6 +104,12 @@ $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
     const phasesByMethodology = <?= json_encode($phasesByMethodology) ?>;
     const phaseSelect = document.getElementById('phaseSelect');
     const methodologySelect = document.getElementById('methodologySelect');
+    const projectTypeSelect = document.getElementById('projectTypeSelect');
+    const endDateGroup = document.querySelector('[data-role="end-date"]');
+    const phaseLabel = document.querySelector('[data-role="phase-label"]');
+    const phaseLabelText = phaseLabel ? phaseLabel.querySelector('.label-text') : null;
+    const scrumHint = document.getElementById('scrumHint');
+    const progressInput = document.getElementById('progressInput');
 
     function refreshPhases() {
         const selected = methodologySelect.value;
@@ -117,7 +133,47 @@ $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
         });
     }
 
+    function toggleByProjectType() {
+        const selectedType = projectTypeSelect.value;
+        if (selectedType === 'scrum') {
+            if (endDateGroup) {
+                endDateGroup.style.display = 'none';
+                const endDateInput = document.getElementById('endDateInput');
+                if (endDateInput) {
+                    endDateInput.value = '';
+                }
+            }
+            if (phaseLabelText) {
+                phaseLabelText.textContent = 'Sprint / fase activa';
+            }
+            if (scrumHint) {
+                scrumHint.style.display = 'block';
+            }
+            if (progressInput) {
+                progressInput.placeholder = 'Seguimiento de sprint';
+            }
+        } else {
+            if (endDateGroup) {
+                endDateGroup.style.display = '';
+            }
+            if (phaseLabelText) {
+                phaseLabelText.textContent = 'Fase';
+            }
+            if (scrumHint) {
+                scrumHint.style.display = 'none';
+            }
+            if (progressInput) {
+                progressInput.placeholder = 'Avance porcentual';
+            }
+        }
+    }
+
     if (methodologySelect && phaseSelect) {
         methodologySelect.addEventListener('change', refreshPhases);
+    }
+
+    if (projectTypeSelect) {
+        projectTypeSelect.addEventListener('change', toggleByProjectType);
+        toggleByProjectType();
     }
 </script>

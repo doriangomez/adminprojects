@@ -6,7 +6,7 @@ class AuthController extends Controller
 {
     public function showLogin(): void
     {
-        $configService = new ConfigService();
+        $configService = new ConfigService($this->db);
         $branding = $configService->getBranding();
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
@@ -21,7 +21,7 @@ class AuthController extends Controller
 
     public function login(): void
     {
-        $configService = new ConfigService();
+        $configService = new ConfigService($this->db);
         $branding = $configService->getBranding();
         $configData = $configService->getConfig();
         $appName = $this->getAppName();

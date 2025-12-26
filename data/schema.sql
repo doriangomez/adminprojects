@@ -15,6 +15,12 @@ CREATE TABLE permissions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE config_settings (
+    config_key VARCHAR(120) NOT NULL PRIMARY KEY,
+    config_value JSON NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE role_permissions (
     role_id INT NOT NULL,
     permission_id INT NOT NULL,
@@ -269,6 +275,65 @@ INSERT INTO permissions (code, name) VALUES
     ('talents.view', 'Ver talento'),
     ('timesheets.view', 'Ver timesheets'),
     ('config.manage', 'Administrar configuración');
+
+INSERT INTO config_settings (config_key, config_value) VALUES
+('app', '{
+    "theme": {
+        "logo": "/project/public/uploads/logos/default.svg",
+        "primary": "#2563eb",
+        "secondary": "#111827",
+        "accent": "#f59e0b",
+        "background": "#f3f4f6",
+        "surface": "#ffffff",
+        "font_family": "\"Inter\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "login_hero": "Orquesta tus operaciones críticas",
+        "login_message": "Diseña flujos, controla riesgos y haz visible el valor de tu PMO."
+    },
+    "master_files": {
+        "data_file": "data/data.json",
+        "schema_file": "data/schema.sql"
+    },
+    "delivery": {
+        "methodologies": ["scrum", "cascada", "kanban"],
+        "phases": {
+            "scrum": ["descubrimiento", "backlog listo", "sprint", "deploy"],
+            "cascada": ["inicio", "planificación", "ejecución", "cierre"],
+            "kanban": ["por hacer", "en curso", "en revisión", "hecho"]
+        },
+        "risks": [
+            {"code": "scope_creep", "label": "Desviación de alcance"},
+            {"code": "budget_overrun", "label": "Sobrepaso de presupuesto"},
+            {"code": "timeline_slip", "label": "Desviación en cronograma"}
+        ]
+    },
+    "access": {
+        "roles": ["Administrador", "PMO", "Talento"],
+        "user_management": {
+            "allow_self_registration": false,
+            "require_approval": true
+        }
+    },
+    "operational_rules": {
+        "semaforization": {
+            "progress": {
+                "yellow_below": 50,
+                "red_below": 25
+            },
+            "hours": {
+                "yellow_above": 0.05,
+                "red_above": 0.1
+            },
+            "cost": {
+                "yellow_above": 0.05,
+                "red_above": 0.1
+            }
+        },
+        "approvals": {
+            "external_talent_requires_approval": true,
+            "budget_change_requires_approval": true
+        }
+    }
+}') ON DUPLICATE KEY UPDATE config_value = config_value;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.nombre IN ('Administrador', 'PMO');
