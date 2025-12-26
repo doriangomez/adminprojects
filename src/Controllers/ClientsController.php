@@ -201,9 +201,13 @@ class ClientsController extends Controller
 
             $errorCode = (string) ($result['error_code'] ?? '');
             $status = in_array($errorCode, ['23000', 'DEPENDENCIES'], true) ? 409 : 500;
-            $message = $errorCode === 'DEPENDENCIES'
-                ? 'El cliente tiene dependencias activas. Puede inactivarse o forzar la eliminación como administrador.'
-                : 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
+            $message = 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
+
+            if ($errorCode === 'DEPENDENCIES') {
+                $message = ($result['inactivated'] ?? false)
+                    ? 'El cliente tiene dependencias activas y fue inactivado en su lugar. Para eliminarlo definitivamente, confirma la eliminación forzada como administrador.'
+                    : 'El cliente tiene dependencias activas. Puede inactivarse o forzar la eliminación como administrador.';
+            }
 
             error_log('Error al eliminar cliente: ' . ($result['error'] ?? 'operación desconocida'));
 
@@ -212,6 +216,7 @@ class ClientsController extends Controller
                 'message' => $message,
                 'can_inactivate' => $errorCode === 'DEPENDENCIES',
                 'dependencies' => $errorCode === 'DEPENDENCIES' ? $dependencies : null,
+                'inactivated' => $result['inactivated'] ?? false,
             ], $status);
         } catch (\Throwable $e) {
             error_log('Error al eliminar cliente: ' . $e->getMessage());
