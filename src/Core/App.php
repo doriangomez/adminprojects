@@ -109,6 +109,38 @@ class App
                 $controller->assignTalent();
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
+                $controller->show((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/edit$#', $path, $matches)) {
+                if ($method === 'POST') {
+                    $controller->update((int) $matches[1]);
+                    return;
+                }
+                $controller->edit((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/talent$#', $path, $matches)) {
+                if ($method === 'POST') {
+                    $controller->assignTalent((int) $matches[1]);
+                    return;
+                }
+                $controller->talent((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/costs$#', $path, $matches) && $method === 'GET') {
+                $controller->costs((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/close$#', $path, $matches)) {
+                if ($method === 'POST') {
+                    $controller->close((int) $matches[1]);
+                    return;
+                }
+                $controller->confirmClose((int) $matches[1]);
+                return;
+            }
 
             $controller->index();
             return;

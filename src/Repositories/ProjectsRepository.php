@@ -104,6 +104,92 @@ class ProjectsRepository
         return $this->db->fetchAll($sql, $params);
     }
 
+    public function findForUser(int $id, array $user): ?array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $conditions[] = 'p.id = :projectId';
+        $params[':projectId'] = $id;
+
+        $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
+        $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
+        $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
+        $hasPriorityTextColumn = $this->db->columnExists('projects', 'priority');
+        $hasStatusTextColumn = $this->db->columnExists('projects', 'status');
+        $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
+        $hasTypeColumn = $this->db->columnExists('projects', 'project_type');
+
+        $select = [
+            'p.id',
+            'p.client_id',
+            'p.portfolio_id',
+            'p.name',
+            'p.progress',
+            'p.budget',
+            'p.actual_cost',
+            'p.planned_hours',
+            'p.actual_hours',
+            'p.start_date',
+            'p.end_date',
+            'p.pm_id',
+            'u.name AS pm_name',
+            'c.name AS client_name',
+        ];
+
+        $joins = [
+            'JOIN clients c ON c.id = p.client_id',
+            'LEFT JOIN users u ON u.id = p.pm_id',
+        ];
+
+        if ($hasTypeColumn) {
+            $select[] = 'p.project_type';
+        }
+
+        if ($hasPriorityColumn) {
+            $select[] = 'p.priority_code AS priority';
+            $select[] = 'pr.label AS priority_label';
+            $joins[] = 'LEFT JOIN priorities pr ON pr.code = p.priority_code';
+        } elseif ($hasPriorityTextColumn) {
+            $select[] = 'p.priority AS priority';
+            $select[] = 'p.priority AS priority_label';
+        } else {
+            $select[] = 'NULL AS priority';
+            $select[] = 'NULL AS priority_label';
+        }
+
+        if ($hasStatusColumn) {
+            $select[] = 'p.status_code AS status';
+            $select[] = 'st.label AS status_label';
+            $joins[] = 'LEFT JOIN project_status st ON st.code = p.status_code';
+        } elseif ($hasStatusTextColumn) {
+            $select[] = 'p.status AS status';
+            $select[] = 'p.status AS status_label';
+        } else {
+            $select[] = "'' AS status";
+            $select[] = 'NULL AS status_label';
+        }
+
+        if ($hasHealthColumn) {
+            $select[] = 'p.health_code AS health';
+            $select[] = 'h.label AS health_label';
+            $joins[] = 'LEFT JOIN project_health h ON h.code = p.health_code';
+        } elseif ($hasHealthTextColumn) {
+            $select[] = 'p.health AS health';
+            $select[] = 'p.health AS health_label';
+        } else {
+            $select[] = 'NULL AS health';
+            $select[] = 'NULL AS health_label';
+        }
+
+        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+        $project = $this->db->fetchOne(
+            sprintf('SELECT %s FROM projects p %s %s LIMIT 1', implode(', ', $select), implode(' ', $joins), $whereClause),
+            $params
+        );
+
+        return $project ? $this->attachProjectSignal($project) : null;
+    }
+
     public function portfolioKpis(array $user): array
     {
         $conditions = [];
@@ -324,6 +410,41 @@ class ProjectsRepository
         return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
     }
 
+    public function assignmentsForProject(int $projectId, array $user): array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $conditions[] = 'p.id = :projectId';
+        $params[':projectId'] = $projectId;
+        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+        $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
+
+        $select = ['a.*', 'p.id AS project_id'];
+        $joins = [
+            'JOIN projects p ON p.id = a.project_id',
+            'JOIN clients c ON c.id = p.client_id',
+        ];
+
+        if ($hasTalentColumn) {
+            $select[] = 't.name AS talent_name';
+            $select[] = 't.weekly_capacity';
+            $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
+        } else {
+            $select[] = 'u.name AS talent_name';
+            $select[] = '0 AS weekly_capacity';
+            $select[] = 'a.user_id AS talent_id';
+            $joins[] = 'LEFT JOIN users u ON u.id = a.user_id';
+        }
+
+        return $this->db->fetchAll(
+            'SELECT ' . implode(', ', $select) . '
+             FROM project_talent_assignments a
+             ' . implode(' ', $joins) . '
+             ' . $whereClause,
+            $params
+        );
+    }
+
     public function assignmentsForClient(int $clientId, array $user): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
@@ -426,6 +547,135 @@ class ProjectsRepository
                 ':start_date' => $payload['start_date'] ?? null,
                 ':end_date' => $payload['end_date'] ?? null,
             ]
+        );
+    }
+
+    public function updateProject(int $id, array $payload): void
+    {
+        $fields = ['name = :name'];
+        $params = [
+            ':id' => $id,
+            ':name' => $payload['name'],
+        ];
+
+        if ($this->db->columnExists('projects', 'status_code')) {
+            $fields[] = 'status_code = :status';
+            $params[':status'] = $payload['status'];
+        } elseif ($this->db->columnExists('projects', 'status')) {
+            $fields[] = 'status = :status';
+            $params[':status'] = $payload['status'];
+        }
+
+        if ($this->db->columnExists('projects', 'health_code')) {
+            $fields[] = 'health_code = :health';
+            $params[':health'] = $payload['health'];
+        } elseif ($this->db->columnExists('projects', 'health')) {
+            $fields[] = 'health = :health';
+            $params[':health'] = $payload['health'];
+        }
+
+        if ($this->db->columnExists('projects', 'priority_code')) {
+            $fields[] = 'priority_code = :priority';
+            $params[':priority'] = $payload['priority'];
+        } elseif ($this->db->columnExists('projects', 'priority')) {
+            $fields[] = 'priority = :priority';
+            $params[':priority'] = $payload['priority'];
+        }
+
+        if ($this->db->columnExists('projects', 'pm_id')) {
+            $fields[] = 'pm_id = :pm_id';
+            $params[':pm_id'] = $payload['pm_id'];
+        }
+
+        if ($this->db->columnExists('projects', 'project_type')) {
+            $fields[] = 'project_type = :project_type';
+            $params[':project_type'] = $payload['project_type'];
+        }
+
+        if ($this->db->columnExists('projects', 'budget')) {
+            $fields[] = 'budget = :budget';
+            $params[':budget'] = $payload['budget'];
+        }
+
+        if ($this->db->columnExists('projects', 'actual_cost')) {
+            $fields[] = 'actual_cost = :actual_cost';
+            $params[':actual_cost'] = $payload['actual_cost'];
+        }
+
+        if ($this->db->columnExists('projects', 'planned_hours')) {
+            $fields[] = 'planned_hours = :planned_hours';
+            $params[':planned_hours'] = $payload['planned_hours'];
+        }
+
+        if ($this->db->columnExists('projects', 'actual_hours')) {
+            $fields[] = 'actual_hours = :actual_hours';
+            $params[':actual_hours'] = $payload['actual_hours'];
+        }
+
+        if ($this->db->columnExists('projects', 'progress')) {
+            $fields[] = 'progress = :progress';
+            $params[':progress'] = $payload['progress'];
+        }
+
+        if ($this->db->columnExists('projects', 'start_date')) {
+            $fields[] = 'start_date = :start_date';
+            $params[':start_date'] = $payload['start_date'];
+        }
+
+        if ($this->db->columnExists('projects', 'end_date')) {
+            $fields[] = 'end_date = :end_date';
+            $params[':end_date'] = $payload['end_date'];
+        }
+
+        if ($this->db->columnExists('projects', 'portfolio_id')) {
+            $fields[] = 'portfolio_id = :portfolio_id';
+            $params[':portfolio_id'] = $payload['portfolio_id'];
+        }
+
+        $this->db->execute(
+            'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
+            $params
+        );
+    }
+
+    public function closeProject(int $id): void
+    {
+        $fields = [];
+        $params = [':id' => $id];
+
+        if ($this->db->columnExists('projects', 'status_code')) {
+            $fields[] = 'status_code = :status';
+            $params[':status'] = 'closed';
+        } elseif ($this->db->columnExists('projects', 'status')) {
+            $fields[] = 'status = :status';
+            $params[':status'] = 'closed';
+        }
+
+        if ($this->db->columnExists('projects', 'progress')) {
+            $fields[] = 'progress = :progress';
+            $params[':progress'] = 100.0;
+        }
+
+        if ($this->db->columnExists('projects', 'health_code')) {
+            $fields[] = 'health_code = :health';
+            $params[':health'] = 'archived';
+        } elseif ($this->db->columnExists('projects', 'health')) {
+            $fields[] = 'health = :health';
+            $params[':health'] = 'archived';
+        }
+
+        if ($this->db->columnExists('projects', 'end_date')) {
+            $fields[] = 'end_date = :end_date';
+            $params[':end_date'] = date('Y-m-d');
+        }
+
+        if (empty($fields)) {
+            return;
+        }
+
+        $this->db->execute(
+            'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
+            $params
         );
     }
 
