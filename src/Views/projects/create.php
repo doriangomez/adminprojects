@@ -55,202 +55,275 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     </div>
 <?php endif; ?>
 
-<form action="<?= $basePath ?>/projects/create" method="POST" class="card" id="projectWizardForm" style="display:flex; flex-direction:column; gap:18px; opacity: <?= $canCreateProject ? '1' : '0.65' ?>;">
+<form action="<?= $basePath ?>/projects/create" method="POST" class="card wizard-shell" id="projectWizardForm" style="opacity: <?= $canCreateProject ? '1' : '0.65' ?>;">
+    <div class="wizard-header">
+        <div class="wizard-header__title">
+            <div class="wizard-header__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 6h7l2 2h7v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" />
+                    <path d="M12 11h6" />
+                    <path d="M12 15h4" />
+                </svg>
+            </div>
+            <div>
+                <p class="section-label">Wizard de proyectos</p>
+                <strong>Diseño guiado y profesional para PMO</strong>
+                <p class="muted">Sigue los pasos para capturar la información clave del proyecto.</p>
+            </div>
+        </div>
+        <div class="wizard-header__meta">
+            <div class="pill soft-blue" style="align-self:center; gap:8px; display:inline-flex; align-items:center;">
+                <span aria-hidden="true">🧭</span>
+                Metodologías desde configuración
+            </div>
+            <div class="pill soft-slate ghosted-pill">Estructura sin modificar la lógica ni validaciones</div>
+        </div>
+    </div>
+
     <div class="wizard-steps" role="list">
         <div class="wizard-step" data-step-indicator="0" role="listitem">
-            <div class="badge soft-blue">1</div>
-            <div>
-                <strong>Contexto base</strong>
-                <p class="muted">Cliente, nombre, responsable</p>
+            <div class="wizard-step__marker">
+                <div class="wizard-step__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 7h16" />
+                        <path d="M5 11h14" />
+                        <path d="M7 15h10" />
+                        <path d="M9 19h6" />
+                    </svg>
+                </div>
+                <span class="wizard-step__number">1</span>
+            </div>
+            <div class="wizard-step__body">
+                <p class="wizard-step__title">Contexto base</p>
+                <p class="wizard-step__subtitle">Cliente, nombre, responsable</p>
             </div>
         </div>
         <div class="wizard-step" data-step-indicator="1" role="listitem">
-            <div class="badge soft-amber">2</div>
-            <div>
-                <strong>Flujo y estado</strong>
-                <p class="muted">Metodología, fase y salud</p>
+            <div class="wizard-step__marker">
+                <div class="wizard-step__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 6v6" />
+                        <path d="M8 12h8" />
+                        <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+                    </svg>
+                </div>
+                <span class="wizard-step__number">2</span>
+            </div>
+            <div class="wizard-step__body">
+                <p class="wizard-step__title">Flujo y estado</p>
+                <p class="wizard-step__subtitle">Metodología, fase y salud</p>
             </div>
         </div>
         <div class="wizard-step" data-step-indicator="2" role="listitem">
-            <div class="badge soft-green">3</div>
-            <div>
-                <strong>Planeación</strong>
-                <p class="muted">Horas, presupuesto y fechas</p>
+            <div class="wizard-step__marker">
+                <div class="wizard-step__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9h18" />
+                        <path d="M9 13h6" />
+                        <path d="M8 17h8" />
+                        <path d="M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+                    </svg>
+                </div>
+                <span class="wizard-step__number">3</span>
+            </div>
+            <div class="wizard-step__body">
+                <p class="wizard-step__title">Planeación</p>
+                <p class="wizard-step__subtitle">Horas, presupuesto y fechas</p>
             </div>
         </div>
     </div>
 
     <div class="wizard-content" data-step="0">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-            <div>
-                <p class="section-label">Paso 1</p>
-                <strong style="margin:0;">Contexto base</strong>
-                <p class="muted" style="margin:4px 0 0 0;">Completa los datos clave del proyecto antes de avanzar.</p>
+        <div class="step-card">
+            <div class="step-card__header">
+                <div>
+                    <p class="section-label">Paso 1</p>
+                    <strong>Contexto base</strong>
+                    <p class="muted">Completa los datos clave del proyecto antes de avanzar.</p>
+                </div>
+                <div class="badge soft-blue">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 4h16v6H4z" />
+                        <path d="M4 14h10v6H4z" />
+                        <path d="M14 14l6 6" />
+                    </svg>
+                    Datos base
+                </div>
             </div>
+            <section class="grid step-card__grid">
+                <label class="input">
+                    <span>Nombre del proyecto</span>
+                    <input type="text" name="name" value="<?= htmlspecialchars((string) $fieldValue('name', '')) ?>" placeholder="Implementación, despliegue, etc." required <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+                <label class="input">
+                    <span>Cliente</span>
+                    <select name="client_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <?php if (empty($clientsList)): ?>
+                            <option value="">Registra un cliente primero</option>
+                        <?php else: ?>
+                            <?php foreach ($clientsList as $client): ?>
+                                <option value="<?= (int) $client['id'] ?>" <?= $selectedClientId === (int) $client['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>PM responsable</span>
+                    <select name="pm_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <?php if (empty($projectManagersList)): ?>
+                            <option value="">Sin PM disponible</option>
+                        <?php else: ?>
+                            <?php foreach ($projectManagersList as $pm): ?>
+                                <option value="<?= (int) $pm['id'] ?>" <?= $selectedPmId === (int) $pm['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($pm['name'] ?? 'PM') ?> (<?= htmlspecialchars($pm['role_name'] ?? '') ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>Tipo de proyecto</span>
+                    <select name="project_type" id="projectTypeSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
+                        <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
+                        <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>Metodología</span>
+                    <select name="methodology" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <?php if (empty($methodologies)): ?>
+                            <option value="<?= htmlspecialchars($selectedMethodology) ?>" selected><?= htmlspecialchars(ucfirst($selectedMethodology)) ?></option>
+                        <?php else: ?>
+                            <?php foreach ($methodologies as $methodology): ?>
+                                <option value="<?= htmlspecialchars($methodology) ?>" <?= $selectedMethodology === $methodology ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars(ucfirst($methodology)) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>Inicio</span>
+                    <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+                <label class="input" data-role="end-date">
+                    <span>Fin</span>
+                    <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+            </section>
         </div>
-
-        <section class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px;">
-            <label class="input">
-                <span>Nombre del proyecto</span>
-                <input type="text" name="name" value="<?= htmlspecialchars((string) $fieldValue('name', '')) ?>" placeholder="Implementación, despliegue, etc." required <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-            <label class="input">
-                <span>Cliente</span>
-                <select name="client_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <?php if (empty($clientsList)): ?>
-                        <option value="">Registra un cliente primero</option>
-                    <?php else: ?>
-                        <?php foreach ($clientsList as $client): ?>
-                            <option value="<?= (int) $client['id'] ?>" <?= $selectedClientId === (int) $client['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </select>
-            </label>
-            <label class="input">
-                <span>PM responsable</span>
-                <select name="pm_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <?php if (empty($projectManagersList)): ?>
-                        <option value="">Sin PM disponible</option>
-                    <?php else: ?>
-                        <?php foreach ($projectManagersList as $pm): ?>
-                            <option value="<?= (int) $pm['id'] ?>" <?= $selectedPmId === (int) $pm['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($pm['name'] ?? 'PM') ?> (<?= htmlspecialchars($pm['role_name'] ?? '') ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </select>
-            </label>
-            <label class="input">
-                <span>Tipo de proyecto</span>
-                <select name="project_type" id="projectTypeSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
-                    <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
-                    <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
-                </select>
-            </label>
-            <label class="input">
-                <span>Metodología</span>
-                <select name="methodology" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <?php if (empty($methodologies)): ?>
-                        <option value="<?= htmlspecialchars($selectedMethodology) ?>" selected><?= htmlspecialchars(ucfirst($selectedMethodology)) ?></option>
-                    <?php else: ?>
-                        <?php foreach ($methodologies as $methodology): ?>
-                            <option value="<?= htmlspecialchars($methodology) ?>" <?= $selectedMethodology === $methodology ? 'selected' : '' ?>>
-                                <?= htmlspecialchars(ucfirst($methodology)) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </select>
-            </label>
-            <label class="input">
-                <span>Inicio</span>
-                <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-            <label class="input" data-role="end-date">
-                <span>Fin</span>
-                <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-        </section>
     </div>
 
     <div class="wizard-content" data-step="1">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div>
-                <p class="section-label">Paso 2</p>
-                <strong style="margin:0;">Flujo de entrega</strong>
-                <p class="muted" style="margin:4px 0 0 0;">Selecciona la fase y el estado base del proyecto.</p>
+        <div class="step-card">
+            <div class="step-card__header">
+                <div>
+                    <p class="section-label">Paso 2</p>
+                    <strong>Flujo de entrega</strong>
+                    <p class="muted">Selecciona la fase y el estado base del proyecto.</p>
+                </div>
+                <div class="pill soft-slate" id="phaseStatusPill" aria-live="polite"></div>
             </div>
-            <div class="pill soft-slate" id="phaseStatusPill" aria-live="polite"></div>
-        </div>
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
-            <label class="input">
-                <span>Fase</span>
-                <select name="phase" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <option value="">Sin fase</option>
-                    <?php foreach ($currentPhases as $phase): ?>
-                        <option value="<?= htmlspecialchars($phase) ?>" <?= $selectedPhase === $phase ? 'selected' : '' ?>>
-                            <?= htmlspecialchars(ucfirst($phase)) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label class="input">
-                <span>Estado</span>
-                <select name="status" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <?php foreach ($statusesCatalog as $status): ?>
-                        <?php $code = $status['code'] ?? ''; ?>
-                        <option value="<?= htmlspecialchars($code) ?>" <?= $selectedStatus === $code ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($status['label'] ?? $code) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label class="input">
-                <span>Salud</span>
-                <select name="health" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <?php foreach ($healthCatalog as $health): ?>
-                        <?php $code = $health['code'] ?? ''; ?>
-                        <option value="<?= htmlspecialchars($code) ?>" <?= $selectedHealth === $code ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($health['label'] ?? $code) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label class="input">
-                <span>Prioridad</span>
-                <select name="priority" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                    <?php foreach ($prioritiesCatalog as $priority): ?>
-                        <?php $code = $priority['code'] ?? ''; ?>
-                        <option value="<?= htmlspecialchars($code) ?>" <?= $selectedPriority === $code ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($priority['label'] ?? $code) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
+            <div class="grid step-card__grid compact">
+                <label class="input">
+                    <span>Fase</span>
+                    <select name="phase" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <option value="">Sin fase</option>
+                        <?php foreach ($currentPhases as $phase): ?>
+                            <option value="<?= htmlspecialchars($phase) ?>" <?= $selectedPhase === $phase ? 'selected' : '' ?>>
+                                <?= htmlspecialchars(ucfirst($phase)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>Estado</span>
+                    <select name="status" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <?php foreach ($statusesCatalog as $status): ?>
+                            <?php $code = $status['code'] ?? ''; ?>
+                            <option value="<?= htmlspecialchars($code) ?>" <?= $selectedStatus === $code ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($status['label'] ?? $code) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>Salud</span>
+                    <select name="health" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <?php foreach ($healthCatalog as $health): ?>
+                            <?php $code = $health['code'] ?? ''; ?>
+                            <option value="<?= htmlspecialchars($code) ?>" <?= $selectedHealth === $code ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($health['label'] ?? $code) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="input">
+                    <span>Prioridad</span>
+                    <select name="priority" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <?php foreach ($prioritiesCatalog as $priority): ?>
+                            <?php $code = $priority['code'] ?? ''; ?>
+                            <option value="<?= htmlspecialchars($code) ?>" <?= $selectedPriority === $code ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($priority['label'] ?? $code) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </div>
         </div>
     </div>
 
     <div class="wizard-content" data-step="2">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-            <div>
-                <p class="section-label">Paso 3</p>
-                <strong style="margin:0;">Planeación y seguimiento</strong>
-                <p class="muted" style="margin:4px 0 0 0;">Horas, presupuesto y progreso inicial del proyecto.</p>
+        <div class="step-card">
+            <div class="step-card__header">
+                <div>
+                    <p class="section-label">Paso 3</p>
+                    <strong>Planeación y seguimiento</strong>
+                    <p class="muted">Horas, presupuesto y progreso inicial del proyecto.</p>
+                </div>
+                <div class="badge soft-green">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 20a8 8 0 1 0-8-8" />
+                        <path d="M12 6v6l3 3" />
+                    </svg>
+                    Seguimiento
+                </div>
             </div>
-        </div>
 
-        <section class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
-            <label class="input">
-                <span>Presupuesto plan</span>
-                <input type="number" step="0.01" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-            <label class="input">
-                <span>Costo real</span>
-                <input type="number" step="0.01" name="actual_cost" value="<?= htmlspecialchars((string) $fieldValue('actual_cost', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-            <label class="input">
-                <span>Horas planificadas</span>
-                <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-            <label class="input">
-                <span>Horas reales</span>
-                <input type="number" step="0.1" name="actual_hours" value="<?= htmlspecialchars((string) $fieldValue('actual_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-            <label class="input">
-                <span>Progreso (%)</span>
-                <input type="number" step="0.1" min="0" max="100" name="progress" value="<?= htmlspecialchars((string) $fieldValue('progress', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-            </label>
-        </section>
+            <section class="grid step-card__grid compact">
+                <label class="input">
+                    <span>Presupuesto plan</span>
+                    <input type="number" step="0.01" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+                <label class="input">
+                    <span>Costo real</span>
+                    <input type="number" step="0.01" name="actual_cost" value="<?= htmlspecialchars((string) $fieldValue('actual_cost', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+                <label class="input">
+                    <span>Horas planificadas</span>
+                    <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+                <label class="input">
+                    <span>Horas reales</span>
+                    <input type="number" step="0.1" name="actual_hours" value="<?= htmlspecialchars((string) $fieldValue('actual_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+                <label class="input">
+                    <span>Progreso (%)</span>
+                    <input type="number" step="0.1" min="0" max="100" name="progress" value="<?= htmlspecialchars((string) $fieldValue('progress', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                </label>
+            </section>
+        </div>
     </div>
 
     <div class="wizard-footer">
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div class="wizard-footer__nav">
             <button type="button" class="btn ghost" data-nav="prev">← Paso anterior</button>
             <span class="muted" aria-live="polite">Paso <span id="wizardStepLabel">1</span> de 3</span>
         </div>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="wizard-footer__actions">
             <a class="btn ghost" href="<?= $basePath ?>/projects">Cancelar</a>
             <button type="button" class="btn" data-nav="next" <?= $canCreateProject ? '' : 'disabled' ?>>Siguiente</button>
             <button type="submit" class="btn primary" data-nav="submit" <?= $canCreateProject ? '' : 'disabled' ?>>Crear proyecto</button>
@@ -259,13 +332,38 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 </form>
 
 <style>
-    .wizard-steps { display:flex; gap:12px; flex-wrap:wrap; }
-    .wizard-step { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background: #f8fafc; opacity:0.7; }
-    .wizard-step.active { opacity:1; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); }
-    .wizard-step.completed { opacity:0.9; border-color: #16a34a; background:#ecfdf3; }
-    .wizard-step .badge { border-radius:10px; padding:6px 10px; font-weight:800; }
+    .wizard-shell { display:flex; flex-direction:column; gap:18px; }
+    .wizard-header { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .wizard-header__title { display:flex; gap:12px; align-items:flex-start; }
+    .wizard-header__icon { width:48px; height:48px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); border:1px solid color-mix(in srgb, var(--primary) 28%, transparent); }
+    .wizard-header__title strong { display:block; margin:2px 0; font-size:18px; color: var(--text-strong); }
+    .wizard-header__meta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+    .wizard-steps { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; position:relative; padding:8px 4px; }
+    .wizard-step { display:flex; gap:12px; padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); position:relative; overflow:hidden; }
+    .wizard-step::after { content:""; position:absolute; inset:0; background: linear-gradient(120deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 40%, color-mix(in srgb, var(--primary) 6%, transparent)); opacity:0; transition:opacity 160ms ease; }
+    .wizard-step.active::after { opacity:1; }
+    .wizard-step__marker { display:flex; align-items:center; gap:10px; position:relative; z-index:1; }
+    .wizard-step__icon { width:42px; height:42px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--primary); }
+    .wizard-step__number { width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; background: #e5e7eb; color: #111827; border:1px solid var(--border); }
+    .wizard-step__body { display:flex; flex-direction:column; gap:4px; position:relative; z-index:1; }
+    .wizard-step__title { margin:0; font-weight:800; color: var(--text-strong); }
+    .wizard-step__subtitle { margin:0; color: var(--muted); font-size:13px; }
+    .wizard-step.completed .wizard-step__icon { background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; border-color: color-mix(in srgb, #16a34a 40%, transparent); }
+    .wizard-step.completed .wizard-step__number { background:#dcfce7; color:#166534; border-color: color-mix(in srgb, #16a34a 50%, transparent); }
+    .wizard-step.active { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 8%, transparent); }
+    .wizard-step.active .wizard-step__icon { background: color-mix(in srgb, var(--primary) 18%, white 12%); color: var(--primary-strong); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
+    .wizard-step.active .wizard-step__number { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .wizard-content { display:none; flex-direction:column; gap:16px; }
+    .wizard-content.active { display:flex; }
+    .step-card { border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 96%, transparent); padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 10px 30px color-mix(in srgb, var(--primary) 6%, transparent); }
+    .step-card__header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .step-card__grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .step-card__grid.compact { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .wizard-footer { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-top:1px dashed var(--border); padding-top:12px; }
+    .wizard-footer__nav, .wizard-footer__actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .muted { color: var(--muted); font-weight:600; margin:0; }
-    .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-weight:700; border:1px solid var(--border); }
+    .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-weight:700; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); }
+    .ghosted-pill { background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--muted); }
     .soft-blue { background:#e0e7ff; color:#1d4ed8; }
     .soft-amber { background:#fef3c7; color:#b45309; }
     .soft-green { background:#dcfce7; color:#15803d; }
@@ -273,9 +371,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .alert { padding:12px 14px; border-radius:10px; margin-bottom:10px; font-weight:700; }
     .alert.error { background:#fee2e2; border:1px solid #fecaca; color:#991b1b; }
     .alert.warning { background:#fef9c3; border:1px solid #fde68a; color:#92400e; }
-    .wizard-content { display:none; flex-direction:column; gap:18px; }
-    .wizard-content.active { display:flex; }
-    .wizard-footer { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-top:1px solid var(--border); padding-top:10px; }
+    @media (max-width: 840px) {
+        .wizard-steps { grid-template-columns: 1fr; }
+        .wizard-step { align-items:center; }
+        .wizard-header__title { width:100%; }
+        .wizard-header__meta { justify-content:flex-start; }
+    }
 </style>
 
 <script>
