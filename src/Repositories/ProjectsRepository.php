@@ -488,27 +488,88 @@ class ProjectsRepository
     public function create(array $payload): int
     {
         try {
+            $columns = [
+                'client_id',
+                'pm_id',
+                'name',
+                'status',
+                'health',
+                'priority',
+                'project_type',
+                'methodology',
+                'phase',
+                'budget',
+                'actual_cost',
+                'planned_hours',
+                'actual_hours',
+                'progress',
+                'start_date',
+                'end_date',
+            ];
+
+            $placeholders = [
+                ':client_id',
+                ':pm_id',
+                ':name',
+                ':status',
+                ':health',
+                ':priority',
+                ':project_type',
+                ':methodology',
+                ':phase',
+                ':budget',
+                ':actual_cost',
+                ':planned_hours',
+                ':actual_hours',
+                ':progress',
+                ':start_date',
+                ':end_date',
+            ];
+
+            $params = [
+                ':client_id' => (int) $payload['client_id'],
+                ':pm_id' => (int) $payload['pm_id'],
+                ':name' => $payload['name'],
+                ':status' => $payload['status'] ?? 'ideation',
+                ':health' => $payload['health'] ?? 'on_track',
+                ':priority' => $payload['priority'],
+                ':project_type' => $payload['project_type'] ?? 'convencional',
+                ':methodology' => $payload['methodology'] ?? 'scrum',
+                ':phase' => $payload['phase'] ?? null,
+                ':budget' => $payload['budget'] ?? 0,
+                ':actual_cost' => $payload['actual_cost'] ?? 0,
+                ':planned_hours' => $payload['planned_hours'] ?? 0,
+                ':actual_hours' => $payload['actual_hours'] ?? 0,
+                ':progress' => $payload['progress'] ?? 0,
+                ':start_date' => $payload['start_date'] ?? null,
+                ':end_date' => $payload['end_date'] ?? null,
+            ];
+
+            if ($this->db->columnExists('projects', 'scope')) {
+                $columns[] = 'scope';
+                $placeholders[] = ':scope';
+                $params[':scope'] = $payload['scope'] ?? '';
+            }
+
+            if ($this->db->columnExists('projects', 'design_inputs')) {
+                $columns[] = 'design_inputs';
+                $placeholders[] = ':design_inputs';
+                $params[':design_inputs'] = $payload['design_inputs'] ?? '';
+            }
+
+            if ($this->db->columnExists('projects', 'client_participation')) {
+                $columns[] = 'client_participation';
+                $placeholders[] = ':client_participation';
+                $params[':client_participation'] = $payload['client_participation'] ?? 'media';
+            }
+
             $projectId = $this->db->insert(
-                'INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, methodology, phase, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
-                 VALUES (:client_id, :pm_id, :name, :status, :health, :priority, :project_type, :methodology, :phase, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
-                [
-                    ':client_id' => (int) $payload['client_id'],
-                    ':pm_id' => (int) $payload['pm_id'],
-                    ':name' => $payload['name'],
-                    ':status' => $payload['status'] ?? 'ideation',
-                    ':health' => $payload['health'] ?? 'on_track',
-                    ':priority' => $payload['priority'],
-                    ':project_type' => $payload['project_type'] ?? 'convencional',
-                    ':methodology' => $payload['methodology'] ?? 'scrum',
-                    ':phase' => $payload['phase'] ?? null,
-                    ':budget' => $payload['budget'] ?? 0,
-                    ':actual_cost' => $payload['actual_cost'] ?? 0,
-                    ':planned_hours' => $payload['planned_hours'] ?? 0,
-                    ':actual_hours' => $payload['actual_hours'] ?? 0,
-                    ':progress' => $payload['progress'] ?? 0,
-                    ':start_date' => $payload['start_date'] ?? null,
-                    ':end_date' => $payload['end_date'] ?? null,
-                ]
+                sprintf(
+                    'INSERT INTO projects (%s) VALUES (%s)',
+                    implode(', ', $columns),
+                    implode(', ', $placeholders)
+                ),
+                $params
             );
         } catch (\PDOException $e) {
             throw new \PDOException($e->getMessage(), (int) $e->getCode(), $e);
@@ -596,6 +657,21 @@ class ProjectsRepository
         if ($this->db->columnExists('projects', 'progress')) {
             $fields[] = 'progress = :progress';
             $params[':progress'] = $payload['progress'];
+        }
+
+        if ($this->db->columnExists('projects', 'scope')) {
+            $fields[] = 'scope = :scope';
+            $params[':scope'] = $payload['scope'] ?? '';
+        }
+
+        if ($this->db->columnExists('projects', 'design_inputs')) {
+            $fields[] = 'design_inputs = :design_inputs';
+            $params[':design_inputs'] = $payload['design_inputs'] ?? '';
+        }
+
+        if ($this->db->columnExists('projects', 'client_participation')) {
+            $fields[] = 'client_participation = :client_participation';
+            $params[':client_participation'] = $payload['client_participation'] ?? 'media';
         }
 
         if ($this->db->columnExists('projects', 'start_date')) {
