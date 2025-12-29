@@ -257,24 +257,19 @@ class ClientsRepository
         ];
     }
 
-    public function deleteClient(int $id, ?string $clientLogoPath = null, bool $forceDelete = false): array
+    public function deleteClient(int $id, ?string $clientLogoPath = null, bool $forceDelete = false, bool $isAdmin = false): array
     {
-        $dependencies = $this->dependencySummary($id);
-
-        if ($dependencies['has_dependencies'] && !$forceDelete) {
-            $inactivated = $this->inactivate($id);
-
-            return [
-                'success' => false,
-                'error_code' => 'DEPENDENCIES',
-                'dependencies' => $dependencies,
-                'inactivated' => $inactivated,
-            ];
+        if ($forceDelete && $isAdmin) {
+            return $this->forceDeleteWithCascade($id, $clientLogoPath);
         }
 
-        return $forceDelete
-            ? $this->forceDeleteWithCascade($id, $clientLogoPath)
-            : $this->deleteWithoutDependencies($id, $clientLogoPath);
+        $inactivated = $this->inactivate($id);
+
+        return [
+            'success' => $inactivated,
+            'inactivated' => $inactivated,
+            'error' => $inactivated ? null : 'No se pudo inactivar el cliente.',
+        ];
     }
 
     public function inactivate(int $id): bool
@@ -282,33 +277,9 @@ class ClientsRepository
         return $this->db->execute('UPDATE clients SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
     }
 
-    public function deleteWithoutDependencies(int $id, ?string $clientLogoPath = null): array
-    {
-        try {
-            $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $id]);
-
-            if ($clientLogoPath) {
-                $this->deleteFiles([$clientLogoPath]);
-            }
-
-            return ['success' => true];
-        } catch (\PDOException $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-                'error_code' => $e->getCode(),
-            ];
-        }
-    }
-
     private function isPrivileged(array $user): bool
     {
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
-    }
-
-    private function placeholders(array $items): string
-    {
-        return implode(', ', array_fill(0, count($items), '?'));
     }
 
     private function deleteFiles(array $paths): void
@@ -323,31 +294,9 @@ class ClientsRepository
 
     private function forceDeleteWithCascade(int $clientId, ?string $clientLogoPath = null): array
     {
-        $pdo = $this->db->connection();
-        $attachments = [];
-
-        if ($clientLogoPath) {
-            $attachments[] = $clientLogoPath;
-        }
-
         try {
-            $pdo->beginTransaction();
-
-            $this->deleteTimesheets($clientId);
-            $this->deleteTasks($clientId);
-            $this->deleteAssignments($clientId);
-            $this->deleteProjectRisks($clientId);
-            $this->deleteProjects($clientId);
-            $this->deleteContracts($clientId);
-
             $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $clientId]);
-
-            $pdo->commit();
         } catch (\PDOException $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -355,84 +304,11 @@ class ClientsRepository
             ];
         }
 
-        if ($attachments) {
-            $this->deleteFiles($attachments);
+        if ($clientLogoPath) {
+            $this->deleteFiles([$clientLogoPath]);
         }
 
         return ['success' => true];
-    }
-
-    private function deleteTimesheets(int $clientId): void
-    {
-        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks') || !$this->db->tableExists('projects')) {
-            return;
-        }
-
-        $this->db->execute(
-            'DELETE ts FROM timesheets ts
-             JOIN tasks t ON t.id = ts.task_id
-             JOIN projects p ON p.id = t.project_id
-             WHERE p.client_id = :clientId',
-            [':clientId' => $clientId]
-        );
-    }
-
-    private function deleteProjectRisks(int $clientId): void
-    {
-        if (!$this->db->tableExists('project_risks') || !$this->db->tableExists('projects')) {
-            return;
-        }
-
-        $this->db->execute(
-            'DELETE pr FROM project_risks pr
-             JOIN projects p ON p.id = pr.project_id
-             WHERE p.client_id = :clientId',
-            [':clientId' => $clientId]
-        );
-    }
-
-    private function deleteTasks(int $clientId): void
-    {
-        if (!$this->db->tableExists('tasks') || !$this->db->tableExists('projects')) {
-            return;
-        }
-
-        $this->db->execute(
-            'DELETE t FROM tasks t JOIN projects p ON p.id = t.project_id WHERE p.client_id = :clientId',
-            [':clientId' => $clientId]
-        );
-    }
-
-    private function deleteAssignments(int $clientId): void
-    {
-        if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('projects')) {
-            return;
-        }
-
-        $this->db->execute(
-            'DELETE a FROM project_talent_assignments a
-             JOIN projects p ON p.id = a.project_id
-             WHERE p.client_id = :clientId',
-            [':clientId' => $clientId]
-        );
-    }
-
-    private function deleteProjects(int $clientId): void
-    {
-        if (!$this->db->tableExists('projects')) {
-            return;
-        }
-
-        $this->db->execute('DELETE FROM projects WHERE client_id = :clientId', [':clientId' => $clientId]);
-    }
-
-    private function deleteContracts(int $clientId): void
-    {
-        if (!$this->db->tableExists('contracts') || !$this->db->columnExists('contracts', 'client_id')) {
-            return;
-        }
-
-        $this->db->execute('DELETE FROM contracts WHERE client_id = :clientId', [':clientId' => $clientId]);
     }
 
     private function normalizePath(string $path): ?string

@@ -121,6 +121,42 @@ class Database
         return (bool) $stmt->fetchColumn();
     }
 
+    public function foreignKeyDetails(string $table, string $column): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT k.CONSTRAINT_NAME, k.REFERENCED_TABLE_NAME, rc.UPDATE_RULE, rc.DELETE_RULE
+             FROM information_schema.KEY_COLUMN_USAGE k
+             LEFT JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+                ON rc.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA
+                AND rc.CONSTRAINT_NAME = k.CONSTRAINT_NAME
+                AND rc.TABLE_NAME = k.TABLE_NAME
+             WHERE k.TABLE_SCHEMA = :schema
+               AND k.TABLE_NAME = :table
+               AND k.COLUMN_NAME = :column
+               AND k.REFERENCED_TABLE_NAME IS NOT NULL
+             LIMIT 1'
+        );
+
+        $stmt->execute([
+            ':schema' => $this->databaseName,
+            ':table' => $table,
+            ':column' => $column,
+        ]);
+
+        $result = $stmt->fetch();
+
+        return $result === false ? null : $result;
+    }
+
+    public function dropForeignKey(string $table, string $constraintName): void
+    {
+        $this->execute(sprintf(
+            'ALTER TABLE `%s` DROP FOREIGN KEY `%s`',
+            $table,
+            $constraintName
+        ));
+    }
+
     public function clearColumnCache(): void
     {
         $this->columnCache = [];
