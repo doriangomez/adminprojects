@@ -487,28 +487,32 @@ class ProjectsRepository
 
     public function create(array $payload): int
     {
-        $projectId = $this->db->insert(
-            'INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, methodology, phase, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
-             VALUES (:client_id, :pm_id, :name, :status, :health, :priority, :project_type, :methodology, :phase, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
-            [
-                ':client_id' => (int) $payload['client_id'],
-                ':pm_id' => (int) $payload['pm_id'],
-                ':name' => $payload['name'],
-                ':status' => $payload['status'] ?? 'ideation',
-                ':health' => $payload['health'] ?? 'on_track',
-                ':priority' => $payload['priority'],
-                ':project_type' => $payload['project_type'] ?? 'convencional',
-                ':methodology' => $payload['methodology'] ?? 'scrum',
-                ':phase' => $payload['phase'] ?? null,
-                ':budget' => $payload['budget'] ?? 0,
-                ':actual_cost' => $payload['actual_cost'] ?? 0,
-                ':planned_hours' => $payload['planned_hours'] ?? 0,
-                ':actual_hours' => $payload['actual_hours'] ?? 0,
-                ':progress' => $payload['progress'] ?? 0,
-                ':start_date' => $payload['start_date'] ?? null,
-                ':end_date' => $payload['end_date'] ?? null,
-            ]
-        );
+        try {
+            $projectId = $this->db->insert(
+                'INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_type, methodology, phase, budget, actual_cost, planned_hours, actual_hours, progress, start_date, end_date)
+                 VALUES (:client_id, :pm_id, :name, :status, :health, :priority, :project_type, :methodology, :phase, :budget, :actual_cost, :planned_hours, :actual_hours, :progress, :start_date, :end_date)',
+                [
+                    ':client_id' => (int) $payload['client_id'],
+                    ':pm_id' => (int) $payload['pm_id'],
+                    ':name' => $payload['name'],
+                    ':status' => $payload['status'] ?? 'ideation',
+                    ':health' => $payload['health'] ?? 'on_track',
+                    ':priority' => $payload['priority'],
+                    ':project_type' => $payload['project_type'] ?? 'convencional',
+                    ':methodology' => $payload['methodology'] ?? 'scrum',
+                    ':phase' => $payload['phase'] ?? null,
+                    ':budget' => $payload['budget'] ?? 0,
+                    ':actual_cost' => $payload['actual_cost'] ?? 0,
+                    ':planned_hours' => $payload['planned_hours'] ?? 0,
+                    ':actual_hours' => $payload['actual_hours'] ?? 0,
+                    ':progress' => $payload['progress'] ?? 0,
+                    ':start_date' => $payload['start_date'] ?? null,
+                    ':end_date' => $payload['end_date'] ?? null,
+                ]
+            );
+        } catch (\PDOException $e) {
+            throw new \PDOException($e->getMessage(), (int) $e->getCode(), $e);
+        }
 
         if (array_key_exists('risks', $payload) && is_array($payload['risks'])) {
             $this->syncProjectRisks($projectId, $payload['risks']);

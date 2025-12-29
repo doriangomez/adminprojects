@@ -123,6 +123,16 @@ class ProjectsController extends Controller
                 'error' => $e->getMessage(),
                 'old' => $_POST,
             ]));
+        } catch (\PDOException $e) {
+            error_log('Error al crear proyecto (DB): ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('projects/create', array_merge($this->projectFormData(), [
+                'title' => 'Nuevo proyecto',
+                'error' => $this->isLocalEnvironment()
+                    ? $e->getMessage()
+                    : 'No se pudo crear el proyecto. Intenta nuevamente o contacta al administrador.',
+                'old' => $_POST,
+            ]));
         } catch (\Throwable $e) {
             error_log('Error al crear proyecto: ' . $e->getMessage());
             http_response_code(500);
@@ -252,6 +262,13 @@ class ProjectsController extends Controller
             'requires_timesheet' => isset($_POST['requires_timesheet']) ? 1 : 0,
             'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
         ];
+    }
+
+    private function isLocalEnvironment(): bool
+    {
+        $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? getenv('APP_ENV') ?? 'production';
+
+        return strtolower((string) $env) === 'local';
     }
 
     private function projectPayload(array $current, array $deliveryConfig = []): array
