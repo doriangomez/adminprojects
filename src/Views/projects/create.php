@@ -11,6 +11,7 @@ $oldInput = is_array($old ?? null) ? $old : [];
 
 $methodologies = $deliveryConfig['methodologies'] ?? [];
 $phasesByMethodology = $deliveryConfig['phases'] ?? [];
+$riskCatalog = $deliveryConfig['risks'] ?? [];
 
 $selectedMethodology = $oldInput['methodology'] ?? $defaults['methodology'] ?? ($methodologies[0] ?? 'scrum');
 $currentPhases = is_array($phasesByMethodology[$selectedMethodology] ?? null) ? $phasesByMethodology[$selectedMethodology] : [];
@@ -21,6 +22,7 @@ $selectedStatus = (string) ($oldInput['status'] ?? $defaults['status'] ?? ($stat
 $selectedHealth = (string) ($oldInput['health'] ?? $defaults['health'] ?? ($healthCatalog[0]['code'] ?? ''));
 $selectedPriority = (string) ($oldInput['priority'] ?? $defaults['priority'] ?? ($prioritiesCatalog[0]['code'] ?? ''));
 $selectedProjectType = (string) ($oldInput['project_type'] ?? $defaults['project_type'] ?? 'convencional');
+$clientParticipation = (string) ($oldInput['client_participation'] ?? $defaults['client_participation'] ?? 'media');
 
 $canCreateProject = (bool) ($canCreate ?? false);
 
@@ -193,7 +195,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 </label>
                 <label class="input">
                     <span>Metodología</span>
-                    <select name="methodology" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                    <select name="methodology_display" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
                         <?php if (empty($methodologies)): ?>
                             <option value="<?= htmlspecialchars($selectedMethodology) ?>" selected><?= htmlspecialchars(ucfirst($selectedMethodology)) ?></option>
                         <?php else: ?>
@@ -204,6 +206,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </select>
+                    <input type="hidden" name="methodology" id="methodologyHidden" value="<?= htmlspecialchars($selectedMethodology) ?>">
                 </label>
                 <label class="input">
                     <span>Inicio</span>
@@ -214,6 +217,41 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
             </section>
+            <section class="grid step-card__grid">
+                <label class="input">
+                    <span>Alcance del proyecto</span>
+                    <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
+                </label>
+                <label class="input">
+                    <span>Entradas de diseño</span>
+                    <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
+                </label>
+                <label class="input">
+                    <span>Participación del cliente</span>
+                    <select name="client_participation" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <option value="alta" <?= $clientParticipation === 'alta' ? 'selected' : '' ?>>Alta (cocreación activa)</option>
+                        <option value="media" <?= $clientParticipation === 'media' ? 'selected' : '' ?>>Media (revisiones programadas)</option>
+                        <option value="baja" <?= $clientParticipation === 'baja' ? 'selected' : '' ?>>Baja (solo aprobaciones clave)</option>
+                    </select>
+                </label>
+            </section>
+            <section class="grid step-card__grid">
+                <div class="input" style="grid-column: 1 / -1;">
+                    <span>Riesgos iniciales</span>
+                    <div id="riskChecklist" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
+                        <?php foreach ($riskCatalog as $risk): ?>
+                            <?php $riskCode = $risk['code'] ?? ''; $riskLabel = $risk['label'] ?? $riskCode; ?>
+                            <label style="display:flex; gap:6px; align-items:center; background: color-mix(in srgb, var(--surface) 92%, transparent); padding:8px 10px; border-radius:10px; border:1px solid var(--border);">
+                                <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $fieldValue('risks', []), true) ? 'checked' : '' ?>>
+                                <?= htmlspecialchars($riskLabel) ?>
+                            </label>
+                        <?php endforeach; ?>
+                        <?php if (empty($riskCatalog)): ?>
+                            <span class="muted">Configura el catálogo de riesgos en el módulo de configuración.</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 
@@ -223,14 +261,14 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <div>
                     <p class="section-label">Paso 2</p>
                     <strong>Flujo de entrega</strong>
-                    <p class="muted">Selecciona la fase y el estado base del proyecto.</p>
+                    <p class="muted">La metodología define la fase y el estado inicial conforme al ciclo ISO 9001 8.3.</p>
                 </div>
                 <div class="pill soft-slate" id="phaseStatusPill" aria-live="polite"></div>
             </div>
             <div class="grid step-card__grid compact">
                 <label class="input">
                     <span>Fase</span>
-                    <select name="phase" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    <select name="phase_display" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
                         <option value="">Sin fase</option>
                         <?php foreach ($currentPhases as $phase): ?>
                             <option value="<?= htmlspecialchars($phase) ?>" <?= $selectedPhase === $phase ? 'selected' : '' ?>>
@@ -238,10 +276,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <input type="hidden" name="phase" id="phaseHidden" value="<?= htmlspecialchars((string) $selectedPhase) ?>">
                 </label>
                 <label class="input">
                     <span>Estado</span>
-                    <select name="status" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                    <select name="status_display" id="statusSelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
                         <?php foreach ($statusesCatalog as $status): ?>
                             <?php $code = $status['code'] ?? ''; ?>
                             <option value="<?= htmlspecialchars($code) ?>" <?= $selectedStatus === $code ? 'selected' : '' ?>>
@@ -249,10 +288,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <input type="hidden" name="status" id="statusHidden" value="<?= htmlspecialchars($selectedStatus) ?>">
                 </label>
                 <label class="input">
                     <span>Salud</span>
-                    <select name="health" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                    <select name="health_display" id="healthSelect" disabled <?= $canCreateProject ? '' : 'disabled' ?>>
                         <?php foreach ($healthCatalog as $health): ?>
                             <?php $code = $health['code'] ?? ''; ?>
                             <option value="<?= htmlspecialchars($code) ?>" <?= $selectedHealth === $code ? 'selected' : '' ?>>
@@ -260,6 +300,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <input type="hidden" name="health" id="healthHidden" value="<?= htmlspecialchars($selectedHealth) ?>">
                 </label>
                 <label class="input">
                     <span>Prioridad</span>
@@ -381,8 +422,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
 <script>
     const phasesByMethodology = <?= json_encode($phasesByMethodology) ?>;
+    const allMethodologies = <?= json_encode($methodologies) ?>;
     const phaseSelect = document.getElementById('phaseSelect');
+    const phaseHidden = document.getElementById('phaseHidden');
     const methodologySelect = document.getElementById('methodologySelect');
+    const methodologyHidden = document.getElementById('methodologyHidden');
     const phaseStatusPill = document.getElementById('phaseStatusPill');
     const projectTypeSelect = document.getElementById('projectTypeSelect');
     const endDateGroup = document.querySelector('[data-role="end-date"]');
@@ -394,6 +438,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const submitButton = document.querySelector('[data-nav="submit"]');
     const stepLabel = document.getElementById('wizardStepLabel');
     const canCreateProject = <?= $canCreateProject ? 'true' : 'false' ?>;
+    const statusSelect = document.getElementById('statusSelect');
+    const statusHidden = document.getElementById('statusHidden');
+    const healthSelect = document.getElementById('healthSelect');
+    const healthHidden = document.getElementById('healthHidden');
+    const riskChecklist = document.querySelectorAll('#riskChecklist input[type="checkbox"]');
+    const initialRiskGroupPresent = riskChecklist.length > 0;
+    const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban' };
 
     let currentStep = 0;
 
@@ -420,6 +471,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             phaseSelect.appendChild(option);
         });
 
+        const assignedPhase = phases[0] || '';
+        if (phaseHidden) {
+            phaseHidden.value = assignedPhase;
+        }
+        phaseSelect.value = assignedPhase;
+        phaseSelect.setAttribute('disabled', 'disabled');
+
         const hasPhases = phases.length > 0;
         if (!hasPhases) {
             phaseStatusPill.textContent = 'Sin fases configuradas: se guardará con valores por defecto';
@@ -437,9 +495,43 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             endDateGroup.style.display = 'none';
             if (endDateInput) {
                 endDateInput.value = '';
+                endDateInput.required = false;
             }
         } else {
             endDateGroup.style.display = '';
+            if (endDateInput) {
+                endDateInput.required = selectedType === 'convencional';
+            }
+        }
+    }
+
+    function resolveMethodology(type) {
+        const preferred = methodologyMap[type] || allMethodologies[0] || 'scrum';
+        if (allMethodologies.includes(preferred)) {
+            return preferred;
+        }
+        return allMethodologies[0] || preferred;
+    }
+
+    function syncMethodology() {
+        if (!projectTypeSelect || !methodologySelect) return;
+        const resolved = resolveMethodology(projectTypeSelect.value);
+        methodologySelect.value = resolved;
+        methodologySelect.setAttribute('disabled', 'disabled');
+        if (methodologyHidden) {
+            methodologyHidden.value = resolved;
+        }
+        refreshPhases();
+    }
+
+    function syncStatusHealth() {
+        if (statusSelect && statusHidden) {
+            statusHidden.value = statusSelect.value;
+            statusSelect.setAttribute('disabled', 'disabled');
+        }
+        if (healthSelect && healthHidden) {
+            healthHidden.value = healthSelect.value;
+            healthSelect.setAttribute('disabled', 'disabled');
         }
     }
 
@@ -481,19 +573,36 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 return false;
             }
         }
+        if (index === 0 && initialRiskGroupPresent) {
+            const hasRisk = Array.from(riskChecklist).some((checkbox) => checkbox.checked);
+            if (!hasRisk) {
+                alert('Define al menos un riesgo inicial antes de continuar.');
+                return false;
+            }
+        }
         return true;
     }
 
     refreshPhases();
+    syncMethodology();
+    syncStatusHealth();
     toggleEndDateByType();
     setStep(0);
 
     if (methodologySelect) {
-        methodologySelect.addEventListener('change', refreshPhases);
+        methodologySelect.addEventListener('change', () => {
+            if (methodologyHidden) {
+                methodologyHidden.value = methodologySelect.value;
+            }
+            refreshPhases();
+        });
     }
 
     if (projectTypeSelect) {
-        projectTypeSelect.addEventListener('change', toggleEndDateByType);
+        projectTypeSelect.addEventListener('change', () => {
+            syncMethodology();
+            toggleEndDateByType();
+        });
     }
 
     if (prevButton) {
