@@ -63,6 +63,22 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureClientDeletionCascades(): void
+    {
+        try {
+            $this->ensureCascade('projects', 'client_id', 'clients', 'fk_projects_client_id_clients');
+            $this->ensureCascade('tasks', 'project_id', 'projects', 'fk_tasks_project_id_projects');
+            $this->ensureCascade('project_risks', 'project_id', 'projects', 'fk_project_risks_project_id_projects');
+            $this->ensureCascade('timesheets', 'task_id', 'tasks', 'fk_timesheets_task_id_tasks');
+            $this->ensureCascade('project_talent_assignments', 'project_id', 'projects', 'fk_project_talent_assignments_project_id_projects');
+            $this->ensureCascade('costs', 'project_id', 'projects', 'fk_costs_project_id_projects');
+            $this->ensureCascade('revenues', 'project_id', 'projects', 'fk_revenues_project_id_projects');
+            $this->ensureCascade('contracts', 'client_id', 'clients', 'fk_contracts_client_id_clients');
+        } catch (\PDOException $e) {
+            error_log('Error asegurando eliminaciones en cascada de clientes: ' . $e->getMessage());
+        }
+    }
+
     public function ensureAssignmentsTable(): void
     {
         try {
@@ -134,6 +150,33 @@ class DatabaseMigrator
         } catch (\PDOException $e) {
             error_log("Error ejecutando migración de {$table}.pm_id: " . $e->getMessage());
         }
+    }
+
+    private function ensureCascade(string $table, string $column, string $referencedTable, string $constraintName): void
+    {
+        if (!$this->db->tableExists($table) || !$this->db->tableExists($referencedTable) || !$this->db->columnExists($table, $column)) {
+            return;
+        }
+
+        $details = $this->db->foreignKeyDetails($table, $column);
+
+        if ($details && strtoupper((string) ($details['DELETE_RULE'] ?? '')) === 'CASCADE') {
+            return;
+        }
+
+        if ($details && ($details['CONSTRAINT_NAME'] ?? '') !== '') {
+            $this->db->dropForeignKey($table, $details['CONSTRAINT_NAME']);
+        }
+
+        $this->db->execute(
+            sprintf(
+                'ALTER TABLE `%s` ADD CONSTRAINT `%s` FOREIGN KEY (`%s`) REFERENCES `%s`(`id`) ON DELETE CASCADE',
+                $table,
+                $constraintName,
+                $column,
+                $referencedTable
+            )
+        );
     }
 
     private function addClientPriorityColumn(): void

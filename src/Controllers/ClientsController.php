@@ -41,7 +41,7 @@ class ClientsController extends Controller
         $hasDependencies = $dependencies['has_dependencies'] ?? false;
         $isAdmin = $this->isAdmin();
         $canDelete = $isAdmin;
-        $canInactivate = $isAdmin;
+        $canInactivate = $canManage || $isAdmin;
         $mathOperand1 = random_int(1, 10);
         $mathOperand2 = random_int(1, 10);
         $mathOperator = random_int(0, 1) === 0 ? '+' : '-';
@@ -146,6 +146,8 @@ class ClientsController extends Controller
         $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
         $mathResult = trim((string) ($_POST['math_result'] ?? ''));
         $forceDelete = filter_var($_POST['force'] ?? $_POST['force_delete'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $isAdmin = $this->isAdmin();
+        $canInactivate = $this->auth->can('clients.manage') || $isAdmin;
 
         if ($clientId <= 0 || !$client) {
             http_response_code(404);
@@ -164,24 +166,25 @@ class ClientsController extends Controller
             exit('La confirmación matemática es incorrecta.');
         }
 
-        if (!$this->isAdmin()) {
+        if ($forceDelete && !$isAdmin) {
             http_response_code(403);
             $this->json([
                 'success' => false,
-                'message' => 'Solo los administradores pueden eliminar clientes.',
+                'message' => 'Solo los administradores pueden eliminar clientes definitivamente.',
             ], 403);
             return;
         }
 
         try {
-
-            $result = $repo->deleteClient($clientId, $client['logo_path'] ?? null, $forceDelete);
+            $result = $repo->deleteClient($clientId, $client['logo_path'] ?? null, $forceDelete, $isAdmin);
 
             if (($result['success'] ?? false) === true) {
+                $actionLabel = $forceDelete ? 'eliminó' : 'inactivó';
                 error_log(sprintf(
-                    '[audit] Usuario %s (ID: %d) eliminó cliente "%s" (ID: %d) con %d proyectos a las %s',
+                    '[audit] Usuario %s (ID: %d) %s cliente "%s" (ID: %d) con %d proyectos a las %s',
                     $user['name'] ?? 'desconocido',
                     (int) ($user['id'] ?? 0),
+                    $actionLabel,
                     $client['name'],
                     $clientId,
                     (int) ($dependencies['projects'] ?? 0),
@@ -190,30 +193,22 @@ class ClientsController extends Controller
 
                 $this->json([
                     'success' => true,
-                    'message' => 'Eliminado correctamente',
+                    'message' => $forceDelete ? 'Eliminado correctamente' : 'Cliente inactivado correctamente',
                 ]);
                 return;
             }
 
-            $errorCode = (string) ($result['error_code'] ?? '');
-            $status = in_array($errorCode, ['23000', 'DEPENDENCIES'], true) ? 409 : 500;
-            $message = 'No se pudo eliminar el cliente. Intenta nuevamente o contacta al administrador.';
+            $errorMessage = (string) ($result['error'] ?? 'Operación fallida al eliminar el cliente.');
 
-            if ($errorCode === 'DEPENDENCIES') {
-                $message = ($result['inactivated'] ?? false)
-                    ? 'El cliente tiene dependencias activas y fue inactivado en su lugar. Para eliminarlo definitivamente, confirma la eliminación forzada como administrador.'
-                    : 'El cliente tiene dependencias activas. Puede inactivarse o forzar la eliminación como administrador.';
-            }
-
-            error_log('Error al eliminar cliente: ' . ($result['error'] ?? 'operación desconocida'));
+            error_log('Error al eliminar cliente: ' . $errorMessage);
 
             $this->json([
                 'success' => false,
-                'message' => $message,
-                'can_inactivate' => $errorCode === 'DEPENDENCIES',
-                'dependencies' => $errorCode === 'DEPENDENCIES' ? $dependencies : null,
+                'message' => $errorMessage,
+                'can_inactivate' => $canInactivate,
+                'dependencies' => $dependencies,
                 'inactivated' => $result['inactivated'] ?? false,
-            ], $status);
+            ], 500);
         } catch (\Throwable $e) {
             error_log('Error al eliminar cliente: ' . $e->getMessage());
             http_response_code(500);

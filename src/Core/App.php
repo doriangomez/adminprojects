@@ -16,6 +16,7 @@ class App
         $migrator->ensureClientPmIntegrity();
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureProjectDeliverySchema();
+        $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureSystemSettings();
         $migrator->ensureProjectManagementPermission();
