@@ -34,6 +34,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         <select name="project_type" id="projectTypeSelect" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
             <option value="convencional" <?= $projectType === 'convencional' ? 'selected' : '' ?>>Convencional (fechas y fases)</option>
             <option value="scrum" <?= $projectType === 'scrum' ? 'selected' : '' ?>>Scrum (sprints y backlog)</option>
+            <option value="hibrido" <?= $projectType === 'hibrido' ? 'selected' : '' ?>>Híbrido (mixto)</option>
         </select>
         <small class="subtext">Convencional usa hitos secuenciales; Scrum trabaja en sprints sin fecha fin rígida.</small>
     </label>

@@ -279,8 +279,9 @@ class ProjectsController extends Controller
             'risks' => $deliveryConfig['risks'] ?? [],
         ];
 
+        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido'];
         $projectType = $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional');
-        $projectType = in_array($projectType, ['convencional', 'scrum'], true) ? $projectType : 'convencional';
+        $projectType = in_array($projectType, $allowedProjectTypes, true) ? $projectType : 'convencional';
 
         $availableMethodologies = $delivery['methodologies'];
         $defaultMethodology = $projectType === 'scrum'
@@ -428,7 +429,9 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
         }
 
-        $projectType = trim((string) ($_POST['project_type'] ?? 'convencional')) ?: 'convencional';
+        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido'];
+        $projectTypeInput = trim((string) ($_POST['project_type'] ?? 'convencional')) ?: 'convencional';
+        $projectType = in_array($projectTypeInput, $allowedProjectTypes, true) ? $projectTypeInput : 'convencional';
         $status = $this->validatedCatalogValue((string) ($_POST['status'] ?? ''), $catalogs['statuses'], 'estado', $catalogs['statuses'][0]['code'] ?? 'ideation');
         $health = $this->validatedCatalogValue((string) ($_POST['health'] ?? ''), $catalogs['health'], 'salud', $catalogs['health'][0]['code'] ?? 'on_track');
         $priority = $this->validatedCatalogValue((string) ($_POST['priority'] ?? ''), $catalogs['priorities'], 'prioridad', $catalogs['priorities'][0]['code'] ?? 'medium');
