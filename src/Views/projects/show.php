@@ -11,6 +11,9 @@ $designInputTypes = is_array($designInputTypes ?? null) ? $designInputTypes : []
 $designControls = is_array($designControls ?? null) ? $designControls : [];
 $designControlTypes = is_array($designControlTypes ?? null) ? $designControlTypes : [];
 $designControlResults = is_array($designControlResults ?? null) ? $designControlResults : [];
+$designChanges = is_array($designChanges ?? null) ? $designChanges : [];
+$designChangeImpactLevels = is_array($designChangeImpactLevels ?? null) ? $designChangeImpactLevels : [];
+$designChangeError = $designChangeError ?? null;
 $performers = is_array($performers ?? null) ? $performers : [];
 
 $designLabels = [
@@ -27,6 +30,10 @@ $designLabels = [
     'aprobado' => 'Aprobado',
     'observaciones' => 'Con observaciones',
     'rechazado' => 'Rechazado',
+    'bajo' => 'Bajo',
+    'medio' => 'Medio',
+    'alto' => 'Alto',
+    'pendiente' => 'Pendiente',
 ];
 ?>
 
@@ -302,6 +309,99 @@ $designLabels = [
             <?php endif; ?>
             <?php if (empty($canManage)): ?>
                 <p style="margin:0; color: var(--muted);">Solo lectura para tu rol. Solicita a un responsable de gestión las actualizaciones.</p>
+            <?php endif; ?>
+        </div>
+
+        <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h5 style="margin:0;">Cambios del diseño</h5>
+                <span class="pill" style="background:#f1f5f9; color:#0f172a;">Control de cambios</span>
+            </div>
+            <?php if (!empty($designChangeError)): ?>
+                <div style="color:#b91c1c; font-weight:600;"><?= htmlspecialchars($designChangeError) ?></div>
+            <?php endif; ?>
+            <?php if (empty($designChanges)): ?>
+                <p style="margin:0; color: var(--muted);">No hay cambios registrados.</p>
+            <?php else: ?>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <?php foreach ($designChanges as $change): ?>
+                        <div style="border:1px solid var(--border); padding:10px; border-radius:10px; background:#fff; display:flex; flex-direction:column; gap:6px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong>Cambio #<?= (int) ($change['id'] ?? 0) ?></strong>
+                                <span class="pill" style="background: <?= ($change['status'] ?? '') === 'aprobado' ? '#dcfce7' : '#fef9c3' ?>; color: <?= ($change['status'] ?? '') === 'aprobado' ? '#166534' : '#92400e' ?>;">
+                                    <?= htmlspecialchars($designLabels[$change['status']] ?? ($change['status'] ?? '')) ?>
+                                </span>
+                            </div>
+                            <div style="color:var(--muted);"><?= nl2br(htmlspecialchars($change['description'] ?? '')) ?></div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:6px; font-size:13px;">
+                                <div><strong>Alcance:</strong> <?= htmlspecialchars($designLabels[$change['impact_scope']] ?? $change['impact_scope'] ?? '') ?></div>
+                                <div><strong>Tiempo:</strong> <?= htmlspecialchars($designLabels[$change['impact_time']] ?? $change['impact_time'] ?? '') ?></div>
+                                <div><strong>Costo:</strong> <?= htmlspecialchars($designLabels[$change['impact_cost']] ?? $change['impact_cost'] ?? '') ?></div>
+                                <div><strong>Calidad:</strong> <?= htmlspecialchars($designLabels[$change['impact_quality']] ?? $change['impact_quality'] ?? '') ?></div>
+                            </div>
+                            <small style="color:var(--muted); display:block;">Requiere revisión/validación: <?= (int) ($change['requires_review_validation'] ?? 0) === 1 ? 'Sí' : 'No' ?></small>
+                            <small style="color:var(--muted); display:block;">
+                                Registrado por <?= htmlspecialchars($change['created_by_name'] ?? 'N/D') ?> · <?= htmlspecialchars(substr((string) ($change['created_at'] ?? ''), 0, 16)) ?>
+                            </small>
+                            <?php if (!empty($change['approved_at'])): ?>
+                                <small style="color:#166534; display:block;">Aprobado por <?= htmlspecialchars($change['approved_by_name'] ?? 'N/D') ?> · <?= htmlspecialchars(substr((string) ($change['approved_at'] ?? ''), 0, 16)) ?></small>
+                            <?php endif; ?>
+                            <?php if (!empty($canManage) && ($change['status'] ?? '') !== 'aprobado'): ?>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/design-changes/<?= (int) ($change['id'] ?? 0) ?>/approve" style="margin:0; display:flex; justify-content:flex-end;">
+                                    <button type="submit" class="action-btn" style="background:#dcfce7; color:#166534; border:none;">Aprobar cambio</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($canManage)): ?>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/design-changes" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+                    <label>Descripción
+                        <textarea name="description" rows="3" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;"></textarea>
+                    </label>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px;">
+                        <label>Impacto en alcance
+                            <select name="impact_scope" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+                                <option value="">Selecciona</option>
+                                <?php foreach ($designChangeImpactLevels as $impact): ?>
+                                    <option value="<?= htmlspecialchars($impact) ?>"><?= htmlspecialchars($designLabels[$impact] ?? $impact) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label>Impacto en tiempo
+                            <select name="impact_time" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+                                <option value="">Selecciona</option>
+                                <?php foreach ($designChangeImpactLevels as $impact): ?>
+                                    <option value="<?= htmlspecialchars($impact) ?>"><?= htmlspecialchars($designLabels[$impact] ?? $impact) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px;">
+                        <label>Impacto en costo
+                            <select name="impact_cost" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+                                <option value="">Selecciona</option>
+                                <?php foreach ($designChangeImpactLevels as $impact): ?>
+                                    <option value="<?= htmlspecialchars($impact) ?>"><?= htmlspecialchars($designLabels[$impact] ?? $impact) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label>Impacto en calidad
+                            <select name="impact_quality" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+                                <option value="">Selecciona</option>
+                                <?php foreach ($designChangeImpactLevels as $impact): ?>
+                                    <option value="<?= htmlspecialchars($impact) ?>"><?= htmlspecialchars($designLabels[$impact] ?? $impact) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    </div>
+                    <label style="display:flex; gap:8px; align-items:center;">
+                        <input type="checkbox" name="requires_review_validation" value="1"> Requiere nueva revisión/validación
+                    </label>
+                    <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Registrar cambio</button>
+                </form>
             <?php endif; ?>
         </div>
     </div>
