@@ -634,8 +634,13 @@ class ProjectsRepository
             throw new \PDOException($e->getMessage(), (int) $e->getCode(), $e);
         }
 
-        if (array_key_exists('risks', $payload) && is_array($payload['risks'])) {
-            $this->syncProjectRisks($projectId, $payload['risks']);
+        $riskEvaluations = $payload['risk_evaluations'] ?? null;
+        if ($riskEvaluations === null && array_key_exists('risks', $payload)) {
+            $riskEvaluations = $this->buildEvaluationsFromSelection($payload['risks']);
+        }
+
+        if (is_array($riskEvaluations)) {
+            $this->syncProjectRiskEvaluations($projectId, $riskEvaluations);
         }
 
         return $projectId;
@@ -758,8 +763,13 @@ class ProjectsRepository
             $params
         );
 
-        if (array_key_exists('risks', $payload) && is_array($payload['risks'])) {
-            $this->syncProjectRisks($id, $payload['risks']);
+        $riskEvaluations = $payload['risk_evaluations'] ?? null;
+        if ($riskEvaluations === null && array_key_exists('risks', $payload)) {
+            $riskEvaluations = $this->buildEvaluationsFromSelection($payload['risks']);
+        }
+
+        if (is_array($riskEvaluations)) {
+            $this->syncProjectRiskEvaluations($id, $riskEvaluations);
         }
     }
 
@@ -809,25 +819,28 @@ class ProjectsRepository
         );
     }
 
-    public function syncProjectRisks(int $projectId, array $risks): void
+    public function syncProjectRiskEvaluations(int $projectId, array $evaluations): void
     {
-        $trimmed = array_map('trim', $risks);
-        $cleanRisks = array_values(array_unique(array_filter($trimmed, fn ($risk) => $risk !== '')));
-
         $this->db->execute('DELETE FROM project_risk_evaluations WHERE project_id = :project', [':project' => $projectId]);
 
-        if (empty($cleanRisks)) {
+        if (empty($evaluations)) {
             return;
         }
 
         $stmt = $this->db->connection()->prepare(
-            'INSERT INTO project_risk_evaluations (project_id, risk_code, selected) VALUES (:project, :risk, 1)'
+            'INSERT INTO project_risk_evaluations (project_id, risk_code, selected) VALUES (:project, :risk, :selected)'
         );
 
-        foreach ($cleanRisks as $riskCode) {
+        foreach ($evaluations as $evaluation) {
+            $code = trim((string) ($evaluation['risk_code'] ?? ''));
+            if ($code === '') {
+                continue;
+            }
+
             $stmt->execute([
                 ':project' => $projectId,
-                ':risk' => $riskCode,
+                ':risk' => $code,
+                ':selected' => (int) (($evaluation['selected'] ?? 0) === 1),
             ]);
         }
     }
@@ -1088,5 +1101,25 @@ class ProjectsRepository
         $parts = array_map('trim', explode(',', $value));
 
         return array_values(array_filter($parts, fn ($risk) => $risk !== ''));
+    }
+
+    public function riskEvaluationsForProject(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_risk_evaluations')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT risk_code, selected FROM project_risk_evaluations WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+    }
+
+    private function buildEvaluationsFromSelection(array $risks): array
+    {
+        return array_map(
+            fn ($risk) => ['risk_code' => (string) $risk, 'selected' => 1],
+            array_values(array_unique(array_filter(array_map('trim', $risks), fn ($risk) => $risk !== '')))
+        );
     }
 }
