@@ -213,6 +213,21 @@ class App
                 }
             }
 
+            if (str_starts_with($path, '/config/risk-catalog') && $method === 'POST') {
+                if ($path === '/config/risk-catalog/create') {
+                    $controller->storeRisk();
+                    return;
+                }
+                if ($path === '/config/risk-catalog/update') {
+                    $controller->updateRisk();
+                    return;
+                }
+                if ($path === '/config/risk-catalog/delete') {
+                    $controller->deleteRisk();
+                    return;
+                }
+            }
+
             $controller->index();
             return;
         }

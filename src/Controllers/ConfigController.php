@@ -15,6 +15,7 @@ class ConfigController extends Controller
         $rolesRepo = new RolesRepository($this->db);
         $permissionsRepo = new PermissionsRepository($this->db);
         $masterRepo = new MasterFilesRepository($this->db);
+        $riskRepo = new RiskCatalogRepository($this->db);
 
         $roles = $rolesRepo->all();
         $rolesWithPermissions = array_map(
@@ -30,6 +31,18 @@ class ConfigController extends Controller
             $masterData[$table] = $masterRepo->list($table);
         }
 
+        try {
+            $riskCatalog = $riskRepo->listAll();
+        } catch (\Throwable $e) {
+            error_log('No se pudo cargar el catálogo de riesgos: ' . $e->getMessage());
+            $riskCatalog = [];
+        }
+        $risksByCategory = [];
+        foreach ($riskCatalog as $risk) {
+            $category = $risk['category'] ?? 'Otros';
+            $risksByCategory[$category][] = $risk;
+        }
+
         $this->render('config/index', [
             'title' => 'Configuración',
             'configData' => $config,
@@ -37,6 +50,8 @@ class ConfigController extends Controller
             'permissions' => $permissionsRepo->all(),
             'users' => $usersRepo->all(),
             'masterData' => $masterData,
+            'riskCatalog' => $riskCatalog,
+            'risksByCategory' => $risksByCategory,
             'savedMessage' => !empty($_GET['saved']) ? 'Preferencias actualizadas y aplicadas en la interfaz.' : null,
         ]);
     }
@@ -70,7 +85,7 @@ class ConfigController extends Controller
             'delivery' => [
                 'methodologies' => $this->parseList($_POST['methodologies'] ?? implode(', ', $current['delivery']['methodologies'] ?? [])),
                 'phases' => $this->decodeJson($_POST['phases_json'] ?? '', $current['delivery']['phases'] ?? []),
-                'risks' => $this->decodeJson($_POST['risks_json'] ?? '', $current['delivery']['risks'] ?? []),
+                'risks' => $current['delivery']['risks'] ?? [],
             ],
             'access' => [
                 'roles' => $this->parseList($_POST['roles'] ?? ''),
@@ -211,6 +226,51 @@ class ConfigController extends Controller
         header('Location: /project/public/config?saved=1');
     }
 
+    public function storeRisk(): void
+    {
+        $this->ensureConfigAccess();
+
+        $repo = new RiskCatalogRepository($this->db);
+        $code = trim($_POST['code'] ?? '');
+        if ($code === '') {
+            http_response_code(400);
+            exit('Código de riesgo obligatorio.');
+        }
+        $payload = $this->riskPayload();
+        $repo->create(array_merge(['code' => $code], $payload));
+
+        header('Location: /project/public/config?saved=1');
+    }
+
+    public function updateRisk(): void
+    {
+        $this->ensureConfigAccess();
+
+        $code = trim($_POST['code'] ?? '');
+        if ($code === '') {
+            http_response_code(400);
+            exit('Código de riesgo obligatorio.');
+        }
+
+        $repo = new RiskCatalogRepository($this->db);
+        $repo->update($code, $this->riskPayload());
+
+        header('Location: /project/public/config?saved=1');
+    }
+
+    public function deleteRisk(): void
+    {
+        $this->ensureConfigAccess();
+
+        $code = trim($_POST['code'] ?? '');
+        if ($code !== '') {
+            $repo = new RiskCatalogRepository($this->db);
+            $repo->delete($code);
+        }
+
+        header('Location: /project/public/config?saved=1');
+    }
+
     private function parseList(string $value): array
     {
         $parts = array_map('trim', explode(',', $value));
@@ -246,5 +306,32 @@ class ConfigController extends Controller
     private function toFloat(string $value): float
     {
         return (float) str_replace(',', '.', $value);
+    }
+
+    private function riskPayload(): array
+    {
+        $severity = (int) ($_POST['severity_base'] ?? 1);
+        if ($severity < 1 || $severity > 5) {
+            $severity = 1;
+        }
+
+        $appliesTo = $_POST['applies_to'] ?? 'ambos';
+        $validApplies = ['convencional', 'scrum', 'ambos'];
+        if (!in_array($appliesTo, $validApplies, true)) {
+            $appliesTo = 'ambos';
+        }
+
+        return [
+            'category' => trim($_POST['category'] ?? ''),
+            'label' => trim($_POST['label'] ?? ''),
+            'applies_to' => $appliesTo,
+            'impact_scope' => isset($_POST['impact_scope']) ? 1 : 0,
+            'impact_time' => isset($_POST['impact_time']) ? 1 : 0,
+            'impact_cost' => isset($_POST['impact_cost']) ? 1 : 0,
+            'impact_quality' => isset($_POST['impact_quality']) ? 1 : 0,
+            'impact_legal' => isset($_POST['impact_legal']) ? 1 : 0,
+            'severity_base' => $severity,
+            'active' => isset($_POST['active']) ? 1 : 0,
+        ];
     }
 }

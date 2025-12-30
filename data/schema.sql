@@ -137,11 +137,27 @@ CREATE TABLE projects (
     FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
-CREATE TABLE project_risks (
+CREATE TABLE risk_catalog (
+    code VARCHAR(80) PRIMARY KEY,
+    category VARCHAR(60) NOT NULL,
+    label VARCHAR(180) NOT NULL,
+    applies_to ENUM('convencional','scrum','ambos') NOT NULL,
+    impact_scope TINYINT(1) DEFAULT 0,
+    impact_time TINYINT(1) DEFAULT 0,
+    impact_cost TINYINT(1) DEFAULT 0,
+    impact_quality TINYINT(1) DEFAULT 0,
+    impact_legal TINYINT(1) DEFAULT 0,
+    severity_base TINYINT NOT NULL CHECK (severity_base BETWEEN 1 AND 5),
+    active TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+CREATE TABLE project_risk_evaluations (
     project_id INT NOT NULL,
     risk_code VARCHAR(80) NOT NULL,
+    selected TINYINT(1) DEFAULT 1,
     PRIMARY KEY (project_id, risk_code),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (risk_code) REFERENCES risk_catalog(code)
 ) ENGINE=InnoDB;
 
 CREATE TABLE tasks (
@@ -300,11 +316,7 @@ INSERT INTO config_settings (config_key, config_value) VALUES
             "cascada": ["inicio", "planificación", "ejecución", "cierre"],
             "kanban": ["por hacer", "en curso", "en revisión", "hecho"]
         },
-        "risks": [
-            {"code": "scope_creep", "label": "Desviación de alcance"},
-            {"code": "budget_overrun", "label": "Sobrepaso de presupuesto"},
-            {"code": "timeline_slip", "label": "Desviación en cronograma"}
-        ]
+        "risks": []
     },
     "access": {
         "roles": ["Administrador", "PMO", "Talento"],
@@ -342,6 +354,58 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN ('dashboard.view', 'clients.view')
 WHERE r.nombre = 'Líder de Proyecto';
+
+INSERT INTO risk_catalog (code, category, label, applies_to, impact_scope, impact_time, impact_cost, impact_quality, impact_legal, severity_base, active) VALUES
+('alcance_incompleto', 'Alcance', 'Requerimientos incompletos o ambiguos', 'ambos', 1, 1, 1, 1, 0, 4, 1),
+('cambios_frecuentes', 'Alcance', 'Cambios frecuentes de alcance sin control', 'ambos', 1, 1, 1, 1, 0, 4, 1),
+('priorizacion_diffusa', 'Alcance', 'Falta de priorización de requisitos', 'ambos', 1, 1, 0, 1, 0, 3, 1),
+('dependencias_externas', 'Alcance', 'Dependencias externas no aseguradas', 'ambos', 1, 1, 1, 0, 0, 3, 1),
+('alcance_expansion', 'Alcance', 'Expansión de alcance sin aprobación', 'ambos', 1, 1, 1, 0, 0, 4, 1),
+('estimaciones_inexactas', 'Cronograma', 'Estimaciones de esfuerzo poco realistas', 'ambos', 0, 1, 1, 0, 0, 4, 1),
+('bloqueos_aprobaciones', 'Cronograma', 'Aprobaciones tardías o bloqueos de decisión', 'ambos', 0, 1, 1, 0, 0, 3, 1),
+('ruta_critica_oculta', 'Cronograma', 'Ruta crítica no identificada o gestionada', 'convencional', 0, 1, 1, 0, 0, 4, 1),
+('retrasos_entregables', 'Cronograma', 'Entregables clave con retraso recurrente', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('disponibilidad_cliente', 'Cronograma', 'Baja disponibilidad de usuarios o cliente', 'ambos', 1, 1, 0, 0, 0, 3, 1),
+('presupuesto_subestimado', 'Costos', 'Presupuesto subestimado o sin reservas', 'ambos', 0, 1, 1, 0, 0, 4, 1),
+('incremento_tarifas', 'Costos', 'Incremento de tarifas de proveedores', 'ambos', 0, 0, 1, 0, 0, 3, 1),
+('costos_no_planificados', 'Costos', 'Costos no planificados por licencias o insumos', 'ambos', 0, 0, 1, 0, 0, 3, 1),
+('cambio_tipo_cambio', 'Costos', 'Variaciones del tipo de cambio', 'ambos', 0, 0, 1, 0, 0, 2, 1),
+('financiamiento_incierto', 'Costos', 'Financiamiento o pagos del cliente inciertos', 'ambos', 0, 1, 1, 0, 0, 3, 1),
+('defectos_recurrentes', 'Calidad', 'Defectos recurrentes en liberaciones', 'ambos', 0, 1, 1, 1, 0, 4, 1),
+('pruebas_insuficientes', 'Calidad', 'Cobertura de pruebas insuficiente', 'ambos', 0, 1, 1, 1, 0, 4, 1),
+('deuda_tecnica', 'Calidad', 'Deuda técnica acumulada', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('estandares_no_definidos', 'Calidad', 'Estandares de calidad no definidos', 'ambos', 0, 0, 0, 1, 0, 2, 1),
+('integracion_deficiente', 'Calidad', 'Integraciones no validadas o frágiles', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('rotacion_equipo', 'Recursos', 'Rotación alta en el equipo del proyecto', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('habilidades_insuficientes', 'Recursos', 'Brechas de habilidades o entrenamiento insuficiente', 'ambos', 0, 1, 0, 1, 0, 3, 1),
+('sobrecarga_equipo', 'Recursos', 'Sobrecarga de trabajo en el equipo', 'ambos', 0, 1, 0, 1, 0, 3, 1),
+('disponibilidad_limitada', 'Recursos', 'Disponibilidad parcial de recursos clave', 'ambos', 0, 1, 1, 0, 0, 3, 1),
+('conflicto_prioridades', 'Recursos', 'Conflicto de prioridades con otras iniciativas', 'ambos', 0, 1, 0, 1, 0, 2, 1),
+('patrocinio_debil', 'Stakeholders', 'Patrocinio débil o ausente', 'ambos', 1, 1, 1, 0, 0, 4, 1),
+('expectativas_no_alineadas', 'Stakeholders', 'Expectativas no alineadas entre stakeholders', 'ambos', 1, 1, 0, 1, 0, 3, 1),
+('comunicacion_fragmentada', 'Stakeholders', 'Comunicación fragmentada o irregular', 'ambos', 1, 1, 0, 1, 0, 2, 1),
+('resistencia_cambio', 'Stakeholders', 'Resistencia al cambio en la organización', 'ambos', 1, 1, 1, 0, 0, 3, 1),
+('interes_variable', 'Stakeholders', 'Interés variable o agendas ocultas', 'ambos', 1, 1, 0, 0, 0, 2, 1),
+('tecnologia_inestable', 'Tecnología', 'Plataforma o tecnología inestable', 'ambos', 0, 1, 1, 1, 0, 4, 1),
+('integraciones_complejas', 'Tecnología', 'Integraciones complejas con terceros', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('proveedor_unico', 'Tecnología', 'Dependencia de un único proveedor tecnológico', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('seguridad_vulnerable', 'Tecnología', 'Vulnerabilidades de seguridad sin mitigar', 'ambos', 0, 1, 1, 1, 1, 5, 1),
+('infraestructura_limitada', 'Tecnología', 'Infraestructura insuficiente para la demanda', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('cumplimiento_regulatorio', 'Legal', 'Riesgos de cumplimiento regulatorio', 'ambos', 0, 0, 1, 0, 1, 5, 1),
+('datos_personales', 'Legal', 'Gestión inadecuada de datos personales', 'ambos', 0, 0, 1, 1, 1, 5, 1),
+('propiedad_intelectual', 'Legal', 'Conflictos de propiedad intelectual', 'ambos', 0, 0, 1, 0, 1, 4, 1),
+('contratos_incompletos', 'Legal', 'Contratos incompletos o desactualizados', 'ambos', 0, 1, 1, 0, 1, 3, 1),
+('permisos_faltantes', 'Legal', 'Permisos o autorizaciones faltantes', 'ambos', 0, 1, 1, 0, 1, 4, 1),
+('procesos_no_documentados', 'Operaciones', 'Procesos operativos no documentados', 'ambos', 1, 1, 0, 1, 0, 2, 1),
+('soporte_insuficiente', 'Operaciones', 'Soporte post-implementación insuficiente', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('continuidad_operativa', 'Operaciones', 'Plan de continuidad operativa incompleto', 'ambos', 0, 1, 1, 1, 0, 3, 1),
+('capacidad_soporte_negocio', 'Operaciones', 'Capacidad del negocio para operar la solución', 'ambos', 1, 1, 0, 1, 0, 3, 1),
+('gestion_configuracion_debil', 'Operaciones', 'Gestión de configuración y cambios débil', 'ambos', 1, 1, 0, 1, 0, 3, 1),
+('backlog_no_refinado', 'Metodología Ágil', 'Backlog sin refinamiento continuo', 'scrum', 1, 1, 0, 1, 0, 3, 1),
+('definicion_terminado_ambigua', 'Metodología Ágil', 'Definición de terminado ambigua', 'scrum', 1, 1, 0, 1, 0, 3, 1),
+('velocidad_inestable', 'Metodología Ágil', 'Velocidad del equipo inestable entre sprints', 'scrum', 0, 1, 0, 1, 0, 2, 1),
+('deuda_backlog_defectos', 'Metodología Ágil', 'Acumulación de defectos en backlog', 'scrum', 0, 1, 1, 1, 0, 3, 1),
+('dependencia_equipos_externos', 'Metodología Ágil', 'Dependencia de equipos externos para completar historias', 'scrum', 1, 1, 1, 0, 0, 3, 1);
 
 INSERT INTO users (name, email, password_hash, role_id) VALUES
 ('Admin', 'admin@example.com', '$2y$12$TEU2ChKY7WJdBOxzBaU52envKOeRT8vosBZZQXAfx/Qm/TLoRHDl.', 1),
