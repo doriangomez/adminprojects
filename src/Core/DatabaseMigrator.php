@@ -444,6 +444,7 @@ class DatabaseMigrator
     private function ensureProjectNodesTable(): void
     {
         if ($this->db->tableExists('project_nodes')) {
+            $this->migrateProjectNodesTable();
             return;
         }
 
@@ -452,20 +453,16 @@ class DatabaseMigrator
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
                 parent_id INT NULL,
-                code VARCHAR(120) NOT NULL,
-                name VARCHAR(180) NOT NULL,
-                node_type ENUM('fase', 'carpeta', 'control', 'cambio', 'evidencia') NOT NULL DEFAULT 'carpeta',
-                iso_code VARCHAR(80),
-                status ENUM('pendiente', 'en_progreso', 'completado', 'bloqueado') NOT NULL DEFAULT 'pendiente',
-                critical TINYINT(1) DEFAULT 0,
-                sort_order INT DEFAULT 0,
-                linked_entity_type VARCHAR(80),
-                linked_entity_id INT,
+                node_type ENUM('folder','file') NOT NULL,
+                iso_clause VARCHAR(20) NULL,
+                title VARCHAR(180) NOT NULL,
+                description TEXT NULL,
+                file_path VARCHAR(255) NULL,
+                created_by INT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY project_code (project_id, code),
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-                FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE
+                FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
     }
@@ -489,6 +486,45 @@ class DatabaseMigrator
                 FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
                 FOREIGN KEY (uploaded_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
+        );
+    }
+
+    private function migrateProjectNodesTable(): void
+    {
+        $requiredColumns = [
+            'node_type',
+            'iso_clause',
+            'title',
+            'description',
+            'file_path',
+            'created_by',
+        ];
+
+        $hasAllColumns = array_reduce($requiredColumns, fn ($carry, $column) => $carry && $this->db->columnExists('project_nodes', $column), true);
+
+        if ($hasAllColumns) {
+            return;
+        }
+
+        $this->db->execute(
+            "ALTER TABLE project_nodes
+                MODIFY COLUMN node_type ENUM('folder','file') NOT NULL,
+                DROP COLUMN code,
+                DROP COLUMN name,
+                ADD COLUMN iso_clause VARCHAR(20) NULL AFTER node_type,
+                ADD COLUMN title VARCHAR(180) NOT NULL AFTER iso_clause,
+                ADD COLUMN description TEXT NULL AFTER title,
+                ADD COLUMN file_path VARCHAR(255) NULL AFTER description,
+                ADD COLUMN created_by INT NULL AFTER file_path,
+                DROP COLUMN iso_code,
+                DROP COLUMN status,
+                DROP COLUMN critical,
+                DROP COLUMN sort_order,
+                DROP COLUMN linked_entity_type,
+                DROP COLUMN linked_entity_id,
+                DROP COLUMN updated_at,
+                DROP INDEX project_code,
+                ADD FOREIGN KEY (created_by) REFERENCES users(id)"
         );
     }
 

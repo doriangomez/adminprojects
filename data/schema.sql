@@ -203,20 +203,16 @@ CREATE TABLE project_nodes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
     parent_id INT NULL,
-    code VARCHAR(120) NOT NULL,
-    name VARCHAR(180) NOT NULL,
-    node_type ENUM('fase', 'carpeta', 'control', 'cambio', 'evidencia') NOT NULL DEFAULT 'carpeta',
-    iso_code VARCHAR(80),
-    status ENUM('pendiente', 'en_progreso', 'completado', 'bloqueado') NOT NULL DEFAULT 'pendiente',
-    critical TINYINT(1) DEFAULT 0,
-    sort_order INT DEFAULT 0,
-    linked_entity_type VARCHAR(80),
-    linked_entity_id INT,
+    node_type ENUM('folder','file') NOT NULL,
+    iso_clause VARCHAR(20) NULL,
+    title VARCHAR(180) NOT NULL,
+    description TEXT NULL,
+    file_path VARCHAR(255) NULL,
+    created_by INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY project_code (project_id, code),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE
+    FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE project_files (

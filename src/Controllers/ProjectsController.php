@@ -431,8 +431,7 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.manage');
 
         try {
-            $projectsRepo = new ProjectsRepository($this->db);
-            $nodesRepo = new ProjectNodesRepository($this->db, $projectsRepo);
+            $nodesRepo = new ProjectNodesRepository($this->db);
             $this->syncProjectNodesFromDb($projectId);
             $nodesRepo->storeFile($projectId, $nodeId, $_FILES['node_file'] ?? [], (int) ($this->auth->user()['id'] ?? 0));
             $this->syncProjectNodesFromDb($projectId);
@@ -449,6 +448,66 @@ class ProjectsController extends Controller
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => 'No se pudo adjuntar el archivo al nodo.']
+            ));
+        }
+    }
+
+    public function createFolder(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $title = trim((string) ($_POST['title'] ?? ''));
+            $parentId = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int) $_POST['parent_id'] : null;
+            $isoClause = isset($_POST['iso_clause']) && $_POST['iso_clause'] !== '' ? (string) $_POST['iso_clause'] : null;
+            $description = trim((string) ($_POST['description'] ?? ''));
+
+            if ($title === '') {
+                throw new \InvalidArgumentException('El nombre de la carpeta es obligatorio.');
+            }
+
+            $nodesRepo->createFolder(
+                $projectId,
+                $title,
+                $parentId,
+                $isoClause,
+                $description !== '' ? $description : null,
+                (int) ($this->auth->user()['id'] ?? 0)
+            );
+            $this->syncProjectNodesFromDb($projectId);
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => $e->getMessage()]
+            ));
+        } catch (\Throwable $e) {
+            error_log('Error al crear carpeta del proyecto: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => 'No se pudo crear la carpeta del proyecto.']
+            ));
+        }
+    }
+
+    public function deleteNode(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $nodesRepo->deleteNode($projectId, $nodeId);
+            $this->syncProjectNodesFromDb($projectId);
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\Throwable $e) {
+            error_log('Error al eliminar nodo documental: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => 'No se pudo eliminar el nodo.']
             ));
         }
     }
@@ -510,7 +569,7 @@ class ProjectsController extends Controller
         $designChangesRepo = new DesignChangesRepository($this->db);
         $users = (new UsersRepository($this->db))->all();
         $nodeSync = $this->syncProjectNodes((int) ($project['id'] ?? 0), (string) ($project['methodology'] ?? 'cascada'), $project['phase'] ?? null);
-        $project = array_merge($project, $nodeSync['flags'] ?? []);
+        $project = array_merge($nodeSync['flags'] ?? [], $project);
 
         return [
             'title' => 'Detalle de proyecto',
@@ -967,8 +1026,7 @@ class ProjectsController extends Controller
     private function syncProjectNodes(int $projectId, string $methodology, ?string $phase = null): array
     {
         $config = (new ConfigService($this->db))->getConfig();
-        $projectsRepo = new ProjectsRepository($this->db);
-        $nodesRepo = new ProjectNodesRepository($this->db, $projectsRepo);
+        $nodesRepo = new ProjectNodesRepository($this->db);
 
         return $nodesRepo->synchronizeFromProject(
             $projectId,

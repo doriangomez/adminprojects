@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 class ProjectNodesRepository
 {
-    private const STATUSES = ['pendiente', 'en_progreso', 'completado', 'bloqueado'];
+    private const REQUIRED_CLAUSES = ['8.3.2', '8.3.3', '8.3.4', '8.3.5'];
 
-    public function __construct(
-        private Database $db,
-        private ?ProjectsRepository $projectsRepo = null
-    ) {
-        $this->projectsRepo ??= new ProjectsRepository($this->db);
+    public function __construct(private Database $db)
+    {
     }
 
     public function synchronizeFromProject(int $projectId, string $methodology, ?string $phase, array $phasesByMethodology): array
@@ -24,35 +21,116 @@ class ProjectNodesRepository
         }
 
         $phases = is_array($phasesByMethodology[$methodology] ?? null) ? $phasesByMethodology[$methodology] : [];
-        $this->ensureBaseTree($projectId, $phases);
-        $this->syncPhaseNodes($projectId, $phase, $phases);
-        $isoData = $this->syncIsoNodes($projectId);
+        $this->ensureBaseTree($projectId, $phases, $phase);
 
         return [
-            'flags' => $isoData['flags'],
+            'flags' => $this->defaultIsoFlags(),
             'nodes' => $this->treeWithFiles($projectId),
-            'pending_critical' => $isoData['pending_critical'],
+            'pending_critical' => $this->pendingCriticalNodes($projectId),
         ];
     }
 
-    public function criticalPendingNodes(int $projectId): array
+    public function createFolder(int $projectId, string $title, ?int $parentId, ?string $isoClause, ?string $description, ?int $userId = null): int
     {
-        if (!$this->db->tableExists('project_nodes')) {
-            return [];
+        $this->assertTable();
+        $parent = null;
+
+        if ($parentId !== null) {
+            $parent = $this->findNode($projectId, $parentId);
+            if (!$parent || $parent['node_type'] !== 'folder') {
+                throw new \InvalidArgumentException('La carpeta padre no es válida.');
+            }
         }
 
-        return $this->db->fetchAll(
-            'SELECT id, name, code, status
-             FROM project_nodes
-             WHERE project_id = :project
-               AND critical = 1
-               AND status != :completed
-             ORDER BY sort_order ASC, id ASC',
+        return $this->db->insert(
+            'INSERT INTO project_nodes (project_id, parent_id, node_type, iso_clause, title, description, created_by)
+             VALUES (:project_id, :parent_id, :node_type, :iso_clause, :title, :description, :created_by)',
             [
-                ':project' => $projectId,
-                ':completed' => 'completado',
+                ':project_id' => $projectId,
+                ':parent_id' => $parentId,
+                ':node_type' => 'folder',
+                ':iso_clause' => $isoClause ?: $this->resolveIsoClause($projectId, $parentId),
+                ':title' => $title,
+                ':description' => $description,
+                ':created_by' => $userId ?: null,
             ]
         );
+    }
+
+    public function storeFile(int $projectId, int $parentId, array $file, ?int $userId = null): array
+    {
+        $this->assertTable();
+        $parent = $this->findNode($projectId, $parentId);
+
+        if (!$parent || $parent['node_type'] !== 'folder') {
+            throw new \InvalidArgumentException('Selecciona una carpeta válida para adjuntar.');
+        }
+
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            throw new \InvalidArgumentException('Selecciona un archivo válido para subir.');
+        }
+
+        $originalName = (string) ($file['name'] ?? 'archivo');
+        $safeName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
+        $safeName = $safeName !== '' ? $safeName : 'documento';
+
+        $nodeId = $this->db->insert(
+            'INSERT INTO project_nodes (project_id, parent_id, node_type, iso_clause, title, description, created_by)
+             VALUES (:project_id, :parent_id, :node_type, :iso_clause, :title, :description, :created_by)',
+            [
+                ':project_id' => $projectId,
+                ':parent_id' => $parentId,
+                ':node_type' => 'file',
+                ':iso_clause' => $this->resolveIsoClause($projectId, $parentId),
+                ':title' => $safeName,
+                ':description' => null,
+                ':created_by' => $userId ?: null,
+            ]
+        );
+
+        $targetDir = __DIR__ . '/../../public/storage/projects/' . $projectId . '/' . $nodeId;
+        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            throw new \RuntimeException('No se pudo preparar el directorio de almacenamiento.');
+        }
+
+        $targetPath = $targetDir . '/' . $safeName;
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            throw new \RuntimeException('No se pudo guardar el archivo.');
+        }
+
+        $publicPath = '/storage/projects/' . $projectId . '/' . $nodeId . '/' . $safeName;
+        $this->db->execute(
+            'UPDATE project_nodes SET file_path = :file_path WHERE id = :id',
+            [
+                ':file_path' => $publicPath,
+                ':id' => $nodeId,
+            ]
+        );
+
+        return [
+            'id' => $nodeId,
+            'file_name' => $safeName,
+            'storage_path' => $publicPath,
+            'created_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    public function deleteNode(int $projectId, int $nodeId): void
+    {
+        $this->assertTable();
+        $node = $this->findNode($projectId, $nodeId);
+        if (!$node) {
+            return;
+        }
+
+        foreach ($this->descendantIds($projectId, $nodeId) as $idToRemove) {
+            $this->removePhysicalFiles($projectId, $idToRemove);
+        }
+
+        $this->db->execute('DELETE FROM project_nodes WHERE id = :id AND project_id = :project_id', [
+            ':id' => $nodeId,
+            ':project_id' => $projectId,
+        ]);
     }
 
     public function treeWithFiles(int $projectId): array
@@ -62,152 +140,118 @@ class ProjectNodesRepository
         }
 
         $nodes = $this->db->fetchAll(
-            'SELECT id, parent_id, name, code, node_type, iso_code, status, critical, sort_order, created_at, updated_at
+            'SELECT id, parent_id, node_type, iso_clause, title, description, file_path, created_at
              FROM project_nodes
              WHERE project_id = :project
-             ORDER BY parent_id IS NULL DESC, sort_order ASC, id ASC',
+             ORDER BY parent_id IS NULL DESC, created_at ASC, id ASC',
             [':project' => $projectId]
         );
 
-        if (empty($nodes)) {
-            return [];
-        }
+        $folders = [];
+        $filesByFolder = [];
 
-        $nodeIds = array_column($nodes, 'id');
-        $files = [];
-        if ($this->db->tableExists('project_files')) {
-            $files = $this->db->fetchAll(
-                'SELECT id, project_node_id, file_name, storage_path, mime_type, size_bytes, uploaded_by, created_at
-                 FROM project_files
-                 WHERE project_node_id IN (' . implode(',', array_fill(0, count($nodeIds), '?')) . ')
-                 ORDER BY created_at DESC',
-                $nodeIds
-            );
-        }
-
-        $fileIndex = [];
-        foreach ($files as $file) {
-            $nodeId = (int) ($file['project_node_id'] ?? 0);
-            $fileIndex[$nodeId][] = $file;
-        }
-
-        $indexed = [];
         foreach ($nodes as $node) {
-            $node['children'] = [];
+            if ($node['node_type'] === 'file') {
+                $parent = (int) ($node['parent_id'] ?? 0);
+                $filesByFolder[$parent][] = [
+                    'id' => (int) $node['id'],
+                    'file_name' => $node['title'],
+                    'storage_path' => $node['file_path'],
+                    'created_at' => $node['created_at'],
+                    'iso_clause' => $node['iso_clause'] ?? null,
+                ];
+                continue;
+            }
+
             $nodeId = (int) $node['id'];
-            $node['files'] = $fileIndex[$nodeId] ?? [];
-            $indexed[$nodeId] = $node;
+            $folders[$nodeId] = [
+                'id' => $nodeId,
+                'parent_id' => $node['parent_id'],
+                'name' => $node['title'],
+                'iso_code' => $node['iso_clause'],
+                'status' => 'pendiente',
+                'description' => $node['description'] ?? null,
+                'files' => [],
+                'children' => [],
+            ];
         }
+
+        foreach ($folders as $folderId => &$folder) {
+            $folder['files'] = $filesByFolder[$folderId] ?? [];
+        }
+        unset($folder);
 
         $tree = [];
-        foreach ($indexed as $nodeId => &$node) {
-            $parentId = $node['parent_id'];
-            if ($parentId !== null && isset($indexed[$parentId])) {
-                $indexed[$parentId]['children'][] = &$node;
+        foreach ($folders as $folderId => &$folder) {
+            $parentId = $folder['parent_id'];
+            if ($parentId !== null && isset($folders[(int) $parentId])) {
+                $folders[(int) $parentId]['children'][] = &$folder;
             } else {
-                $tree[] = &$node;
+                $tree[] = &$folder;
             }
         }
-        unset($node);
+        unset($folder);
+
+        foreach ($tree as &$root) {
+            $this->refreshFolderStatus($root);
+        }
+        unset($root);
 
         return $tree;
     }
 
-    public function storeFile(int $projectId, int $nodeId, array $file, ?int $userId = null): array
+    public function pendingCriticalNodes(int $projectId): array
     {
-        if (!$this->db->tableExists('project_files')) {
-            throw new \InvalidArgumentException('No se encontró el repositorio de archivos del proyecto.');
+        $missing = [];
+        foreach (self::REQUIRED_CLAUSES as $clause) {
+            if ($this->countEvidenceForClause($projectId, $clause) === 0) {
+                $missing[] = [
+                    'iso_clause' => $clause,
+                    'title' => 'Evidencia requerida en ' . $clause,
+                ];
+            }
         }
 
-        $node = $this->db->fetchOne(
-            'SELECT id, project_id, code, name FROM project_nodes WHERE id = :id AND project_id = :project',
-            [':id' => $nodeId, ':project' => $projectId]
-        );
+        return $missing;
+    }
 
-        if (!$node) {
-            throw new \InvalidArgumentException('El nodo de proyecto no existe.');
-        }
-
-        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-            throw new \InvalidArgumentException('Selecciona un archivo válido para adjuntar.');
-        }
-
-        $originalName = (string) ($file['name'] ?? 'archivo');
-        $safeName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
-        $safeName = $safeName !== '' ? $safeName : 'adjunto';
-        $targetDir = __DIR__ . '/../../public/uploads/projects/' . $projectId . '/' . $nodeId;
-
-        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-            throw new \RuntimeException('No se pudo preparar la carpeta de adjuntos.');
-        }
-
-        $targetPath = $targetDir . '/' . $safeName;
-        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-            throw new \RuntimeException('No se pudo guardar el archivo en el nodo.');
-        }
-
-        $publicPath = '/project/public/uploads/projects/' . $projectId . '/' . $nodeId . '/' . $safeName;
-        $mimeType = (string) ($file['type'] ?? mime_content_type($targetPath));
-        $sizeBytes = (int) ($file['size'] ?? filesize($targetPath));
-
-        $fileId = $this->db->insert(
-            'INSERT INTO project_files (project_node_id, file_name, storage_path, mime_type, size_bytes, uploaded_by)
-             VALUES (:node, :file_name, :path, :mime, :size_bytes, :uploaded_by)',
-            [
-                ':node' => $nodeId,
-                ':file_name' => $safeName,
-                ':path' => $publicPath,
-                ':mime' => $mimeType !== '' ? $mimeType : null,
-                ':size_bytes' => $sizeBytes > 0 ? $sizeBytes : null,
-                ':uploaded_by' => $userId ?: null,
-            ]
-        );
-
-        return [
-            'id' => $fileId,
-            'file_name' => $safeName,
-            'storage_path' => $publicPath,
-            'mime_type' => $mimeType,
-            'size_bytes' => $sizeBytes,
+    private function ensureBaseTree(int $projectId, array $phases, ?string $currentPhase): void
+    {
+        $rootId = $this->ensureFolder($projectId, null, 'Diseño y Desarrollo (ISO 9001 · 8.3)', '8.3', 'Estructura documental ISO 9001 8.3');
+        $clauses = [
+            '8.3.2' => 'Planificación',
+            '8.3.3' => 'Entradas',
+            '8.3.4' => 'Controles',
+            '8.3.5' => 'Salidas',
+            '8.3.6' => 'Cambios',
         ];
-    }
 
-    private function ensureBaseTree(int $projectId, array $phases): void
-    {
-        $phasesRoot = $this->ensureNode($projectId, null, 'Fases', 'carpeta', 'phases', 0, 0, null);
-        foreach ($phases as $index => $phase) {
-            $this->ensureNode(
-                $projectId,
-                $phasesRoot,
-                ucfirst($phase),
-                'fase',
-                'phase:' . $phase,
-                0,
-                $index
-            );
+        foreach ($clauses as $code => $label) {
+            $this->ensureFolder($projectId, $rootId, $code . ' ' . $label, $code, null);
         }
 
-        $isoRoot = $this->ensureNode($projectId, null, 'ISO 9001 - 8.3', 'carpeta', 'iso_8_3', 0, 100);
-        $this->ensureNode($projectId, $isoRoot, 'Entradas de diseño', 'control', 'design_inputs', 1, 110, '8.3.3');
-        $this->ensureNode($projectId, $isoRoot, 'Revisión de diseño', 'control', 'design_review', 1, 120, '8.3.4');
-        $this->ensureNode($projectId, $isoRoot, 'Verificación de diseño', 'control', 'design_verification', 1, 130, '8.3.4');
-        $this->ensureNode($projectId, $isoRoot, 'Validación de diseño', 'control', 'design_validation', 1, 140, '8.3.4');
-        $this->ensureNode($projectId, $isoRoot, 'Control de cambios de diseño', 'cambio', 'design_changes', 1, 150, '8.3.6');
+        $phasesRoot = $this->ensureFolder($projectId, null, 'Fases del Proyecto', null, 'Estructura por fases');
+        foreach ($phases as $phase) {
+            $this->ensureFolder($projectId, $phasesRoot, ucfirst((string) $phase), null, null);
+        }
+
+        $this->ensureFolder($projectId, null, 'Riesgos', null, 'Documentos de riesgos del proyecto');
     }
 
-    private function ensureNode(
-        int $projectId,
-        ?int $parentId,
-        string $name,
-        string $nodeType,
-        string $code,
-        int $critical,
-        int $sortOrder,
-        ?string $isoCode = null
-    ): int {
+    private function ensureFolder(int $projectId, ?int $parentId, string $title, ?string $isoClause, ?string $description): int
+    {
         $existing = $this->db->fetchOne(
-            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-            [':project' => $projectId, ':code' => $code]
+            'SELECT id FROM project_nodes WHERE project_id = :project AND parent_id ' . ($parentId === null ? 'IS NULL' : '= :parent') . ' AND title = :title AND node_type = "folder" LIMIT 1',
+            $parentId === null
+                ? [
+                    ':project' => $projectId,
+                    ':title' => $title,
+                ]
+                : [
+                    ':project' => $projectId,
+                    ':parent' => $parentId,
+                    ':title' => $title,
+                ]
         );
 
         if ($existing) {
@@ -215,127 +259,135 @@ class ProjectNodesRepository
         }
 
         return $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, code, name, node_type, iso_code, status, critical, sort_order)
-             VALUES (:project_id, :parent_id, :code, :name, :node_type, :iso_code, :status, :critical, :sort_order)',
+            'INSERT INTO project_nodes (project_id, parent_id, node_type, iso_clause, title, description)
+             VALUES (:project_id, :parent_id, :node_type, :iso_clause, :title, :description)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
-                ':code' => $code,
-                ':name' => $name,
-                ':node_type' => $nodeType,
-                ':iso_code' => $isoCode,
-                ':status' => 'pendiente',
-                ':critical' => $critical,
-                ':sort_order' => $sortOrder,
+                ':node_type' => 'folder',
+                ':iso_clause' => $isoClause,
+                ':title' => $title,
+                ':description' => $description,
             ]
         );
     }
 
-    private function syncPhaseNodes(int $projectId, ?string $currentPhase, array $phases): void
+    private function folderStatus(int $folderId, array $filesByFolder): string
     {
-        if (empty($phases)) {
-            return;
+        $hasFiles = !empty($filesByFolder[$folderId]);
+        return $hasFiles ? 'completado' : 'pendiente';
+    }
+
+    private function refreshFolderStatus(array &$folder): bool
+    {
+        $hasEvidence = !empty($folder['files']);
+
+        foreach ($folder['children'] as &$child) {
+            $hasEvidence = $this->refreshFolderStatus($child) || $hasEvidence;
         }
+        unset($child);
 
-        $currentIndex = $currentPhase !== null ? array_search($currentPhase, $phases, true) : false;
+        $folder['status'] = $hasEvidence ? 'completado' : 'pendiente';
 
-        foreach ($phases as $index => $phase) {
-            $status = 'pendiente';
-            if ($currentIndex !== false) {
-                if ($index < $currentIndex) {
-                    $status = 'completado';
-                } elseif ($index === $currentIndex) {
-                    $status = 'en_progreso';
-                }
-            } elseif ($index === 0) {
-                $status = 'en_progreso';
+        return $hasEvidence;
+    }
+
+    private function findNode(int $projectId, int $nodeId): ?array
+    {
+        return $this->db->fetchOne(
+            'SELECT id, project_id, parent_id, node_type, iso_clause FROM project_nodes WHERE id = :id AND project_id = :project_id',
+            [
+                ':id' => $nodeId,
+                ':project_id' => $projectId,
+            ]
+        );
+    }
+
+    private function resolveIsoClause(int $projectId, ?int $nodeId): ?string
+    {
+        $currentId = $nodeId;
+
+        while ($currentId !== null) {
+            $node = $this->findNode($projectId, $currentId);
+            if (!$node) {
+                break;
             }
 
-            $this->updateNodeStatusByCode($projectId, 'phase:' . $phase, $status);
+            if (!empty($node['iso_clause'])) {
+                return (string) $node['iso_clause'];
+            }
+
+            $currentId = $node['parent_id'] !== null ? (int) $node['parent_id'] : null;
+        }
+
+        return null;
+    }
+
+    private function removePhysicalFiles(int $projectId, int $nodeId): void
+    {
+        $baseDir = __DIR__ . '/../../public/storage/projects/' . $projectId . '/' . $nodeId;
+        if (is_dir($baseDir)) {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($baseDir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+
+            foreach ($files as $file) {
+                if ($file->isDir()) {
+                    @rmdir($file->getRealPath());
+                } else {
+                    @unlink($file->getRealPath());
+                }
+            }
+
+            @rmdir($baseDir);
         }
     }
 
-    private function syncIsoNodes(int $projectId): array
+    private function descendantIds(int $projectId, int $nodeId): array
     {
-        $flags = $this->defaultIsoFlags();
-        $designInputsCount = $this->safeCount(fn () => (new DesignInputsRepository($this->db))->countByProject($projectId));
-        $controlsRepo = new DesignControlsRepository($this->db);
-        $revisionStatus = $this->nodeStatusFromControls($controlsRepo, $projectId, 'revision');
-        $verificationStatus = $this->nodeStatusFromControls($controlsRepo, $projectId, 'verificacion');
-        $validationStatus = $this->nodeStatusFromControls($controlsRepo, $projectId, 'validacion');
+        $nodes = $this->db->fetchAll(
+            'SELECT id, parent_id FROM project_nodes WHERE project_id = :project',
+            [':project' => $projectId]
+        );
 
-        $changesRepo = new DesignChangesRepository($this->db);
-        $changeSummary = $this->designChangeSummary($changesRepo, $projectId);
-
-        $flags['design_inputs_defined'] = $designInputsCount > 0 ? 1 : 0;
-        $flags['design_review_done'] = $revisionStatus === 'completado' || $revisionStatus === 'en_progreso' ? 1 : 0;
-        $flags['design_verification_done'] = $verificationStatus === 'completado' ? 1 : 0;
-        $flags['design_validation_done'] = $validationStatus === 'completado' ? 1 : 0;
-
-        $this->updateNodeStatusByCode($projectId, 'design_inputs', $designInputsCount > 0 ? 'completado' : 'pendiente');
-        $this->updateNodeStatusByCode($projectId, 'design_review', $revisionStatus);
-        $this->updateNodeStatusByCode($projectId, 'design_verification', $verificationStatus);
-        $this->updateNodeStatusByCode($projectId, 'design_validation', $validationStatus);
-
-        $changeStatus = $changeSummary['pending'] > 0 ? 'bloqueado' : 'completado';
-        $this->updateNodeStatusByCode($projectId, 'design_changes', $changeStatus);
-
-        $this->projectsRepo?->persistIsoFlags($projectId, $flags, null);
-
-        return [
-            'flags' => $flags,
-            'pending_critical' => $this->criticalPendingNodes($projectId),
-        ];
-    }
-
-    private function updateNodeStatusByCode(int $projectId, string $code, string $status): void
-    {
-        if (!in_array($status, self::STATUSES, true)) {
-            return;
+        $childrenByParent = [];
+        foreach ($nodes as $node) {
+            $parent = $node['parent_id'] === null ? null : (int) $node['parent_id'];
+            $childrenByParent[$parent][] = (int) $node['id'];
         }
 
-        $this->db->execute(
-            'UPDATE project_nodes SET status = :status WHERE project_id = :project AND code = :code',
+        $stack = [$nodeId];
+        $collected = [];
+
+        while ($stack) {
+            $current = array_pop($stack);
+            $collected[] = $current;
+            foreach ($childrenByParent[$current] ?? [] as $childId) {
+                $stack[] = $childId;
+            }
+        }
+
+        return $collected;
+    }
+
+    private function countEvidenceForClause(int $projectId, string $clause): int
+    {
+        $result = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND node_type = "file" AND iso_clause = :clause',
             [
-                ':status' => $status,
-                ':project' => $projectId,
-                ':code' => $code,
+                ':project_id' => $projectId,
+                ':clause' => $clause,
             ]
         );
+
+        return (int) ($result['total'] ?? 0);
     }
 
-    private function nodeStatusFromControls(DesignControlsRepository $repo, int $projectId, string $type): string
+    private function assertTable(): void
     {
-        $total = $repo->countByType($projectId, $type);
-        if ($total <= 0) {
-            return 'pendiente';
-        }
-
-        $approved = $repo->countByTypeAndResult($projectId, $type, 'aprobado');
-        if ($approved > 0) {
-            return 'completado';
-        }
-
-        return 'en_progreso';
-    }
-
-    private function designChangeSummary(DesignChangesRepository $repo, int $projectId): array
-    {
-        $summary = $repo->statusSummary($projectId);
-
-        return [
-            'pending' => (int) ($summary['pending'] ?? 0),
-            'approved' => (int) ($summary['approved'] ?? 0),
-            'total' => (int) ($summary['total'] ?? 0),
-        ];
-    }
-
-    private function safeCount(callable $callback): int
-    {
-        try {
-            return (int) $callback();
-        } catch (\Throwable) {
-            return 0;
+        if (!$this->db->tableExists('project_nodes')) {
+            throw new \InvalidArgumentException('No se encontró el repositorio documental del proyecto.');
         }
     }
 
