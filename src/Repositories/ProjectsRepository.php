@@ -25,6 +25,8 @@ class ProjectsRepository
         $hasPriorityTextColumn = $this->db->columnExists('projects', 'priority');
         $hasStatusTextColumn = $this->db->columnExists('projects', 'status');
         $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
+        $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
+        $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -76,6 +78,18 @@ class ProjectsRepository
             'JOIN clients c ON c.id = p.client_id',
             'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risk_evaluations WHERE selected = 1 GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
+
+        if ($hasRiskScoreColumn) {
+            $select[] = 'p.risk_score';
+        } else {
+            $select[] = 'NULL AS risk_score';
+        }
+
+        if ($hasRiskLevelColumn) {
+            $select[] = 'p.risk_level';
+        } else {
+            $select[] = 'NULL AS risk_level';
+        }
 
         if ($hasPmColumn) {
             $select[] = 'p.pm_id';
@@ -238,6 +252,8 @@ class ProjectsRepository
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
         $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
         $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
+        $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
+        $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
 
         if (!empty($filters['client_id'])) {
             $conditions[] = 'c.id = :client';
@@ -261,9 +277,25 @@ class ProjectsRepository
 
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
+        $totalsSelect = [
+            'COUNT(*) AS total',
+            'SUM(p.planned_hours) AS planned_hours',
+            'SUM(p.actual_hours) AS actual_hours',
+            'AVG(p.progress) AS avg_progress',
+        ];
+
+        if ($hasRiskScoreColumn) {
+            $totalsSelect[] = 'AVG(p.risk_score) AS avg_risk_score';
+        }
+
+        if ($hasRiskLevelColumn) {
+            $totalsSelect[] = "SUM(CASE WHEN p.risk_level = 'alto' THEN 1 ELSE 0 END) AS risk_level_high";
+            $totalsSelect[] = "SUM(CASE WHEN p.risk_level = 'medio' THEN 1 ELSE 0 END) AS risk_level_medium";
+            $totalsSelect[] = "SUM(CASE WHEN p.risk_level = 'bajo' THEN 1 ELSE 0 END) AS risk_level_low";
+        }
+
         $totals = $this->db->fetchOne(
-            'SELECT COUNT(*) AS total, SUM(p.planned_hours) AS planned_hours, SUM(p.actual_hours) AS actual_hours, AVG(p.progress) AS avg_progress
-             FROM projects p JOIN clients c ON c.id = p.client_id ' . $whereClause,
+            'SELECT ' . implode(', ', $totalsSelect) . ' FROM projects p JOIN clients c ON c.id = p.client_id ' . $whereClause,
             $params
         );
 
@@ -293,6 +325,12 @@ class ProjectsRepository
             'planned_hours' => (int) ($totals['planned_hours'] ?? 0),
             'actual_hours' => (int) ($totals['actual_hours'] ?? 0),
             'at_risk' => (int) ($atRisk['total'] ?? 0),
+            'avg_risk_score' => $hasRiskScoreColumn ? round((float) ($totals['avg_risk_score'] ?? 0), 1) : 0.0,
+            'risk_levels' => [
+                'alto' => $hasRiskLevelColumn ? (int) ($totals['risk_level_high'] ?? 0) : 0,
+                'medio' => $hasRiskLevelColumn ? (int) ($totals['risk_level_medium'] ?? 0) : 0,
+                'bajo' => $hasRiskLevelColumn ? (int) ($totals['risk_level_low'] ?? 0) : 0,
+            ],
         ];
     }
 

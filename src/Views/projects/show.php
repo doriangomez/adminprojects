@@ -4,6 +4,8 @@ $project = $project ?? [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $signal = $project['signal'] ?? ['label' => 'Verde', 'code' => 'green', 'reasons' => []];
 $risks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+$riskScore = (float) ($project['risk_score'] ?? 0);
+$riskLevel = $project['risk_level'] ?? 'Sin dato';
 ?>
 
 <section class="card" style="padding:16px; border:1px solid var(--border); border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:12px;">
@@ -55,6 +57,14 @@ $risks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
         <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
             <strong>Riesgos</strong>
             <div><?= htmlspecialchars($risks ? implode(', ', $risks) : 'Sin riesgos asociados') ?></div>
+        </div>
+        <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
+            <strong>Score de riesgo</strong>
+            <div><?= number_format($riskScore, 1) ?></div>
+        </div>
+        <div class="info-item" style="border:1px solid var(--border); padding:10px; border-radius:12px; background:#f8fafc;">
+            <strong>Nivel de riesgo</strong>
+            <div><?= htmlspecialchars(ucfirst((string) $riskLevel)) ?></div>
         </div>
     </div>
 
