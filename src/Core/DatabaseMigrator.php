@@ -59,6 +59,7 @@ class DatabaseMigrator
             $this->addProjectPhase();
             $this->ensureProjectIsoControls();
             $this->ensureProjectDesignInputsTable();
+            $this->ensureProjectDesignControlsTable();
             $this->ensureRiskCatalogTable();
             $this->ensureProjectRiskEvaluationsTable();
             $this->seedRiskCatalog();
@@ -379,6 +380,32 @@ class DatabaseMigrator
                 resolved_conflict TINYINT(1) DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB"
+        );
+    }
+
+    private function ensureProjectDesignControlsTable(): void
+    {
+        if ($this->db->tableExists('project_design_controls')) {
+            return;
+        }
+
+        $this->db->execute(
+            "CREATE TABLE project_design_controls (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                control_type ENUM(
+                    'revision',
+                    'verificacion',
+                    'validacion'
+                ) NOT NULL,
+                description TEXT NOT NULL,
+                result ENUM('aprobado','observaciones','rechazado') NOT NULL,
+                corrective_action TEXT NULL,
+                performed_by INT NOT NULL,
+                performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (performed_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
     }

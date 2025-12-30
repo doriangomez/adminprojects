@@ -121,7 +121,7 @@ class ProjectsController extends Controller
             );
             $payload = $this->applyLifecycleGovernance($project, $payload, $delivery, $repo, $riskCatalog);
             unset($payload['risk_catalog']);
-            $repo->updateProject($id, $payload);
+            $repo->updateProject($id, $payload, (int) ($this->auth->user()['id'] ?? 0));
             $this->logRiskAudit($auditRepo, $project['id'], $previousEvaluations, $payload['risk_evaluations'] ?? []);
             $this->logProjectChange($auditRepo, $project, $payload);
 
