@@ -157,6 +157,36 @@ class DesignChangesRepository
         return (int) $stmt->fetchColumn();
     }
 
+    public function statusSummary(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_design_changes')) {
+            return ['pending' => 0, 'approved' => 0, 'total' => 0];
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT status, COUNT(*) AS total
+             FROM project_design_changes
+             WHERE project_id = :project
+             GROUP BY status',
+            [':project' => $projectId]
+        );
+
+        $summary = ['pending' => 0, 'approved' => 0, 'total' => 0];
+        foreach ($rows as $row) {
+            $status = $row['status'] ?? '';
+            $count = (int) ($row['total'] ?? 0);
+            $summary['total'] += $count;
+            if ($status === 'pendiente') {
+                $summary['pending'] = $count;
+            }
+            if ($status === 'aprobado') {
+                $summary['approved'] = $count;
+            }
+        }
+
+        return $summary;
+    }
+
     public function impactLevels(): array
     {
         return self::IMPACT_LEVELS;

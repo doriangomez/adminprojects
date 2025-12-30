@@ -61,6 +61,8 @@ class DatabaseMigrator
             $this->ensureProjectDesignInputsTable();
             $this->ensureProjectDesignControlsTable();
             $this->ensureProjectDesignChangesTable();
+            $this->ensureProjectNodesTable();
+            $this->ensureProjectFilesTable();
             $this->ensureRiskCatalogTable();
             $this->ensureProjectRiskEvaluationsTable();
             $this->seedRiskCatalog();
@@ -435,6 +437,57 @@ class DatabaseMigrator
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (created_by) REFERENCES users(id),
                 FOREIGN KEY (approved_by) REFERENCES users(id)
+            ) ENGINE=InnoDB"
+        );
+    }
+
+    private function ensureProjectNodesTable(): void
+    {
+        if ($this->db->tableExists('project_nodes')) {
+            return;
+        }
+
+        $this->db->execute(
+            "CREATE TABLE project_nodes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                parent_id INT NULL,
+                code VARCHAR(120) NOT NULL,
+                name VARCHAR(180) NOT NULL,
+                node_type ENUM('fase', 'carpeta', 'control', 'cambio', 'evidencia') NOT NULL DEFAULT 'carpeta',
+                iso_code VARCHAR(80),
+                status ENUM('pendiente', 'en_progreso', 'completado', 'bloqueado') NOT NULL DEFAULT 'pendiente',
+                critical TINYINT(1) DEFAULT 0,
+                sort_order INT DEFAULT 0,
+                linked_entity_type VARCHAR(80),
+                linked_entity_id INT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY project_code (project_id, code),
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB"
+        );
+    }
+
+    private function ensureProjectFilesTable(): void
+    {
+        if (!$this->db->tableExists('project_nodes') || $this->db->tableExists('project_files')) {
+            return;
+        }
+
+        $this->db->execute(
+            "CREATE TABLE project_files (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_node_id INT NOT NULL,
+                file_name VARCHAR(255) NOT NULL,
+                storage_path VARCHAR(255) NOT NULL,
+                mime_type VARCHAR(150),
+                size_bytes BIGINT,
+                uploaded_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
+                FOREIGN KEY (uploaded_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
     }

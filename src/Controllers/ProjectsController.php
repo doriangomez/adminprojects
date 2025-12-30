@@ -106,6 +106,7 @@ class ProjectsController extends Controller
             $payload = $this->applyLifecycleGovernance($project, $payload, $delivery, $repo, $riskCatalog);
             unset($payload['risk_catalog']);
             $repo->updateProject($id, $payload, (int) ($this->auth->user()['id'] ?? 0));
+            $this->syncProjectNodes($id, (string) ($payload['methodology'] ?? ($project['methodology'] ?? 'cascada')), $payload['phase'] ?? ($project['phase'] ?? null));
             $this->logRiskAudit($auditRepo, $project['id'], $previousEvaluations, $payload['risk_evaluations'] ?? []);
             $this->logProjectChange($auditRepo, $project, $payload);
 
@@ -151,17 +152,9 @@ class ProjectsController extends Controller
 
         try {
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
-            $payload = array_merge($payload, [
-                'design_inputs_defined' => 0,
-                'design_review_done' => 0,
-                'design_verification_done' => 0,
-                'design_validation_done' => 0,
-                'client_participation' => 0,
-                'legal_requirements' => 0,
-                'change_control_required' => 0,
-            ]);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
+            $this->syncProjectNodes($projectId, (string) ($payload['methodology'] ?? 'cascada'), $payload['phase'] ?? null);
             $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
@@ -263,10 +256,10 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $designChangesRepo = new DesignChangesRepository($this->db);
-        if ($designChangesRepo->pendingCount($id) > 0) {
+        $nodeSync = $this->syncProjectNodes((int) $project['id'], (string) ($project['methodology'] ?? 'cascada'), $project['phase'] ?? null);
+        if (!empty($nodeSync['pending_critical'])) {
             http_response_code(400);
-            exit('No puedes cerrar el proyecto: hay cambios de diseño pendientes de aprobación.');
+            exit('No puedes cerrar el proyecto: hay nodos críticos pendientes en la estructura ISO 8.3.');
         }
 
         $confirm = (string) ($_POST['confirm'] ?? '');
@@ -340,6 +333,7 @@ class ProjectsController extends Controller
                 'resolved_conflict' => isset($_POST['resolved_conflict']) ? 1 : 0,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
+            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -357,6 +351,7 @@ class ProjectsController extends Controller
         try {
             $repo = new DesignInputsRepository($this->db);
             $repo->delete($inputId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
+            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -383,6 +378,7 @@ class ProjectsController extends Controller
                 'performed_at' => $_POST['performed_at'] ?? null,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
+            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -396,49 +392,11 @@ class ProjectsController extends Controller
     public function updateDesignOutputs(int $projectId): void
     {
         $this->requirePermission('projects.manage');
-        $repo = new ProjectsRepository($this->db);
-        $user = $this->auth->user() ?? [];
-        $project = $repo->findForUser($projectId, $user);
-
-        if (!$project) {
-            http_response_code(404);
-            exit('Proyecto no encontrado');
-        }
-
-        try {
-            $payload = [
-                'name' => $project['name'],
-                'status' => $project['status'],
-                'health' => $project['health'],
-                'priority' => $project['priority'],
-                'pm_id' => (int) ($project['pm_id'] ?? 0),
-                'project_type' => (string) ($project['project_type'] ?? 'convencional'),
-                'methodology' => (string) ($project['methodology'] ?? 'cascada'),
-                'phase' => $project['phase'] ?? null,
-                'budget' => (float) ($project['budget'] ?? 0),
-                'actual_cost' => (float) ($project['actual_cost'] ?? 0),
-                'planned_hours' => (float) ($project['planned_hours'] ?? 0),
-                'actual_hours' => (float) ($project['actual_hours'] ?? 0),
-                'progress' => (float) ($project['progress'] ?? 0),
-                'scope' => (string) ($project['scope'] ?? ''),
-                'design_inputs' => (string) ($project['design_inputs'] ?? ''),
-                'client_participation' => (int) ($project['client_participation'] ?? 0),
-                'start_date' => $project['start_date'] ?? null,
-                'end_date' => $project['end_date'] ?? null,
-                'design_review_done' => isset($_POST['design_review_done']) ? 1 : 0,
-                'design_verification_done' => isset($_POST['design_verification_done']) ? 1 : 0,
-                'design_validation_done' => isset($_POST['design_validation_done']) ? 1 : 0,
-            ];
-
-            $repo->updateProject($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
-            header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designOutputError' => $e->getMessage()]
-            ));
-        }
+        http_response_code(400);
+        $this->render('projects/show', array_merge(
+            $this->projectDetailData($projectId),
+            ['designOutputError' => 'Los indicadores de revisión, verificación y validación se calculan automáticamente a partir de los nodos y controles registrados.']
+        ));
     }
 
     public function storeDesignChange(int $projectId): void
@@ -457,12 +415,40 @@ class ProjectsController extends Controller
                 'requires_review_validation' => isset($_POST['requires_review_validation']) ? 1 : 0,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
+            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
                 ['designChangeError' => $e->getMessage()]
+            ));
+        }
+    }
+
+    public function uploadNodeFile(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $projectsRepo = new ProjectsRepository($this->db);
+            $nodesRepo = new ProjectNodesRepository($this->db, $projectsRepo);
+            $this->syncProjectNodesFromDb($projectId);
+            $nodesRepo->storeFile($projectId, $nodeId, $_FILES['node_file'] ?? [], (int) ($this->auth->user()['id'] ?? 0));
+            $this->syncProjectNodesFromDb($projectId);
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => $e->getMessage()]
+            ));
+        } catch (\Throwable $e) {
+            error_log('Error al adjuntar archivo en nodo: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => 'No se pudo adjuntar el archivo al nodo.']
             ));
         }
     }
@@ -475,6 +461,7 @@ class ProjectsController extends Controller
             $repo = new DesignChangesRepository($this->db);
             $repo->approve($changeId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
 
+            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -522,6 +509,8 @@ class ProjectsController extends Controller
         $designControlsRepo = new DesignControlsRepository($this->db);
         $designChangesRepo = new DesignChangesRepository($this->db);
         $users = (new UsersRepository($this->db))->all();
+        $nodeSync = $this->syncProjectNodes((int) ($project['id'] ?? 0), (string) ($project['methodology'] ?? 'cascada'), $project['phase'] ?? null);
+        $project = array_merge($project, $nodeSync['flags'] ?? []);
 
         return [
             'title' => 'Detalle de proyecto',
@@ -536,6 +525,8 @@ class ProjectsController extends Controller
             'designChanges' => $designChangesRepo->listByProject($id),
             'designChangeImpactLevels' => $designChangesRepo->impactLevels(),
             'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
+            'projectNodes' => $nodeSync['nodes'] ?? [],
+            'criticalNodes' => $nodeSync['pending_critical'] ?? [],
         ];
     }
 
@@ -633,9 +624,13 @@ class ProjectsController extends Controller
                 throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
             }
 
-            $designChangesRepo = new DesignChangesRepository($this->db);
-            if ($designChangesRepo->pendingCount((int) $current['id']) > 0) {
-                throw new \InvalidArgumentException('No puedes cerrar el proyecto: hay cambios de diseño pendientes de aprobación.');
+            $nodeSync = $this->syncProjectNodes((int) $current['id'], (string) ($payload['methodology'] ?? ($current['methodology'] ?? 'cascada')), $payload['phase'] ?? ($current['phase'] ?? null));
+            if (!empty($nodeSync['pending_critical'])) {
+                $pendingNames = array_map(fn ($node) => $node['name'] ?? ($node['code'] ?? ''), $nodeSync['pending_critical']);
+                $pendingSummary = implode(', ', array_filter($pendingNames, fn ($name) => $name !== ''));
+                throw new \InvalidArgumentException(
+                    'No puedes cerrar el proyecto: hay nodos críticos pendientes' . ($pendingSummary !== '' ? " ({$pendingSummary})." : '.')
+                );
             }
         }
 
@@ -967,6 +962,40 @@ class ProjectsController extends Controller
         }
 
         return ($actual - $planned) / $planned;
+    }
+
+    private function syncProjectNodes(int $projectId, string $methodology, ?string $phase = null): array
+    {
+        $config = (new ConfigService($this->db))->getConfig();
+        $projectsRepo = new ProjectsRepository($this->db);
+        $nodesRepo = new ProjectNodesRepository($this->db, $projectsRepo);
+
+        return $nodesRepo->synchronizeFromProject(
+            $projectId,
+            $methodology,
+            $phase,
+            $config['delivery']['phases'] ?? []
+        );
+    }
+
+    private function syncProjectNodesFromDb(int $projectId): array
+    {
+        try {
+            $projectsRepo = new ProjectsRepository($this->db);
+            $project = $projectsRepo->findForUser($projectId, $this->auth->user() ?? []);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (!$project) {
+            return [];
+        }
+
+        return $this->syncProjectNodes(
+            $projectId,
+            (string) ($project['methodology'] ?? 'cascada'),
+            $project['phase'] ?? null
+        );
     }
 
     private function defaultKpis(array $kpis): array

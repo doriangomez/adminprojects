@@ -15,6 +15,10 @@ $designChanges = is_array($designChanges ?? null) ? $designChanges : [];
 $designChangeImpactLevels = is_array($designChangeImpactLevels ?? null) ? $designChangeImpactLevels : [];
 $designChangeError = $designChangeError ?? null;
 $performers = is_array($performers ?? null) ? $performers : [];
+$projectNodes = is_array($projectNodes ?? null) ? $projectNodes : [];
+$criticalNodes = is_array($criticalNodes ?? null) ? $criticalNodes : [];
+$nodeFileError = $nodeFileError ?? null;
+$canManage = !empty($canManage);
 
 $designLabels = [
     'requisitos_funcionales' => 'Requisitos funcionales',
@@ -34,7 +38,64 @@ $designLabels = [
     'medio' => 'Medio',
     'alto' => 'Alto',
     'pendiente' => 'Pendiente',
+    'en_progreso' => 'En progreso',
+    'completado' => 'Completado',
+    'bloqueado' => 'Bloqueado',
 ];
+
+$renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePath, $project, $canManage, $designLabels) {
+    $status = $node['status'] ?? 'pendiente';
+    $statusLabel = $designLabels[$status] ?? ucfirst((string) $status);
+    $pillBg = '#fee2e2';
+    $pillColor = '#991b1b';
+    if ($status === 'completado') {
+        $pillBg = '#dcfce7';
+        $pillColor = '#166534';
+    } elseif ($status === 'en_progreso') {
+        $pillBg = '#e0f2fe';
+        $pillColor = '#075985';
+    } elseif ($status === 'bloqueado') {
+        $pillBg = '#fef9c3';
+        $pillColor = '#92400e';
+    }
+
+    ob_start();
+    ?>
+    <div style="margin-left: <?= max(0, $level * 12) ?>px; border-left:1px dashed var(--border); padding-left:8px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div>
+                <strong><?= htmlspecialchars($node['name'] ?? ($node['code'] ?? 'Nodo')) ?></strong>
+                <?php if (!empty($node['iso_code'])): ?>
+                    <small style="color:var(--muted); display:block;">ISO: <?= htmlspecialchars((string) $node['iso_code']) ?></small>
+                <?php endif; ?>
+            </div>
+            <span class="pill" style="background: <?= $pillBg ?>; color: <?= $pillColor ?>;"><?= htmlspecialchars($statusLabel) ?></span>
+        </div>
+        <?php if (!empty($node['files'])): ?>
+            <ul style="margin:6px 0 0 0; padding-left:16px; display:flex; flex-direction:column; gap:4px;">
+                <?php foreach ($node['files'] as $file): ?>
+                    <li>
+                        <a href="<?= htmlspecialchars($file['storage_path'] ?? '#') ?>" target="_blank"><?= htmlspecialchars($file['file_name'] ?? 'Archivo') ?></a>
+                        <small style="color:var(--muted); margin-left:6px;"><?= htmlspecialchars(substr((string) ($file['created_at'] ?? ''), 0, 16)) ?></small>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+        <?php if ($canManage): ?>
+            <form method="POST" enctype="multipart/form-data" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($node['id'] ?? 0) ?>/files" style="margin-top:6px; display:flex; gap:8px; align-items:center;">
+                <input type="file" name="node_file" required style="flex:1; border:1px solid var(--border); padding:8px; border-radius:8px;">
+                <button type="submit" class="action-btn">Subir</button>
+            </form>
+        <?php endif; ?>
+        <?php if (!empty($node['children'])): ?>
+            <?php foreach ($node['children'] as $child): ?>
+                <?= $renderNode($child, $level + 1); ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+    <?php
+    return ob_get_clean();
+};
 ?>
 
 <section class="card" style="padding:16px; border:1px solid var(--border); border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:12px;">
@@ -145,6 +206,31 @@ $designLabels = [
             <h4 style="margin:4px 0;">Diseño y Desarrollo</h4>
         </div>
     </header>
+
+    <?php if (!empty($nodeFileError)): ?>
+        <div style="color:#b91c1c; font-weight:600;"><?= htmlspecialchars($nodeFileError) ?></div>
+    <?php endif; ?>
+
+    <?php if (!empty($projectNodes)): ?>
+        <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h5 style="margin:0;">Estructura ISO 8.3</h5>
+                <?php if (!empty($criticalNodes)): ?>
+                    <span class="pill" style="background:#fef3c7; color:#92400e;">Nodos críticos pendientes</span>
+                <?php else: ?>
+                    <span class="pill" style="background:#dcfce7; color:#166534;">Estructura al día</span>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($criticalNodes)): ?>
+                <p style="margin:0; color:#b45309;">No puedes cerrar el proyecto mientras existan nodos críticos pendientes.</p>
+            <?php endif; ?>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <?php foreach ($projectNodes as $node): ?>
+                    <?= $renderNode($node); ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
         <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:10px;">
@@ -293,23 +379,7 @@ $designLabels = [
                 <li>Verificación completada: <?= (int) ($project['design_verification_done'] ?? 0) === 1 ? 'Sí' : 'No' ?></li>
                 <li>Validación completada: <?= (int) ($project['design_validation_done'] ?? 0) === 1 ? 'Sí' : 'No' ?></li>
             </ul>
-            <?php if (!empty($canManage)): ?>
-                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/design-outputs" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
-                    <label style="display:flex; gap:8px; align-items:center;">
-                        <input type="checkbox" name="design_review_done" value="1" <?= (int) ($project['design_review_done'] ?? 0) === 1 ? 'checked' : '' ?>> Marcar revisión completada
-                    </label>
-                    <label style="display:flex; gap:8px; align-items:center;">
-                        <input type="checkbox" name="design_verification_done" value="1" <?= (int) ($project['design_verification_done'] ?? 0) === 1 ? 'checked' : '' ?>> Marcar verificación completada
-                    </label>
-                    <label style="display:flex; gap:8px; align-items:center;">
-                        <input type="checkbox" name="design_validation_done" value="1" <?= (int) ($project['design_validation_done'] ?? 0) === 1 ? 'checked' : '' ?>> Marcar validación completada
-                    </label>
-                    <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Actualizar salidas</button>
-                </form>
-            <?php endif; ?>
-            <?php if (empty($canManage)): ?>
-                <p style="margin:0; color: var(--muted);">Solo lectura para tu rol. Solicita a un responsable de gestión las actualizaciones.</p>
-            <?php endif; ?>
+            <p style="margin:0; color: var(--muted);">Estos indicadores se calculan automáticamente con los controles registrados y el árbol ISO 8.3.</p>
         </div>
 
         <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:10px;">
