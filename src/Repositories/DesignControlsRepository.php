@@ -93,6 +93,30 @@ class DesignControlsRepository
         return $id;
     }
 
+    public function listByProject(int $projectId): array
+    {
+        $this->assertValidProject($projectId);
+
+        return $this->db->fetchAll(
+            'SELECT c.id, c.project_id, c.control_type, c.description, c.result, c.corrective_action, c.performed_by, c.performed_at, u.name AS performer_name
+             FROM project_design_controls c
+             LEFT JOIN users u ON u.id = c.performed_by
+             WHERE c.project_id = :project
+             ORDER BY c.performed_at ASC',
+            [':project' => $projectId]
+        );
+    }
+
+    public function allowedTypes(): array
+    {
+        return self::CONTROL_TYPES;
+    }
+
+    public function allowedResults(): array
+    {
+        return self::RESULTS;
+    }
+
     public function countByType(int $projectId, string $controlType): int
     {
         if (!$this->db->tableExists('project_design_controls')) {

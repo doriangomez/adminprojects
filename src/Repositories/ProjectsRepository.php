@@ -194,6 +194,14 @@ class ProjectsRepository
             $select[] = 'p.scope';
         }
 
+        if ($this->db->columnExists('projects', 'design_inputs')) {
+            $select[] = 'p.design_inputs';
+        }
+
+        if ($this->db->columnExists('projects', 'client_participation')) {
+            $select[] = 'p.client_participation';
+        }
+
         foreach ($isoColumns as $isoFlag) {
             $select[] = 'p.' . $isoFlag;
         }
