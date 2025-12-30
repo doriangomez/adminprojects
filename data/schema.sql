@@ -144,6 +144,25 @@ CREATE TABLE projects (
     FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
+CREATE TABLE project_design_inputs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    input_type ENUM(
+        'requisitos_funcionales',
+        'requisitos_desempeno',
+        'requisitos_legales',
+        'normativa',
+        'referencias_previas',
+        'input_cliente',
+        'otro'
+    ) NOT NULL,
+    description TEXT NOT NULL,
+    source VARCHAR(255),
+    resolved_conflict TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE risk_catalog (
     code VARCHAR(80) PRIMARY KEY,
     category VARCHAR(60) NOT NULL,

@@ -822,6 +822,10 @@ class ProjectsRepository
             $params[':end_date'] = $payload['end_date'];
         }
 
+        if (array_key_exists('design_review_done', $payload)) {
+            $this->assertDesignReviewPrerequisites($id, (int) $payload['design_review_done']);
+        }
+
         $isoControls = [
             'design_inputs_defined',
             'design_review_done',
@@ -1181,6 +1185,24 @@ class ProjectsRepository
         $parts = array_map('trim', explode(',', $value));
 
         return array_values(array_filter($parts, fn ($risk) => $risk !== ''));
+    }
+
+    private function assertDesignReviewPrerequisites(int $projectId, int $designReviewDone): void
+    {
+        if ($designReviewDone !== 1) {
+            return;
+        }
+
+        if (!$this->db->tableExists('project_design_inputs')) {
+            return;
+        }
+
+        $designInputsRepo = new DesignInputsRepository($this->db);
+        $inputsCount = $designInputsRepo->countByProject($projectId);
+
+        if ($inputsCount < 1) {
+            throw new \InvalidArgumentException('No puedes marcar la revisión de diseño como completada sin entradas de diseño registradas.');
+        }
     }
 
     public function riskEvaluationsForProject(int $projectId): array
