@@ -170,20 +170,23 @@ class ProjectsController extends Controller
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
                 'error' => $this->isLocalEnvironment()
-                    ? $e->getMessage()
+                    ? $this->formatExceptionForDisplay($e)
                     : 'No se pudo crear el proyecto. Intenta nuevamente o contacta al administrador.',
                 'old' => $_POST,
             ]));
         } catch (\Throwable $e) {
             error_log('Error al crear proyecto: ' . $e->getMessage());
             http_response_code(500);
-            $message = 'No se pudo crear el proyecto.';
-            $exceptionMessage = trim($e->getMessage());
-            if ($exceptionMessage !== '') {
-                $message .= ' Motivo: ' . $exceptionMessage;
-            } else {
-                $message .= ' Intenta nuevamente o contacta al administrador.';
-            }
+            $message = $this->isLocalEnvironment()
+                ? $this->formatExceptionForDisplay($e)
+                : (function () use ($e) {
+                    $baseMessage = 'No se pudo crear el proyecto.';
+                    $exceptionMessage = trim($e->getMessage());
+                    if ($exceptionMessage !== '') {
+                        return $baseMessage . ' Motivo: ' . $exceptionMessage;
+                    }
+                    return $baseMessage . ' Intenta nuevamente o contacta al administrador.';
+                })();
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
                 'error' => $message,
@@ -601,6 +604,18 @@ class ProjectsController extends Controller
         $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? getenv('APP_ENV') ?? 'production';
 
         return strtolower((string) $env) === 'local';
+    }
+
+    private function formatExceptionForDisplay(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+        $trace = $e->getTraceAsString();
+
+        if ($trace === '') {
+            return $message;
+        }
+
+        return $message . "\n" . $trace;
     }
 
     private function projectPayload(array $current, array $deliveryConfig = []): array
