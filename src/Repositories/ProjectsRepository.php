@@ -189,6 +189,10 @@ class ProjectsRepository
             'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risk_evaluations WHERE selected = 1 GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
+        if ($this->db->columnExists('projects', 'scope')) {
+            $select[] = 'p.scope';
+        }
+
         if ($hasTypeColumn) {
             $select[] = 'p.project_type';
         }
@@ -655,7 +659,29 @@ class ProjectsRepository
             if ($this->db->columnExists('projects', 'client_participation')) {
                 $columns[] = 'client_participation';
                 $placeholders[] = ':client_participation';
-                $params[':client_participation'] = $payload['client_participation'] ?? 'media';
+                $params[':client_participation'] = (int) ($payload['client_participation'] ?? 0);
+            }
+
+            $isoControls = [
+                'design_inputs_defined',
+                'design_review_done',
+                'design_verification_done',
+                'design_validation_done',
+                'legal_requirements',
+                'change_control_required',
+            ];
+
+            foreach ($isoControls as $column => $payloadKey) {
+                if (is_int($column)) {
+                    $column = $payloadKey;
+                    $payloadKey = $payloadKey;
+                }
+
+                if ($this->db->columnExists('projects', $column)) {
+                    $columns[] = $column;
+                    $placeholders[] = ':' . $column;
+                    $params[':' . $column] = (int) ($payload[$payloadKey] ?? 0);
+                }
             }
 
             error_log('Project insert payload: ' . json_encode(['columns' => $columns, 'params' => $params]));
@@ -783,7 +809,7 @@ class ProjectsRepository
 
         if ($this->db->columnExists('projects', 'client_participation')) {
             $fields[] = 'client_participation = :client_participation';
-            $params[':client_participation'] = $payload['client_participation'] ?? 'media';
+            $params[':client_participation'] = (int) ($payload['client_participation'] ?? 0);
         }
 
         if ($this->db->columnExists('projects', 'start_date')) {
@@ -794,6 +820,22 @@ class ProjectsRepository
         if ($this->db->columnExists('projects', 'end_date')) {
             $fields[] = 'end_date = :end_date';
             $params[':end_date'] = $payload['end_date'];
+        }
+
+        $isoControls = [
+            'design_inputs_defined',
+            'design_review_done',
+            'design_verification_done',
+            'design_validation_done',
+            'legal_requirements',
+            'change_control_required',
+        ];
+
+        foreach ($isoControls as $control) {
+            if ($this->db->columnExists('projects', $control) && array_key_exists($control, $payload)) {
+                $fields[] = $control . ' = :' . $control;
+                $params[':' . $control] = (int) $payload[$control];
+            }
         }
 
         $this->db->execute(
