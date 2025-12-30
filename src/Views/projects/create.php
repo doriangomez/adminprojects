@@ -12,6 +12,11 @@ $oldInput = is_array($old ?? null) ? $old : [];
 $methodologies = $deliveryConfig['methodologies'] ?? [];
 $phasesByMethodology = $deliveryConfig['phases'] ?? [];
 $riskCatalog = $deliveryConfig['risks'] ?? [];
+$riskGroups = [];
+foreach ($riskCatalog as $risk) {
+    $category = $risk['category'] ?? 'Otros';
+    $riskGroups[$category][] = $risk;
+}
 
 $selectedMethodology = $oldInput['methodology'] ?? $defaults['methodology'] ?? ($methodologies[0] ?? 'scrum');
 $currentPhases = is_array($phasesByMethodology[$selectedMethodology] ?? null) ? $phasesByMethodology[$selectedMethodology] : [];
@@ -238,13 +243,20 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             <section class="grid step-card__grid">
                 <div class="input" style="grid-column: 1 / -1;">
                     <span>Riesgos iniciales</span>
-                    <div id="riskChecklist" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;">
-                        <?php foreach ($riskCatalog as $risk): ?>
-                            <?php $riskCode = $risk['code'] ?? ''; $riskLabel = $risk['label'] ?? $riskCode; ?>
-                            <label style="display:flex; gap:6px; align-items:center; background: color-mix(in srgb, var(--surface) 92%, transparent); padding:8px 10px; border-radius:10px; border:1px solid var(--border);">
-                                <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $fieldValue('risks', []), true) ? 'checked' : '' ?>>
-                                <?= htmlspecialchars($riskLabel) ?>
-                            </label>
+                    <div id="riskChecklist" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+                        <?php foreach ($riskGroups as $category => $risks): ?>
+                            <div style="border:1px solid var(--border); border-radius:10px; padding:10px; background: color-mix(in srgb, var(--surface) 94%, transparent);">
+                                <strong style="display:block; margin-bottom:6px;"><?= htmlspecialchars($category) ?></strong>
+                                <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                                    <?php foreach ($risks as $risk): ?>
+                                        <?php $riskCode = $risk['code'] ?? ''; $riskLabel = $risk['label'] ?? $riskCode; ?>
+                                        <label style="display:flex; gap:6px; align-items:center; background: color-mix(in srgb, var(--surface) 92%, transparent); padding:8px 10px; border-radius:10px; border:1px solid var(--border);">
+                                            <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $fieldValue('risks', []), true) ? 'checked' : '' ?>>
+                                            <?= htmlspecialchars($riskLabel) ?>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
                         <?php if (empty($riskCatalog)): ?>
                             <span class="muted">Configura el catálogo de riesgos en el módulo de configuración.</span>

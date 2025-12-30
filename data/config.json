@@ -40,20 +40,7 @@
                 "hecho"
             ]
         },
-        "risks": [
-            {
-                "code": "scope_creep",
-                "label": "Desviación de alcance"
-            },
-            {
-                "code": "budget_overrun",
-                "label": "Sobrepaso de presupuesto"
-            },
-            {
-                "code": "timeline_slip",
-                "label": "Desviación en cronograma"
-            }
-        ]
+        "risks": []
     },
     "access": {
         "roles": [

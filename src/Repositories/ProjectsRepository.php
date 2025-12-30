@@ -74,7 +74,7 @@ class ProjectsRepository
 
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
-            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risks GROUP BY project_id) prisk ON prisk.project_id = p.id',
+            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risk_evaluations WHERE selected = 1 GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
         if ($hasPmColumn) {
@@ -170,7 +170,7 @@ class ProjectsRepository
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
             'LEFT JOIN users u ON u.id = p.pm_id',
-            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risks GROUP BY project_id) prisk ON prisk.project_id = p.id',
+            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risk_evaluations WHERE selected = 1 GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
         if ($hasTypeColumn) {
@@ -319,7 +319,7 @@ class ProjectsRepository
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
             'LEFT JOIN users u ON u.id = p.pm_id',
-            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risks GROUP BY project_id) prisk ON prisk.project_id = p.id',
+            'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risk_evaluations WHERE selected = 1 GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
 
         if ($hasPriorityColumn) {
@@ -740,14 +740,14 @@ class ProjectsRepository
         $trimmed = array_map('trim', $risks);
         $cleanRisks = array_values(array_unique(array_filter($trimmed, fn ($risk) => $risk !== '')));
 
-        $this->db->execute('DELETE FROM project_risks WHERE project_id = :project', [':project' => $projectId]);
+        $this->db->execute('DELETE FROM project_risk_evaluations WHERE project_id = :project', [':project' => $projectId]);
 
         if (empty($cleanRisks)) {
             return;
         }
 
         $stmt = $this->db->connection()->prepare(
-            'INSERT INTO project_risks (project_id, risk_code) VALUES (:project, :risk)'
+            'INSERT INTO project_risk_evaluations (project_id, risk_code, selected) VALUES (:project, :risk, 1)'
         );
 
         foreach ($cleanRisks as $riskCode) {

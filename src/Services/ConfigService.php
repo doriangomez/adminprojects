@@ -30,11 +30,7 @@ class ConfigService
                 'cascada' => ['inicio', 'planificación', 'ejecución', 'cierre'],
                 'kanban' => ['por hacer', 'en curso', 'en revisión', 'hecho'],
             ],
-            'risks' => [
-                ['code' => 'scope_creep', 'label' => 'Desviación de alcance'],
-                ['code' => 'budget_overrun', 'label' => 'Sobrepaso de presupuesto'],
-                ['code' => 'timeline_slip', 'label' => 'Desviación en cronograma'],
-            ],
+            'risks' => [],
         ],
         'access' => [
             'roles' => ['Administrador', 'PMO', 'Talento'],
@@ -81,7 +77,7 @@ class ConfigService
             'delivery' => [
                 'methodologies' => $stored['delivery']['methodologies'] ?? $this->defaults['delivery']['methodologies'],
                 'phases' => array_merge($this->defaults['delivery']['phases'], $stored['delivery']['phases'] ?? []),
-                'risks' => $stored['delivery']['risks'] ?? $this->defaults['delivery']['risks'],
+                'risks' => $this->loadRiskCatalog(),
             ],
             'access' => [
                 'roles' => $stored['access']['roles'] ?? $this->defaults['access']['roles'],
@@ -123,7 +119,7 @@ class ConfigService
             'delivery' => [
                 'methodologies' => $payload['delivery']['methodologies'] ?? $current['delivery']['methodologies'],
                 'phases' => array_merge($current['delivery']['phases'], $payload['delivery']['phases'] ?? []),
-                'risks' => $payload['delivery']['risks'] ?? $current['delivery']['risks'],
+                'risks' => $current['delivery']['risks'],
             ],
             'access' => [
                 'roles' => $payload['access']['roles'] ?? $current['access']['roles'],
@@ -212,6 +208,20 @@ class ConfigService
     public function getDefaults(): array
     {
         return $this->defaults;
+    }
+
+    private function loadRiskCatalog(): array
+    {
+        if ($this->db === null) {
+            return $this->defaults['delivery']['risks'];
+        }
+
+        try {
+            $repo = new RiskCatalogRepository($this->db);
+            return $repo->listAll(true);
+        } catch (\Throwable) {
+            return $this->defaults['delivery']['risks'];
+        }
     }
 
     private function readConfigStorage(): array

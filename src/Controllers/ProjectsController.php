@@ -71,7 +71,12 @@ class ProjectsController extends Controller
         $this->render('projects/edit', [
             'title' => 'Editar proyecto',
             'project' => $project,
-            'delivery' => $config['delivery'] ?? [],
+            'delivery' => array_merge(
+                $config['delivery'] ?? [],
+                [
+                    'risks' => $this->riskCatalogForType($config['delivery']['risks'] ?? [], (string) ($project['project_type'] ?? 'convencional')),
+                ]
+            ),
         ]);
     }
 
@@ -106,7 +111,7 @@ class ProjectsController extends Controller
     public function store(): void
     {
         $this->requirePermission('projects.manage');
-        $delivery = (new ConfigService())->getConfig()['delivery'] ?? [];
+        $delivery = (new ConfigService($this->db))->getConfig()['delivery'] ?? [];
         $masterRepo = new MasterFilesRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
         $repo = new ProjectsRepository($this->db);
@@ -275,15 +280,15 @@ class ProjectsController extends Controller
 
     private function projectPayload(array $current, array $deliveryConfig = []): array
     {
-        $delivery = [
-            'methodologies' => $deliveryConfig['methodologies'] ?? [],
-            'phases' => $deliveryConfig['phases'] ?? [],
-            'risks' => $deliveryConfig['risks'] ?? [],
-        ];
-
         $allowedProjectTypes = ['convencional', 'scrum', 'hibrido'];
         $projectType = $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional');
         $projectType = in_array($projectType, $allowedProjectTypes, true) ? $projectType : 'convencional';
+
+        $delivery = [
+            'methodologies' => $deliveryConfig['methodologies'] ?? [],
+            'phases' => $deliveryConfig['phases'] ?? [],
+            'risks' => $this->riskCatalogForType($deliveryConfig['risks'] ?? [], $projectType),
+        ];
 
         $availableMethodologies = $delivery['methodologies'];
         $defaultMethodology = $projectType === 'scrum'
@@ -346,7 +351,7 @@ class ProjectsController extends Controller
 
     private function projectFormData(): array
     {
-        $delivery = (new ConfigService())->getConfig()['delivery'] ?? ['methodologies' => [], 'phases' => [], 'risks' => []];
+        $delivery = (new ConfigService($this->db))->getConfig()['delivery'] ?? ['methodologies' => [], 'phases' => [], 'risks' => []];
         $masterRepo = new MasterFilesRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
         $clientsRepo = new ClientsRepository($this->db);
@@ -360,6 +365,7 @@ class ProjectsController extends Controller
         $clients = $clientsRepo->listForUser($user);
         $defaultMethodology = $this->methodologyForType('convencional', $delivery['methodologies'] ?? []);
         $defaultPhase = $this->initialPhaseForMethodology($defaultMethodology, $delivery['phases'] ?? []);
+        $delivery['risks'] = $this->riskCatalogForType($delivery['risks'] ?? [], 'convencional');
         $statusesForCreation = $this->creatableStatuses($catalogs['statuses']) ?: $catalogs['statuses'];
         $initialStatus = $this->initialStatus($statusesForCreation, $catalogs['statuses'][0]['code'] ?? 'ideation');
         $initialHealth = $this->calculateInitialHealth($catalogs['health'], [
@@ -456,7 +462,8 @@ class ProjectsController extends Controller
         $phases = is_array($delivery['phases'][$methodology] ?? null) ? $delivery['phases'][$methodology] : [];
         $phase = $this->initialPhaseForMethodology($methodology, $delivery['phases'] ?? []);
 
-        $risksCatalog = array_filter(array_map(fn ($risk) => (string) ($risk['code'] ?? ''), $delivery['risks'] ?? []));
+        $filteredRisks = $this->riskCatalogForType($delivery['risks'] ?? [], $projectType);
+        $risksCatalog = array_filter(array_map(fn ($risk) => (string) ($risk['code'] ?? ''), $filteredRisks));
         $risks = array_values(array_filter(
             $_POST['risks'] ?? [],
             fn ($risk) => in_array((string) $risk, $risksCatalog, true)
@@ -551,6 +558,18 @@ class ProjectsController extends Controller
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function riskCatalogForType(array $risks, string $projectType): array
+    {
+        return array_values(array_filter($risks, function ($risk) use ($projectType) {
+            $active = (int) ($risk['active'] ?? 1) === 1;
+            if (!$active) {
+                return false;
+            }
+            $appliesTo = $risk['applies_to'] ?? 'ambos';
+            return $appliesTo === 'ambos' || $appliesTo === $projectType;
+        }));
     }
 
     private function defaultPmId(array $projectManagers, UsersRepository $usersRepo): ?int
