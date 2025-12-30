@@ -65,6 +65,7 @@ $renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePat
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
             <div>
                 <strong><?= htmlspecialchars($node['name'] ?? ($node['code'] ?? 'Nodo')) ?></strong>
+                <small style="color:var(--muted); margin-left:6px;">#<?= (int) ($node['id'] ?? 0) ?></small>
                 <?php if (!empty($node['iso_code'])): ?>
                     <small style="color:var(--muted); display:block;">ISO: <?= htmlspecialchars((string) $node['iso_code']) ?></small>
                 <?php endif; ?>
@@ -77,6 +78,11 @@ $renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePat
                     <li>
                         <a href="<?= htmlspecialchars($file['storage_path'] ?? '#') ?>" target="_blank"><?= htmlspecialchars($file['file_name'] ?? 'Archivo') ?></a>
                         <small style="color:var(--muted); margin-left:6px;"><?= htmlspecialchars(substr((string) ($file['created_at'] ?? ''), 0, 16)) ?></small>
+                        <?php if ($canManage): ?>
+                            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/delete" style="display:inline;">
+                                <button type="submit" class="action-btn" style="margin-left:6px; background:#fee2e2; color:#b91c1c; border:none;">Eliminar</button>
+                            </form>
+                        <?php endif; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -229,6 +235,38 @@ $renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePat
                     <?= $renderNode($node); ?>
                 <?php endforeach; ?>
             </div>
+            <?php if ($canManage): ?>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes" style="margin-top:8px; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:8px; align-items:flex-end;">
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:600;">Nombre de carpeta
+                            <input type="text" name="title" required style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
+                        </label>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:600;">ID padre (opcional)
+                            <input type="number" name="parent_id" min="1" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
+                        </label>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:600;">Cláusula ISO (opcional)
+                            <select name="iso_clause" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
+                                <option value="">Sin cláusula</option>
+                                <option value="8.3.2">8.3.2 Planificación</option>
+                                <option value="8.3.3">8.3.3 Entradas</option>
+                                <option value="8.3.4">8.3.4 Controles</option>
+                                <option value="8.3.5">8.3.5 Salidas</option>
+                                <option value="8.3.6">8.3.6 Cambios</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:600;">Descripción
+                            <input type="text" name="description" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
+                        </label>
+                    </div>
+                    <button type="submit" class="action-btn" style="height:40px; align-self:center;">Crear carpeta</button>
+                </form>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 

@@ -142,6 +142,14 @@ class App
                 $controller->uploadNodeFile((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteNode((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes$#', $path, $matches) && $method === 'POST') {
+                $controller->createFolder((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
                 $controller->show((int) $matches[1]);
                 return;
