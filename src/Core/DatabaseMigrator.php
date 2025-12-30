@@ -57,6 +57,7 @@ class DatabaseMigrator
         try {
             $this->addProjectMethodology();
             $this->addProjectPhase();
+            $this->ensureProjectIsoControls();
             $this->ensureRiskCatalogTable();
             $this->ensureProjectRiskEvaluationsTable();
             $this->seedRiskCatalog();
@@ -329,6 +330,28 @@ class DatabaseMigrator
 
         $this->db->execute("ALTER TABLE projects ADD COLUMN phase VARCHAR(80) NULL AFTER methodology");
         $this->db->clearColumnCache();
+    }
+
+    private function ensureProjectIsoControls(): void
+    {
+        $columns = [
+            'design_inputs_defined',
+            'design_review_done',
+            'design_verification_done',
+            'design_validation_done',
+            'client_participation',
+            'legal_requirements',
+            'change_control_required',
+        ];
+
+        foreach ($columns as $column) {
+            if ($this->db->columnExists('projects', $column)) {
+                continue;
+            }
+
+            $this->db->execute("ALTER TABLE projects ADD COLUMN {$column} TINYINT(1) DEFAULT 0 AFTER phase");
+            $this->db->clearColumnCache();
+        }
     }
 
     private function createAssignmentsTableIfMissing(): void

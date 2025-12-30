@@ -123,6 +123,7 @@ class ProjectsController extends Controller
             unset($payload['risk_catalog']);
             $repo->updateProject($id, $payload);
             $this->logRiskAudit($auditRepo, $project['id'], $previousEvaluations, $payload['risk_evaluations'] ?? []);
+            $this->logProjectChange($auditRepo, $project, $payload);
 
             header('Location: /project/public/projects/' . $id);
         } catch (\InvalidArgumentException $e) {
@@ -166,6 +167,15 @@ class ProjectsController extends Controller
 
         try {
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
+            $payload = array_merge($payload, [
+                'design_inputs_defined' => 0,
+                'design_review_done' => 0,
+                'design_verification_done' => 0,
+                'design_validation_done' => 0,
+                'client_participation' => 0,
+                'legal_requirements' => 0,
+                'change_control_required' => 0,
+            ]);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
             $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
@@ -389,6 +399,8 @@ class ProjectsController extends Controller
             $endDate = null;
         }
 
+        $scope = trim((string) ($_POST['scope'] ?? ($current['scope'] ?? '')));
+
         return [
             'name' => trim($_POST['name'] ?? (string) ($current['name'] ?? '')),
             'status' => $_POST['status'] ?? (string) ($current['status'] ?? ''),
@@ -406,6 +418,7 @@ class ProjectsController extends Controller
             'end_date' => $endDate,
             'methodology' => $methodology,
             'phase' => $phase,
+            'scope' => $scope,
             'risks' => $riskAssessment['selected'],
             'risk_evaluations' => $riskAssessment['evaluations'],
             'risk_score' => $riskScore,
@@ -683,6 +696,46 @@ class ProjectsController extends Controller
             );
         } catch (\Throwable $e) {
             error_log('No se pudo registrar el cambio de riesgos: ' . $e->getMessage());
+        }
+    }
+
+    private function logProjectChange(AuditLogRepository $auditRepo, array $before, array $after): void
+    {
+        $fields = ['scope', 'budget', 'start_date', 'end_date', 'methodology', 'phase'];
+        $beforePayload = [];
+        $afterPayload = [];
+
+        foreach ($fields as $field) {
+            if (!array_key_exists($field, $after)) {
+                continue;
+            }
+
+            $previousValue = $before[$field] ?? null;
+            $newValue = $after[$field];
+
+            if ($previousValue != $newValue) {
+                $beforePayload[$field] = $previousValue;
+                $afterPayload[$field] = $newValue;
+            }
+        }
+
+        if (empty($beforePayload)) {
+            return;
+        }
+
+        try {
+            $auditRepo->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'project',
+                (int) ($before['id'] ?? 0),
+                'project.change',
+                [
+                    'before' => $beforePayload,
+                    'after' => $afterPayload,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('No se pudo registrar el control de cambios del proyecto: ' . $e->getMessage());
         }
     }
 
