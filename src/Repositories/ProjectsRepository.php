@@ -1270,6 +1270,37 @@ class ProjectsRepository
         }
     }
 
+    public function persistIsoFlags(int $projectId, array $flags, ?int $userId = null): void
+    {
+        $columns = $this->isoFlagColumns();
+        if (empty($columns)) {
+            return;
+        }
+
+        $fields = [];
+        $params = [':id' => $projectId];
+
+        foreach ($columns as $flag) {
+            if (array_key_exists($flag, $flags)) {
+                $fields[] = $flag . ' = :' . $flag;
+                $params[':' . $flag] = (int) $flags[$flag];
+            }
+        }
+
+        if (empty($fields)) {
+            return;
+        }
+
+        $before = $this->projectIsoFlags($projectId);
+        $this->db->execute(
+            'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
+            $params
+        );
+
+        $after = $this->mergedIsoFlags($before, $flags);
+        $this->logIsoFlagChanges($projectId, $before, $after, $userId);
+    }
+
     private function projectIsoFlags(int $projectId): array
     {
         $isoColumns = $this->isoFlagColumns();
@@ -1286,7 +1317,7 @@ class ProjectsRepository
         return $result ?: [];
     }
 
-    private function isoFlagColumns(): array
+    public function isoFlagColumns(): array
     {
         $candidates = [
             'design_inputs_defined',

@@ -139,6 +139,28 @@ class DesignControlsRepository
         return (int) $stmt->fetchColumn();
     }
 
+    public function countByTypeAndResult(int $projectId, string $controlType, string $result): int
+    {
+        if (
+            !$this->db->tableExists('project_design_controls')
+            || !in_array($controlType, self::CONTROL_TYPES, true)
+            || !in_array($result, self::RESULTS, true)
+        ) {
+            return 0;
+        }
+
+        $stmt = $this->db->connection()->prepare(
+            'SELECT COUNT(*) FROM project_design_controls WHERE project_id = :project AND control_type = :type AND result = :result'
+        );
+        $stmt->execute([
+            ':project' => $projectId,
+            ':type' => $controlType,
+            ':result' => $result,
+        ]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
     private function assertValidProject(int $projectId): void
     {
         if ($projectId <= 0) {
