@@ -147,6 +147,8 @@ class ProjectsRepository
         $hasStatusTextColumn = $this->db->columnExists('projects', 'status');
         $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
         $hasTypeColumn = $this->db->columnExists('projects', 'project_type');
+        $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
+        $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
 
         $select = [
             'p.id',
@@ -175,6 +177,14 @@ class ProjectsRepository
 
         if ($hasTypeColumn) {
             $select[] = 'p.project_type';
+        }
+
+        if ($hasRiskScoreColumn) {
+            $select[] = 'p.risk_score';
+        }
+
+        if ($hasRiskLevelColumn) {
+            $select[] = 'p.risk_level';
         }
 
         if ($hasPriorityColumn) {
@@ -488,15 +498,15 @@ class ProjectsRepository
     public function create(array $payload): int
     {
         try {
-            $status = 'planning';
-            $health = 'on_track';
-            $riskScore = 0;
-            $riskLevel = 'bajo';
+            $status = $payload['status'] ?? 'planning';
+            $health = $payload['health'] ?? 'on_track';
+            $riskScore = $payload['risk_score'] ?? 0;
+            $riskLevel = $payload['risk_level'] ?? 'bajo';
             $methodology = $payload['methodology'] ?? 'scrum';
-            $phase = match ($methodology) {
+            $phase = $payload['phase'] ?? match ($methodology) {
                 'scrum' => 'descubrimiento',
                 'convencional' => 'inicio',
-                default => $payload['phase'] ?? null,
+                default => null,
             };
 
             $columns = [
@@ -655,6 +665,16 @@ class ProjectsRepository
             $params[':health'] = $payload['health'];
         }
 
+        if ($this->db->columnExists('projects', 'risk_score')) {
+            $fields[] = 'risk_score = :risk_score';
+            $params[':risk_score'] = $payload['risk_score'] ?? 0;
+        }
+
+        if ($this->db->columnExists('projects', 'risk_level')) {
+            $fields[] = 'risk_level = :risk_level';
+            $params[':risk_level'] = $payload['risk_level'] ?? 'bajo';
+        }
+
         if ($this->db->columnExists('projects', 'priority_code')) {
             $fields[] = 'priority_code = :priority';
             $params[':priority'] = $payload['priority'];
@@ -743,7 +763,7 @@ class ProjectsRepository
         }
     }
 
-    public function closeProject(int $id): void
+    public function closeProject(int $id, string $health, ?string $riskLevel = null): void
     {
         $fields = [];
         $params = [':id' => $id];
@@ -763,10 +783,15 @@ class ProjectsRepository
 
         if ($this->db->columnExists('projects', 'health_code')) {
             $fields[] = 'health_code = :health';
-            $params[':health'] = 'archived';
+            $params[':health'] = $health;
         } elseif ($this->db->columnExists('projects', 'health')) {
             $fields[] = 'health = :health';
-            $params[':health'] = 'archived';
+            $params[':health'] = $health;
+        }
+
+        if ($riskLevel !== null && $this->db->columnExists('projects', 'risk_level')) {
+            $fields[] = 'risk_level = :risk_level';
+            $params[':risk_level'] = $riskLevel;
         }
 
         if ($this->db->columnExists('projects', 'end_date')) {
@@ -869,6 +894,47 @@ class ProjectsRepository
             'capacity_available' => $availableHours,
             'capacity_percent' => $capacityPercent,
         ];
+    }
+
+    public function hasTasks(int $projectId): bool
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return false;
+        }
+
+        $result = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM tasks WHERE project_id = :projectId',
+            [':projectId' => $projectId]
+        );
+
+        return (int) ($result['total'] ?? 0) > 0;
+    }
+
+    public function openTasksCount(int $projectId): int
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return 0;
+        }
+
+        $openStatuses = ['todo', 'in_progress', 'review', 'blocked'];
+        $params = [':projectId' => $projectId];
+        $statusPlaceholders = [];
+
+        if ($this->db->columnExists('tasks', 'status')) {
+            foreach ($openStatuses as $index => $status) {
+                $placeholder = ':status' . $index;
+                $statusPlaceholders[] = $placeholder;
+                $params[$placeholder] = $status;
+            }
+        }
+
+        $statusFilter = $statusPlaceholders ? ' AND status IN (' . implode(', ', $statusPlaceholders) . ')' : '';
+        $result = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM tasks WHERE project_id = :projectId' . $statusFilter,
+            $params
+        );
+
+        return (int) ($result['total'] ?? 0);
     }
 
     private function attachProjectSignal(array $project): array
