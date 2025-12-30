@@ -488,16 +488,23 @@ class ProjectsRepository
     public function create(array $payload): int
     {
         try {
+            $status = 'planning';
+            $health = 'on_track';
+            $riskScore = 0;
+            $riskLevel = 'bajo';
+            $methodology = $payload['methodology'] ?? 'scrum';
+            $phase = match ($methodology) {
+                'scrum' => 'descubrimiento',
+                'convencional' => 'inicio',
+                default => $payload['phase'] ?? null,
+            };
+
             $columns = [
                 'client_id',
                 'pm_id',
                 'name',
-                'status',
-                'health',
-                'priority',
                 'project_type',
                 'methodology',
-                'phase',
                 'budget',
                 'actual_cost',
                 'planned_hours',
@@ -511,12 +518,8 @@ class ProjectsRepository
                 ':client_id',
                 ':pm_id',
                 ':name',
-                ':status',
-                ':health',
-                ':priority',
                 ':project_type',
                 ':methodology',
-                ':phase',
                 ':budget',
                 ':actual_cost',
                 ':planned_hours',
@@ -530,12 +533,8 @@ class ProjectsRepository
                 ':client_id' => (int) $payload['client_id'],
                 ':pm_id' => (int) $payload['pm_id'],
                 ':name' => $payload['name'],
-                ':status' => $payload['status'] ?? 'ideation',
-                ':health' => $payload['health'] ?? 'on_track',
-                ':priority' => $payload['priority'],
                 ':project_type' => $payload['project_type'] ?? 'convencional',
-                ':methodology' => $payload['methodology'] ?? 'scrum',
-                ':phase' => $payload['phase'] ?? null,
+                ':methodology' => $methodology,
                 ':budget' => $payload['budget'] ?? 0,
                 ':actual_cost' => $payload['actual_cost'] ?? 0,
                 ':planned_hours' => $payload['planned_hours'] ?? 0,
@@ -544,6 +543,54 @@ class ProjectsRepository
                 ':start_date' => $payload['start_date'] ?? null,
                 ':end_date' => $payload['end_date'] ?? null,
             ];
+
+            if ($this->db->columnExists('projects', 'phase')) {
+                $columns[] = 'phase';
+                $placeholders[] = ':phase';
+                $params[':phase'] = $phase;
+            }
+
+            if ($this->db->columnExists('projects', 'status_code')) {
+                $columns[] = 'status_code';
+                $placeholders[] = ':status';
+                $params[':status'] = $status;
+            } elseif ($this->db->columnExists('projects', 'status')) {
+                $columns[] = 'status';
+                $placeholders[] = ':status';
+                $params[':status'] = $status;
+            }
+
+            if ($this->db->columnExists('projects', 'health_code')) {
+                $columns[] = 'health_code';
+                $placeholders[] = ':health';
+                $params[':health'] = $health;
+            } elseif ($this->db->columnExists('projects', 'health')) {
+                $columns[] = 'health';
+                $placeholders[] = ':health';
+                $params[':health'] = $health;
+            }
+
+            if ($this->db->columnExists('projects', 'priority_code')) {
+                $columns[] = 'priority_code';
+                $placeholders[] = ':priority';
+                $params[':priority'] = $payload['priority'];
+            } elseif ($this->db->columnExists('projects', 'priority')) {
+                $columns[] = 'priority';
+                $placeholders[] = ':priority';
+                $params[':priority'] = $payload['priority'];
+            }
+
+            if ($this->db->columnExists('projects', 'risk_score')) {
+                $columns[] = 'risk_score';
+                $placeholders[] = ':risk_score';
+                $params[':risk_score'] = $riskScore;
+            }
+
+            if ($this->db->columnExists('projects', 'risk_level')) {
+                $columns[] = 'risk_level';
+                $placeholders[] = ':risk_level';
+                $params[':risk_level'] = $riskLevel;
+            }
 
             if ($this->db->columnExists('projects', 'scope')) {
                 $columns[] = 'scope';
@@ -562,6 +609,8 @@ class ProjectsRepository
                 $placeholders[] = ':client_participation';
                 $params[':client_participation'] = $payload['client_participation'] ?? 'media';
             }
+
+            error_log('Project insert payload: ' . json_encode(['columns' => $columns, 'params' => $params]));
 
             $projectId = $this->db->insert(
                 sprintf(

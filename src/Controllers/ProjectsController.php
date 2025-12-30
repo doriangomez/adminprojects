@@ -364,19 +364,11 @@ class ProjectsController extends Controller
         );
         $clients = $clientsRepo->listForUser($user);
         $defaultMethodology = $this->methodologyForType('convencional', $delivery['methodologies'] ?? []);
-        $defaultPhase = $this->initialPhaseForMethodology($defaultMethodology, $delivery['phases'] ?? []);
+        $defaultPhase = $this->phaseForMethodology($defaultMethodology, $this->initialPhaseForMethodology($defaultMethodology, $delivery['phases'] ?? []));
         $delivery['risks'] = $this->riskCatalogForType($delivery['risks'] ?? [], 'convencional');
         $statusesForCreation = $this->creatableStatuses($catalogs['statuses']) ?: $catalogs['statuses'];
-        $initialStatus = $this->initialStatus($statusesForCreation, $catalogs['statuses'][0]['code'] ?? 'ideation');
-        $initialHealth = $this->calculateInitialHealth($catalogs['health'], [
-            'budget' => 0,
-            'actual_cost' => 0,
-            'planned_hours' => 0,
-            'actual_hours' => 0,
-            'progress' => 0,
-            'risks' => [],
-            'client_participation' => 'media',
-        ]);
+        $initialStatus = 'planning';
+        $initialHealth = 'on_track';
 
         return [
             'delivery' => $delivery,
@@ -454,12 +446,11 @@ class ProjectsController extends Controller
         $allowedProjectTypes = ['convencional', 'scrum', 'hibrido'];
         $projectTypeInput = trim((string) ($_POST['project_type'] ?? 'convencional')) ?: 'convencional';
         $projectType = in_array($projectTypeInput, $allowedProjectTypes, true) ? $projectTypeInput : 'convencional';
-        $status = $this->initialStatus($this->creatableStatuses($catalogs['statuses']), $catalogs['statuses'][0]['code'] ?? 'ideation');
+        $status = 'planning';
         $priority = $this->validatedCatalogValue((string) ($_POST['priority'] ?? ''), $catalogs['priorities'], 'prioridad', $catalogs['priorities'][0]['code'] ?? 'medium');
 
         $methodology = $this->methodologyForType($projectType, $delivery['methodologies'] ?? []);
 
-        $phases = is_array($delivery['phases'][$methodology] ?? null) ? $delivery['phases'][$methodology] : [];
         $phase = $this->initialPhaseForMethodology($methodology, $delivery['phases'] ?? []);
 
         $filteredRisks = $this->riskCatalogForType($delivery['risks'] ?? [], $projectType);
@@ -494,15 +485,7 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Debes registrar al menos un riesgo inicial.');
         }
 
-        $health = $this->calculateInitialHealth($catalogs['health'], [
-            'budget' => $this->floatOrZero($_POST['budget'] ?? null),
-            'actual_cost' => $this->floatOrZero($_POST['actual_cost'] ?? null),
-            'planned_hours' => $this->floatOrZero($_POST['planned_hours'] ?? null),
-            'actual_hours' => $this->floatOrZero($_POST['actual_hours'] ?? null),
-            'progress' => $this->floatOrZero($_POST['progress'] ?? null),
-            'risks' => $risks,
-            'client_participation' => $clientParticipation,
-        ]);
+        $health = 'on_track';
 
         return [
             'client_id' => $clientId,
@@ -513,7 +496,7 @@ class ProjectsController extends Controller
             'priority' => $priority,
             'project_type' => $projectType,
             'methodology' => $methodology,
-            'phase' => $phase,
+            'phase' => $this->phaseForMethodology($methodology, $phase),
             'scope' => $scope,
             'design_inputs' => $designInputs,
             'client_participation' => $clientParticipation,
@@ -525,6 +508,8 @@ class ProjectsController extends Controller
             'start_date' => $this->nullableDate($_POST['start_date'] ?? null),
             'end_date' => $endDate,
             'risks' => $risks,
+            'risk_score' => 0,
+            'risk_level' => 'bajo',
         ];
     }
 
@@ -594,6 +579,15 @@ class ProjectsController extends Controller
         }
 
         return $availableMethodologies[0] ?? ($preferred ?: 'scrum');
+    }
+
+    private function phaseForMethodology(string $methodology, ?string $fallback = null): ?string
+    {
+        return match ($methodology) {
+            'scrum' => 'descubrimiento',
+            'convencional' => 'inicio',
+            default => $fallback,
+        };
     }
 
     private function initialPhaseForMethodology(string $methodology, array $phasesByMethodology): ?string
