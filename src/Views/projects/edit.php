@@ -27,7 +27,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         <input name="status" value="<?= htmlspecialchars($project['status'] ?? '') ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
     </label>
     <label>Riesgo
-        <input name="health" value="<?= htmlspecialchars($project['health'] ?? '') ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+        <input name="health" value="<?= htmlspecialchars($project['health'] ?? '') ?>" readonly aria-readonly="true" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
     </label>
     <label>Prioridad
         <input name="priority" value="<?= htmlspecialchars($project['priority'] ?? '') ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">

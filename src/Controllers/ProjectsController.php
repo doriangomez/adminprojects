@@ -5,6 +5,14 @@ declare(strict_types=1);
 class ProjectsController extends Controller
 {
     private const FINAL_STATUSES = ['closed', 'finalizado', 'finalized', 'cerrado'];
+    private const LIFECYCLE_STATUSES = ['planning', 'execution', 'on_hold', 'closing', 'closed'];
+    private const ALLOWED_TRANSITIONS = [
+        'planning' => ['planning', 'execution'],
+        'execution' => ['execution', 'on_hold', 'closing'],
+        'on_hold' => ['on_hold', 'execution', 'closing'],
+        'closing' => ['closing', 'closed'],
+        'closed' => ['closed'],
+    ];
 
     public function index(): void
     {
@@ -67,6 +75,7 @@ class ProjectsController extends Controller
         }
 
         $config = (new ConfigService($this->db))->getConfig();
+        $hasTasks = $repo->hasTasks($id);
 
         $this->render('projects/edit', [
             'title' => 'Editar proyecto',
@@ -77,6 +86,7 @@ class ProjectsController extends Controller
                     'risks' => $this->riskCatalogForType($config['delivery']['risks'] ?? [], (string) ($project['project_type'] ?? 'convencional')),
                 ]
             ),
+            'hasTasks' => $hasTasks,
         ]);
     }
 
@@ -93,10 +103,29 @@ class ProjectsController extends Controller
         }
 
         $config = (new ConfigService($this->db))->getConfig();
-        $payload = $this->projectPayload($project, $config['delivery'] ?? []);
-        $repo->updateProject($id, $payload);
+        $delivery = $config['delivery'] ?? [];
 
-        header('Location: /project/public/projects/' . $id);
+        try {
+            $payload = $this->projectPayload($project, $delivery);
+            $payload = $this->applyLifecycleGovernance($project, $payload, $delivery, $repo);
+            $repo->updateProject($id, $payload);
+
+            header('Location: /project/public/projects/' . $id);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/edit', [
+                'title' => 'Editar proyecto',
+                'project' => $project,
+                'delivery' => array_merge(
+                $delivery ?? [],
+                [
+                    'risks' => $this->riskCatalogForType($delivery['risks'] ?? [], (string) ($project['project_type'] ?? 'convencional')),
+                ]
+            ),
+            'error' => $e->getMessage(),
+            'hasTasks' => $hasTasks,
+        ]);
+    }
     }
 
     public function create(): void
@@ -228,8 +257,32 @@ class ProjectsController extends Controller
             return;
         }
 
-        $repo->closeProject($id);
-        header('Location: /project/public/projects/' . $id);
+        $config = (new ConfigService($this->db))->getConfig();
+        $delivery = $config['delivery'] ?? [];
+        $closingPayload = [
+            'status' => 'closed',
+            'progress' => 100.0,
+            'actual_cost' => (float) ($project['actual_cost'] ?? 0),
+            'budget' => (float) ($project['budget'] ?? 0),
+            'actual_hours' => (float) ($project['actual_hours'] ?? 0),
+            'planned_hours' => (float) ($project['planned_hours'] ?? 0),
+            'project_type' => $project['project_type'] ?? 'convencional',
+            'methodology' => $project['methodology'] ?? 'cascada',
+            'phase' => $project['phase'] ?? null,
+            'end_date' => $project['end_date'] ?? null,
+            'start_date' => $project['start_date'] ?? null,
+            'risks' => $project['risks'] ?? [],
+            'risk_score' => $project['risk_score'] ?? null,
+        ];
+
+        try {
+            $governed = $this->applyLifecycleGovernance($project, $closingPayload, $delivery, $repo);
+            $repo->closeProject($id, $governed['health'], $governed['risk_level'] ?? null);
+            header('Location: /project/public/projects/' . $id);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
     }
 
     public function assignTalent(?int $projectId = null): void
@@ -305,6 +358,8 @@ class ProjectsController extends Controller
 
         $riskCodes = array_values(array_filter(array_map(fn ($risk) => $risk['code'] ?? '', $delivery['risks'])));
         $risks = array_values(array_intersect(array_filter($_POST['risks'] ?? []), $riskCodes));
+        $riskScore = $this->calculateRiskScore($risks ?: ($current['risk_score'] ?? ($current['risks'] ?? [])));
+        $riskLevel = $this->riskLevelFromScore($riskScore);
 
         $endDate = $_POST['end_date'] ?? ($current['end_date'] ?? null);
         if ($projectType === 'scrum') {
@@ -314,7 +369,7 @@ class ProjectsController extends Controller
         return [
             'name' => trim($_POST['name'] ?? (string) ($current['name'] ?? '')),
             'status' => $_POST['status'] ?? (string) ($current['status'] ?? ''),
-            'health' => $_POST['health'] ?? (string) ($current['health'] ?? ''),
+            'health' => (string) ($current['health'] ?? ''),
             'priority' => $_POST['priority'] ?? (string) ($current['priority'] ?? ''),
             'client_id' => (int) ($_POST['client_id'] ?? ($current['client_id'] ?? 0)),
             'pm_id' => (int) ($_POST['pm_id'] ?? ($current['pm_id'] ?? 0)),
@@ -329,7 +384,193 @@ class ProjectsController extends Controller
             'methodology' => $methodology,
             'phase' => $phase,
             'risks' => $risks,
+            'risk_score' => $riskScore,
+            'risk_level' => $riskLevel,
         ];
+    }
+
+    private function applyLifecycleGovernance(array $current, array $payload, array $delivery, ProjectsRepository $repo): array
+    {
+        $payload = $this->applyMethodologyRules($payload, $delivery['phases'] ?? [], $current);
+
+        $requestedStatus = $this->normalizeStatus($payload['status'] ?? ($current['status'] ?? 'planning'));
+        $currentStatus = $this->normalizeStatus((string) ($current['status'] ?? 'planning'));
+        if ($requestedStatus === '') {
+            $requestedStatus = $currentStatus;
+        }
+
+        if (!$this->isValidStatus($requestedStatus)) {
+            throw new \InvalidArgumentException('Estado de proyecto no permitido.');
+        }
+
+        if (!$this->isAllowedTransition($currentStatus, $requestedStatus)) {
+            throw new \InvalidArgumentException('Transición de estado no permitida: ' . $currentStatus . ' → ' . $requestedStatus . '.');
+        }
+
+        if (in_array($requestedStatus, ['closing', 'closed'], true)) {
+            $openTasks = $repo->openTasksCount((int) $current['id']);
+            if ($openTasks > 0) {
+                throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
+            }
+        }
+
+        if ($repo->hasTasks((int) $current['id']) && ($payload['methodology'] ?? '') !== ($current['methodology'] ?? '')) {
+            throw new \InvalidArgumentException('No puedes cambiar la metodología porque ya existen tareas asociadas.');
+        }
+
+        $payload['status'] = $requestedStatus;
+        $payload['risk_score'] = $this->calculateRiskScore($payload['risk_score'] ?? $payload['risks'] ?? ($current['risk_score'] ?? ($current['risks'] ?? [])));
+        $payload['risk_level'] = $this->riskLevelFromScore($payload['risk_score']);
+        $payload['health'] = $this->calculateHealthScore([
+            'risk_score' => $payload['risk_score'],
+            'progress' => $payload['progress'],
+            'actual_hours' => $payload['actual_hours'],
+            'planned_hours' => $payload['planned_hours'],
+            'actual_cost' => $payload['actual_cost'],
+            'budget' => $payload['budget'],
+        ]);
+
+        return $payload;
+    }
+
+    private function applyMethodologyRules(array $payload, array $phasesByMethodology, array $current = []): array
+    {
+        $projectType = $payload['project_type'] ?? ($current['project_type'] ?? 'convencional');
+        $methodology = $payload['methodology'] ?? ($current['methodology'] ?? 'cascada');
+        $phases = is_array($phasesByMethodology[$methodology] ?? null) ? $phasesByMethodology[$methodology] : [];
+        $payload['phase'] = $this->validatedPhaseTransition(
+            $payload['phase'] ?? ($current['phase'] ?? null),
+            $phases,
+            $current['phase'] ?? null,
+            in_array($projectType, ['convencional', 'hibrido'], true)
+        );
+
+        if ($projectType === 'scrum') {
+            $payload['end_date'] = null;
+        } elseif ($projectType === 'convencional') {
+            if ($payload['end_date'] === null || $payload['end_date'] === '') {
+                throw new \InvalidArgumentException('Los proyectos convencionales requieren fecha de fin.');
+            }
+        } else {
+            $startDate = $payload['start_date'] ?? null;
+            $endDate = $payload['end_date'] ?? null;
+            if ($startDate && $endDate && $endDate < $startDate) {
+                throw new \InvalidArgumentException('La fecha fin no puede ser anterior a la fecha de inicio.');
+            }
+        }
+
+        return $payload;
+    }
+
+    private function validatedPhaseTransition(?string $requested, array $phases, ?string $current, bool $enforceSequence): ?string
+    {
+        if ($requested === null || $requested === '') {
+            $requested = $current ?? ($phases[0] ?? null);
+        }
+
+        if ($requested !== null && !in_array($requested, $phases, true)) {
+            return $current ?? ($phases[0] ?? null);
+        }
+
+        if ($enforceSequence && $requested !== null && $current !== null) {
+            $currentIndex = array_search($current, $phases, true);
+            $requestedIndex = array_search($requested, $phases, true);
+            if ($currentIndex !== false && $requestedIndex !== false && $requestedIndex < $currentIndex) {
+                throw new \InvalidArgumentException('Las fases deben avanzar de forma secuencial.');
+            }
+        }
+
+        return $requested;
+    }
+
+    private function normalizeStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+
+        if (in_array($normalized, self::FINAL_STATUSES, true)) {
+            return 'closed';
+        }
+
+        return $normalized;
+    }
+
+    private function isValidStatus(string $status): bool
+    {
+        return in_array($status, self::LIFECYCLE_STATUSES, true);
+    }
+
+    private function isAllowedTransition(string $current, string $next): bool
+    {
+        $from = $this->isValidStatus($current) ? $current : 'planning';
+        $allowed = self::ALLOWED_TRANSITIONS[$from] ?? ['planning'];
+
+        return in_array($next, $allowed, true);
+    }
+
+    private function calculateHealthScore(array $metrics): string
+    {
+        $riskScore = (float) ($metrics['risk_score'] ?? 0);
+        $progress = (float) ($metrics['progress'] ?? 0);
+        $hoursDeviation = $this->deviationPercent((float) ($metrics['actual_hours'] ?? 0), (float) ($metrics['planned_hours'] ?? 0));
+        $costDeviation = $this->deviationPercent((float) ($metrics['actual_cost'] ?? 0), (float) ($metrics['budget'] ?? 0));
+        $hasTrackingBaselines = ((float) ($metrics['planned_hours'] ?? 0) > 0) || ((float) ($metrics['budget'] ?? 0) > 0);
+        $progressCheckEnabled = $hasTrackingBaselines || $progress > 0;
+
+        if ($riskScore >= 70 || ($hoursDeviation !== null && $hoursDeviation > 0.15) || ($costDeviation !== null && $costDeviation > 0.15)) {
+            return 'critical';
+        }
+
+        if ($riskScore >= 40 || ($hoursDeviation !== null && $hoursDeviation > 0.08) || ($costDeviation !== null && $costDeviation > 0.08)) {
+            return 'at_risk';
+        }
+
+        if ($progressCheckEnabled) {
+            if ($progress < 25) {
+                return 'critical';
+            }
+
+            if ($progress < 50) {
+                return 'at_risk';
+            }
+        }
+
+        return 'on_track';
+    }
+
+    private function riskLevelFromScore(float $score): string
+    {
+        if ($score >= 70) {
+            return 'alto';
+        }
+
+        if ($score >= 40) {
+            return 'medio';
+        }
+
+        return 'bajo';
+    }
+
+    private function calculateRiskScore($risks): float
+    {
+        if (is_numeric($risks)) {
+            return (float) $risks;
+        }
+
+        if (is_array($risks)) {
+            $unique = array_values(array_unique(array_filter(array_map('strval', $risks))));
+            return count($unique) * 10.0;
+        }
+
+        return 0.0;
+    }
+
+    private function deviationPercent(float $actual, float $planned): ?float
+    {
+        if ($planned <= 0.0) {
+            return null;
+        }
+
+        return ($actual - $planned) / $planned;
     }
 
     private function defaultKpis(array $kpis): array
@@ -411,8 +652,10 @@ class ProjectsController extends Controller
                 ['code' => 'low', 'label' => 'Baja'],
             ]),
             'statuses' => $safeList(fn () => $masterRepo->list('project_status'), [
-                ['code' => 'ideation', 'label' => 'Ideación'],
+                ['code' => 'planning', 'label' => 'Planeación'],
                 ['code' => 'execution', 'label' => 'Ejecución'],
+                ['code' => 'on_hold', 'label' => 'En pausa'],
+                ['code' => 'closing', 'label' => 'Cierre'],
                 ['code' => 'closed', 'label' => 'Cerrado'],
             ]),
             'health' => $safeList(fn () => $masterRepo->list('project_health'), [
@@ -485,9 +728,23 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Debes registrar al menos un riesgo inicial.');
         }
 
-        $health = 'on_track';
+        $budget = $this->floatOrZero($_POST['budget'] ?? null);
+        $actualCost = $this->floatOrZero($_POST['actual_cost'] ?? null);
+        $plannedHours = $this->floatOrZero($_POST['planned_hours'] ?? null);
+        $actualHours = $this->floatOrZero($_POST['actual_hours'] ?? null);
+        $progress = $this->floatOrZero($_POST['progress'] ?? null);
+        $riskScore = $this->calculateRiskScore($risks);
+        $riskLevel = $this->riskLevelFromScore($riskScore);
+        $health = $this->calculateHealthScore([
+            'risk_score' => $riskScore,
+            'progress' => $progress,
+            'actual_hours' => $actualHours,
+            'planned_hours' => $plannedHours,
+            'actual_cost' => $actualCost,
+            'budget' => $budget,
+        ]);
 
-        return [
+        $payload = [
             'client_id' => $clientId,
             'pm_id' => $pmId,
             'name' => $name,
@@ -500,17 +757,22 @@ class ProjectsController extends Controller
             'scope' => $scope,
             'design_inputs' => $designInputs,
             'client_participation' => $clientParticipation,
-            'budget' => $this->floatOrZero($_POST['budget'] ?? null),
-            'actual_cost' => $this->floatOrZero($_POST['actual_cost'] ?? null),
-            'planned_hours' => $this->floatOrZero($_POST['planned_hours'] ?? null),
-            'actual_hours' => $this->floatOrZero($_POST['actual_hours'] ?? null),
-            'progress' => $this->floatOrZero($_POST['progress'] ?? null),
+            'budget' => $budget,
+            'actual_cost' => $actualCost,
+            'planned_hours' => $plannedHours,
+            'actual_hours' => $actualHours,
+            'progress' => $progress,
             'start_date' => $this->nullableDate($_POST['start_date'] ?? null),
             'end_date' => $endDate,
             'risks' => $risks,
-            'risk_score' => 0,
-            'risk_level' => 'bajo',
         ];
+
+        $payload = $this->applyMethodologyRules($payload, $delivery['phases'] ?? []);
+        $payload['risk_score'] = $riskScore;
+        $payload['risk_level'] = $riskLevel;
+        $payload['health'] = $health;
+
+        return $payload;
     }
 
     private function validatedCatalogValue(string $value, array $catalog, string $fieldLabel, string $default): string
