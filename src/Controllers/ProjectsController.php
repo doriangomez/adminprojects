@@ -177,9 +177,16 @@ class ProjectsController extends Controller
         } catch (\Throwable $e) {
             error_log('Error al crear proyecto: ' . $e->getMessage());
             http_response_code(500);
+            $message = 'No se pudo crear el proyecto.';
+            $exceptionMessage = trim($e->getMessage());
+            if ($exceptionMessage !== '') {
+                $message .= ' Motivo: ' . $exceptionMessage;
+            } else {
+                $message .= ' Intenta nuevamente o contacta al administrador.';
+            }
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => 'No se pudo crear el proyecto. Intenta nuevamente o contacta al administrador.',
+                'error' => $message,
                 'old' => $_POST,
             ]));
         }
