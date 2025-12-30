@@ -130,6 +130,14 @@ class App
                 $controller->updateDesignOutputs((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/design-changes$#', $path, $matches) && $method === 'POST') {
+                $controller->storeDesignChange((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/design-changes/(\\d+)/approve$#', $path, $matches) && $method === 'POST') {
+                $controller->approveDesignChange((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
                 $controller->show((int) $matches[1]);
                 return;

@@ -263,6 +263,12 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
+        $designChangesRepo = new DesignChangesRepository($this->db);
+        if ($designChangesRepo->pendingCount($id) > 0) {
+            http_response_code(400);
+            exit('No puedes cerrar el proyecto: hay cambios de diseño pendientes de aprobación.');
+        }
+
         $confirm = (string) ($_POST['confirm'] ?? '');
         if ($confirm !== 'yes') {
             header('Location: /project/public/projects/' . $id . '/close');
@@ -435,6 +441,50 @@ class ProjectsController extends Controller
         }
     }
 
+    public function storeDesignChange(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $repo = new DesignChangesRepository($this->db);
+            $repo->create([
+                'project_id' => $projectId,
+                'description' => $_POST['description'] ?? '',
+                'impact_scope' => $_POST['impact_scope'] ?? '',
+                'impact_time' => $_POST['impact_time'] ?? '',
+                'impact_cost' => $_POST['impact_cost'] ?? '',
+                'impact_quality' => $_POST['impact_quality'] ?? '',
+                'requires_review_validation' => isset($_POST['requires_review_validation']) ? 1 : 0,
+            ], (int) ($this->auth->user()['id'] ?? 0));
+
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['designChangeError' => $e->getMessage()]
+            ));
+        }
+    }
+
+    public function approveDesignChange(int $projectId, int $changeId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $repo = new DesignChangesRepository($this->db);
+            $repo->approve($changeId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
+
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['designChangeError' => $e->getMessage()]
+            ));
+        }
+    }
+
     private function collectAssignmentPayload(?int $projectId): array
     {
         $allocationPercent = $_POST['allocation_percent'] ?? null;
@@ -470,6 +520,7 @@ class ProjectsController extends Controller
         $assignments = $repo->assignmentsForProject($id, $user);
         $designInputsRepo = new DesignInputsRepository($this->db);
         $designControlsRepo = new DesignControlsRepository($this->db);
+        $designChangesRepo = new DesignChangesRepository($this->db);
         $users = (new UsersRepository($this->db))->all();
 
         return [
@@ -482,6 +533,8 @@ class ProjectsController extends Controller
             'designControls' => $designControlsRepo->listByProject($id),
             'designControlTypes' => $designControlsRepo->allowedTypes(),
             'designControlResults' => $designControlsRepo->allowedResults(),
+            'designChanges' => $designChangesRepo->listByProject($id),
+            'designChangeImpactLevels' => $designChangesRepo->impactLevels(),
             'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
         ];
     }
@@ -578,6 +631,11 @@ class ProjectsController extends Controller
             $openTasks = $repo->openTasksCount((int) $current['id']);
             if ($openTasks > 0) {
                 throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
+            }
+
+            $designChangesRepo = new DesignChangesRepository($this->db);
+            if ($designChangesRepo->pendingCount((int) $current['id']) > 0) {
+                throw new \InvalidArgumentException('No puedes cerrar el proyecto: hay cambios de diseño pendientes de aprobación.');
             }
         }
 

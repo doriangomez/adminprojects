@@ -60,6 +60,7 @@ class DatabaseMigrator
             $this->ensureProjectIsoControls();
             $this->ensureProjectDesignInputsTable();
             $this->ensureProjectDesignControlsTable();
+            $this->ensureProjectDesignChangesTable();
             $this->ensureRiskCatalogTable();
             $this->ensureProjectRiskEvaluationsTable();
             $this->seedRiskCatalog();
@@ -406,6 +407,34 @@ class DatabaseMigrator
                 performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (performed_by) REFERENCES users(id)
+            ) ENGINE=InnoDB"
+        );
+    }
+
+    private function ensureProjectDesignChangesTable(): void
+    {
+        if ($this->db->tableExists('project_design_changes')) {
+            return;
+        }
+
+        $this->db->execute(
+            "CREATE TABLE project_design_changes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                description TEXT NOT NULL,
+                impact_scope ENUM('bajo','medio','alto') NOT NULL,
+                impact_time ENUM('bajo','medio','alto') NOT NULL,
+                impact_cost ENUM('bajo','medio','alto') NOT NULL,
+                impact_quality ENUM('bajo','medio','alto') NOT NULL,
+                requires_review_validation TINYINT(1) DEFAULT 0,
+                status ENUM('pendiente','aprobado') NOT NULL DEFAULT 'pendiente',
+                created_by INT NULL,
+                approved_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_at TIMESTAMP NULL,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (approved_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
     }
