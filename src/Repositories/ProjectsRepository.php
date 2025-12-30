@@ -163,6 +163,7 @@ class ProjectsRepository
         $hasTypeColumn = $this->db->columnExists('projects', 'project_type');
         $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
+        $isoColumns = $this->isoFlagColumns();
 
         $select = [
             'p.id',
@@ -191,6 +192,10 @@ class ProjectsRepository
 
         if ($this->db->columnExists('projects', 'scope')) {
             $select[] = 'p.scope';
+        }
+
+        foreach ($isoColumns as $isoFlag) {
+            $select[] = 'p.' . $isoFlag;
         }
 
         if ($hasTypeColumn) {
@@ -710,13 +715,14 @@ class ProjectsRepository
         return $projectId;
     }
 
-    public function updateProject(int $id, array $payload): void
+    public function updateProject(int $id, array $payload, ?int $userId = null): void
     {
         $fields = ['name = :name'];
         $params = [
             ':id' => $id,
             ':name' => $payload['name'],
         ];
+        $beforeIsoFlags = $this->projectIsoFlags($id);
 
         if ($this->db->columnExists('projects', 'status_code')) {
             $fields[] = 'status_code = :status';
@@ -826,6 +832,8 @@ class ProjectsRepository
             $this->assertDesignReviewPrerequisites($id, (int) $payload['design_review_done']);
         }
 
+        $this->assertIsoControlSequence($id, $payload, $beforeIsoFlags);
+
         $isoControls = [
             'design_inputs_defined',
             'design_review_done',
@@ -846,6 +854,9 @@ class ProjectsRepository
             'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
             $params
         );
+
+        $afterIsoFlags = $this->mergedIsoFlags($beforeIsoFlags, $payload);
+        $this->logIsoFlagChanges($id, $beforeIsoFlags, $afterIsoFlags, $userId);
 
         $riskEvaluations = $payload['risk_evaluations'] ?? null;
         if ($riskEvaluations === null && array_key_exists('risks', $payload)) {
@@ -1202,6 +1213,146 @@ class ProjectsRepository
 
         if ($inputsCount < 1) {
             throw new \InvalidArgumentException('No puedes marcar la revisión de diseño como completada sin entradas de diseño registradas.');
+        }
+    }
+
+    private function assertIsoControlSequence(int $projectId, array $payload, array $currentIsoFlags): void
+    {
+        if (!$this->db->tableExists('project_design_controls')) {
+            return;
+        }
+
+        $isoColumns = $this->isoFlagColumns();
+        if (empty($isoColumns)) {
+            return;
+        }
+
+        $controlsRepo = new DesignControlsRepository($this->db);
+        $afterReview = $this->targetIsoFlagValue('design_review_done', $payload, $currentIsoFlags);
+        $afterVerification = $this->targetIsoFlagValue('design_verification_done', $payload, $currentIsoFlags);
+        $afterValidation = $this->targetIsoFlagValue('design_validation_done', $payload, $currentIsoFlags);
+
+        $hasRevisionControl = $controlsRepo->countByType($projectId, 'revision') > 0;
+        $hasVerificationControl = $controlsRepo->countByType($projectId, 'verificacion') > 0;
+        $hasValidationControl = $controlsRepo->countByType($projectId, 'validacion') > 0;
+
+        if ($afterReview === 1 && !$hasRevisionControl) {
+            throw new \InvalidArgumentException('Registra al menos un control de revisión antes de marcar la revisión como completada.');
+        }
+
+        if ($afterVerification === 1) {
+            if (!$hasRevisionControl) {
+                throw new \InvalidArgumentException('No puedes completar la verificación sin revisiones de diseño registradas.');
+            }
+            if (!$hasVerificationControl) {
+                throw new \InvalidArgumentException('Registra al menos un control de verificación antes de marcarla como completada.');
+            }
+        }
+
+        if ($afterValidation === 1) {
+            if ($afterVerification !== 1) {
+                throw new \InvalidArgumentException('Completa la verificación antes de dar por terminada la validación.');
+            }
+            if (!$hasVerificationControl) {
+                throw new \InvalidArgumentException('No puedes completar la validación sin verificaciones registradas.');
+            }
+            if (!$hasValidationControl) {
+                throw new \InvalidArgumentException('Registra al menos un control de validación antes de marcarla como completada.');
+            }
+        }
+    }
+
+    private function projectIsoFlags(int $projectId): array
+    {
+        $isoColumns = $this->isoFlagColumns();
+        if (empty($isoColumns)) {
+            return [];
+        }
+
+        $select = implode(', ', $isoColumns);
+        $result = $this->db->fetchOne(
+            "SELECT $select FROM projects WHERE id = :id",
+            [':id' => $projectId]
+        );
+
+        return $result ?: [];
+    }
+
+    private function isoFlagColumns(): array
+    {
+        $candidates = [
+            'design_inputs_defined',
+            'design_review_done',
+            'design_verification_done',
+            'design_validation_done',
+            'legal_requirements',
+            'change_control_required',
+        ];
+
+        $existing = [];
+        foreach ($candidates as $column) {
+            if ($this->db->columnExists('projects', $column)) {
+                $existing[] = $column;
+            }
+        }
+
+        return $existing;
+    }
+
+    private function targetIsoFlagValue(string $flag, array $payload, array $currentIsoFlags): int
+    {
+        if (!in_array($flag, $this->isoFlagColumns(), true)) {
+            return 0;
+        }
+
+        if (array_key_exists($flag, $payload)) {
+            return (int) $payload[$flag];
+        }
+
+        return (int) ($currentIsoFlags[$flag] ?? 0);
+    }
+
+    private function mergedIsoFlags(array $before, array $payload): array
+    {
+        $after = [];
+        foreach ($this->isoFlagColumns() as $flag) {
+            $after[$flag] = $this->targetIsoFlagValue($flag, $payload, $before);
+        }
+
+        return $after;
+    }
+
+    private function logIsoFlagChanges(int $projectId, array $before, array $after, ?int $userId): void
+    {
+        $changes = [];
+        foreach ($this->isoFlagColumns() as $flag) {
+            $beforeValue = (int) ($before[$flag] ?? 0);
+            $afterValue = (int) ($after[$flag] ?? $beforeValue);
+            if ($beforeValue !== $afterValue) {
+                $changes[$flag] = [
+                    'before' => $beforeValue,
+                    'after' => $afterValue,
+                ];
+            }
+        }
+
+        if (empty($changes)) {
+            return;
+        }
+
+        try {
+            (new AuditLogRepository($this->db))->log(
+                $userId,
+                'project',
+                $projectId,
+                'project.iso_flags',
+                [
+                    'before' => array_map(fn ($change) => $change['before'], $changes),
+                    'after' => array_map(fn ($change) => $change['after'], $changes),
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('No se pudo registrar el cambio de banderas ISO: ' . $e->getMessage());
         }
     }
 

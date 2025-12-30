@@ -45,7 +45,7 @@ class DesignInputsRepository
             ]
         );
 
-        $this->markProjectDesignInputsDefined($projectId);
+        $this->markProjectDesignInputsDefined($projectId, $userId);
         $this->audit($userId, $id, 'create', [
             'project_id' => $projectId,
             'input_type' => $inputType,
@@ -188,9 +188,19 @@ class DesignInputsRepository
         return (int) $stmt->fetchColumn();
     }
 
-    private function markProjectDesignInputsDefined(int $projectId): void
+    private function markProjectDesignInputsDefined(int $projectId, ?int $userId = null): void
     {
         if (!$this->db->columnExists('projects', 'design_inputs_defined')) {
+            return;
+        }
+
+        $current = $this->db->fetchOne(
+            'SELECT design_inputs_defined FROM projects WHERE id = :project_id',
+            [':project_id' => $projectId]
+        );
+        $before = (int) ($current['design_inputs_defined'] ?? 0);
+
+        if ($before === 1) {
             return;
         }
 
@@ -198,6 +208,7 @@ class DesignInputsRepository
             'UPDATE projects SET design_inputs_defined = 1 WHERE id = :project_id',
             [':project_id' => $projectId]
         );
+        $this->auditIsoFlagChange($userId, $projectId, $before, 1);
     }
 
     private function assertValidProject(int $projectId): void
@@ -262,5 +273,23 @@ class DesignInputsRepository
             'project_id' => $projectId,
             'resolved_conflict' => 1,
         ]);
+    }
+
+    private function auditIsoFlagChange(?int $userId, int $projectId, int $before, int $after): void
+    {
+        try {
+            $this->auditLog?->log(
+                $userId,
+                'project',
+                $projectId,
+                'project.iso_flags',
+                [
+                    'before' => ['design_inputs_defined' => $before],
+                    'after' => ['design_inputs_defined' => $after],
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('No se pudo registrar el cambio de bandera ISO: ' . $e->getMessage());
+        }
     }
 }
