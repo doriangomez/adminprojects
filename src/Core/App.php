@@ -114,6 +114,22 @@ class App
                 $controller->assignTalent();
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/design-inputs/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteDesignInput((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/design-inputs$#', $path, $matches) && $method === 'POST') {
+                $controller->storeDesignInput((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/design-controls$#', $path, $matches) && $method === 'POST') {
+                $controller->storeDesignControl((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/design-outputs$#', $path, $matches) && $method === 'POST') {
+                $controller->updateDesignOutputs((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
                 $controller->show((int) $matches[1]);
                 return;

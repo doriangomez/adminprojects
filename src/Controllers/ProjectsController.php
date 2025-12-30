@@ -43,23 +43,7 @@ class ProjectsController extends Controller
     public function show(int $id): void
     {
         $this->requirePermission('projects.view');
-        $repo = new ProjectsRepository($this->db);
-        $user = $this->auth->user() ?? [];
-        $project = $repo->findForUser($id, $user);
-
-        if (!$project) {
-            http_response_code(404);
-            exit('Proyecto no encontrado');
-        }
-
-        $assignments = $repo->assignmentsForProject($id, $user);
-
-        $this->render('projects/show', [
-            'title' => 'Detalle de proyecto',
-            'project' => $project,
-            'assignments' => $assignments,
-            'canManage' => $this->auth->can('projects.manage'),
-        ]);
+        $this->render('projects/show', $this->projectDetailData($id));
     }
 
     public function edit(int $id): void
@@ -336,6 +320,121 @@ class ProjectsController extends Controller
         }
     }
 
+    public function storeDesignInput(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $repo = new DesignInputsRepository($this->db);
+            $repo->create([
+                'project_id' => $projectId,
+                'input_type' => $_POST['input_type'] ?? '',
+                'description' => $_POST['description'] ?? '',
+                'source' => $_POST['source'] ?? null,
+                'resolved_conflict' => isset($_POST['resolved_conflict']) ? 1 : 0,
+            ], (int) ($this->auth->user()['id'] ?? 0));
+
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['designInputError' => $e->getMessage()]
+            ));
+        }
+    }
+
+    public function deleteDesignInput(int $projectId, int $inputId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $repo = new DesignInputsRepository($this->db);
+            $repo->delete($inputId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['designInputError' => $e->getMessage()]
+            ));
+        }
+    }
+
+    public function storeDesignControl(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $repo = new DesignControlsRepository($this->db);
+            $repo->create([
+                'project_id' => $projectId,
+                'control_type' => $_POST['control_type'] ?? '',
+                'description' => $_POST['description'] ?? '',
+                'result' => $_POST['result'] ?? '',
+                'corrective_action' => $_POST['corrective_action'] ?? null,
+                'performed_by' => (int) ($_POST['performed_by'] ?? 0),
+                'performed_at' => $_POST['performed_at'] ?? null,
+            ], (int) ($this->auth->user()['id'] ?? 0));
+
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['designControlError' => $e->getMessage()]
+            ));
+        }
+    }
+
+    public function updateDesignOutputs(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        try {
+            $payload = [
+                'name' => $project['name'],
+                'status' => $project['status'],
+                'health' => $project['health'],
+                'priority' => $project['priority'],
+                'pm_id' => (int) ($project['pm_id'] ?? 0),
+                'project_type' => (string) ($project['project_type'] ?? 'convencional'),
+                'methodology' => (string) ($project['methodology'] ?? 'cascada'),
+                'phase' => $project['phase'] ?? null,
+                'budget' => (float) ($project['budget'] ?? 0),
+                'actual_cost' => (float) ($project['actual_cost'] ?? 0),
+                'planned_hours' => (float) ($project['planned_hours'] ?? 0),
+                'actual_hours' => (float) ($project['actual_hours'] ?? 0),
+                'progress' => (float) ($project['progress'] ?? 0),
+                'scope' => (string) ($project['scope'] ?? ''),
+                'design_inputs' => (string) ($project['design_inputs'] ?? ''),
+                'client_participation' => (int) ($project['client_participation'] ?? 0),
+                'start_date' => $project['start_date'] ?? null,
+                'end_date' => $project['end_date'] ?? null,
+                'design_review_done' => isset($_POST['design_review_done']) ? 1 : 0,
+                'design_verification_done' => isset($_POST['design_verification_done']) ? 1 : 0,
+                'design_validation_done' => isset($_POST['design_validation_done']) ? 1 : 0,
+            ];
+
+            $repo->updateProject($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['designOutputError' => $e->getMessage()]
+            ));
+        }
+    }
+
     private function collectAssignmentPayload(?int $projectId): array
     {
         $allocationPercent = $_POST['allocation_percent'] ?? null;
@@ -354,6 +453,36 @@ class ProjectsController extends Controller
             'is_external' => isset($_POST['is_external']) ? 1 : 0,
             'requires_timesheet' => isset($_POST['requires_timesheet']) ? 1 : 0,
             'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
+        ];
+    }
+
+    private function projectDetailData(int $id): array
+    {
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $assignments = $repo->assignmentsForProject($id, $user);
+        $designInputsRepo = new DesignInputsRepository($this->db);
+        $designControlsRepo = new DesignControlsRepository($this->db);
+        $users = (new UsersRepository($this->db))->all();
+
+        return [
+            'title' => 'Detalle de proyecto',
+            'project' => $project,
+            'assignments' => $assignments,
+            'canManage' => $this->auth->can('projects.manage'),
+            'designInputs' => $designInputsRepo->listByProject($id),
+            'designInputTypes' => $designInputsRepo->allowedTypes(),
+            'designControls' => $designControlsRepo->listByProject($id),
+            'designControlTypes' => $designControlsRepo->allowedTypes(),
+            'designControlResults' => $designControlsRepo->allowedResults(),
+            'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
         ];
     }
 

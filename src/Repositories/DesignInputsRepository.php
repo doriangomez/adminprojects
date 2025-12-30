@@ -59,6 +59,26 @@ class DesignInputsRepository
         return $id;
     }
 
+    public function delete(int $id, int $projectId, ?int $userId = null): void
+    {
+        $existing = $this->find($id);
+        if (!$existing || (int) ($existing['project_id'] ?? 0) !== $projectId) {
+            throw new \InvalidArgumentException('La entrada de diseño no existe.');
+        }
+
+        $this->db->execute(
+            'DELETE FROM project_design_inputs WHERE id = :id AND project_id = :project',
+            [
+                ':id' => $id,
+                ':project' => $projectId,
+            ]
+        );
+
+        $this->audit($userId, $id, 'delete', [
+            'project_id' => $projectId,
+        ]);
+    }
+
     public function update(int $id, array $payload, ?int $userId = null): void
     {
         $existing = $this->find($id);
@@ -174,6 +194,11 @@ class DesignInputsRepository
              ORDER BY created_at ASC',
             [':project' => $projectId]
         );
+    }
+
+    public function allowedTypes(): array
+    {
+        return self::INPUT_TYPES;
     }
 
     public function countByProject(int $projectId): int
