@@ -340,6 +340,8 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
                 $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
                 $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Salud no registrada';
                 $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
+                $riskScore = (float) ($project['risk_score'] ?? 0);
+                $riskLevel = $project['risk_level'] ?? 'Sin dato';
                 $progress = (float) ($project['progress'] ?? 0);
                 $pmName = $project['pm_name'] ?? 'Sin PM asignado';
                 $methodology = $project['methodology'] ?? 'No definido';
@@ -387,6 +389,20 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
                         <div>
                             <span><?= htmlspecialchars($healthLabel) ?></span>
                             <small>Salud reportada</small>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="icon" aria-hidden="true">📊</div>
+                        <div>
+                            <span><?= number_format($riskScore, 1) ?></span>
+                            <small>Score de riesgo</small>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="icon" aria-hidden="true">🛡️</div>
+                        <div>
+                            <span><?= htmlspecialchars(ucfirst((string) $riskLevel)) ?></span>
+                            <small>Nivel de riesgo</small>
                         </div>
                     </div>
                     <div class="info-item">

@@ -76,6 +76,11 @@
         .timesheet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
         .tiny { font-size: 12px; color: #475569; letter-spacing: 0.02em; text-transform: uppercase; }
     </style>
+    <?php
+    $riskLevels = is_array($portfolio['risk_levels'] ?? null)
+        ? array_merge(['alto' => 0, 'medio' => 0, 'bajo' => 0], $portfolio['risk_levels'])
+        : ['alto' => 0, 'medio' => 0, 'bajo' => 0];
+    ?>
 
     <div class="kpi-grid">
         <div class="card kpi-card" data-tone="blue">
@@ -122,6 +127,8 @@
                 <div class="pill soft-blue">Promedio: <?= $portfolio['avg_progress'] ?>%</div>
                 <div class="pill soft-green">Horas planificadas: <?= $portfolio['planned_hours'] ?></div>
                 <div class="pill soft-amber">Horas reales: <?= $portfolio['actual_hours'] ?></div>
+                <div class="pill soft-blue">Score riesgo prom.: <?= number_format((float) ($portfolio['avg_risk_score'] ?? 0), 1) ?></div>
+                <div class="pill soft-amber">Niveles: A <?= $riskLevels['alto'] ?> • M <?= $riskLevels['medio'] ?> • B <?= $riskLevels['bajo'] ?></div>
             </div>
         </div>
         <div class="card">
