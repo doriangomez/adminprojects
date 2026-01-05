@@ -491,6 +491,10 @@ class DatabaseMigrator
 
     private function migrateProjectNodesTable(): void
     {
+        if ($this->db->indexExists('project_nodes', 'project_code')) {
+            $this->db->execute('ALTER TABLE project_nodes DROP INDEX project_code');
+        }
+
         $requiredColumns = [
             'node_type',
             'iso_clause',
@@ -523,7 +527,6 @@ class DatabaseMigrator
                 DROP COLUMN linked_entity_type,
                 DROP COLUMN linked_entity_id,
                 DROP COLUMN updated_at,
-                DROP INDEX project_code,
                 ADD FOREIGN KEY (created_by) REFERENCES users(id)"
         );
     }

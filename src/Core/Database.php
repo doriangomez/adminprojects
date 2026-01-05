@@ -66,6 +66,22 @@ class Database
         return $this->databaseName;
     }
 
+    public function indexExists(string $table, string $index): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.statistics
+             WHERE table_schema = :schema AND table_name = :table AND index_name = :index'
+        );
+
+        $stmt->execute([
+            ':schema' => $this->databaseName,
+            ':table' => $table,
+            ':index' => $index,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function columnExists(string $table, string $column): bool
     {
         $cacheKey = $table . '.' . $column;
