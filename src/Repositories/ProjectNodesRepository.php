@@ -5,10 +5,14 @@ declare(strict_types=1);
 class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
-    private const TREE_VERSION = '2024.10';
-    private const SCRUM_SPRINT_CONTAINER_CODE = '03-SPRINTS';
-    private const SCRUM_SPRINT_CONTAINER_TITLE = '03 · Sprints';
-    private const SCRUM_SPRINT_CONTAINER_ORDER = 30;
+    private const TREE_VERSION = '2024.11';
+    private const SCRUM_BACKLOG_CODE = 'SCRUM-BACKLOG';
+    private const SCRUM_BACKLOG_TITLE = 'Backlog del Producto';
+    private const SCRUM_SPRINT_CONTAINER_CODE = 'SCRUM-SPRINTS';
+    private const SCRUM_SPRINT_CONTAINER_TITLE = 'Sprints';
+    private const SCRUM_SPRINT_CONTAINER_ORDER = 20;
+    private const SCRUM_ARTEFACTS_CODE = 'SCRUM-ARTEFACTOS';
+    private const SCRUM_ARTEFACTS_TITLE = 'Artefactos del Proyecto';
 
     public function __construct(private Database $db)
     {
@@ -28,18 +32,32 @@ class ProjectNodesRepository
             || ($metadata['methodology'] ?? null) !== $normalizedMethodology;
 
         if ($needsReset) {
-            $this->resetProjectTree($projectId);
-            foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
-                $this->materializeNodeTree(
-                    $projectId,
-                    $definition,
-                    null,
-                    $normalizedMethodology !== 'scrum'
-                );
+            if ($hasNodes && $normalizedMethodology === 'scrum') {
+                foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
+                    $this->materializeNodeTree(
+                        $projectId,
+                        $definition,
+                        null,
+                        false
+                    );
+                }
+            } else {
+                $this->resetProjectTree($projectId);
+                foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
+                    $this->materializeNodeTree(
+                        $projectId,
+                        $definition,
+                        null,
+                        $normalizedMethodology !== 'scrum'
+                    );
+                }
             }
             $this->persistTreeMetadata($projectId, $normalizedMethodology);
         }
 
+        if ($normalizedMethodology === 'scrum') {
+            $this->ensureScrumControlContainers($projectId);
+        }
     }
 
     public function snapshot(int $projectId): array
@@ -228,7 +246,7 @@ class ProjectNodesRepository
         }
 
         $nodes = $this->db->fetchAll(
-            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at
+            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at, status, critical, completed_at, sort_order
              FROM project_nodes
              WHERE project_id = :project
              ORDER BY parent_id IS NULL DESC, sort_order ASC, id ASC',
@@ -259,7 +277,9 @@ class ProjectNodesRepository
                 'code' => $node['code'] ?? '',
                 'name' => $node['title'],
                 'iso_code' => $node['iso_clause'],
-                'status' => 'pendiente',
+                'status' => $node['status'] ?? 'pendiente',
+                'critical' => (bool) ((int) ($node['critical'] ?? 0)),
+                'completed_at' => $node['completed_at'] ?? null,
                 'description' => $node['description'] ?? null,
                 'files' => [],
                 'children' => [],
@@ -281,11 +301,6 @@ class ProjectNodesRepository
             }
         }
         unset($folder);
-
-        foreach ($tree as &$root) {
-            $this->refreshFolderStatus($root);
-        }
-        unset($root);
 
         return $tree;
     }
@@ -591,7 +606,7 @@ class ProjectNodesRepository
             ],
             [
                 'code' => 'HISTORIAS',
-                'title' => 'Historias',
+                'title' => 'Historias comprometidas',
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.4',
                 'description' => null,
@@ -608,21 +623,12 @@ class ProjectNodesRepository
                 'children' => [],
             ],
             [
-                'code' => 'REVIEW',
-                'title' => 'Review',
-                'node_type' => 'folder',
-                'iso_clause' => '8.3.6',
-                'description' => null,
-                'sort_order' => 40,
-                'children' => [],
-            ],
-            [
                 'code' => 'RETROSPECTIVA',
                 'title' => 'Retrospectiva',
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.6',
                 'description' => null,
-                'sort_order' => 50,
+                'sort_order' => 40,
                 'children' => [],
             ],
         ];
@@ -632,96 +638,13 @@ class ProjectNodesRepository
     {
         return [
             [
-                'code' => '01-DESCUBRIMIENTO',
-                'title' => '01 · Descubrimiento',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => null,
-                'sort_order' => 10,
-                'children' => [
-                    [
-                        'code' => '01-DESCUBRIMIENTO-VISION-PRODUCTO',
-                        'title' => 'Visión del producto',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => null,
-                        'sort_order' => 10,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '01-DESCUBRIMIENTO-CONTEXTO-NEGOCIO',
-                        'title' => 'Contexto del negocio',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => null,
-                        'sort_order' => 20,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '01-DESCUBRIMIENTO-STAKEHOLDERS',
-                        'title' => 'Stakeholders',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => null,
-                        'sort_order' => 30,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '01-DESCUBRIMIENTO-DECISIONES-INICIALES',
-                        'title' => 'Decisiones iniciales',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => null,
-                        'sort_order' => 40,
-                        'children' => [],
-                    ],
-                ],
-            ],
-            [
-                'code' => '02-BACKLOG-PRODUCTO',
-                'title' => '02 · Backlog del Producto',
+                'code' => self::SCRUM_BACKLOG_CODE,
+                'title' => self::SCRUM_BACKLOG_TITLE,
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.2',
                 'description' => null,
-                'sort_order' => 20,
-                'children' => [
-                    [
-                        'code' => '02-BACKLOG-PRODUCTO-HISTORIAS-USUARIO',
-                        'title' => 'Historias de usuario',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.2',
-                        'description' => null,
-                        'sort_order' => 10,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '02-BACKLOG-PRODUCTO-CRITERIOS-ACEPTACION',
-                        'title' => 'Criterios de aceptación',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.2',
-                        'description' => null,
-                        'sort_order' => 20,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '02-BACKLOG-PRODUCTO-PRIORIZACION',
-                        'title' => 'Priorización',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.2',
-                        'description' => null,
-                        'sort_order' => 30,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '02-BACKLOG-PRODUCTO-REFINAMIENTO',
-                        'title' => 'Refinamiento',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.2',
-                        'description' => null,
-                        'sort_order' => 40,
-                        'children' => [],
-                    ],
-                ],
+                'sort_order' => 10,
+                'children' => [],
             ],
             [
                 'code' => self::SCRUM_SPRINT_CONTAINER_CODE,
@@ -733,50 +656,13 @@ class ProjectNodesRepository
                 'children' => [],
             ],
             [
-                'code' => '99-CIERRE',
-                'title' => '99 · Cierre',
+                'code' => self::SCRUM_ARTEFACTS_CODE,
+                'title' => self::SCRUM_ARTEFACTS_TITLE,
                 'node_type' => 'folder',
                 'iso_clause' => null,
                 'description' => null,
-                'sort_order' => 990,
-                'children' => [
-                    [
-                        'code' => '99-CIERRE-INCREMENTO-FINAL',
-                        'title' => 'Incremento final',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.5',
-                        'description' => null,
-                        'sort_order' => 10,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '99-CIERRE-APROBACION-CLIENTE',
-                        'title' => 'Aprobación del cliente',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.4',
-                        'description' => null,
-                        'sort_order' => 20,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '99-CIERRE-METRICAS',
-                        'title' => 'Métricas',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.4',
-                        'description' => null,
-                        'sort_order' => 30,
-                        'children' => [],
-                    ],
-                    [
-                        'code' => '99-CIERRE-LECCIONES-APRENDIDAS',
-                        'title' => 'Lecciones aprendidas',
-                        'node_type' => 'folder',
-                        'iso_clause' => '8.3.6',
-                        'description' => null,
-                        'sort_order' => 40,
-                        'children' => [],
-                    ],
-                ],
+                'sort_order' => 30,
+                'children' => [],
             ],
         ];
     }
@@ -834,6 +720,7 @@ class ProjectNodesRepository
 
     private function ensureSprintsContainer(int $projectId, ?int $userId = null): array
     {
+        $this->ensureScrumControlContainers($projectId);
         $containerId = $this->ensureNode(
             $projectId,
             self::SCRUM_SPRINT_CONTAINER_CODE,
@@ -850,6 +737,97 @@ class ProjectNodesRepository
             'id' => $containerId,
             'code' => self::SCRUM_SPRINT_CONTAINER_CODE,
         ];
+    }
+
+    private function ensureScrumControlContainers(int $projectId): void
+    {
+        $backlog = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [':project' => $projectId, ':code' => self::SCRUM_BACKLOG_CODE]
+        );
+
+        if (!$backlog) {
+            $legacyBacklog = $this->db->fetchOne(
+                'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+                [':project' => $projectId, ':code' => '02-BACKLOG-PRODUCTO']
+            );
+
+            if ($legacyBacklog) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET code = :code, title = :title, parent_id = NULL, iso_clause = :iso, sort_order = 10 WHERE id = :id',
+                    [
+                        ':code' => self::SCRUM_BACKLOG_CODE,
+                        ':title' => self::SCRUM_BACKLOG_TITLE,
+                        ':iso' => '8.3.2',
+                        ':id' => (int) ($legacyBacklog['id'] ?? 0),
+                    ]
+                );
+            } else {
+                $this->ensureNode(
+                    $projectId,
+                    self::SCRUM_BACKLOG_CODE,
+                    self::SCRUM_BACKLOG_TITLE,
+                    'folder',
+                    null,
+                    '8.3.2',
+                    null,
+                    10
+                );
+            }
+        }
+
+        $sprints = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [':project' => $projectId, ':code' => self::SCRUM_SPRINT_CONTAINER_CODE]
+        );
+
+        if (!$sprints) {
+            $legacySprints = $this->db->fetchOne(
+                'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+                [':project' => $projectId, ':code' => '03-SPRINTS']
+            );
+
+            if ($legacySprints) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET code = :code, title = :title, parent_id = NULL, iso_clause = NULL, sort_order = :order WHERE id = :id',
+                    [
+                        ':code' => self::SCRUM_SPRINT_CONTAINER_CODE,
+                        ':title' => self::SCRUM_SPRINT_CONTAINER_TITLE,
+                        ':order' => self::SCRUM_SPRINT_CONTAINER_ORDER,
+                        ':id' => (int) ($legacySprints['id'] ?? 0),
+                    ]
+                );
+            } else {
+                $this->ensureNode(
+                    $projectId,
+                    self::SCRUM_SPRINT_CONTAINER_CODE,
+                    self::SCRUM_SPRINT_CONTAINER_TITLE,
+                    'folder',
+                    null,
+                    null,
+                    null,
+                    self::SCRUM_SPRINT_CONTAINER_ORDER
+                );
+            }
+        }
+
+        $artefacts = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [':project' => $projectId, ':code' => self::SCRUM_ARTEFACTS_CODE]
+        );
+
+        if (!$artefacts) {
+            $this->ensureNode(
+                $projectId,
+                self::SCRUM_ARTEFACTS_CODE,
+                self::SCRUM_ARTEFACTS_TITLE,
+                'folder',
+                null,
+                null,
+                null,
+                30
+            );
+        }
     }
 
     private function nextSprintNumber(int $projectId, ?int $containerId): int
@@ -1148,26 +1126,6 @@ class ProjectNodesRepository
         $normalized = trim((string) $normalized, '.');
 
         return $normalized !== '' ? $normalized : 'nodo';
-    }
-
-    private function folderStatus(int $folderId, array $filesByFolder): string
-    {
-        $hasFiles = !empty($filesByFolder[$folderId]);
-        return $hasFiles ? 'completado' : 'pendiente';
-    }
-
-    private function refreshFolderStatus(array &$folder): bool
-    {
-        $hasEvidence = !empty($folder['files']);
-
-        foreach ($folder['children'] as &$child) {
-            $hasEvidence = $this->refreshFolderStatus($child) || $hasEvidence;
-        }
-        unset($child);
-
-        $folder['status'] = $hasEvidence ? 'completado' : 'pendiente';
-
-        return $hasEvidence;
     }
 
     private function findNode(int $projectId, int $nodeId): ?array
