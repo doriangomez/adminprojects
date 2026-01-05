@@ -106,7 +106,6 @@ class ProjectsController extends Controller
             $payload = $this->applyLifecycleGovernance($project, $payload, $delivery, $repo, $riskCatalog);
             unset($payload['risk_catalog']);
             $repo->updateProject($id, $payload, (int) ($this->auth->user()['id'] ?? 0));
-            $this->syncProjectNodes($id, (string) ($payload['methodology'] ?? ($project['methodology'] ?? 'cascada')), $payload['phase'] ?? ($project['phase'] ?? null));
             $this->logRiskAudit($auditRepo, $project['id'], $previousEvaluations, $payload['risk_evaluations'] ?? []);
             $this->logProjectChange($auditRepo, $project, $payload);
 
@@ -154,7 +153,7 @@ class ProjectsController extends Controller
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
-            $this->syncProjectNodes($projectId, (string) ($payload['methodology'] ?? 'cascada'), $payload['phase'] ?? null);
+            $this->createProjectNodeTree($projectId, (string) ($payload['methodology'] ?? 'cascada'));
             $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
@@ -169,27 +168,15 @@ class ProjectsController extends Controller
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => $this->isLocalEnvironment()
-                    ? $this->formatExceptionForDisplay($e)
-                    : 'No se pudo crear el proyecto. Intenta nuevamente o contacta al administrador.',
+                'error' => $this->formatExceptionForDisplay($e),
                 'old' => $_POST,
             ]));
         } catch (\Throwable $e) {
             error_log('Error al crear proyecto: ' . $e->getMessage());
             http_response_code(500);
-            $message = $this->isLocalEnvironment()
-                ? $this->formatExceptionForDisplay($e)
-                : (function () use ($e) {
-                    $baseMessage = 'No se pudo crear el proyecto.';
-                    $exceptionMessage = trim($e->getMessage());
-                    if ($exceptionMessage !== '') {
-                        return $baseMessage . ' Motivo: ' . $exceptionMessage;
-                    }
-                    return $baseMessage . ' Intenta nuevamente o contacta al administrador.';
-                })();
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => $message,
+                'error' => $this->formatExceptionForDisplay($e),
                 'old' => $_POST,
             ]));
         }
@@ -266,8 +253,8 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $nodeSync = $this->syncProjectNodes((int) $project['id'], (string) ($project['methodology'] ?? 'cascada'), $project['phase'] ?? null);
-        if (!empty($nodeSync['pending_critical'])) {
+        $nodeSnapshot = $this->projectNodesSnapshot((int) $project['id']);
+        if (!empty($nodeSnapshot['pending_critical'])) {
             http_response_code(400);
             exit('No puedes cerrar el proyecto: hay nodos críticos pendientes en la estructura ISO 8.3.');
         }
@@ -343,7 +330,6 @@ class ProjectsController extends Controller
                 'resolved_conflict' => isset($_POST['resolved_conflict']) ? 1 : 0,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -361,7 +347,6 @@ class ProjectsController extends Controller
         try {
             $repo = new DesignInputsRepository($this->db);
             $repo->delete($inputId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -388,7 +373,6 @@ class ProjectsController extends Controller
                 'performed_at' => $_POST['performed_at'] ?? null,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -425,7 +409,6 @@ class ProjectsController extends Controller
                 'requires_review_validation' => isset($_POST['requires_review_validation']) ? 1 : 0,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -442,9 +425,7 @@ class ProjectsController extends Controller
 
         try {
             $nodesRepo = new ProjectNodesRepository($this->db);
-            $this->syncProjectNodesFromDb($projectId);
             $nodesRepo->storeFile($projectId, $nodeId, $_FILES['node_file'] ?? [], (int) ($this->auth->user()['id'] ?? 0));
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -485,7 +466,6 @@ class ProjectsController extends Controller
                 $description !== '' ? $description : null,
                 (int) ($this->auth->user()['id'] ?? 0)
             );
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -510,7 +490,6 @@ class ProjectsController extends Controller
         try {
             $nodesRepo = new ProjectNodesRepository($this->db);
             $nodesRepo->deleteNode($projectId, $nodeId);
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\Throwable $e) {
             error_log('Error al eliminar nodo documental: ' . $e->getMessage());
@@ -530,7 +509,6 @@ class ProjectsController extends Controller
             $repo = new DesignChangesRepository($this->db);
             $repo->approve($changeId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
 
-            $this->syncProjectNodesFromDb($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -578,8 +556,9 @@ class ProjectsController extends Controller
         $designControlsRepo = new DesignControlsRepository($this->db);
         $designChangesRepo = new DesignChangesRepository($this->db);
         $users = (new UsersRepository($this->db))->all();
-        $nodeSync = $this->syncProjectNodes((int) ($project['id'] ?? 0), (string) ($project['methodology'] ?? 'cascada'), $project['phase'] ?? null);
-        $project = array_merge($nodeSync['flags'] ?? [], $project);
+        $nodeSnapshot = $this->projectNodesSnapshot((int) ($project['id'] ?? 0));
+        $projectNodes = $nodeSnapshot['nodes'] ?? [];
+        $criticalNodes = $nodeSnapshot['pending_critical'] ?? [];
 
         return [
             'title' => 'Detalle de proyecto',
@@ -594,8 +573,8 @@ class ProjectsController extends Controller
             'designChanges' => $designChangesRepo->listByProject($id),
             'designChangeImpactLevels' => $designChangesRepo->impactLevels(),
             'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
-            'projectNodes' => $nodeSync['nodes'] ?? [],
-            'criticalNodes' => $nodeSync['pending_critical'] ?? [],
+            'projectNodes' => $projectNodes,
+            'criticalNodes' => $criticalNodes,
         ];
     }
 
@@ -705,9 +684,9 @@ class ProjectsController extends Controller
                 throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
             }
 
-            $nodeSync = $this->syncProjectNodes((int) $current['id'], (string) ($payload['methodology'] ?? ($current['methodology'] ?? 'cascada')), $payload['phase'] ?? ($current['phase'] ?? null));
-            if (!empty($nodeSync['pending_critical'])) {
-                $pendingNames = array_map(fn ($node) => $node['name'] ?? ($node['code'] ?? ''), $nodeSync['pending_critical']);
+            $nodeSnapshot = $this->projectNodesSnapshot((int) $current['id']);
+            if (!empty($nodeSnapshot['pending_critical'])) {
+                $pendingNames = array_map(fn ($node) => $node['name'] ?? ($node['code'] ?? ''), $nodeSnapshot['pending_critical']);
                 $pendingSummary = implode(', ', array_filter($pendingNames, fn ($name) => $name !== ''));
                 throw new \InvalidArgumentException(
                     'No puedes cerrar el proyecto: hay nodos críticos pendientes' . ($pendingSummary !== '' ? " ({$pendingSummary})." : '.')
@@ -1045,37 +1024,16 @@ class ProjectsController extends Controller
         return ($actual - $planned) / $planned;
     }
 
-    private function syncProjectNodes(int $projectId, string $methodology, ?string $phase = null): array
+    private function createProjectNodeTree(int $projectId, string $methodology): void
     {
-        $config = (new ConfigService($this->db))->getConfig();
         $nodesRepo = new ProjectNodesRepository($this->db);
-
-        return $nodesRepo->synchronizeFromProject(
-            $projectId,
-            $methodology,
-            $phase,
-            $config['delivery']['phases'] ?? []
-        );
+        $nodesRepo->createBaseTree($projectId, $methodology);
     }
 
-    private function syncProjectNodesFromDb(int $projectId): array
+    private function projectNodesSnapshot(int $projectId): array
     {
-        try {
-            $projectsRepo = new ProjectsRepository($this->db);
-            $project = $projectsRepo->findForUser($projectId, $this->auth->user() ?? []);
-        } catch (\Throwable) {
-            return [];
-        }
-
-        if (!$project) {
-            return [];
-        }
-
-        return $this->syncProjectNodes(
-            $projectId,
-            (string) ($project['methodology'] ?? 'cascada'),
-            $project['phase'] ?? null
-        );
+        $nodesRepo = new ProjectNodesRepository($this->db);
+        return $nodesRepo->snapshot($projectId);
     }
 
     private function defaultKpis(array $kpis): array
