@@ -282,44 +282,94 @@ class ProjectNodesRepository
 
     private function phaseChildren(string $phaseCode): array
     {
-        return [
+        $sections = [
             [
-                'code' => $phaseCode . '.documentacion',
-                'title' => 'Documentación',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => null,
+                'code' => $phaseCode . '.01-entradas-diseno',
+                'title' => '01 - Entradas del diseño',
                 'sort_order' => 1,
-                'children' => [],
+                'children' => $this->designInputChildren($phaseCode . '.01-entradas-diseno'),
             ],
             [
-                'code' => $phaseCode . '.evidencias',
-                'title' => 'Evidencias',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => null,
+                'code' => $phaseCode . '.02-planificacion-alcance',
+                'title' => '02 - Planificación y alcance',
                 'sort_order' => 2,
                 'children' => [],
             ],
             [
-                'code' => $phaseCode . '.controles',
-                'title' => 'Controles',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => null,
+                'code' => $phaseCode . '.03-controles-revisiones',
+                'title' => '03 - Controles y revisiones',
                 'sort_order' => 3,
-                'children' => [],
+                'children' => $this->controlChildren($phaseCode . '.03-controles-revisiones'),
             ],
             [
-                'code' => $phaseCode . '.cambios',
-                'title' => 'Cambios',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => null,
+                'code' => $phaseCode . '.04-evidencias-entregables',
+                'title' => '04 - Evidencias y entregables',
                 'sort_order' => 4,
                 'children' => [],
             ],
+            [
+                'code' => $phaseCode . '.05-cambios-decisiones',
+                'title' => '05 - Cambios y decisiones',
+                'sort_order' => 5,
+                'children' => [],
+            ],
         ];
+
+        return array_map(static function (array $section) {
+            return [
+                'code' => $section['code'],
+                'title' => $section['title'],
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => $section['sort_order'],
+                'children' => $section['children'],
+            ];
+        }, $sections);
+    }
+
+    private function designInputChildren(string $parentCode): array
+    {
+        $children = [
+            ['suffix' => 'requisitos-cliente', 'title' => 'Requisitos del cliente'],
+            ['suffix' => 'requisitos-legales-normativos', 'title' => 'Requisitos legales y normativos'],
+            ['suffix' => 'contexto-negocio', 'title' => 'Contexto del negocio'],
+            ['suffix' => 'referencias-previas', 'title' => 'Referencias previas'],
+        ];
+
+        return array_map(static function (array $child, int $index) use ($parentCode) {
+            return [
+                'code' => $parentCode . '.' . $child['suffix'],
+                'title' => $child['title'],
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => $index + 1,
+                'children' => [],
+            ];
+        }, $children, array_keys($children));
+    }
+
+    private function controlChildren(string $parentCode): array
+    {
+        $children = [
+            ['suffix' => 'revision-diseno', 'title' => 'Revisión de diseño'],
+            ['suffix' => 'verificacion', 'title' => 'Verificación'],
+            ['suffix' => 'validacion', 'title' => 'Validación'],
+            ['suffix' => 'aprobaciones', 'title' => 'Aprobaciones'],
+        ];
+
+        return array_map(static function (array $child, int $index) use ($parentCode) {
+            return [
+                'code' => $parentCode . '.' . $child['suffix'],
+                'title' => $child['title'],
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => $index + 1,
+                'children' => [],
+            ];
+        }, $children, array_keys($children));
     }
 
     private function materializeNodeTree(int $projectId, array $definition, ?string $parentCode): void
