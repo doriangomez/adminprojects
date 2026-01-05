@@ -239,107 +239,111 @@ class ProjectNodesRepository
 
     private function baseTreeDefinition(string $methodology): array
     {
-        $normalizedMethodology = strtolower(trim($methodology));
-        $phaseSets = [
-            'scrum' => [
-                'descubrimiento' => 'Descubrimiento',
-                'backlog_listo' => 'Backlog listo',
-                'sprint' => 'Sprint',
-                'deploy' => 'Deploy',
-            ],
-            'cascada' => [
-                'inicio' => 'Inicio',
-                'planificacion' => 'Planificación',
-                'ejecucion' => 'Ejecución',
-                'cierre' => 'Cierre',
-            ],
-            'kanban' => [
-                'por_hacer' => 'Por hacer',
-                'en_curso' => 'En curso',
-                'en_revision' => 'En revisión',
-                'hecho' => 'Hecho',
-            ],
-        ];
-
-        $phases = $phaseSets[$normalizedMethodology] ?? $phaseSets['cascada'];
+        $phases = $this->methodologyPhases($methodology);
         $definitions = [];
-        $sortOrder = 1;
 
-        foreach ($phases as $phaseCode => $label) {
+        foreach ($phases as $index => $label) {
+            $phaseCode = sprintf('F%02d', $index + 1);
             $definitions[] = [
-                'code' => 'fase.' . $phaseCode,
+                'code' => $phaseCode,
                 'title' => $label,
                 'node_type' => 'folder',
                 'iso_clause' => null,
                 'description' => null,
-                'sort_order' => $sortOrder++,
-                'children' => $this->phaseChildren('fase.' . $phaseCode),
+                'sort_order' => $index + 1,
+                'children' => $this->phaseChildren($phaseCode),
             ];
         }
 
         return $definitions;
     }
 
+    private function methodologyPhases(string $methodology): array
+    {
+        return match (strtolower(trim($methodology))) {
+            'scrum' => [
+                'Descubrimiento',
+                'Backlog y refinamiento',
+                'Sprints',
+                'Release',
+            ],
+            'cascada' => [
+                'Inicio',
+                'Planificación',
+                'Ejecución',
+                'Cierre',
+            ],
+            default => [
+                'Inicio',
+                'Planificación',
+                'Ejecución',
+                'Cierre',
+            ],
+        };
+    }
+
     private function phaseChildren(string $phaseCode): array
     {
         $sections = [
             [
-                'code' => $phaseCode . '.01-entradas-diseno',
-                'title' => '01 - Entradas del diseño',
-                'sort_order' => 1,
-                'children' => $this->designInputChildren($phaseCode . '.01-entradas-diseno'),
+                'suffix' => 'E01',
+                'title' => '01 - Entradas',
+                'iso_clause' => null,
+                'children' => $this->inputChildren($phaseCode . '-E01'),
             ],
             [
-                'code' => $phaseCode . '.02-planificacion-alcance',
-                'title' => '02 - Planificación y alcance',
-                'sort_order' => 2,
+                'suffix' => 'E02',
+                'title' => '02 - Planificación',
+                'iso_clause' => '8.3.2',
                 'children' => [],
             ],
             [
-                'code' => $phaseCode . '.03-controles-revisiones',
-                'title' => '03 - Controles y revisiones',
-                'sort_order' => 3,
-                'children' => $this->controlChildren($phaseCode . '.03-controles-revisiones'),
+                'suffix' => 'E03',
+                'title' => '03 - Controles ISO',
+                'iso_clause' => '8.3.4',
+                'children' => $this->controlChildren($phaseCode . '-E03'),
             ],
             [
-                'code' => $phaseCode . '.04-evidencias-entregables',
-                'title' => '04 - Evidencias y entregables',
-                'sort_order' => 4,
+                'suffix' => 'E04',
+                'title' => '04 - Evidencias',
+                'iso_clause' => '8.3.5',
                 'children' => [],
             ],
             [
-                'code' => $phaseCode . '.05-cambios-decisiones',
-                'title' => '05 - Cambios y decisiones',
-                'sort_order' => 5,
+                'suffix' => 'E05',
+                'title' => '05 - Cambios',
+                'iso_clause' => '8.3.6',
                 'children' => [],
             ],
         ];
 
-        return array_map(static function (array $section) {
+        return array_map(static function (array $section, int $index) use ($phaseCode) {
+            $sectionCode = $phaseCode . '-' . $section['suffix'];
+
             return [
-                'code' => $section['code'],
+                'code' => $sectionCode,
                 'title' => $section['title'],
                 'node_type' => 'folder',
-                'iso_clause' => null,
+                'iso_clause' => $section['iso_clause'],
                 'description' => null,
-                'sort_order' => $section['sort_order'],
+                'sort_order' => $index + 1,
                 'children' => $section['children'],
             ];
-        }, $sections);
+        }, $sections, array_keys($sections));
     }
 
-    private function designInputChildren(string $parentCode): array
+    private function inputChildren(string $parentCode): array
     {
         $children = [
-            ['suffix' => 'requisitos-cliente', 'title' => 'Requisitos del cliente'],
-            ['suffix' => 'requisitos-legales-normativos', 'title' => 'Requisitos legales y normativos'],
-            ['suffix' => 'contexto-negocio', 'title' => 'Contexto del negocio'],
-            ['suffix' => 'referencias-previas', 'title' => 'Referencias previas'],
+            ['suffix' => 'RC', 'title' => 'Requisitos del cliente'],
+            ['suffix' => 'RL', 'title' => 'Requisitos legales / normativos'],
+            ['suffix' => 'CN', 'title' => 'Contexto del negocio'],
+            ['suffix' => 'RP', 'title' => 'Referencias previas'],
         ];
 
         return array_map(static function (array $child, int $index) use ($parentCode) {
             return [
-                'code' => $parentCode . '.' . $child['suffix'],
+                'code' => $parentCode . '-' . $child['suffix'],
                 'title' => $child['title'],
                 'node_type' => 'folder',
                 'iso_clause' => null,
@@ -353,18 +357,18 @@ class ProjectNodesRepository
     private function controlChildren(string $parentCode): array
     {
         $children = [
-            ['suffix' => 'revision-diseno', 'title' => 'Revisión de diseño'],
-            ['suffix' => 'verificacion', 'title' => 'Verificación'],
-            ['suffix' => 'validacion', 'title' => 'Validación'],
-            ['suffix' => 'aprobaciones', 'title' => 'Aprobaciones'],
+            ['suffix' => 'RD', 'title' => 'Revisión de diseño'],
+            ['suffix' => 'VF', 'title' => 'Verificación'],
+            ['suffix' => 'VA', 'title' => 'Validación'],
+            ['suffix' => 'AP', 'title' => 'Aprobaciones'],
         ];
 
         return array_map(static function (array $child, int $index) use ($parentCode) {
             return [
-                'code' => $parentCode . '.' . $child['suffix'],
+                'code' => $parentCode . '-' . $child['suffix'],
                 'title' => $child['title'],
                 'node_type' => 'folder',
-                'iso_clause' => null,
+                'iso_clause' => '8.3.4',
                 'description' => null,
                 'sort_order' => $index + 1,
                 'children' => [],
