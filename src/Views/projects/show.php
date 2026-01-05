@@ -43,65 +43,149 @@ $designLabels = [
     'bloqueado' => 'Bloqueado',
 ];
 
-$renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePath, $project, $canManage, $designLabels) {
-    $status = $node['status'] ?? 'pendiente';
-    $statusLabel = $designLabels[$status] ?? ucfirst((string) $status);
-    $pillBg = '#fee2e2';
-    $pillColor = '#991b1b';
-    if ($status === 'completado') {
-        $pillBg = '#dcfce7';
-        $pillColor = '#166534';
-    } elseif ($status === 'en_progreso') {
-        $pillBg = '#e0f2fe';
-        $pillColor = '#075985';
-    } elseif ($status === 'bloqueado') {
-        $pillBg = '#fef9c3';
-        $pillColor = '#92400e';
+$normalizedMethodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
+if ($normalizedMethodology === 'convencional' || $normalizedMethodology === '') {
+    $normalizedMethodology = 'cascada';
+}
+
+$blockDefinitions = [
+    ['key' => 'entradas', 'label' => 'Entradas', 'iso' => '8.3.3'],
+    ['key' => 'planificacion', 'label' => 'Planificación', 'iso' => '8.3.2'],
+    ['key' => 'controles', 'label' => 'Controles', 'iso' => '8.3.4'],
+    ['key' => 'evidencias', 'label' => 'Evidencias', 'iso' => '8.3.5'],
+    ['key' => 'cambios', 'label' => 'Cambios', 'iso' => '8.3.6'],
+];
+
+$statusStyle = static function (?string $status) use ($designLabels): array {
+    $normalized = $status ?: 'pendiente';
+    $label = $designLabels[$normalized] ?? ucfirst((string) $normalized);
+    $background = '#fee2e2';
+    $color = '#991b1b';
+
+    if ($normalized === 'completado') {
+        $background = '#dcfce7';
+        $color = '#166534';
+    } elseif ($normalized === 'en_progreso') {
+        $background = '#e0f2fe';
+        $color = '#075985';
+    } elseif ($normalized === 'bloqueado') {
+        $background = '#fef9c3';
+        $color = '#92400e';
     }
 
-    ob_start();
-    ?>
-    <div style="margin-left: <?= max(0, $level * 12) ?>px; border-left:1px dashed var(--border); padding-left:8px; margin-bottom:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-            <div>
-                <strong><?= htmlspecialchars($node['name'] ?? ($node['code'] ?? 'Nodo')) ?></strong>
-                <small style="color:var(--muted); margin-left:6px;">#<?= (int) ($node['id'] ?? 0) ?></small>
-                <?php if (!empty($node['iso_code'])): ?>
-                    <small style="color:var(--muted); display:block;">ISO: <?= htmlspecialchars((string) $node['iso_code']) ?></small>
-                <?php endif; ?>
-            </div>
-            <span class="pill" style="background: <?= $pillBg ?>; color: <?= $pillColor ?>;"><?= htmlspecialchars($statusLabel) ?></span>
-        </div>
-        <?php if (!empty($node['files'])): ?>
-            <ul style="margin:6px 0 0 0; padding-left:16px; display:flex; flex-direction:column; gap:4px;">
-                <?php foreach ($node['files'] as $file): ?>
-                    <li>
-                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download" target="_blank"><?= htmlspecialchars($file['file_name'] ?? 'Archivo') ?></a>
-                        <small style="color:var(--muted); margin-left:6px;"><?= htmlspecialchars(substr((string) ($file['created_at'] ?? ''), 0, 16)) ?></small>
-                        <?php if ($canManage): ?>
-                            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/delete" style="display:inline;">
-                                <button type="submit" class="action-btn" style="margin-left:6px; background:#fee2e2; color:#b91c1c; border:none;">Eliminar</button>
-                            </form>
-                        <?php endif; ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php endif; ?>
-        <?php if ($canManage): ?>
-            <form method="POST" enctype="multipart/form-data" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($node['id'] ?? 0) ?>/files" style="margin-top:6px; display:flex; gap:8px; align-items:center;">
-                <input type="file" name="node_file" required style="flex:1; border:1px solid var(--border); padding:8px; border-radius:8px;">
-                <button type="submit" class="action-btn">Subir</button>
-            </form>
-        <?php endif; ?>
-        <?php if (!empty($node['children'])): ?>
-            <?php foreach ($node['children'] as $child): ?>
-                <?= $renderNode($child, $level + 1); ?>
-            <?php endforeach; ?>
-        <?php endif; ?>
-    </div>
-    <?php
-    return ob_get_clean();
+    return [
+        'bg' => $background,
+        'color' => $color,
+        'label' => $label,
+    ];
 };
+
+$flattenNodes = static function (array $nodes) use (&$flattenNodes): array {
+    $result = [];
+    foreach ($nodes as $node) {
+        $result[] = $node;
+        if (!empty($node['children'])) {
+            $result = array_merge($result, $flattenNodes($node['children']));
+        }
+    }
+
+    return $result;
+};
+
+$findNodeInTree = static function (array $nodes, callable $matcher) use (&$findNodeInTree) {
+    foreach ($nodes as $node) {
+        if ($matcher($node)) {
+            return $node;
+        }
+        if (!empty($node['children'])) {
+            $found = $findNodeInTree($node['children'], $matcher);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+    }
+
+    return null;
+};
+
+$countFiles = static function (?array $node) use (&$countFiles): int {
+    if ($node === null) {
+        return 0;
+    }
+
+    $total = count($node['files'] ?? []);
+    foreach ($node['children'] ?? [] as $child) {
+        $total += $countFiles($child);
+    }
+
+    return $total;
+};
+
+$collectNodesByIso = static function (?array $root, string $isoClause) use (&$collectNodesByIso): array {
+    if ($root === null) {
+        return [];
+    }
+
+    $matches = [];
+    foreach ($root['children'] ?? [] as $child) {
+        if (($child['iso_code'] ?? null) === $isoClause) {
+            $matches[] = $child;
+        }
+        $matches = array_merge($matches, $collectNodesByIso($child, $isoClause));
+    }
+
+    return $matches;
+};
+
+$phaseCandidates = $flattenNodes($projectNodes);
+$findByCodePrefix = static function (string $prefix) use ($phaseCandidates): ?array {
+    foreach ($phaseCandidates as $candidate) {
+        if (strpos((string) ($candidate['code'] ?? ''), $prefix) === 0) {
+            return $candidate;
+        }
+    }
+
+    return null;
+};
+
+$phases = [];
+if ($normalizedMethodology === 'scrum') {
+    $backlog = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-BACKLOG');
+    $sprintsContainer = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-SPRINTS');
+    $artefacts = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-ARTEFACTOS');
+
+    $phases[] = ['key' => 'descubrimiento', 'label' => 'Descubrimiento', 'node' => $backlog];
+    $phases[] = ['key' => 'backlog', 'label' => 'Backlog', 'node' => $backlog];
+
+    foreach ($sprintsContainer['children'] ?? [] as $sprint) {
+        $phases[] = [
+            'key' => 'sprint-' . (int) ($sprint['id'] ?? 0),
+            'label' => $sprint['name'] ?? $sprint['title'] ?? $sprint['code'] ?? 'Sprint',
+            'node' => $sprint,
+        ];
+    }
+
+    $phases[] = ['key' => 'release', 'label' => 'Release', 'node' => $artefacts ?: $sprintsContainer ?: $backlog];
+} else {
+    $phaseOrder = [
+        'inicio' => ['label' => 'Inicio', 'prefix' => '01-'],
+        'planificacion' => ['label' => 'Planificación', 'prefix' => '02-'],
+        'ejecucion' => ['label' => 'Ejecución', 'prefix' => '03-'],
+        'seguimiento' => ['label' => 'Seguimiento', 'prefix' => '04-'],
+        'cierre' => ['label' => 'Cierre', 'prefix' => '05-'],
+    ];
+
+    foreach ($phaseOrder as $key => $definition) {
+        $node = $findByCodePrefix($definition['prefix']);
+        $phases[] = [
+            'key' => $key,
+            'label' => $definition['label'],
+            'node' => $node,
+        ];
+    }
+}
+
+$activePhaseKey = $_GET['phase'] ?? ($phases[0]['key'] ?? '');
 ?>
 
 <section class="card" style="padding:16px; border:1px solid var(--border); border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:12px;">
@@ -217,58 +301,161 @@ $renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePat
         <div style="color:#b91c1c; font-weight:600;"><?= htmlspecialchars($nodeFileError) ?></div>
     <?php endif; ?>
 
-    <?php if (!empty($projectNodes)): ?>
-        <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h5 style="margin:0;">Estructura ISO 8.3</h5>
-                <?php if (!empty($criticalNodes)): ?>
-                    <span class="pill" style="background:#fef3c7; color:#92400e;">Nodos críticos pendientes</span>
-                <?php else: ?>
-                    <span class="pill" style="background:#dcfce7; color:#166534;">Estructura al día</span>
-                <?php endif; ?>
+    <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+            <div>
+                <h5 style="margin:0;">Ciclo del proyecto · ISO 8.3</h5>
+                <p style="margin:2px 0 0 0; color:var(--muted);">Visualiza las fases y bloques funcionales. Adjunta evidencias en cada etapa.</p>
             </div>
             <?php if (!empty($criticalNodes)): ?>
-                <p style="margin:0; color:#b45309;">No puedes cerrar el proyecto mientras existan nodos críticos pendientes.</p>
-            <?php endif; ?>
-            <div style="display:flex; flex-direction:column; gap:4px;">
-                <?php foreach ($projectNodes as $node): ?>
-                    <?= $renderNode($node); ?>
-                <?php endforeach; ?>
-            </div>
-            <?php if ($canManage): ?>
-                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes" style="margin-top:8px; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:8px; align-items:flex-end;">
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <label style="font-weight:600;">Nombre de carpeta
-                            <input type="text" name="title" required style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
-                        </label>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <label style="font-weight:600;">ID padre (opcional)
-                            <input type="number" name="parent_id" min="1" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
-                        </label>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <label style="font-weight:600;">Cláusula ISO (opcional)
-                            <select name="iso_clause" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
-                                <option value="">Sin cláusula</option>
-                                <option value="8.3.2">8.3.2 Planificación</option>
-                                <option value="8.3.3">8.3.3 Entradas</option>
-                                <option value="8.3.4">8.3.4 Controles</option>
-                                <option value="8.3.5">8.3.5 Salidas</option>
-                                <option value="8.3.6">8.3.6 Cambios</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <label style="font-weight:600;">Descripción
-                            <input type="text" name="description" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:8px;">
-                        </label>
-                    </div>
-                    <button type="submit" class="action-btn" style="height:40px; align-self:center;">Crear carpeta</button>
-                </form>
+                <span class="pill" style="background:#fef3c7; color:#92400e;">Controles críticos pendientes</span>
+            <?php else: ?>
+                <span class="pill" style="background:#dcfce7; color:#166534;">Controles al día</span>
             <?php endif; ?>
         </div>
-    <?php endif; ?>
+
+        <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
+            <?php foreach ($phases as $phase): ?>
+                <?php $phaseNode = $phase['node'] ?? null; ?>
+                <?php $evidenceCount = $countFiles($phaseNode); ?>
+                <?php $isActive = $phase['key'] === $activePhaseKey; ?>
+                <button type="button" data-phase-select="<?= htmlspecialchars($phase['key']) ?>" aria-pressed="<?= $isActive ? 'true' : 'false' ?>" class="action-btn" style="min-width:140px; display:flex; flex-direction:column; align-items:flex-start; gap:4px; <?= $isActive ? 'background:var(--text-strong); color:#fff;' : '' ?>">
+                    <span style="font-weight:700;"><?= htmlspecialchars($phase['label']) ?></span>
+                    <small style="color:<?= $isActive ? '#e2e8f0' : 'var(--muted)' ?>;">
+                        <?= $phaseNode ? 'Carpetas ISO activas' : 'Fase sin nodos' ?> · <?= $evidenceCount ?> evidencia<?= $evidenceCount === 1 ? '' : 's' ?>
+                    </small>
+                </button>
+            <?php endforeach; ?>
+        </div>
+
+        <?php foreach ($phases as $phase): ?>
+            <?php $phaseNode = $phase['node'] ?? null; ?>
+            <div data-phase-panel="<?= htmlspecialchars($phase['key']) ?>" style="display: <?= $phase['key'] === $activePhaseKey ? 'flex' : 'none' ?>; flex-direction:column; gap:10px; margin-top:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                    <div>
+                        <h5 style="margin:0;"><?= htmlspecialchars($phase['label']) ?></h5>
+                        <p style="margin:2px 0 0 0; color:var(--muted);">
+                            <?= $phaseNode ? 'Selecciona el bloque y adjunta evidencias para esta fase.' : 'Aún no hay nodos configurados para esta fase.' ?>
+                        </p>
+                    </div>
+                    <?php if ($phaseNode): ?>
+                        <?php $phaseStatus = $statusStyle($phaseNode['status'] ?? ''); ?>
+                        <span class="pill" style="background: <?= $phaseStatus['bg'] ?>; color: <?= $phaseStatus['color'] ?>;">
+                            <?= htmlspecialchars($phaseStatus['label']) ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!$phaseNode): ?>
+                    <p style="margin:0; color:var(--muted);">No hay nodos de proyecto para esta fase. El backend generará las carpetas cuando corresponda.</p>
+                <?php else: ?>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
+                        <?php foreach ($blockDefinitions as $block): ?>
+                            <?php
+                                $blockNodes = $collectNodesByIso($phaseNode, $block['iso']);
+                                $usesPhaseFallback = empty($blockNodes);
+                                if ($usesPhaseFallback && !empty($phaseNode)) {
+                                    $blockNodes = [$phaseNode];
+                                }
+                                $completedNodes = 0;
+                                foreach ($blockNodes as $candidate) {
+                                    if (($candidate['status'] ?? '') === 'completado') {
+                                        $completedNodes++;
+                                    }
+                                }
+                            ?>
+                            <div style="border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:8px;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                                    <div>
+                                        <h6 style="margin:0;"><?= htmlspecialchars($block['label']) ?></h6>
+                                        <small style="color:var(--muted);">ISO <?= htmlspecialchars($block['iso']) ?></small>
+                                    </div>
+                                    <span class="pill" style="background:#e2e8f0; color:#0f172a;"><?= $completedNodes ?>/<?= count($blockNodes) ?> controles</span>
+                                </div>
+                                <?php if ($usesPhaseFallback): ?>
+                                    <p style="margin:0; color:#b45309;">Sin carpeta específica. Usando la carpeta principal de la fase.</p>
+                                <?php endif; ?>
+                                <?php if (empty($blockNodes)): ?>
+                                    <p style="margin:0; color:var(--muted);">No hay nodos disponibles para este bloque.</p>
+                                <?php else: ?>
+                                    <div style="display:flex; flex-direction:column; gap:8px;">
+                                        <?php foreach ($blockNodes as $node): ?>
+                                            <?php $style = $statusStyle($node['status'] ?? ''); ?>
+                                            <div style="border:1px solid var(--border); border-radius:10px; padding:8px; background:#fff; display:flex; flex-direction:column; gap:6px;">
+                                                <div style="display:flex; justify-content:space-between; gap:8px;">
+                                                    <div>
+                                                        <strong><?= htmlspecialchars($node['name'] ?? ($node['code'] ?? 'Carpeta')) ?></strong>
+                                                        <?php if (!empty($node['iso_code'])): ?>
+                                                            <small style="color:var(--muted); display:block;">ISO <?= htmlspecialchars((string) $node['iso_code']) ?></small>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <span class="pill" style="background: <?= $style['bg'] ?>; color: <?= $style['color'] ?>;"><?= htmlspecialchars($style['label']) ?></span>
+                                                </div>
+                                                <?php if (!empty($node['description'])): ?>
+                                                    <p style="margin:0; color:var(--muted);"><?= htmlspecialchars((string) $node['description']) ?></p>
+                                                <?php endif; ?>
+                                                <?php if (!empty($node['files'])): ?>
+                                                    <ul style="margin:0; padding-left:16px; display:flex; flex-direction:column; gap:4px;">
+                                                        <?php foreach ($node['files'] as $file): ?>
+                                                            <li>
+                                                                <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download" target="_blank"><?= htmlspecialchars($file['file_name'] ?? 'Archivo') ?></a>
+                                                                <small style="color:var(--muted); margin-left:6px;"><?= htmlspecialchars(substr((string) ($file['created_at'] ?? ''), 0, 16)) ?></small>
+                                                                <?php if ($canManage): ?>
+                                                                    <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/delete" style="display:inline;">
+                                                                        <button type="submit" class="action-btn" style="margin-left:6px; background:#fee2e2; color:#b91c1c; border:none;">Eliminar</button>
+                                                                    </form>
+                                                                <?php endif; ?>
+                                                            </li>
+                                                        <?php endforeach; ?>
+                                                    </ul>
+                                                <?php else: ?>
+                                                    <p style="margin:0; color:var(--muted);">Aún no hay evidencias en este bloque.</p>
+                                                <?php endif; ?>
+                                                <?php if ($canManage): ?>
+                                                    <form method="POST" enctype="multipart/form-data" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($node['id'] ?? 0) ?>/files" style="margin-top:4px; display:flex; gap:8px; align-items:center;">
+                                                        <input type="file" name="node_file" required style="flex:1; border:1px solid var(--border); padding:8px; border-radius:8px;">
+                                                        <button type="submit" class="action-btn">Adjuntar</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <script>
+        (function() {
+            const tabs = document.querySelectorAll('[data-phase-select]');
+            const panels = document.querySelectorAll('[data-phase-panel]');
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    const phase = tab.getAttribute('data-phase-select');
+                    tabs.forEach((other) => {
+                        const isActive = other === tab;
+                        other.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                        if (isActive) {
+                            other.style.background = 'var(--text-strong)';
+                            other.style.color = '#fff';
+                        } else {
+                            other.style.background = '';
+                            other.style.color = '';
+                        }
+                    });
+
+                    panels.forEach((panel) => {
+                        panel.style.display = panel.getAttribute('data-phase-panel') === phase ? 'flex' : 'none';
+                    });
+                });
+            });
+        })();
+    </script>
 
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
         <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:10px;">
