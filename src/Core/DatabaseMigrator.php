@@ -57,6 +57,7 @@ class DatabaseMigrator
         try {
             $this->addProjectMethodology();
             $this->addProjectPhase();
+            $this->addProjectTreeMetadata();
             $this->ensureProjectIsoControls();
             $this->ensureProjectDesignInputsTable();
             $this->ensureProjectDesignControlsTable();
@@ -354,6 +355,19 @@ class DatabaseMigrator
 
         $this->db->execute("ALTER TABLE projects ADD COLUMN phase VARCHAR(80) NULL AFTER methodology");
         $this->db->clearColumnCache();
+    }
+
+    private function addProjectTreeMetadata(): void
+    {
+        if (!$this->db->columnExists('projects', 'tree_version')) {
+            $this->db->execute("ALTER TABLE projects ADD COLUMN tree_version VARCHAR(40) NULL AFTER phase");
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('projects', 'tree_methodology')) {
+            $this->db->execute("ALTER TABLE projects ADD COLUMN tree_methodology VARCHAR(40) NULL AFTER tree_version");
+            $this->db->clearColumnCache();
+        }
     }
 
     private function ensureProjectIsoControls(): void
