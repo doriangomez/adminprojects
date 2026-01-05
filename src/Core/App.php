@@ -157,6 +157,10 @@ class App
                 $controller->deleteNode((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/sprints$#', $path, $matches) && $method === 'POST') {
+                $controller->createSprint((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/nodes$#', $path, $matches) && $method === 'POST') {
                 $controller->createFolder((int) $matches[1]);
                 return;
