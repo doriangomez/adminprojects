@@ -203,6 +203,7 @@ CREATE TABLE project_nodes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
     parent_id INT NULL,
+    code VARCHAR(180) NOT NULL,
     node_type ENUM('folder','file') NOT NULL,
     iso_clause VARCHAR(20) NULL,
     title VARCHAR(180) NOT NULL,
@@ -210,6 +211,7 @@ CREATE TABLE project_nodes (
     file_path VARCHAR(255) NULL,
     created_by INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_project_nodes_code (project_id, code),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id)
