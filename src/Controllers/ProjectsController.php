@@ -105,9 +105,15 @@ class ProjectsController extends Controller
             );
             $payload = $this->applyLifecycleGovernance($project, $payload, $delivery, $repo, $riskCatalog);
             unset($payload['risk_catalog']);
+            $methodologyChanged = strtolower((string) ($project['methodology'] ?? '')) !== strtolower((string) ($payload['methodology'] ?? ($project['methodology'] ?? '')));
+            $phaseChanged = trim((string) ($project['phase'] ?? '')) !== trim((string) ($payload['phase'] ?? ($project['phase'] ?? '')));
             $repo->updateProject($id, $payload, (int) ($this->auth->user()['id'] ?? 0));
             $this->logRiskAudit($auditRepo, $project['id'], $previousEvaluations, $payload['risk_evaluations'] ?? []);
             $this->logProjectChange($auditRepo, $project, $payload);
+
+            if ($methodologyChanged || $phaseChanged) {
+                (new ProjectNodesRepository($this->db))->markTreeOutdated($id);
+            }
 
             header('Location: /project/public/projects/' . $id);
         } catch (\InvalidArgumentException $e) {
@@ -523,10 +529,10 @@ class ProjectsController extends Controller
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designControlError' => $e->getMessage()]
-            ));
-        }
+            $this->projectDetailData($projectId),
+            ['designControlError' => $e->getMessage()]
+        ));
+    }
     }
 
     public function updateDesignOutputs(int $projectId): void
@@ -588,10 +594,12 @@ class ProjectsController extends Controller
                 return;
             }
 
-            http_response_code($e instanceof \InvalidArgumentException ? 400 : 500);
+            $statusCode = $e instanceof \InvalidArgumentException ? 400 : 500;
+            http_response_code($statusCode);
+
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
-                ['nodeFileError' => $this->isDebugMode() ? $e->getMessage() : 'No se pudo adjuntar el archivo al nodo.']
+                ['nodeFileError' => $e->getMessage()]
             ));
         }
     }
@@ -656,7 +664,7 @@ class ProjectsController extends Controller
             return;
         }
 
-        $this->createProjectNodeTree($projectId, $methodology);
+        $this->createProjectNodeTree($projectId, $methodology, $project['phase'] ?? null);
 
         try {
             $nodesRepo = new ProjectNodesRepository($this->db);
@@ -813,7 +821,8 @@ class ProjectsController extends Controller
         $users = (new UsersRepository($this->db))->all();
         $this->createProjectNodeTree(
             (int) ($project['id'] ?? 0),
-            (string) ($project['methodology'] ?? 'cascada')
+            (string) ($project['methodology'] ?? 'cascada'),
+            (string) ($project['phase'] ?? '')
         );
         $nodeSnapshot = $this->projectNodesSnapshot((int) ($project['id'] ?? 0));
         $projectNodes = $nodeSnapshot['nodes'] ?? [];
@@ -909,13 +918,12 @@ class ProjectsController extends Controller
 
     private function nodeErrorResponse(\Throwable $e, string $genericMessage): array
     {
-        $isDebug = $this->isDebugMode();
         $response = [
             'status' => 'error',
-            'message' => $isDebug ? $e->getMessage() : $genericMessage,
+            'message' => $e->getMessage() ?: $genericMessage,
         ];
 
-        if ($isDebug) {
+        if ($this->isDebugMode()) {
             $sqlState = null;
             $query = null;
 
@@ -1399,10 +1407,10 @@ class ProjectsController extends Controller
         return ($actual - $planned) / $planned;
     }
 
-    private function createProjectNodeTree(int $projectId, string $methodology): void
+    private function createProjectNodeTree(int $projectId, string $methodology, ?string $phase = null): void
     {
         $nodesRepo = new ProjectNodesRepository($this->db);
-        $nodesRepo->createBaseTree($projectId, $methodology);
+        $nodesRepo->synchronizeFromProject($projectId, $methodology, $phase);
     }
 
     private function projectNodesSnapshot(int $projectId): array

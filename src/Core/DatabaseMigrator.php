@@ -368,6 +368,11 @@ class DatabaseMigrator
             $this->db->execute("ALTER TABLE projects ADD COLUMN tree_methodology VARCHAR(40) NULL AFTER tree_version");
             $this->db->clearColumnCache();
         }
+
+        if (!$this->db->columnExists('projects', 'tree_phase')) {
+            $this->db->execute("ALTER TABLE projects ADD COLUMN tree_phase VARCHAR(80) NULL AFTER tree_methodology");
+            $this->db->clearColumnCache();
+        }
     }
 
     private function ensureProjectIsoControls(): void
