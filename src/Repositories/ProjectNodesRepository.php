@@ -30,7 +30,12 @@ class ProjectNodesRepository
         if ($needsReset) {
             $this->resetProjectTree($projectId);
             foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
-                $this->materializeNodeTree($projectId, $definition, null);
+                $this->materializeNodeTree(
+                    $projectId,
+                    $definition,
+                    null,
+                    $normalizedMethodology !== 'scrum'
+                );
             }
             $this->persistTreeMetadata($projectId, $normalizedMethodology);
         }
@@ -89,7 +94,7 @@ class ProjectNodesRepository
         $this->assertTable();
 
         $container = $this->ensureSprintsContainer($projectId, $userId);
-        $nextNumber = $this->nextSprintNumber($projectId);
+        $nextNumber = $this->nextSprintNumber($projectId, (int) ($container['id'] ?? 0));
         $paddedNumber = str_pad((string) $nextNumber, 2, '0', STR_PAD_LEFT);
         $sprintCode = 'SPRINT-' . $paddedNumber;
 
@@ -847,11 +852,19 @@ class ProjectNodesRepository
         ];
     }
 
-    private function nextSprintNumber(int $projectId): int
+    private function nextSprintNumber(int $projectId, ?int $containerId): int
     {
+        $params = [':project_id' => $projectId];
+        $parentFilter = '';
+
+        if ($containerId !== null && $containerId > 0) {
+            $parentFilter = ' AND parent_id = :parent_id';
+            $params[':parent_id'] = $containerId;
+        }
+
         $nodes = $this->db->fetchAll(
-            'SELECT code, title FROM project_nodes WHERE project_id = :project_id AND node_type = "folder"',
-            [':project_id' => $projectId]
+            'SELECT code, title FROM project_nodes WHERE project_id = :project_id AND node_type = "folder"' . $parentFilter,
+            $params
         );
 
         $maxNumber = 0;
@@ -866,6 +879,14 @@ class ProjectNodesRepository
         }
 
         return $maxNumber + 1;
+    }
+
+    private function isSprintNode(string $code, ?string $parentCode): bool
+    {
+        $isSprint = preg_match('/^SPRINT-/i', $code) === 1;
+        $parentIsSprint = $parentCode !== null && preg_match('/^SPRINT-/i', $parentCode) === 1;
+
+        return $isSprint || $parentIsSprint;
     }
 
     private function treeMetadata(int $projectId): array
@@ -964,11 +985,20 @@ class ProjectNodesRepository
         };
     }
 
-    private function materializeNodeTree(int $projectId, array $definition, ?string $parentCode): void
-    {
+    private function materializeNodeTree(
+        int $projectId,
+        array $definition,
+        ?string $parentCode,
+        bool $allowSprintNodes = true
+    ): void {
+        $code = (string) ($definition['code'] ?? '');
+        if (!$allowSprintNodes && $this->isSprintNode($code, $parentCode)) {
+            return;
+        }
+
         $this->ensureNode(
             $projectId,
-            (string) $definition['code'],
+            $code,
             (string) $definition['title'],
             (string) $definition['node_type'],
             $parentCode,
@@ -978,7 +1008,7 @@ class ProjectNodesRepository
         );
 
         foreach ($definition['children'] ?? [] as $child) {
-            $this->materializeNodeTree($projectId, $child, (string) $definition['code']);
+            $this->materializeNodeTree($projectId, $child, $code, $allowSprintNodes);
         }
     }
 
