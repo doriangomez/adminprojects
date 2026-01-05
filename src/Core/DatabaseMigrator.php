@@ -491,8 +491,12 @@ class DatabaseMigrator
                 iso_clause VARCHAR(20) NULL,
                 title VARCHAR(180) NOT NULL,
                 description TEXT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
                 file_path VARCHAR(255) NULL,
                 created_by INT NULL,
+                status VARCHAR(40) NOT NULL DEFAULT 'pendiente',
+                critical TINYINT(1) NOT NULL DEFAULT 0,
+                completed_at DATETIME NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_project_nodes_code (project_id, code),
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -573,9 +577,24 @@ class DatabaseMigrator
             $this->db->clearColumnCache();
         }
 
+        if (!$this->db->columnExists('project_nodes', 'status')) {
+            $this->db->execute("ALTER TABLE project_nodes ADD COLUMN status VARCHAR(40) NOT NULL DEFAULT 'pendiente' AFTER created_by");
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'critical')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN critical TINYINT(1) NOT NULL DEFAULT 0 AFTER status');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'completed_at')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN completed_at DATETIME NULL AFTER critical');
+            $this->db->clearColumnCache();
+        }
+
         $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN node_type ENUM('folder','file') NOT NULL");
 
-        foreach (['iso_code', 'status', 'critical', 'linked_entity_type', 'linked_entity_id', 'updated_at', 'name'] as $deprecated) {
+        foreach (['iso_code', 'linked_entity_type', 'linked_entity_id', 'updated_at', 'name'] as $deprecated) {
             if ($this->db->columnExists('project_nodes', $deprecated)) {
                 $this->db->execute("ALTER TABLE project_nodes DROP COLUMN {$deprecated}");
                 $this->db->clearColumnCache();
@@ -588,6 +607,21 @@ class DatabaseMigrator
 
         $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN code VARCHAR(180) NOT NULL");
         $this->db->clearColumnCache();
+
+        if ($this->db->columnExists('project_nodes', 'status')) {
+            $this->db->execute(
+                "UPDATE project_nodes
+                 SET status = CASE
+                     WHEN node_type = 'file' THEN 'completado'
+                     WHEN status IS NULL OR status = '' THEN 'pendiente'
+                     ELSE status
+                 END,
+                 completed_at = CASE
+                     WHEN node_type = 'file' AND completed_at IS NULL THEN created_at
+                     ELSE completed_at
+                 END"
+            );
+        }
     }
 
     private function backfillProjectNodeCodes(): void
