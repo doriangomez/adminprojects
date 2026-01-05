@@ -524,8 +524,14 @@ class DatabaseMigrator
             $this->db->clearColumnCache();
         }
 
+        if (!$this->db->columnExists('project_nodes', 'sort_order')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN sort_order INT NOT NULL DEFAULT 0 AFTER description');
+            $this->db->clearColumnCache();
+        }
+
         if (!$this->db->columnExists('project_nodes', 'file_path')) {
-            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN file_path VARCHAR(255) NULL AFTER description');
+            $afterColumn = $this->db->columnExists('project_nodes', 'sort_order') ? 'sort_order' : 'description';
+            $this->db->execute("ALTER TABLE project_nodes ADD COLUMN file_path VARCHAR(255) NULL AFTER {$afterColumn}");
             $this->db->clearColumnCache();
         }
 
@@ -536,11 +542,15 @@ class DatabaseMigrator
 
         $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN node_type ENUM('folder','file') NOT NULL");
 
-        foreach (['iso_code', 'status', 'critical', 'sort_order', 'linked_entity_type', 'linked_entity_id', 'updated_at', 'name'] as $deprecated) {
+        foreach (['iso_code', 'status', 'critical', 'linked_entity_type', 'linked_entity_id', 'updated_at', 'name'] as $deprecated) {
             if ($this->db->columnExists('project_nodes', $deprecated)) {
                 $this->db->execute("ALTER TABLE project_nodes DROP COLUMN {$deprecated}");
                 $this->db->clearColumnCache();
             }
+        }
+
+        if ($this->db->columnExists('project_nodes', 'sort_order')) {
+            $this->db->execute('UPDATE project_nodes SET sort_order = id WHERE sort_order IS NULL OR sort_order = 0');
         }
 
         $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN code VARCHAR(180) NOT NULL");
