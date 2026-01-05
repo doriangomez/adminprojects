@@ -76,7 +76,7 @@ $renderNode = function (array $node, int $level = 0) use (&$renderNode, $basePat
             <ul style="margin:6px 0 0 0; padding-left:16px; display:flex; flex-direction:column; gap:4px;">
                 <?php foreach ($node['files'] as $file): ?>
                     <li>
-                        <a href="<?= htmlspecialchars($file['storage_path'] ?? '#') ?>" target="_blank"><?= htmlspecialchars($file['file_name'] ?? 'Archivo') ?></a>
+                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download" target="_blank"><?= htmlspecialchars($file['file_name'] ?? 'Archivo') ?></a>
                         <small style="color:var(--muted); margin-left:6px;"><?= htmlspecialchars(substr((string) ($file['created_at'] ?? ''), 0, 16)) ?></small>
                         <?php if ($canManage): ?>
                             <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/delete" style="display:inline;">

@@ -153,7 +153,15 @@ class App
                 $controller->uploadNodeFile((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/download$#', $path, $matches) && $method === 'GET') {
+                $controller->downloadNodeFile((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteNode((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)$#', $path, $matches) && $method === 'DELETE') {
                 $controller->deleteNode((int) $matches[1], (int) $matches[2]);
                 return;
             }
@@ -163,6 +171,14 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/nodes$#', $path, $matches) && $method === 'POST') {
                 $controller->createFolder((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/children$#', $path, $matches) && $method === 'GET') {
+                $controller->listNodeChildren((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes/children$#', $path, $matches) && $method === 'GET') {
+                $controller->listNodeChildren((int) $matches[1], null);
                 return;
             }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {

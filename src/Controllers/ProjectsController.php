@@ -571,20 +571,27 @@ class ProjectsController extends Controller
 
         try {
             $nodesRepo = new ProjectNodesRepository($this->db);
-            $nodesRepo->storeFile($projectId, $nodeId, $_FILES['node_file'] ?? [], (int) ($this->auth->user()['id'] ?? 0));
+            $result = $nodesRepo->createFileNode($projectId, $nodeId, $_FILES['node_file'] ?? [], (int) ($this->auth->user()['id'] ?? 0));
+
+            if ($this->wantsJson()) {
+                $this->json(['status' => 'ok', 'data' => $result]);
+                return;
+            }
+
             header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['nodeFileError' => $e->getMessage()]
-            ));
         } catch (\Throwable $e) {
             error_log('Error al adjuntar archivo en nodo: ' . $e->getMessage());
-            http_response_code(500);
+
+            if ($this->wantsJson()) {
+                $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+                $this->json($this->nodeErrorResponse($e, 'No se pudo adjuntar el archivo al nodo.'), $status);
+                return;
+            }
+
+            http_response_code($e instanceof \InvalidArgumentException ? 400 : 500);
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
-                ['nodeFileError' => 'No se pudo adjuntar el archivo al nodo.']
+                ['nodeFileError' => $this->isDebugMode() ? $e->getMessage() : 'No se pudo adjuntar el archivo al nodo.']
             ));
         }
     }
@@ -677,14 +684,26 @@ class ProjectsController extends Controller
 
         try {
             $nodesRepo = new ProjectNodesRepository($this->db);
-            $nodesRepo->deleteNode($projectId, $nodeId);
+            $nodesRepo->deleteNode($projectId, $nodeId, (int) ($this->auth->user()['id'] ?? 0));
+
+            if ($this->wantsJson()) {
+                $this->json(['status' => 'ok']);
+                return;
+            }
+
             header('Location: /project/public/projects/' . $projectId);
         } catch (\Throwable $e) {
             error_log('Error al eliminar nodo documental: ' . $e->getMessage());
+
+            if ($this->wantsJson()) {
+                $this->json($this->nodeErrorResponse($e, 'No se pudo eliminar el nodo.'), 500);
+                return;
+            }
+
             http_response_code(500);
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
-                ['nodeFileError' => 'No se pudo eliminar el nodo.']
+                ['nodeFileError' => $this->isDebugMode() ? $e->getMessage() : 'No se pudo eliminar el nodo.']
             ));
         }
     }
@@ -704,6 +723,54 @@ class ProjectsController extends Controller
                 $this->projectDetailData($projectId),
                 ['designChangeError' => $e->getMessage()]
             ));
+        }
+    }
+
+    public function listNodeChildren(int $projectId, ?int $parentId = null): void
+    {
+        $this->requirePermission('projects.view');
+
+        try {
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $children = $nodesRepo->listChildren($projectId, $parentId);
+            $this->json(['status' => 'ok', 'data' => $children]);
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json($this->nodeErrorResponse($e, 'No se pudo obtener el contenido de la carpeta.'), $status);
+        }
+    }
+
+    public function downloadNodeFile(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.view');
+
+        try {
+            $repo = new ProjectNodesRepository($this->db);
+            $node = $repo->findById($projectId, $nodeId);
+            if (!$node || ($node['node_type'] ?? '') !== 'file') {
+                http_response_code(404);
+                exit('Archivo no encontrado');
+            }
+
+            $publicPath = $node['file_path'] ?? '';
+            $physicalPath = $this->physicalPathFromPublic($publicPath);
+
+            if ($physicalPath === null || !is_file($physicalPath)) {
+                http_response_code(404);
+                exit('Archivo no encontrado');
+            }
+
+            $mime = mime_content_type($physicalPath) ?: 'application/octet-stream';
+            $downloadName = preg_replace('/[^A-Za-z0-9._-]/', '_', (string) ($node['title'] ?? basename($physicalPath)));
+            $downloadName = $downloadName !== '' ? $downloadName : basename($physicalPath);
+            header('Content-Type: ' . $mime);
+            header('Content-Length: ' . filesize($physicalPath));
+            header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+            readfile($physicalPath);
+        } catch (\Throwable $e) {
+            error_log('Error al descargar archivo: ' . $e->getMessage());
+            http_response_code(500);
+            echo $this->isDebugMode() ? $e->getMessage() : 'No se pudo descargar el archivo.';
         }
     }
 
@@ -784,6 +851,14 @@ class ProjectsController extends Controller
         ];
     }
 
+    private function wantsJson(): bool
+    {
+        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+        $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+
+        return $isAjax || str_contains($accept, 'application/json');
+    }
+
     private function canDeleteProjects(): bool
     {
         if ($this->auth->can('projects.manage')) {
@@ -806,7 +881,83 @@ class ProjectsController extends Controller
     {
         $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? getenv('APP_ENV') ?? 'production';
 
-        return strtolower((string) $env) === 'local';
+        return in_array(strtolower((string) $env), ['local', 'dev', 'development'], true);
+    }
+
+    private function isDebugMode(): bool
+    {
+        if ($this->isLocalEnvironment()) {
+            return true;
+        }
+
+        $envDebug = strtolower((string) ($_ENV['APP_DEBUG'] ?? $_SERVER['APP_DEBUG'] ?? getenv('APP_DEBUG') ?? ''));
+        if (in_array($envDebug, ['1', 'true', 'on', 'yes'], true)) {
+            return true;
+        }
+
+        try {
+            $config = (new ConfigService($this->db))->getConfig();
+            if (!empty($config['debug'])) {
+                return true;
+            }
+        } catch (\Throwable) {
+            // Ignorar y asumir modo producción
+        }
+
+        return false;
+    }
+
+    private function nodeErrorResponse(\Throwable $e, string $genericMessage): array
+    {
+        $isDebug = $this->isDebugMode();
+        $response = [
+            'status' => 'error',
+            'message' => $isDebug ? $e->getMessage() : $genericMessage,
+        ];
+
+        if ($isDebug) {
+            $sqlState = null;
+            $query = null;
+
+            if ($e instanceof \PDOException) {
+                $sqlState = $e->errorInfo[0] ?? $e->getCode() ?? null;
+                $query = $e->queryString ?? null;
+            }
+
+            $response['exception_message'] = $e->getMessage();
+            $response['sqlstate'] = $sqlState;
+            $response['query'] = $query;
+            $response['trace'] = $this->truncateTrace($e->getTraceAsString());
+        }
+
+        return $response;
+    }
+
+    private function truncateTrace(string $trace): string
+    {
+        $lines = explode("\n", $trace);
+
+        return implode("\n", array_slice($lines, 0, 10));
+    }
+
+    private function physicalPathFromPublic(string $publicPath): ?string
+    {
+        $base = realpath(__DIR__ . '/../../public') ?: __DIR__ . '/../../public';
+        $fullPath = $base . '/' . ltrim($publicPath, '/');
+        $normalizedBase = rtrim(realpath($base) ?: $base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+        $dir = realpath(dirname($fullPath));
+        if ($dir === false) {
+            return null;
+        }
+
+        $normalizedFull = $dir . DIRECTORY_SEPARATOR . basename($fullPath);
+
+        if (!str_starts_with($normalizedFull, $normalizedBase)) {
+            return null;
+        }
+
+        return $normalizedFull;
     }
 
     private function formatExceptionForDisplay(\Throwable $e): string
