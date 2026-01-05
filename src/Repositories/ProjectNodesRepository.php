@@ -75,6 +75,50 @@ class ProjectNodesRepository
         ];
     }
 
+    public function findById(int $projectId, int $nodeId): ?array
+    {
+        $this->assertTable();
+
+        return $this->findNode($projectId, $nodeId);
+    }
+
+    public function listChildren(int $projectId, ?int $parentId): array
+    {
+        $this->assertTable();
+        if ($parentId !== null) {
+            $parent = $this->findNode($projectId, $parentId);
+            if (!$parent || $parent['node_type'] !== 'folder') {
+                throw new \InvalidArgumentException('La carpeta solicitada no es válida.');
+            }
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at, sort_order
+             FROM project_nodes
+             WHERE project_id = :project_id AND parent_id ' . ($parentId === null ? 'IS NULL' : '= :parent_id') . '
+             ORDER BY sort_order ASC, id ASC',
+            array_filter([
+                ':project_id' => $projectId,
+                ':parent_id' => $parentId,
+            ], static fn ($value) => $value !== null)
+        );
+
+        return array_map(static function (array $row) {
+            return [
+                'id' => (int) ($row['id'] ?? 0),
+                'parent_id' => $row['parent_id'] === null ? null : (int) $row['parent_id'],
+                'content_type' => $row['node_type'],
+                'code' => $row['code'] ?? '',
+                'title' => $row['title'] ?? '',
+                'description' => $row['description'] ?? null,
+                'iso_clause' => $row['iso_clause'] ?? null,
+                'file_path' => $row['file_path'] ?? null,
+                'created_at' => $row['created_at'] ?? null,
+                'sort_order' => (int) ($row['sort_order'] ?? 0),
+            ];
+        }, $rows);
+    }
+
     public function createFolder(int $projectId, string $title, ?int $parentId, ?string $isoClause, ?string $description, ?int $userId = null): int
     {
         $this->assertTable();
@@ -158,7 +202,7 @@ class ProjectNodesRepository
         ];
     }
 
-    public function storeFile(int $projectId, int $parentId, array $file, ?int $userId = null): array
+    public function createFileNode(int $projectId, int $parentId, array $uploadedFile, ?int $userId = null, array $meta = []): array
     {
         $this->assertTable();
         $parent = $this->findNode($projectId, $parentId);
@@ -167,61 +211,112 @@ class ProjectNodesRepository
             throw new \InvalidArgumentException('Selecciona una carpeta válida para adjuntar.');
         }
 
-        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        if (($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($uploadedFile['tmp_name']) || !is_uploaded_file($uploadedFile['tmp_name'])) {
             throw new \InvalidArgumentException('Selecciona un archivo válido para subir.');
         }
 
-        $originalName = (string) ($file['name'] ?? 'archivo');
-        $safeName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
-        $safeName = $safeName !== '' ? $safeName : 'documento';
+        $originalName = $this->sanitizeFileName((string) ($uploadedFile['name'] ?? 'archivo'));
+        $uniqueBase = $this->uniqueFileIdentifier();
+        $extension = $this->fileExtension($originalName);
+        $storedName = $uniqueBase . ($extension !== '' ? '.' . $extension : '');
 
-        $code = $this->generateChildCode($projectId, $parent, $safeName, 'file');
-        $sortOrder = $this->nextSortOrder($projectId, $parentId);
+        $tempDir = $this->projectStoragePath($projectId) . '/tmp';
+        $this->ensureDirectory($tempDir);
+        $temporaryPath = $tempDir . '/' . $storedName;
+        $this->moveUploadedFile($uploadedFile['tmp_name'], $temporaryPath);
 
-        $nodeId = $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, created_by)
-             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :created_by)',
-            [
-                ':project_id' => $projectId,
-                ':parent_id' => $parentId,
-                ':code' => $code,
-                ':node_type' => 'file',
-                ':iso_clause' => $this->resolveIsoClause($projectId, $parentId),
-                ':title' => $safeName,
-                ':description' => null,
-                ':sort_order' => $sortOrder,
-                ':created_by' => $userId ?: null,
-            ]
-        );
+        $pdo = $this->db->connection();
+        $transactionStarted = false;
+        $finalPath = null;
+        $targetDir = null;
 
-        $targetDir = __DIR__ . '/../../public/storage/projects/' . $projectId . '/' . $nodeId;
-        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-            throw new \RuntimeException('No se pudo preparar el directorio de almacenamiento.');
+        try {
+            $pdo->beginTransaction();
+            $transactionStarted = true;
+
+            $code = $this->generateFileCode($projectId);
+            $sortOrder = $this->nextSortOrder($projectId, $parentId);
+            $isoClause = $meta['iso_clause'] ?? $this->resolveIsoClause($projectId, $parentId);
+            $description = $meta['description'] ?? null;
+
+            $nodeId = $this->db->insert(
+                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by)
+                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by)',
+                [
+                    ':project_id' => $projectId,
+                    ':parent_id' => $parentId,
+                    ':code' => $code,
+                    ':node_type' => 'file',
+                    ':iso_clause' => $isoClause,
+                    ':title' => $originalName,
+                    ':description' => $description,
+                    ':sort_order' => $sortOrder,
+                    ':file_path' => null,
+                    ':created_by' => $userId ?: null,
+                ]
+            );
+
+            $targetDir = $this->projectStoragePath($projectId) . '/' . $nodeId;
+            $this->ensureDirectory($targetDir);
+            $finalPath = $this->uniqueDestination($targetDir, $storedName);
+
+            if (!@rename($temporaryPath, $finalPath)) {
+                if (!@copy($temporaryPath, $finalPath) || !@unlink($temporaryPath)) {
+                    throw new \RuntimeException('No se pudo guardar el archivo en el destino final.');
+                }
+            }
+
+            $publicPath = '/storage/projects/' . $projectId . '/' . $nodeId . '/' . basename($finalPath);
+            $this->db->execute(
+                'UPDATE project_nodes SET file_path = :file_path WHERE id = :id',
+                [
+                    ':file_path' => $publicPath,
+                    ':id' => $nodeId,
+                ]
+            );
+
+            $pdo->commit();
+            $transactionStarted = false;
+
+            $this->logFileAudit($userId, $nodeId, 'file_created', [
+                'project_id' => $projectId,
+                'parent_id' => $parentId,
+                'code' => $code,
+                'file_name' => $originalName,
+                'file_path' => $publicPath,
+            ]);
+
+            return [
+                'id' => $nodeId,
+                'code' => $code,
+                'file_name' => $originalName,
+                'storage_path' => $publicPath,
+                'created_at' => date('Y-m-d H:i:s'),
+            ];
+        } catch (\Throwable $e) {
+            if ($transactionStarted && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            if ($finalPath && is_file($finalPath)) {
+                @unlink($finalPath);
+                $this->cleanupEmptyDirectory($targetDir);
+            }
+
+            if (is_file($temporaryPath)) {
+                @unlink($temporaryPath);
+            }
+
+            throw $e;
         }
-
-        $targetPath = $targetDir . '/' . $safeName;
-        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-            throw new \RuntimeException('No se pudo guardar el archivo.');
-        }
-
-        $publicPath = '/storage/projects/' . $projectId . '/' . $nodeId . '/' . $safeName;
-        $this->db->execute(
-            'UPDATE project_nodes SET file_path = :file_path WHERE id = :id',
-            [
-                ':file_path' => $publicPath,
-                ':id' => $nodeId,
-            ]
-        );
-
-        return [
-            'id' => $nodeId,
-            'file_name' => $safeName,
-            'storage_path' => $publicPath,
-            'created_at' => date('Y-m-d H:i:s'),
-        ];
     }
 
-    public function deleteNode(int $projectId, int $nodeId): void
+    public function storeFile(int $projectId, int $parentId, array $file, ?int $userId = null): array
+    {
+        return $this->createFileNode($projectId, $parentId, $file, $userId);
+    }
+
+    public function deleteNode(int $projectId, int $nodeId, ?int $userId = null): void
     {
         $this->assertTable();
         $node = $this->findNode($projectId, $nodeId);
@@ -229,14 +324,39 @@ class ProjectNodesRepository
             return;
         }
 
-        foreach ($this->descendantIds($projectId, $nodeId) as $idToRemove) {
-            $this->removePhysicalFiles($projectId, $idToRemove);
+        $fileNodes = $node['node_type'] === 'file'
+            ? [$node]
+            : $this->fileNodesUnder($projectId, $nodeId);
+
+        $pdo = $this->db->connection();
+        $transactionStarted = false;
+
+        try {
+            $pdo->beginTransaction();
+            $transactionStarted = true;
+
+            $this->db->execute('DELETE FROM project_nodes WHERE id = :id AND project_id = :project_id', [
+                ':id' => $nodeId,
+                ':project_id' => $projectId,
+            ]);
+
+            $pdo->commit();
+            $transactionStarted = false;
+        } finally {
+            if ($transactionStarted && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
         }
 
-        $this->db->execute('DELETE FROM project_nodes WHERE id = :id AND project_id = :project_id', [
-            ':id' => $nodeId,
-            ':project_id' => $projectId,
-        ]);
+        foreach ($fileNodes as $fileNode) {
+            $this->removePhysicalFiles($projectId, (int) ($fileNode['id'] ?? 0));
+            $this->logFileAudit($userId, (int) ($fileNode['id'] ?? 0), 'file_deleted', [
+                'project_id' => $projectId,
+                'code' => $fileNode['code'] ?? null,
+                'file_name' => $fileNode['title'] ?? null,
+                'file_path' => $fileNode['file_path'] ?? null,
+            ]);
+        }
     }
 
     public function treeWithFiles(int $projectId): array
@@ -1131,7 +1251,7 @@ class ProjectNodesRepository
     private function findNode(int $projectId, int $nodeId): ?array
     {
         return $this->db->fetchOne(
-            'SELECT id, project_id, parent_id, node_type, iso_clause, code FROM project_nodes WHERE id = :id AND project_id = :project_id',
+            'SELECT id, project_id, parent_id, node_type, iso_clause, code, file_path, title FROM project_nodes WHERE id = :id AND project_id = :project_id',
             [
                 ':id' => $nodeId,
                 ':project_id' => $projectId,
@@ -1177,6 +1297,121 @@ class ProjectNodesRepository
             }
 
             @rmdir($baseDir);
+        }
+    }
+
+    private function projectStoragePath(int $projectId): string
+    {
+        return __DIR__ . '/../../public/storage/projects/' . $projectId;
+    }
+
+    private function ensureDirectory(string $directory): void
+    {
+        if (is_dir($directory)) {
+            return;
+        }
+
+        if (!@mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('No se pudo preparar el directorio de almacenamiento.');
+        }
+    }
+
+    private function moveUploadedFile(string $source, string $destination): void
+    {
+        if (!is_uploaded_file($source)) {
+            throw new \InvalidArgumentException('Selecciona un archivo válido para subir.');
+        }
+
+        if (!@move_uploaded_file($source, $destination)) {
+            throw new \RuntimeException('No se pudo guardar el archivo en almacenamiento temporal.');
+        }
+    }
+
+    private function uniqueDestination(string $directory, string $fileName): string
+    {
+        $candidate = rtrim($directory, '/') . '/' . $fileName;
+        if (!file_exists($candidate)) {
+            return $candidate;
+        }
+
+        $extension = $this->fileExtension($fileName);
+        $nameOnly = $extension !== '' ? substr($fileName, 0, -(strlen($extension) + 1)) : $fileName;
+        $suffix = 2;
+
+        do {
+            $candidate = rtrim($directory, '/') . '/' . $nameOnly . '-' . $suffix . ($extension !== '' ? '.' . $extension : '');
+            $suffix++;
+        } while (file_exists($candidate));
+
+        return $candidate;
+    }
+
+    private function cleanupEmptyDirectory(?string $directory): void
+    {
+        if ($directory && is_dir($directory)) {
+            @rmdir($directory);
+        }
+    }
+
+    private function sanitizeFileName(string $name): string
+    {
+        $safe = preg_replace('/[^A-Za-z0-9._-]/', '_', $name);
+        $safe = trim((string) $safe, ' _');
+
+        return $safe !== '' ? $safe : 'archivo';
+    }
+
+    private function fileExtension(string $name): string
+    {
+        $extension = pathinfo($name, PATHINFO_EXTENSION);
+
+        return $extension !== '' ? $extension : '';
+    }
+
+    private function uniqueFileIdentifier(): string
+    {
+        try {
+            return bin2hex(random_bytes(16));
+        } catch (\Exception) {
+            return uniqid('file', true);
+        }
+    }
+
+    private function generateFileCode(int $projectId): string
+    {
+        do {
+            $code = 'file:' . $this->uniqueFileIdentifier();
+        } while ($this->codeExists($projectId, $code));
+
+        return $code;
+    }
+
+    private function fileNodesUnder(int $projectId, int $nodeId): array
+    {
+        $ids = $this->descendantIds($projectId, $nodeId);
+        if (empty($ids)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        return $this->db->fetchAll(
+            "SELECT id, code, title, file_path FROM project_nodes WHERE project_id = ? AND node_type = 'file' AND id IN ($placeholders)",
+            array_merge([$projectId], $ids)
+        );
+    }
+
+    private function logFileAudit(?int $userId, int $nodeId, string $action, array $payload = []): void
+    {
+        try {
+            (new AuditLogRepository($this->db))->log(
+                $userId,
+                'project_node_file',
+                $nodeId,
+                $action,
+                $payload
+            );
+        } catch (\Throwable) {
+            // Evitar que el fallo de auditoría rompa el flujo principal
         }
     }
 

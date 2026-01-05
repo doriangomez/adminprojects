@@ -8,6 +8,7 @@ class ConfigService
     private ?Database $db;
 
     private array $defaults = [
+        'debug' => false,
         'theme' => [
             'logo' => '/project/public/uploads/logos/default.svg',
             'primary' => '#2563eb',
@@ -72,6 +73,7 @@ class ConfigService
         $stored = $this->readConfigStorage();
 
         return [
+            'debug' => (bool) ($stored['debug'] ?? false),
             'theme' => array_merge($this->defaults['theme'], $stored['theme'] ?? []),
             'master_files' => array_merge($this->defaults['master_files'], $stored['master_files'] ?? []),
             'delivery' => [
@@ -114,6 +116,7 @@ class ConfigService
         $current = $this->getConfig();
 
         $updated = [
+            'debug' => array_key_exists('debug', $payload) ? (bool) $payload['debug'] : ($current['debug'] ?? false),
             'theme' => array_merge($current['theme'], $payload['theme'] ?? []),
             'master_files' => array_merge($current['master_files'], $payload['master_files'] ?? []),
             'delivery' => [
