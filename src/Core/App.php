@@ -16,6 +16,7 @@ class App
         $migrator->ensureClientPmIntegrity();
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureProjectDeliverySchema();
+        $migrator->ensureProjectActiveColumn();
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureSystemSettings();
@@ -107,6 +108,16 @@ class App
                     return;
                 }
                 $controller->create();
+                return;
+            }
+
+            if ($path === '/projects/delete' && $method === 'POST') {
+                $controller->destroy();
+                return;
+            }
+
+            if (preg_match('#^/projects/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
+                $controller->inactivate((int) $matches[1]);
                 return;
             }
 

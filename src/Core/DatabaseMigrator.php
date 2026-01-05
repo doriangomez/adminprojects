@@ -89,6 +89,15 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureProjectActiveColumn(): void
+    {
+        try {
+            $this->addProjectActiveColumn();
+        } catch (\PDOException $e) {
+            error_log('Error agregando columna active a projects: ' . $e->getMessage());
+        }
+    }
+
     public function ensureAssignmentsTable(): void
     {
         try {
@@ -206,6 +215,16 @@ class DatabaseMigrator
         }
 
         $this->db->execute("ALTER TABLE clients ADD COLUMN health VARCHAR(20) NOT NULL DEFAULT '' AFTER priority");
+        $this->db->clearColumnCache();
+    }
+
+    private function addProjectActiveColumn(): void
+    {
+        if (!$this->db->tableExists('projects') || $this->db->columnExists('projects', 'active')) {
+            return;
+        }
+
+        $this->db->execute("ALTER TABLE projects ADD COLUMN active TINYINT(1) DEFAULT 1 AFTER progress");
         $this->db->clearColumnCache();
     }
 
