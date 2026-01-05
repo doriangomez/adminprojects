@@ -53,10 +53,11 @@ class ProjectNodesRepository
         }
 
         $code = $this->generateChildCode($projectId, $parent, $title, 'folder');
+        $sortOrder = $this->nextSortOrder($projectId, $parentId);
 
         return $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, created_by)
-             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :created_by)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :created_by)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
@@ -65,6 +66,7 @@ class ProjectNodesRepository
                 ':iso_clause' => $isoClause ?: $this->resolveIsoClause($projectId, $parentId),
                 ':title' => $title,
                 ':description' => $description,
+                ':sort_order' => $sortOrder,
                 ':created_by' => $userId ?: null,
             ]
         );
@@ -88,10 +90,11 @@ class ProjectNodesRepository
         $safeName = $safeName !== '' ? $safeName : 'documento';
 
         $code = $this->generateChildCode($projectId, $parent, $safeName, 'file');
+        $sortOrder = $this->nextSortOrder($projectId, $parentId);
 
         $nodeId = $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, created_by)
-             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :created_by)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :created_by)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
@@ -100,6 +103,7 @@ class ProjectNodesRepository
                 ':iso_clause' => $this->resolveIsoClause($projectId, $parentId),
                 ':title' => $safeName,
                 ':description' => null,
+                ':sort_order' => $sortOrder,
                 ':created_by' => $userId ?: null,
             ]
         );
@@ -159,7 +163,7 @@ class ProjectNodesRepository
             'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at
              FROM project_nodes
              WHERE project_id = :project
-             ORDER BY parent_id IS NULL DESC, created_at ASC, id ASC',
+             ORDER BY parent_id IS NULL DESC, sort_order ASC, id ASC',
             [':project' => $projectId]
         );
 
@@ -235,12 +239,11 @@ class ProjectNodesRepository
 
     private function baseTreeDefinition(string $methodology): array
     {
-        $normalizedMethodology = strtolower(trim($methodology)) === 'scrum' ? 'scrum' : 'cascada';
-
+        $normalizedMethodology = strtolower(trim($methodology));
         $phaseSets = [
             'scrum' => [
                 'descubrimiento' => 'Descubrimiento',
-                'backlog' => 'Backlog',
+                'backlog_listo' => 'Backlog listo',
                 'sprint' => 'Sprint',
                 'deploy' => 'Deploy',
             ],
@@ -250,76 +253,70 @@ class ProjectNodesRepository
                 'ejecucion' => 'Ejecución',
                 'cierre' => 'Cierre',
             ],
+            'kanban' => [
+                'por_hacer' => 'Por hacer',
+                'en_curso' => 'En curso',
+                'en_revision' => 'En revisión',
+                'hecho' => 'Hecho',
+            ],
         ];
 
-        $phases = $phaseSets[$normalizedMethodology];
-        $phaseNodes = [];
+        $phases = $phaseSets[$normalizedMethodology] ?? $phaseSets['cascada'];
+        $definitions = [];
+        $sortOrder = 1;
 
         foreach ($phases as $phaseCode => $label) {
-            $phaseNodes[] = [
+            $definitions[] = [
                 'code' => 'fase.' . $phaseCode,
                 'title' => $label,
                 'node_type' => 'folder',
                 'iso_clause' => null,
-                'description' => 'Fase de ' . strtolower($label),
-                'children' => $this->standardFolders('fase.' . $phaseCode, $label),
+                'description' => null,
+                'sort_order' => $sortOrder++,
+                'children' => $this->phaseChildren('fase.' . $phaseCode),
             ];
         }
 
-        return [
-            [
-                'code' => 'project',
-                'title' => 'Proyecto',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => 'Estructura documental del proyecto',
-                'children' => [
-                    [
-                        'code' => 'metodologia.' . $normalizedMethodology,
-                        'title' => strtoupper($normalizedMethodology),
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Metodología seleccionada para el proyecto',
-                        'children' => $phaseNodes,
-                    ],
-                ],
-            ],
-        ];
+        return $definitions;
     }
 
-    private function standardFolders(string $phaseCode, string $phaseLabel): array
+    private function phaseChildren(string $phaseCode): array
     {
         return [
             [
                 'code' => $phaseCode . '.documentacion',
                 'title' => 'Documentación',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.2',
-                'description' => 'Documentación de la fase ' . strtolower($phaseLabel),
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 1,
                 'children' => [],
             ],
             [
                 'code' => $phaseCode . '.evidencias',
                 'title' => 'Evidencias',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.5',
-                'description' => 'Evidencias de la fase ' . strtolower($phaseLabel),
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 2,
                 'children' => [],
             ],
             [
                 'code' => $phaseCode . '.controles',
                 'title' => 'Controles',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.4',
-                'description' => 'Controles aplicados en ' . strtolower($phaseLabel),
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 3,
                 'children' => [],
             ],
             [
                 'code' => $phaseCode . '.cambios',
                 'title' => 'Cambios',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.6',
-                'description' => 'Cambios registrados en ' . strtolower($phaseLabel),
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 4,
                 'children' => [],
             ],
         ];
@@ -334,7 +331,8 @@ class ProjectNodesRepository
             (string) $definition['node_type'],
             $parentCode,
             $definition['iso_clause'] ?? null,
-            $definition['description'] ?? null
+            $definition['description'] ?? null,
+            (int) ($definition['sort_order'] ?? 0)
         );
 
         foreach ($definition['children'] ?? [] as $child) {
@@ -349,7 +347,8 @@ class ProjectNodesRepository
         string $nodeType,
         ?string $parentCode,
         ?string $isoClause,
-        ?string $description
+        ?string $description,
+        int $sortOrder
     ): int {
         $normalizedCode = trim($code);
         if ($normalizedCode === '') {
@@ -369,7 +368,7 @@ class ProjectNodesRepository
         }
 
         $existing = $this->db->fetchOne(
-            'SELECT id, parent_id, node_type, iso_clause, title, description FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            'SELECT id, parent_id, node_type, iso_clause, title, description, sort_order FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
             [
                 ':project' => $projectId,
                 ':code' => $normalizedCode,
@@ -377,12 +376,25 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
+            $existingSort = (int) ($existing['sort_order'] ?? 0);
+            if ($sortOrder > 0 && $existingSort !== $sortOrder) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET sort_order = :sort_order WHERE id = :id',
+                    [
+                        ':sort_order' => $sortOrder,
+                        ':id' => (int) $existing['id'],
+                    ]
+                );
+            }
+
             return (int) $existing['id'];
         }
 
+        $order = $sortOrder > 0 ? $sortOrder : $this->nextSortOrder($projectId, $parentId);
+
         return $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description)
-             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
@@ -391,8 +403,26 @@ class ProjectNodesRepository
                 ':iso_clause' => $isoClause,
                 ':title' => $title,
                 ':description' => $description,
+                ':sort_order' => $order,
             ]
         );
+    }
+
+    private function nextSortOrder(int $projectId, ?int $parentId): int
+    {
+        $sql = 'SELECT COALESCE(MAX(sort_order), 0) AS max_order FROM project_nodes WHERE project_id = :project AND parent_id ';
+        $params = [':project' => $projectId];
+
+        if ($parentId === null) {
+            $sql .= 'IS NULL';
+        } else {
+            $sql .= '= :parent';
+            $params[':parent'] = $parentId;
+        }
+
+        $result = $this->db->fetchOne($sql, $params);
+
+        return ((int) ($result['max_order'] ?? 0)) + 1;
     }
 
     private function projectHasNodes(int $projectId): bool

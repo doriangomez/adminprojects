@@ -208,6 +208,7 @@ CREATE TABLE project_nodes (
     iso_clause VARCHAR(20) NULL,
     title VARCHAR(180) NOT NULL,
     description TEXT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
     file_path VARCHAR(255) NULL,
     created_by INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
