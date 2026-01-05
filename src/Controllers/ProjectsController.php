@@ -629,6 +629,48 @@ class ProjectsController extends Controller
         }
     }
 
+    public function createSprint(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        $project = (new ProjectsRepository($this->db))->find($projectId);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $methodology = strtolower((string) ($project['methodology'] ?? ''));
+        if ($methodology !== 'scrum') {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => 'Solo puedes crear sprints en proyectos con metodología Scrum.']
+            ));
+            return;
+        }
+
+        $this->createProjectNodeTree($projectId, $methodology);
+
+        try {
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $nodesRepo->createSprint($projectId, (int) ($this->auth->user()['id'] ?? 0));
+            header('Location: /project/public/projects/' . $projectId);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => $e->getMessage()]
+            ));
+        } catch (\Throwable $e) {
+            error_log('Error al crear sprint: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('projects/show', array_merge(
+                $this->projectDetailData($projectId),
+                ['nodeFileError' => 'No se pudo crear el sprint del proyecto.']
+            ));
+        }
+    }
+
     public function deleteNode(int $projectId, int $nodeId): void
     {
         $this->requirePermission('projects.manage');

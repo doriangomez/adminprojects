@@ -6,6 +6,9 @@ class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
     private const TREE_VERSION = '2024.10';
+    private const SCRUM_SPRINT_CONTAINER_CODE = '03-SPRINTS';
+    private const SCRUM_SPRINT_CONTAINER_TITLE = '03 · Sprints';
+    private const SCRUM_SPRINT_CONTAINER_ORDER = 30;
 
     public function __construct(private Database $db)
     {
@@ -79,6 +82,57 @@ class ProjectNodesRepository
                 ':created_by' => $userId ?: null,
             ]
         );
+    }
+
+    public function createSprint(int $projectId, ?int $userId = null): array
+    {
+        $this->assertTable();
+
+        $container = $this->ensureSprintsContainer($projectId, $userId);
+        $nextNumber = $this->nextSprintNumber($projectId);
+        $paddedNumber = str_pad((string) $nextNumber, 2, '0', STR_PAD_LEFT);
+        $sprintCode = 'SPRINT-' . $paddedNumber;
+
+        if ($this->codeExists($projectId, $sprintCode)) {
+            throw new \InvalidArgumentException('Ya existe un sprint con el número ' . $paddedNumber . '.');
+        }
+
+        $sprintId = $this->db->insert(
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :created_by)',
+            [
+                ':project_id' => $projectId,
+                ':parent_id' => $container['id'],
+                ':code' => $sprintCode,
+                ':node_type' => 'folder',
+                ':iso_clause' => null,
+                ':title' => 'Sprint ' . $paddedNumber,
+                ':description' => null,
+                ':sort_order' => $this->nextSortOrder($projectId, $container['id']),
+                ':created_by' => $userId,
+            ]
+        );
+
+        foreach ($this->sprintStructureDefinition() as $child) {
+            $this->ensureNode(
+                $projectId,
+                $sprintCode . '-' . $child['code'],
+                $child['title'],
+                $child['node_type'],
+                $sprintCode,
+                $child['iso_clause'] ?? null,
+                $child['description'] ?? null,
+                (int) ($child['sort_order'] ?? 0),
+                $userId
+            );
+        }
+
+        return [
+            'id' => $sprintId,
+            'code' => $sprintCode,
+            'title' => 'Sprint ' . $paddedNumber,
+            'number' => $nextNumber,
+        ];
     }
 
     public function storeFile(int $projectId, int $parentId, array $file, ?int $userId = null): array
@@ -518,9 +572,9 @@ class ProjectNodesRepository
         ];
     }
 
-    private function scrumTreeDefinition(): array
+    private function sprintStructureDefinition(): array
     {
-        $sprintStructure = [
+        return [
             [
                 'code' => 'OBJETIVO',
                 'title' => 'Objetivo del sprint',
@@ -531,8 +585,8 @@ class ProjectNodesRepository
                 'children' => [],
             ],
             [
-                'code' => 'TAREAS',
-                'title' => 'Tareas',
+                'code' => 'HISTORIAS',
+                'title' => 'Historias',
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.4',
                 'description' => null,
@@ -567,7 +621,10 @@ class ProjectNodesRepository
                 'children' => [],
             ],
         ];
+    }
 
+    private function scrumTreeDefinition(): array
+    {
         return [
             [
                 'code' => '01-DESCUBRIMIENTO',
@@ -662,28 +719,13 @@ class ProjectNodesRepository
                 ],
             ],
             [
-                'code' => '03-SPRINT-01',
-                'title' => '03 · Sprint 01',
+                'code' => self::SCRUM_SPRINT_CONTAINER_CODE,
+                'title' => self::SCRUM_SPRINT_CONTAINER_TITLE,
                 'node_type' => 'folder',
                 'iso_clause' => null,
                 'description' => null,
-                'sort_order' => 30,
-                'children' => array_map(
-                    fn ($item) => array_merge($item, ['code' => '03-SPRINT-01-' . $item['code']]),
-                    $sprintStructure
-                ),
-            ],
-            [
-                'code' => '04-SPRINT-02',
-                'title' => '04 · Sprint 02',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => null,
-                'sort_order' => 40,
-                'children' => array_map(
-                    fn ($item) => array_merge($item, ['code' => '04-SPRINT-02-' . $item['code']]),
-                    $sprintStructure
-                ),
+                'sort_order' => self::SCRUM_SPRINT_CONTAINER_ORDER,
+                'children' => [],
             ],
             [
                 'code' => '99-CIERRE',
@@ -783,6 +825,47 @@ class ProjectNodesRepository
                 'children' => [],
             ],
         ];
+    }
+
+    private function ensureSprintsContainer(int $projectId, ?int $userId = null): array
+    {
+        $containerId = $this->ensureNode(
+            $projectId,
+            self::SCRUM_SPRINT_CONTAINER_CODE,
+            self::SCRUM_SPRINT_CONTAINER_TITLE,
+            'folder',
+            null,
+            null,
+            null,
+            self::SCRUM_SPRINT_CONTAINER_ORDER,
+            $userId
+        );
+
+        return [
+            'id' => $containerId,
+            'code' => self::SCRUM_SPRINT_CONTAINER_CODE,
+        ];
+    }
+
+    private function nextSprintNumber(int $projectId): int
+    {
+        $nodes = $this->db->fetchAll(
+            'SELECT code, title FROM project_nodes WHERE project_id = :project_id AND node_type = "folder"',
+            [':project_id' => $projectId]
+        );
+
+        $maxNumber = 0;
+
+        foreach ($nodes as $node) {
+            $code = (string) ($node['code'] ?? '');
+            $title = (string) ($node['title'] ?? '');
+
+            if (preg_match('/SPRINT[^0-9]*([0-9]+)/i', $code, $matches) || preg_match('/SPRINT[^0-9]*([0-9]+)/i', $title, $matches)) {
+                $maxNumber = max($maxNumber, (int) $matches[1]);
+            }
+        }
+
+        return $maxNumber + 1;
     }
 
     private function treeMetadata(int $projectId): array
@@ -907,7 +990,8 @@ class ProjectNodesRepository
         ?string $parentCode,
         ?string $isoClause,
         ?string $description,
-        int $sortOrder
+        int $sortOrder,
+        ?int $createdBy = null
     ): int {
         $normalizedCode = trim($code);
         if ($normalizedCode === '') {
@@ -952,8 +1036,8 @@ class ProjectNodesRepository
         $order = $sortOrder > 0 ? $sortOrder : $this->nextSortOrder($projectId, $parentId);
 
         return $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order)
-             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :created_by)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
@@ -963,6 +1047,7 @@ class ProjectNodesRepository
                 ':title' => $title,
                 ':description' => $description,
                 ':sort_order' => $order,
+                ':created_by' => $createdBy,
             ]
         );
     }
