@@ -27,6 +27,7 @@ class ProjectsRepository
         $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
         $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
+        $hasActiveColumn = $this->db->columnExists('projects', 'active');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -56,6 +57,10 @@ class ProjectsRepository
         if (!empty($filters['end_date'])) {
             $conditions[] = 'p.end_date <= :endDate';
             $params[':endDate'] = $filters['end_date'];
+        }
+
+        if ($hasActiveColumn) {
+            $conditions[] = 'p.active = 1';
         }
 
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -146,6 +151,13 @@ class ProjectsRepository
         $projects = $this->db->fetchAll($sql, $params);
 
         return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+    }
+
+    public function find(int $id): ?array
+    {
+        $project = $this->db->fetchOne('SELECT * FROM projects WHERE id = :id LIMIT 1', [':id' => $id]);
+
+        return $project ?: null;
     }
 
     public function findForUser(int $id, array $user): ?array
@@ -433,6 +445,61 @@ class ProjectsRepository
         $projects = $this->db->fetchAll($sql, $params);
 
         return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+    }
+
+    public function dependencySummary(int $projectId): array
+    {
+        $tasks = 0;
+        $timesheets = 0;
+        $assignments = 0;
+        $designInputs = 0;
+        $designControls = 0;
+        $designChanges = 0;
+        $nodes = 0;
+
+        if ($this->db->tableExists('tasks')) {
+            $tasks = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM tasks WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('timesheets') && $this->db->tableExists('tasks')) {
+            $timesheets = (int) ($this->db->fetchOne(
+                'SELECT COUNT(*) AS total FROM timesheets t JOIN tasks tk ON tk.id = t.task_id WHERE tk.project_id = :id',
+                [':id' => $projectId]
+            )['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('project_talent_assignments')) {
+            $assignments = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_talent_assignments WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('project_design_inputs')) {
+            $designInputs = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_design_inputs WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('project_design_controls')) {
+            $designControls = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_design_controls WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('project_design_changes')) {
+            $designChanges = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_design_changes WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
+        }
+
+        if ($this->db->tableExists('project_nodes')) {
+            $nodes = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
+        }
+
+        $hasDependencies = ($tasks + $timesheets + $assignments + $designInputs + $designControls + $designChanges + $nodes) > 0;
+
+        return [
+            'tasks' => $tasks,
+            'timesheets' => $timesheets,
+            'assignments' => $assignments,
+            'design_inputs' => $designInputs,
+            'design_controls' => $designControls,
+            'design_changes' => $designChanges,
+            'nodes' => $nodes,
+            'has_dependencies' => $hasDependencies,
+        ];
     }
 
     public function assignmentsForProject(int $projectId, array $user): array
@@ -876,6 +943,30 @@ class ProjectsRepository
         }
     }
 
+    public function deleteProject(int $id, bool $forceDelete = false, bool $isAdmin = false): array
+    {
+        if ($forceDelete && $isAdmin) {
+            return $this->forceDeleteWithCascade($id);
+        }
+
+        $inactivated = $this->inactivate($id);
+
+        return [
+            'success' => $inactivated,
+            'inactivated' => $inactivated,
+            'error' => $inactivated ? null : 'No se pudo inactivar el proyecto.',
+        ];
+    }
+
+    public function inactivate(int $id): bool
+    {
+        if (!$this->db->columnExists('projects', 'active')) {
+            return false;
+        }
+
+        return $this->db->execute('UPDATE projects SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
+    }
+
     public function closeProject(int $id, string $health, ?string $riskLevel = null): void
     {
         $fields = [];
@@ -922,6 +1013,47 @@ class ProjectsRepository
         );
     }
 
+    private function forceDeleteWithCascade(int $projectId): array
+    {
+        try {
+            $this->db->execute('DELETE FROM projects WHERE id = :id', [':id' => $projectId]);
+        } catch (\PDOException $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+            ];
+        }
+
+        $this->deleteProjectStorage($projectId);
+
+        return ['success' => true];
+    }
+
+    private function deleteProjectStorage(int $projectId): void
+    {
+        $basePath = __DIR__ . '/../../public/storage/projects/' . $projectId;
+
+        if (!is_dir($basePath)) {
+            return;
+        }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($basePath, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($items as $item) {
+            if ($item->isDir()) {
+                @rmdir($item->getPathname());
+            } else {
+                @unlink($item->getPathname());
+            }
+        }
+
+        @rmdir($basePath);
+    }
+
     public function syncProjectRiskEvaluations(int $projectId, array $evaluations): void
     {
         $this->db->execute('DELETE FROM project_risk_evaluations WHERE project_id = :project', [':project' => $projectId]);
@@ -954,6 +1086,7 @@ class ProjectsRepository
         $params = [];
         $hasClientPm = $this->db->columnExists('clients', 'pm_id');
         $hasProjectPm = $this->db->columnExists('projects', 'pm_id');
+        $hasProjectActive = $this->db->columnExists('projects', 'active');
 
         if (!$this->isPrivileged($user)) {
             if ($hasClientPm) {
@@ -965,6 +1098,10 @@ class ProjectsRepository
                 $conditions[] = $projectAlias . '.pm_id = :pmId';
                 $params[':pmId'] = $user['id'];
             }
+        }
+
+        if ($hasProjectActive) {
+            $conditions[] = $projectAlias . '.active = 1';
         }
 
         return [$conditions, $params];

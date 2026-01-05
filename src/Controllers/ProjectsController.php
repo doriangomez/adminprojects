@@ -298,6 +298,153 @@ class ProjectsController extends Controller
         }
     }
 
+    public function destroy(): void
+    {
+        if (!$this->canDeleteProjects()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $projectId = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $project = $repo->findForUser($projectId, $user);
+        $dependencies = $repo->dependencySummary($projectId);
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+        $forceDelete = filter_var($_POST['force'] ?? $_POST['force_delete'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $isAdmin = $this->canForceDeleteProjects();
+        $canInactivate = $this->canDeleteProjects();
+
+        if ($projectId <= 0 || !$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
+            http_response_code(400);
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
+        }
+
+        if ($forceDelete && !$isAdmin) {
+            http_response_code(403);
+            $this->json([
+                'success' => false,
+                'message' => 'Solo los administradores pueden eliminar proyectos definitivamente.',
+            ], 403);
+            return;
+        }
+
+        try {
+            $result = $repo->deleteProject($projectId, $forceDelete, $isAdmin);
+
+            if (($result['success'] ?? false) === true) {
+                $actionLabel = $forceDelete ? 'eliminó' : 'inactivó';
+                error_log(sprintf(
+                    '[audit] Usuario %s (ID: %d) %s proyecto "%s" (ID: %d) con %d tareas a las %s',
+                    $user['name'] ?? 'desconocido',
+                    (int) ($user['id'] ?? 0),
+                    $actionLabel,
+                    $project['name'],
+                    $projectId,
+                    (int) ($dependencies['tasks'] ?? 0),
+                    date('c')
+                ));
+
+                $this->json([
+                    'success' => true,
+                    'message' => $forceDelete ? 'Proyecto eliminado correctamente' : 'Proyecto inactivado correctamente',
+                ]);
+                return;
+            }
+
+            $errorMessage = (string) ($result['error'] ?? 'Operación fallida al eliminar el proyecto.');
+
+            error_log('Error al eliminar proyecto: ' . $errorMessage);
+
+            $this->json([
+                'success' => false,
+                'message' => $errorMessage,
+                'can_inactivate' => $canInactivate,
+                'dependencies' => $dependencies,
+                'inactivated' => $result['inactivated'] ?? false,
+            ], 500);
+        } catch (\Throwable $e) {
+            error_log('Error al eliminar proyecto: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo eliminar el proyecto. Intenta nuevamente o contacta al administrador.');
+        }
+    }
+
+    public function inactivate(int $id): void
+    {
+        if (!$this->canDeleteProjects()) {
+            http_response_code(403);
+            $this->json([
+                'success' => false,
+                'message' => 'Acción no permitida por permisos',
+            ], 403);
+            return;
+        }
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $projectId = $id;
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+        $project = $repo->findForUser($projectId, $user);
+
+        if ($projectId <= 0 || !$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
+            http_response_code(400);
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
+        }
+
+        try {
+            $repo->inactivate($projectId);
+
+            error_log(sprintf(
+                '[audit] Usuario %s (ID: %d) inactivó proyecto "%s" (ID: %d) a las %s',
+                $user['name'] ?? 'desconocido',
+                (int) ($user['id'] ?? 0),
+                $project['name'],
+                $projectId,
+                date('c')
+            ));
+
+            $this->json([
+                'success' => true,
+                'message' => 'Proyecto inactivado correctamente',
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Error al inactivar proyecto: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo inactivar el proyecto. Intenta nuevamente o contacta al administrador.');
+        }
+    }
+
     public function assignTalent(?int $projectId = null): void
     {
         $this->requirePermission('projects.manage');
@@ -559,6 +706,12 @@ class ProjectsController extends Controller
         $nodeSnapshot = $this->projectNodesSnapshot((int) ($project['id'] ?? 0));
         $projectNodes = $nodeSnapshot['nodes'] ?? [];
         $criticalNodes = $nodeSnapshot['pending_critical'] ?? [];
+        $dependencies = $repo->dependencySummary($id);
+        $mathOperand1 = random_int(1, 10);
+        $mathOperand2 = random_int(1, 10);
+        $mathOperator = random_int(0, 1) === 0 ? '+' : '-';
+        $canDelete = $this->canForceDeleteProjects();
+        $canInactivate = $this->canDeleteProjects();
 
         return [
             'title' => 'Detalle de proyecto',
@@ -575,7 +728,33 @@ class ProjectsController extends Controller
             'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
             'projectNodes' => $projectNodes,
             'criticalNodes' => $criticalNodes,
+            'dependencies' => $dependencies,
+            'hasDependencies' => $dependencies['has_dependencies'] ?? false,
+            'canDelete' => $canDelete,
+            'canInactivate' => $canInactivate,
+            'isAdmin' => $canDelete,
+            'mathOperand1' => $mathOperand1,
+            'mathOperand2' => $mathOperand2,
+            'mathOperator' => $mathOperator,
         ];
+    }
+
+    private function canDeleteProjects(): bool
+    {
+        if ($this->auth->can('projects.manage')) {
+            return true;
+        }
+
+        if ($this->auth->can('config.manage')) {
+            return true;
+        }
+
+        return $this->auth->hasRole('Administrador');
+    }
+
+    private function canForceDeleteProjects(): bool
+    {
+        return $this->auth->can('config.manage') || $this->auth->hasRole('Administrador');
     }
 
     private function isLocalEnvironment(): bool
