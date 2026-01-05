@@ -16,6 +16,10 @@ class ProjectNodesRepository
             return;
         }
 
+        if ($this->projectHasNodes($projectId)) {
+            return;
+        }
+
         foreach ($this->baseTreeDefinition($methodology) as $definition) {
             $this->materializeNodeTree($projectId, $definition, null);
         }
@@ -373,43 +377,6 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
-            $updates = [];
-            $params = [
-                ':id' => (int) $existing['id'],
-            ];
-
-            if ((int) ($existing['parent_id'] ?? 0) !== (int) ($parentId ?? 0)) {
-                $updates[] = 'parent_id = :parent_id';
-                $params[':parent_id'] = $parentId;
-            }
-
-            if ((string) $existing['node_type'] !== $nodeType) {
-                $updates[] = 'node_type = :node_type';
-                $params[':node_type'] = $nodeType;
-            }
-
-            if ((string) ($existing['iso_clause'] ?? '') !== (string) ($isoClause ?? '')) {
-                $updates[] = 'iso_clause = :iso_clause';
-                $params[':iso_clause'] = $isoClause;
-            }
-
-            if ((string) ($existing['title'] ?? '') !== $title) {
-                $updates[] = 'title = :title';
-                $params[':title'] = $title;
-            }
-
-            if ((string) ($existing['description'] ?? '') !== (string) ($description ?? '')) {
-                $updates[] = 'description = :description';
-                $params[':description'] = $description;
-            }
-
-            if (!empty($updates)) {
-                $this->db->execute(
-                    'UPDATE project_nodes SET ' . implode(', ', $updates) . ' WHERE id = :id',
-                    $params
-                );
-            }
-
             return (int) $existing['id'];
         }
 
@@ -426,6 +393,16 @@ class ProjectNodesRepository
                 ':description' => $description,
             ]
         );
+    }
+
+    private function projectHasNodes(int $projectId): bool
+    {
+        $result = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE project_id = :project LIMIT 1',
+            [':project' => $projectId]
+        );
+
+        return $result !== null;
     }
 
     private function generateChildCode(int $projectId, ?array $parent, string $title, string $nodeType): string
