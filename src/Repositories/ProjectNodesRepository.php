@@ -5,6 +5,7 @@ declare(strict_types=1);
 class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
+    private const TREE_VERSION = '2024.10';
 
     public function __construct(private Database $db)
     {
@@ -16,13 +17,21 @@ class ProjectNodesRepository
             return;
         }
 
-        if ($this->projectHasNodes($projectId)) {
-            return;
+        $normalizedMethodology = $this->normalizeMethodology($methodology);
+        $metadata = $this->treeMetadata($projectId);
+        $hasNodes = $this->projectHasNodes($projectId);
+        $needsReset = !$hasNodes
+            || ($metadata['version'] ?? null) !== self::TREE_VERSION
+            || ($metadata['methodology'] ?? null) !== $normalizedMethodology;
+
+        if ($needsReset) {
+            $this->resetProjectTree($projectId);
+            foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
+                $this->materializeNodeTree($projectId, $definition, null);
+            }
+            $this->persistTreeMetadata($projectId, $normalizedMethodology);
         }
 
-        foreach ($this->baseTreeDefinition($methodology) as $definition) {
-            $this->materializeNodeTree($projectId, $definition, null);
-        }
     }
 
     public function snapshot(int $projectId): array
@@ -239,6 +248,15 @@ class ProjectNodesRepository
 
     private function baseTreeDefinition(string $methodology): array
     {
+        return match ($this->normalizeMethodology($methodology)) {
+            'scrum' => $this->scrumTreeDefinition(),
+            'kanban' => $this->kanbanTreeDefinition(),
+            default => $this->cascadeTreeDefinition(),
+        };
+    }
+
+    private function cascadeTreeDefinition(): array
+    {
         return [
             [
                 'code' => '01-INICIO',
@@ -295,12 +313,21 @@ class ProjectNodesRepository
                 'sort_order' => 20,
                 'children' => [
                     [
-                        'code' => '02-PLANIFICACION-ALCANCE',
-                        'title' => 'Alcance',
+                        'code' => '02-PLANIFICACION-ALCANCE-APROBADO',
+                        'title' => 'Alcance aprobado',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.2',
                         'description' => null,
                         'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-PLANIFICACION-EDT-WBS',
+                        'title' => 'EDT / WBS',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 20,
                         'children' => [],
                     ],
                     [
@@ -309,7 +336,7 @@ class ProjectNodesRepository
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.3',
                         'description' => null,
-                        'sort_order' => 20,
+                        'sort_order' => 30,
                         'children' => [],
                     ],
                     [
@@ -318,7 +345,7 @@ class ProjectNodesRepository
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.3',
                         'description' => null,
-                        'sort_order' => 30,
+                        'sort_order' => 40,
                         'children' => [],
                     ],
                     [
@@ -327,7 +354,7 @@ class ProjectNodesRepository
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.2',
                         'description' => null,
-                        'sort_order' => 40,
+                        'sort_order' => 50,
                         'children' => [],
                     ],
                     [
@@ -336,7 +363,7 @@ class ProjectNodesRepository
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
                         'description' => null,
-                        'sort_order' => 50,
+                        'sort_order' => 60,
                         'children' => [],
                     ],
                 ],
@@ -396,8 +423,8 @@ class ProjectNodesRepository
                 'sort_order' => 40,
                 'children' => [
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-AVANCE-KPIS',
-                        'title' => 'Avance y KPIs',
+                        'code' => '04-SEGUIMIENTO-CONTROL-AVANCE-PLAN',
+                        'title' => 'Avance vs plan',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
                         'description' => null,
@@ -423,12 +450,21 @@ class ProjectNodesRepository
                         'children' => [],
                     ],
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-REUNIONES-ACTAS',
-                        'title' => 'Reuniones y actas',
+                        'code' => '04-SEGUIMIENTO-CONTROL-ACTAS-COMITES',
+                        'title' => 'Actas y comités',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
                         'description' => null,
                         'sort_order' => 40,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '04-SEGUIMIENTO-CONTROL-KPIS',
+                        'title' => 'KPIs',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 50,
                         'children' => [],
                     ],
                 ],
@@ -480,6 +516,369 @@ class ProjectNodesRepository
                 ],
             ],
         ];
+    }
+
+    private function scrumTreeDefinition(): array
+    {
+        $sprintStructure = [
+            [
+                'code' => 'OBJETIVO',
+                'title' => 'Objetivo del sprint',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.2',
+                'description' => null,
+                'sort_order' => 10,
+                'children' => [],
+            ],
+            [
+                'code' => 'TAREAS',
+                'title' => 'Tareas',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.4',
+                'description' => null,
+                'sort_order' => 20,
+                'children' => [],
+            ],
+            [
+                'code' => 'EVIDENCIAS',
+                'title' => 'Evidencias',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.5',
+                'description' => null,
+                'sort_order' => 30,
+                'children' => [],
+            ],
+            [
+                'code' => 'REVIEW',
+                'title' => 'Review',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.6',
+                'description' => null,
+                'sort_order' => 40,
+                'children' => [],
+            ],
+            [
+                'code' => 'RETROSPECTIVA',
+                'title' => 'Retrospectiva',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.6',
+                'description' => null,
+                'sort_order' => 50,
+                'children' => [],
+            ],
+        ];
+
+        return [
+            [
+                'code' => '01-DESCUBRIMIENTO',
+                'title' => '01 · Descubrimiento',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 10,
+                'children' => [
+                    [
+                        'code' => '01-DESCUBRIMIENTO-VISION-PRODUCTO',
+                        'title' => 'Visión del producto',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '01-DESCUBRIMIENTO-CONTEXTO-NEGOCIO',
+                        'title' => 'Contexto del negocio',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '01-DESCUBRIMIENTO-STAKEHOLDERS',
+                        'title' => 'Stakeholders',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '01-DESCUBRIMIENTO-DECISIONES-INICIALES',
+                        'title' => 'Decisiones iniciales',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
+            ],
+            [
+                'code' => '02-BACKLOG-PRODUCTO',
+                'title' => '02 · Backlog del Producto',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.2',
+                'description' => null,
+                'sort_order' => 20,
+                'children' => [
+                    [
+                        'code' => '02-BACKLOG-PRODUCTO-HISTORIAS-USUARIO',
+                        'title' => 'Historias de usuario',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-BACKLOG-PRODUCTO-CRITERIOS-ACEPTACION',
+                        'title' => 'Criterios de aceptación',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-BACKLOG-PRODUCTO-PRIORIZACION',
+                        'title' => 'Priorización',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-BACKLOG-PRODUCTO-REFINAMIENTO',
+                        'title' => 'Refinamiento',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
+            ],
+            [
+                'code' => '03-SPRINT-01',
+                'title' => '03 · Sprint 01',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 30,
+                'children' => array_map(
+                    fn ($item) => array_merge($item, ['code' => '03-SPRINT-01-' . $item['code']]),
+                    $sprintStructure
+                ),
+            ],
+            [
+                'code' => '04-SPRINT-02',
+                'title' => '04 · Sprint 02',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 40,
+                'children' => array_map(
+                    fn ($item) => array_merge($item, ['code' => '04-SPRINT-02-' . $item['code']]),
+                    $sprintStructure
+                ),
+            ],
+            [
+                'code' => '99-CIERRE',
+                'title' => '99 · Cierre',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 990,
+                'children' => [
+                    [
+                        'code' => '99-CIERRE-INCREMENTO-FINAL',
+                        'title' => 'Incremento final',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.5',
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '99-CIERRE-APROBACION-CLIENTE',
+                        'title' => 'Aprobación del cliente',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '99-CIERRE-METRICAS',
+                        'title' => 'Métricas',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '99-CIERRE-LECCIONES-APRENDIDAS',
+                        'title' => 'Lecciones aprendidas',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.6',
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function kanbanTreeDefinition(): array
+    {
+        return [
+            [
+                'code' => '01-BACKLOG',
+                'title' => 'Backlog',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.2',
+                'description' => null,
+                'sort_order' => 10,
+                'children' => [],
+            ],
+            [
+                'code' => '02-EN-CURSO',
+                'title' => 'En curso',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.4',
+                'description' => null,
+                'sort_order' => 20,
+                'children' => [],
+            ],
+            [
+                'code' => '03-EN-REVISION',
+                'title' => 'En revisión',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.5',
+                'description' => null,
+                'sort_order' => 30,
+                'children' => [],
+            ],
+            [
+                'code' => '04-HECHO',
+                'title' => 'Hecho',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.5',
+                'description' => null,
+                'sort_order' => 40,
+                'children' => [],
+            ],
+            [
+                'code' => '05-MEJORA-CONTINUA',
+                'title' => 'Mejora continua',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.6',
+                'description' => null,
+                'sort_order' => 50,
+                'children' => [],
+            ],
+        ];
+    }
+
+    private function treeMetadata(int $projectId): array
+    {
+        if (!$this->db->tableExists('projects')) {
+            return [
+                'version' => null,
+                'methodology' => null,
+            ];
+        }
+
+        $hasVersionColumn = $this->db->columnExists('projects', 'tree_version');
+        $hasMethodologyColumn = $this->db->columnExists('projects', 'tree_methodology');
+
+        if (!$hasVersionColumn && !$hasMethodologyColumn) {
+            return [
+                'version' => null,
+                'methodology' => null,
+            ];
+        }
+
+        $columns = array_filter([
+            $hasVersionColumn ? 'tree_version' : null,
+            $hasMethodologyColumn ? 'tree_methodology' : null,
+        ]);
+
+        $row = $this->db->fetchOne(
+            sprintf('SELECT %s FROM projects WHERE id = :id LIMIT 1', implode(', ', $columns)),
+            [':id' => $projectId]
+        ) ?: [];
+
+        return [
+            'version' => $hasVersionColumn ? ($row['tree_version'] ?? null) : null,
+            'methodology' => $hasMethodologyColumn ? $this->normalizeMethodology((string) ($row['tree_methodology'] ?? '')) : null,
+        ];
+    }
+
+    private function persistTreeMetadata(int $projectId, string $methodology): void
+    {
+        $hasVersionColumn = $this->db->columnExists('projects', 'tree_version');
+        $hasMethodologyColumn = $this->db->columnExists('projects', 'tree_methodology');
+
+        if (!$hasVersionColumn && !$hasMethodologyColumn) {
+            return;
+        }
+
+        $fields = [];
+        $params = [':id' => $projectId];
+
+        if ($hasVersionColumn) {
+            $fields[] = 'tree_version = :tree_version';
+            $params[':tree_version'] = self::TREE_VERSION;
+        }
+
+        if ($hasMethodologyColumn) {
+            $fields[] = 'tree_methodology = :tree_methodology';
+            $params[':tree_methodology'] = $methodology;
+        }
+
+        if (!empty($fields)) {
+            $this->db->execute(
+                'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
+                $params
+            );
+        }
+    }
+
+    private function resetProjectTree(int $projectId): void
+    {
+        if (!$this->projectHasNodes($projectId)) {
+            return;
+        }
+
+        $nodes = $this->db->fetchAll(
+            'SELECT id FROM project_nodes WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+
+        foreach ($nodes as $node) {
+            $this->removePhysicalFiles($projectId, (int) ($node['id'] ?? 0));
+        }
+
+        $this->db->execute(
+            'DELETE FROM project_nodes WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+    }
+
+    private function normalizeMethodology(string $methodology): string
+    {
+        return match (strtolower(trim($methodology))) {
+            'scrum' => 'scrum',
+            'kanban' => 'kanban',
+            'convencional', 'waterfall', 'cascada' => 'cascada',
+            default => 'cascada',
+        };
     }
 
     private function materializeNodeTree(int $projectId, array $definition, ?string $parentCode): void
