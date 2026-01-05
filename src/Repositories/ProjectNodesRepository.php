@@ -239,141 +239,247 @@ class ProjectNodesRepository
 
     private function baseTreeDefinition(string $methodology): array
     {
-        $phases = $this->methodologyPhases($methodology);
-        $definitions = [];
-
-        foreach ($phases as $index => $label) {
-            $phaseCode = sprintf('F%02d', $index + 1);
-            $definitions[] = [
-                'code' => $phaseCode,
-                'title' => $label,
+        return [
+            [
+                'code' => '01-INICIO',
+                'title' => '01 · Inicio',
                 'node_type' => 'folder',
                 'iso_clause' => null,
                 'description' => null,
-                'sort_order' => $index + 1,
-                'children' => $this->phaseChildren($phaseCode),
-            ];
-        }
-
-        return $definitions;
-    }
-
-    private function methodologyPhases(string $methodology): array
-    {
-        return match (strtolower(trim($methodology))) {
-            'scrum' => [
-                'Descubrimiento',
-                'Backlog y refinamiento',
-                'Sprints',
-                'Release',
+                'sort_order' => 10,
+                'children' => [
+                    [
+                        'code' => '01-INICIO-PROPUESTA-CONTRATO',
+                        'title' => 'Propuesta y contrato',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '01-INICIO-CONTEXTO-NEGOCIO',
+                        'title' => 'Contexto del negocio',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '01-INICIO-STAKEHOLDERS',
+                        'title' => 'Stakeholders',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '01-INICIO-DECISIONES-INICIALES',
+                        'title' => 'Decisiones iniciales',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
             ],
-            'cascada' => [
-                'Inicio',
-                'Planificación',
-                'Ejecución',
-                'Cierre',
-            ],
-            default => [
-                'Inicio',
-                'Planificación',
-                'Ejecución',
-                'Cierre',
-            ],
-        };
-    }
-
-    private function phaseChildren(string $phaseCode): array
-    {
-        $sections = [
             [
-                'suffix' => 'E01',
-                'title' => '01 - Entradas',
+                'code' => '02-PLANIFICACION',
+                'title' => '02 · Planificación',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3',
+                'description' => null,
+                'sort_order' => 20,
+                'children' => [
+                    [
+                        'code' => '02-PLANIFICACION-ALCANCE',
+                        'title' => 'Alcance',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-PLANIFICACION-CRONOGRAMA',
+                        'title' => 'Cronograma',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.3',
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-PLANIFICACION-PRESUPUESTO',
+                        'title' => 'Presupuesto',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.3',
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-PLANIFICACION-RIESGOS',
+                        'title' => 'Riesgos',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '02-PLANIFICACION-PLAN-CALIDAD',
+                        'title' => 'Plan de calidad',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 50,
+                        'children' => [],
+                    ],
+                ],
+            ],
+            [
+                'code' => '03-EJECUCION',
+                'title' => '03 · Ejecución',
+                'node_type' => 'folder',
                 'iso_clause' => null,
-                'children' => $this->inputChildren($phaseCode . '-E01'),
+                'description' => null,
+                'sort_order' => 30,
+                'children' => [
+                    [
+                        'code' => '03-EJECUCION-ENTREGABLES',
+                        'title' => 'Entregables',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.5',
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '03-EJECUCION-EVIDENCIAS-TECNICAS',
+                        'title' => 'Evidencias técnicas',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.5',
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '03-EJECUCION-PRUEBAS',
+                        'title' => 'Pruebas',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.5',
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '03-EJECUCION-APROBACIONES-PARCIALES',
+                        'title' => 'Aprobaciones parciales',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
             ],
             [
-                'suffix' => 'E02',
-                'title' => '02 - Planificación',
-                'iso_clause' => '8.3.2',
-                'children' => [],
-            ],
-            [
-                'suffix' => 'E03',
-                'title' => '03 - Controles ISO',
+                'code' => '04-SEGUIMIENTO-CONTROL',
+                'title' => '04 · Seguimiento y Control',
+                'node_type' => 'folder',
                 'iso_clause' => '8.3.4',
-                'children' => $this->controlChildren($phaseCode . '-E03'),
-            ],
-            [
-                'suffix' => 'E04',
-                'title' => '04 - Evidencias',
-                'iso_clause' => '8.3.5',
-                'children' => [],
-            ],
-            [
-                'suffix' => 'E05',
-                'title' => '05 - Cambios',
-                'iso_clause' => '8.3.6',
-                'children' => [],
-            ],
-        ];
-
-        return array_map(static function (array $section, int $index) use ($phaseCode) {
-            $sectionCode = $phaseCode . '-' . $section['suffix'];
-
-            return [
-                'code' => $sectionCode,
-                'title' => $section['title'],
-                'node_type' => 'folder',
-                'iso_clause' => $section['iso_clause'],
                 'description' => null,
-                'sort_order' => $index + 1,
-                'children' => $section['children'],
-            ];
-        }, $sections, array_keys($sections));
-    }
-
-    private function inputChildren(string $parentCode): array
-    {
-        $children = [
-            ['suffix' => 'RC', 'title' => 'Requisitos del cliente'],
-            ['suffix' => 'RL', 'title' => 'Requisitos legales / normativos'],
-            ['suffix' => 'CN', 'title' => 'Contexto del negocio'],
-            ['suffix' => 'RP', 'title' => 'Referencias previas'],
-        ];
-
-        return array_map(static function (array $child, int $index) use ($parentCode) {
-            return [
-                'code' => $parentCode . '-' . $child['suffix'],
-                'title' => $child['title'],
+                'sort_order' => 40,
+                'children' => [
+                    [
+                        'code' => '04-SEGUIMIENTO-CONTROL-AVANCE-KPIS',
+                        'title' => 'Avance y KPIs',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '04-SEGUIMIENTO-CONTROL-CAMBIOS',
+                        'title' => 'Control de cambios',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.6',
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '04-SEGUIMIENTO-CONTROL-RIESGOS-ACTIVOS',
+                        'title' => 'Riesgos activos',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '04-SEGUIMIENTO-CONTROL-REUNIONES-ACTAS',
+                        'title' => 'Reuniones y actas',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
+            ],
+            [
+                'code' => '05-CIERRE',
+                'title' => '05 · Cierre',
                 'node_type' => 'folder',
                 'iso_clause' => null,
                 'description' => null,
-                'sort_order' => $index + 1,
-                'children' => [],
-            ];
-        }, $children, array_keys($children));
-    }
-
-    private function controlChildren(string $parentCode): array
-    {
-        $children = [
-            ['suffix' => 'RD', 'title' => 'Revisión de diseño'],
-            ['suffix' => 'VF', 'title' => 'Verificación'],
-            ['suffix' => 'VA', 'title' => 'Validación'],
-            ['suffix' => 'AP', 'title' => 'Aprobaciones'],
+                'sort_order' => 50,
+                'children' => [
+                    [
+                        'code' => '05-CIERRE-ENTREGABLES-FINALES',
+                        'title' => 'Entregables finales',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.5',
+                        'description' => null,
+                        'sort_order' => 10,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '05-CIERRE-APROBACION-FINAL',
+                        'title' => 'Aprobación final',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.4',
+                        'description' => null,
+                        'sort_order' => 20,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '05-CIERRE-LECCIONES-APRENDIDAS',
+                        'title' => 'Lecciones aprendidas',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 30,
+                        'children' => [],
+                    ],
+                    [
+                        'code' => '05-CIERRE-CIERRE-ADMINISTRATIVO',
+                        'title' => 'Cierre administrativo',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => null,
+                        'sort_order' => 40,
+                        'children' => [],
+                    ],
+                ],
+            ],
         ];
-
-        return array_map(static function (array $child, int $index) use ($parentCode) {
-            return [
-                'code' => $parentCode . '-' . $child['suffix'],
-                'title' => $child['title'],
-                'node_type' => 'folder',
-                'iso_clause' => '8.3.4',
-                'description' => null,
-                'sort_order' => $index + 1,
-                'children' => [],
-            ];
-        }, $children, array_keys($children));
     }
 
     private function materializeNodeTree(int $projectId, array $definition, ?string $parentCode): void

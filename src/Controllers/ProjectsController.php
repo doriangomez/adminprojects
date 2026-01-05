@@ -153,7 +153,6 @@ class ProjectsController extends Controller
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
-            $this->createProjectNodeTree($projectId, (string) ($payload['methodology'] ?? 'cascada'));
             $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
@@ -703,6 +702,10 @@ class ProjectsController extends Controller
         $designControlsRepo = new DesignControlsRepository($this->db);
         $designChangesRepo = new DesignChangesRepository($this->db);
         $users = (new UsersRepository($this->db))->all();
+        $this->createProjectNodeTree(
+            (int) ($project['id'] ?? 0),
+            (string) ($project['methodology'] ?? 'cascada')
+        );
         $nodeSnapshot = $this->projectNodesSnapshot((int) ($project['id'] ?? 0));
         $projectNodes = $nodeSnapshot['nodes'] ?? [];
         $criticalNodes = $nodeSnapshot['pending_critical'] ?? [];
