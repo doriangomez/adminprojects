@@ -5,12 +5,16 @@ declare(strict_types=1);
 class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
-    private const TREE_VERSION = '2024.11';
+    private const TREE_VERSION = '2024.12';
+    private const SCRUM_DISCOVERY_CODE = 'SCRUM-DESCUBRIMIENTO';
+    private const SCRUM_DISCOVERY_TITLE = 'Descubrimiento';
     private const SCRUM_BACKLOG_CODE = 'SCRUM-BACKLOG';
     private const SCRUM_BACKLOG_TITLE = 'Backlog del Producto';
     private const SCRUM_SPRINT_CONTAINER_CODE = 'SCRUM-SPRINTS';
     private const SCRUM_SPRINT_CONTAINER_TITLE = 'Sprints';
     private const SCRUM_SPRINT_CONTAINER_ORDER = 20;
+    private const SCRUM_DEPLOY_CODE = 'SCRUM-DEPLOY';
+    private const SCRUM_DEPLOY_TITLE = 'Deploy / Release';
     private const SCRUM_ARTEFACTS_CODE = 'SCRUM-ARTEFACTOS';
     private const SCRUM_ARTEFACTS_TITLE = 'Artefactos del Proyecto';
 
@@ -18,46 +22,44 @@ class ProjectNodesRepository
     {
     }
 
-    public function createBaseTree(int $projectId, string $methodology): void
+    public function synchronizeFromProject(int $projectId, string $methodology, ?string $phase = null): void
     {
         if (!$this->db->tableExists('project_nodes')) {
             return;
         }
 
         $normalizedMethodology = $this->normalizeMethodology($methodology);
+        $normalizedPhase = $this->normalizePhase($phase);
         $metadata = $this->treeMetadata($projectId);
         $hasNodes = $this->projectHasNodes($projectId);
-        $needsReset = !$hasNodes
+
+        $needsSync = !$hasNodes
             || ($metadata['version'] ?? null) !== self::TREE_VERSION
-            || ($metadata['methodology'] ?? null) !== $normalizedMethodology;
+            || ($metadata['methodology'] ?? null) !== $normalizedMethodology
+            || ($metadata['phase'] ?? null) !== $normalizedPhase
+            || $this->missingBaseNodes($projectId, $normalizedMethodology);
 
-        if ($needsReset) {
-            if ($hasNodes && $normalizedMethodology === 'scrum') {
-                foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
-                    $this->materializeNodeTree(
-                        $projectId,
-                        $definition,
-                        null,
-                        false
-                    );
-                }
-            } else {
-                $this->resetProjectTree($projectId);
-                foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
-                    $this->materializeNodeTree(
-                        $projectId,
-                        $definition,
-                        null,
-                        $normalizedMethodology !== 'scrum'
-                    );
-                }
+        if ($needsSync) {
+            foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
+                $this->materializeNodeTree(
+                    $projectId,
+                    $definition,
+                    null,
+                    true
+                );
             }
-            $this->persistTreeMetadata($projectId, $normalizedMethodology);
-        }
 
-        if ($normalizedMethodology === 'scrum') {
-            $this->ensureScrumControlContainers($projectId);
+            if ($normalizedMethodology === 'scrum') {
+                $this->ensureScrumControlContainers($projectId);
+            }
+
+            $this->persistTreeMetadata($projectId, $normalizedMethodology, $normalizedPhase);
         }
+    }
+
+    public function createBaseTree(int $projectId, string $methodology): void
+    {
+        $this->synchronizeFromProject($projectId, $methodology, null);
     }
 
     public function snapshot(int $projectId): array
@@ -207,11 +209,11 @@ class ProjectNodesRepository
         $this->assertTable();
         $parent = $this->findNode($projectId, $parentId);
 
-        if (!$parent || $parent['node_type'] !== 'folder' || $this->isRestrictedContainer((string) ($parent['code'] ?? ''))) {
+        if (!$parent || $parent['node_type'] !== 'folder') {
             throw new \InvalidArgumentException('Selecciona una carpeta válida para adjuntar.');
         }
 
-        if (($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($uploadedFile['tmp_name']) || !is_uploaded_file($uploadedFile['tmp_name'])) {
+        if (($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($uploadedFile['tmp_name']) || !is_file((string) $uploadedFile['tmp_name'])) {
             throw new \InvalidArgumentException('Selecciona un archivo válido para subir.');
         }
 
@@ -758,6 +760,15 @@ class ProjectNodesRepository
     {
         return [
             [
+                'code' => self::SCRUM_DISCOVERY_CODE,
+                'title' => self::SCRUM_DISCOVERY_TITLE,
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 5,
+                'children' => [],
+            ],
+            [
                 'code' => self::SCRUM_BACKLOG_CODE,
                 'title' => self::SCRUM_BACKLOG_TITLE,
                 'node_type' => 'folder',
@@ -782,6 +793,15 @@ class ProjectNodesRepository
                 'iso_clause' => null,
                 'description' => null,
                 'sort_order' => 30,
+                'children' => [],
+            ],
+            [
+                'code' => self::SCRUM_DEPLOY_CODE,
+                'title' => self::SCRUM_DEPLOY_TITLE,
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => null,
+                'sort_order' => 40,
                 'children' => [],
             ],
         ];
@@ -861,6 +881,17 @@ class ProjectNodesRepository
 
     private function ensureScrumControlContainers(int $projectId): void
     {
+        $this->ensureNode(
+            $projectId,
+            self::SCRUM_DISCOVERY_CODE,
+            self::SCRUM_DISCOVERY_TITLE,
+            'folder',
+            null,
+            null,
+            null,
+            5
+        );
+
         $backlog = $this->db->fetchOne(
             'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
             [':project' => $projectId, ':code' => self::SCRUM_BACKLOG_CODE]
@@ -948,6 +979,17 @@ class ProjectNodesRepository
                 30
             );
         }
+
+        $this->ensureNode(
+            $projectId,
+            self::SCRUM_DEPLOY_CODE,
+            self::SCRUM_DEPLOY_TITLE,
+            'folder',
+            null,
+            null,
+            null,
+            40
+        );
     }
 
     private function nextSprintNumber(int $projectId, ?int $containerId): int
@@ -993,22 +1035,26 @@ class ProjectNodesRepository
             return [
                 'version' => null,
                 'methodology' => null,
+                'phase' => null,
             ];
         }
 
         $hasVersionColumn = $this->db->columnExists('projects', 'tree_version');
         $hasMethodologyColumn = $this->db->columnExists('projects', 'tree_methodology');
+        $hasPhaseColumn = $this->db->columnExists('projects', 'tree_phase');
 
-        if (!$hasVersionColumn && !$hasMethodologyColumn) {
+        if (!$hasVersionColumn && !$hasMethodologyColumn && !$hasPhaseColumn) {
             return [
                 'version' => null,
                 'methodology' => null,
+                'phase' => null,
             ];
         }
 
         $columns = array_filter([
             $hasVersionColumn ? 'tree_version' : null,
             $hasMethodologyColumn ? 'tree_methodology' : null,
+            $hasPhaseColumn ? 'tree_phase' : null,
         ]);
 
         $row = $this->db->fetchOne(
@@ -1019,15 +1065,17 @@ class ProjectNodesRepository
         return [
             'version' => $hasVersionColumn ? ($row['tree_version'] ?? null) : null,
             'methodology' => $hasMethodologyColumn ? $this->normalizeMethodology((string) ($row['tree_methodology'] ?? '')) : null,
+            'phase' => $hasPhaseColumn ? $this->normalizePhase($row['tree_phase'] ?? null) : null,
         ];
     }
 
-    private function persistTreeMetadata(int $projectId, string $methodology): void
+    private function persistTreeMetadata(int $projectId, string $methodology, ?string $phase = null): void
     {
         $hasVersionColumn = $this->db->columnExists('projects', 'tree_version');
         $hasMethodologyColumn = $this->db->columnExists('projects', 'tree_methodology');
+        $hasPhaseColumn = $this->db->columnExists('projects', 'tree_phase');
 
-        if (!$hasVersionColumn && !$hasMethodologyColumn) {
+        if (!$hasVersionColumn && !$hasMethodologyColumn && !$hasPhaseColumn) {
             return;
         }
 
@@ -1042,6 +1090,40 @@ class ProjectNodesRepository
         if ($hasMethodologyColumn) {
             $fields[] = 'tree_methodology = :tree_methodology';
             $params[':tree_methodology'] = $methodology;
+        }
+
+        if ($hasPhaseColumn) {
+            $fields[] = 'tree_phase = :tree_phase';
+            $params[':tree_phase'] = $phase;
+        }
+
+        if (!empty($fields)) {
+            $this->db->execute(
+                'UPDATE projects SET ' . implode(', ', $fields) . ' WHERE id = :id',
+                $params
+            );
+        }
+    }
+
+    public function markTreeOutdated(int $projectId): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $fields = [];
+        $params = [':id' => $projectId];
+
+        if ($this->db->columnExists('projects', 'tree_version')) {
+            $fields[] = 'tree_version = NULL';
+        }
+
+        if ($this->db->columnExists('projects', 'tree_methodology')) {
+            $fields[] = 'tree_methodology = NULL';
+        }
+
+        if ($this->db->columnExists('projects', 'tree_phase')) {
+            $fields[] = 'tree_phase = NULL';
         }
 
         if (!empty($fields)) {
@@ -1081,6 +1163,17 @@ class ProjectNodesRepository
             'convencional', 'waterfall', 'cascada' => 'cascada',
             default => 'cascada',
         };
+    }
+
+    private function normalizePhase(mixed $phase): ?string
+    {
+        if ($phase === null) {
+            return null;
+        }
+
+        $normalized = strtolower(trim((string) $phase));
+
+        return $normalized === '' ? null : $normalized;
     }
 
     private function materializeNodeTree(
@@ -1207,6 +1300,37 @@ class ProjectNodesRepository
         return $result !== null;
     }
 
+    private function missingBaseNodes(int $projectId, string $methodology): bool
+    {
+        foreach ($this->baseTreeDefinition($methodology) as $definition) {
+            if ($this->nodeDefinitionMissing($projectId, $definition)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function nodeDefinitionMissing(int $projectId, array $definition): bool
+    {
+        $code = (string) ($definition['code'] ?? '');
+        if ($code === '') {
+            return false;
+        }
+
+        if (!$this->codeExists($projectId, $code)) {
+            return true;
+        }
+
+        foreach ($definition['children'] ?? [] as $child) {
+            if ($this->nodeDefinitionMissing($projectId, $child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function generateChildCode(int $projectId, ?array $parent, string $title, string $nodeType): string
     {
         $parentCode = $parent && !empty($parent['code']) ? $parent['code'] . '.' : '';
@@ -1318,11 +1442,11 @@ class ProjectNodesRepository
 
     private function moveUploadedFile(string $source, string $destination): void
     {
-        if (!is_uploaded_file($source)) {
+        if (!is_file($source)) {
             throw new \InvalidArgumentException('Selecciona un archivo válido para subir.');
         }
 
-        if (!@move_uploaded_file($source, $destination)) {
+        if (!@move_uploaded_file($source, $destination) && !@rename($source, $destination) && !(@copy($source, $destination) && @unlink($source))) {
             throw new \RuntimeException('No se pudo guardar el archivo en almacenamiento temporal.');
         }
     }
@@ -1460,14 +1584,5 @@ class ProjectNodesRepository
         if (!$this->db->tableExists('project_nodes')) {
             throw new \InvalidArgumentException('No se encontró el repositorio documental del proyecto.');
         }
-    }
-
-    private function isRestrictedContainer(string $code): bool
-    {
-        $normalized = strtolower(trim($code));
-
-        return $normalized === 'project'
-            || str_starts_with($normalized, 'metodologia.')
-            || str_starts_with($normalized, 'fase.');
     }
 }
