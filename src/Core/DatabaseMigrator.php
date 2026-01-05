@@ -453,6 +453,7 @@ class DatabaseMigrator
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
                 parent_id INT NULL,
+                code VARCHAR(180) NOT NULL,
                 node_type ENUM('folder','file') NOT NULL,
                 iso_clause VARCHAR(20) NULL,
                 title VARCHAR(180) NOT NULL,
@@ -460,6 +461,7 @@ class DatabaseMigrator
                 file_path VARCHAR(255) NULL,
                 created_by INT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_project_nodes_code (project_id, code),
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
                 FOREIGN KEY (created_by) REFERENCES users(id)
@@ -495,40 +497,88 @@ class DatabaseMigrator
             $this->db->execute('ALTER TABLE project_nodes DROP INDEX project_code');
         }
 
-        $requiredColumns = [
-            'node_type',
-            'iso_clause',
-            'title',
-            'description',
-            'file_path',
-            'created_by',
-        ];
+        $this->ensureProjectNodesColumns();
+        $this->backfillProjectNodeCodes();
+        $this->ensureProjectNodeCodeIndex();
+    }
 
-        $hasAllColumns = array_reduce($requiredColumns, fn ($carry, $column) => $carry && $this->db->columnExists('project_nodes', $column), true);
+    private function ensureProjectNodesColumns(): void
+    {
+        if (!$this->db->columnExists('project_nodes', 'code')) {
+            $this->db->execute("ALTER TABLE project_nodes ADD COLUMN code VARCHAR(180) NOT NULL DEFAULT '' AFTER parent_id");
+            $this->db->clearColumnCache();
+        }
 
-        if ($hasAllColumns) {
+        if (!$this->db->columnExists('project_nodes', 'iso_clause')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN iso_clause VARCHAR(20) NULL AFTER node_type');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'title')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN title VARCHAR(180) NOT NULL AFTER iso_clause');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'description')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN description TEXT NULL AFTER title');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'file_path')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN file_path VARCHAR(255) NULL AFTER description');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'created_by')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN created_by INT NULL AFTER file_path');
+            $this->db->clearColumnCache();
+        }
+
+        $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN node_type ENUM('folder','file') NOT NULL");
+
+        foreach (['iso_code', 'status', 'critical', 'sort_order', 'linked_entity_type', 'linked_entity_id', 'updated_at', 'name'] as $deprecated) {
+            if ($this->db->columnExists('project_nodes', $deprecated)) {
+                $this->db->execute("ALTER TABLE project_nodes DROP COLUMN {$deprecated}");
+                $this->db->clearColumnCache();
+            }
+        }
+
+        $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN code VARCHAR(180) NOT NULL");
+        $this->db->clearColumnCache();
+    }
+
+    private function backfillProjectNodeCodes(): void
+    {
+        if (!$this->db->columnExists('project_nodes', 'code')) {
             return;
         }
 
-        $this->db->execute(
-            "ALTER TABLE project_nodes
-                MODIFY COLUMN node_type ENUM('folder','file') NOT NULL,
-                DROP COLUMN code,
-                DROP COLUMN name,
-                ADD COLUMN iso_clause VARCHAR(20) NULL AFTER node_type,
-                ADD COLUMN title VARCHAR(180) NOT NULL AFTER iso_clause,
-                ADD COLUMN description TEXT NULL AFTER title,
-                ADD COLUMN file_path VARCHAR(255) NULL AFTER description,
-                ADD COLUMN created_by INT NULL AFTER file_path,
-                DROP COLUMN iso_code,
-                DROP COLUMN status,
-                DROP COLUMN critical,
-                DROP COLUMN sort_order,
-                DROP COLUMN linked_entity_type,
-                DROP COLUMN linked_entity_id,
-                DROP COLUMN updated_at,
-                ADD FOREIGN KEY (created_by) REFERENCES users(id)"
-        );
+        $nodes = $this->db->fetchAll('SELECT id, code FROM project_nodes');
+        foreach ($nodes as $node) {
+            $code = trim((string) ($node['code'] ?? ''));
+            if ($code !== '') {
+                continue;
+            }
+
+            $this->db->execute(
+                'UPDATE project_nodes SET code = :code WHERE id = :id',
+                [
+                    ':code' => 'legacy-' . (int) ($node['id'] ?? 0),
+                    ':id' => (int) ($node['id'] ?? 0),
+                ]
+            );
+        }
+    }
+
+    private function ensureProjectNodeCodeIndex(): void
+    {
+        if (!$this->db->columnExists('project_nodes', 'code')) {
+            return;
+        }
+
+        if (!$this->db->indexExists('project_nodes', 'uq_project_nodes_code')) {
+            $this->db->execute('CREATE UNIQUE INDEX uq_project_nodes_code ON project_nodes (project_id, code)');
+        }
     }
 
     private function createAssignmentsTableIfMissing(): void

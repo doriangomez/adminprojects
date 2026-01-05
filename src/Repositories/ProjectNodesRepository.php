@@ -42,12 +42,15 @@ class ProjectNodesRepository
             }
         }
 
+        $code = $this->generateChildCode($projectId, $parent, $title, 'folder');
+
         return $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, node_type, iso_clause, title, description, created_by)
-             VALUES (:project_id, :parent_id, :node_type, :iso_clause, :title, :description, :created_by)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :created_by)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
+                ':code' => $code,
                 ':node_type' => 'folder',
                 ':iso_clause' => $isoClause ?: $this->resolveIsoClause($projectId, $parentId),
                 ':title' => $title,
@@ -74,12 +77,15 @@ class ProjectNodesRepository
         $safeName = preg_replace('/[^A-Za-z0-9._-]/', '_', $originalName);
         $safeName = $safeName !== '' ? $safeName : 'documento';
 
+        $code = $this->generateChildCode($projectId, $parent, $safeName, 'file');
+
         $nodeId = $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, node_type, iso_clause, title, description, created_by)
-             VALUES (:project_id, :parent_id, :node_type, :iso_clause, :title, :description, :created_by)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :created_by)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
+                ':code' => $code,
                 ':node_type' => 'file',
                 ':iso_clause' => $this->resolveIsoClause($projectId, $parentId),
                 ':title' => $safeName,
@@ -140,7 +146,7 @@ class ProjectNodesRepository
         }
 
         $nodes = $this->db->fetchAll(
-            'SELECT id, parent_id, node_type, iso_clause, title, description, file_path, created_at
+            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at
              FROM project_nodes
              WHERE project_id = :project
              ORDER BY parent_id IS NULL DESC, created_at ASC, id ASC',
@@ -155,6 +161,7 @@ class ProjectNodesRepository
                 $parent = (int) ($node['parent_id'] ?? 0);
                 $filesByFolder[$parent][] = [
                     'id' => (int) $node['id'],
+                    'code' => $node['code'] ?? '',
                     'file_name' => $node['title'],
                     'storage_path' => $node['file_path'],
                     'created_at' => $node['created_at'],
@@ -167,6 +174,7 @@ class ProjectNodesRepository
             $folders[$nodeId] = [
                 'id' => $nodeId,
                 'parent_id' => $node['parent_id'],
+                'code' => $node['code'] ?? '',
                 'name' => $node['title'],
                 'iso_code' => $node['iso_clause'],
                 'status' => 'pendiente',
@@ -217,59 +225,324 @@ class ProjectNodesRepository
 
     private function ensureBaseTree(int $projectId, array $phases, ?string $currentPhase): void
     {
-        $rootId = $this->ensureFolder($projectId, null, 'Diseño y Desarrollo (ISO 9001 · 8.3)', '8.3', 'Estructura documental ISO 9001 8.3');
-        $clauses = [
-            '8.3.2' => 'Planificación',
-            '8.3.3' => 'Entradas',
-            '8.3.4' => 'Controles',
-            '8.3.5' => 'Salidas',
-            '8.3.6' => 'Cambios',
-        ];
+        unset($phases, $currentPhase);
 
-        foreach ($clauses as $code => $label) {
-            $this->ensureFolder($projectId, $rootId, $code . ' ' . $label, $code, null);
+        foreach ($this->deterministicTree() as $definition) {
+            $this->materializeNodeTree($projectId, $definition, null);
         }
-
-        $phasesRoot = $this->ensureFolder($projectId, null, 'Fases del Proyecto', null, 'Estructura por fases');
-        foreach ($phases as $phase) {
-            $this->ensureFolder($projectId, $phasesRoot, ucfirst((string) $phase), null, null);
-        }
-
-        $this->ensureFolder($projectId, null, 'Riesgos', null, 'Documentos de riesgos del proyecto');
     }
 
-    private function ensureFolder(int $projectId, ?int $parentId, string $title, ?string $isoClause, ?string $description): int
+    private function deterministicTree(): array
     {
+        $phaseChildren = fn (string $phaseCode, string $label) => [
+            [
+                'code' => "{$phaseCode}.docs",
+                'title' => 'Documentación',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => "Documentos de la fase {$label}",
+                'children' => [],
+            ],
+            [
+                'code' => "{$phaseCode}.evidencias",
+                'title' => 'Evidencias',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => "Evidencias de la fase {$label}",
+                'children' => [],
+            ],
+            [
+                'code' => "{$phaseCode}.controles",
+                'title' => 'Controles',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => "Controles aplicados en {$label}",
+                'children' => [],
+            ],
+        ];
+
+        return [
+            [
+                'code' => 'ISO',
+                'title' => 'ISO 9001',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => 'Estructura documental ISO 9001',
+                'children' => [
+                    [
+                        'code' => 'iso.8.3',
+                        'title' => '8.3 Diseño y desarrollo',
+                        'node_type' => 'folder',
+                        'iso_clause' => '8.3.2',
+                        'description' => 'Planificación de diseño y desarrollo',
+                        'children' => [
+                            [
+                                'code' => 'iso.8.3.inputs',
+                                'title' => 'Entradas de diseño (8.3.3)',
+                                'node_type' => 'folder',
+                                'iso_clause' => '8.3.3',
+                                'description' => 'Entradas de diseño y desarrollo',
+                                'children' => [],
+                            ],
+                            [
+                                'code' => 'iso.8.3.controls',
+                                'title' => 'Controles de diseño (8.3.4)',
+                                'node_type' => 'folder',
+                                'iso_clause' => '8.3.4',
+                                'description' => 'Controles de revisión, verificación y validación',
+                                'children' => [],
+                            ],
+                            [
+                                'code' => 'iso.8.3.outputs',
+                                'title' => 'Salidas de diseño (8.3.5)',
+                                'node_type' => 'folder',
+                                'iso_clause' => '8.3.5',
+                                'description' => 'Salidas controladas de diseño',
+                                'children' => [],
+                            ],
+                            [
+                                'code' => 'iso.8.3.changes',
+                                'title' => 'Cambios de diseño (8.3.6)',
+                                'node_type' => 'folder',
+                                'iso_clause' => '8.3.6',
+                                'description' => 'Control de cambios de diseño y desarrollo',
+                                'children' => [],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'code' => 'SCRUM',
+                'title' => 'SCRUM',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => 'Fases y artefactos en metodología Scrum',
+                'children' => [
+                    [
+                        'code' => 'fase.descubrimiento',
+                        'title' => 'Descubrimiento',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Fase de descubrimiento',
+                        'children' => $phaseChildren('fase.descubrimiento', 'de descubrimiento'),
+                    ],
+                    [
+                        'code' => 'fase.backlog',
+                        'title' => 'Backlog',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Fase de backlog',
+                        'children' => $phaseChildren('fase.backlog', 'de backlog'),
+                    ],
+                    [
+                        'code' => 'fase.sprint',
+                        'title' => 'Sprint',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Ejecución de sprint',
+                        'children' => $phaseChildren('fase.sprint', 'de sprint'),
+                    ],
+                    [
+                        'code' => 'fase.deploy',
+                        'title' => 'Deploy',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Despliegue de entregables',
+                        'children' => $phaseChildren('fase.deploy', 'de deploy'),
+                    ],
+                ],
+            ],
+            [
+                'code' => 'CASCADA',
+                'title' => 'CASCADA',
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => 'Fases y artefactos en proyectos en cascada',
+                'children' => [
+                    [
+                        'code' => 'fase.inicio',
+                        'title' => 'Inicio',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Fase de inicio',
+                        'children' => $phaseChildren('fase.inicio', 'de inicio'),
+                    ],
+                    [
+                        'code' => 'fase.planificacion',
+                        'title' => 'Planificación',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Fase de planificación',
+                        'children' => $phaseChildren('fase.planificacion', 'de planificación'),
+                    ],
+                    [
+                        'code' => 'fase.ejecucion',
+                        'title' => 'Ejecución',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Fase de ejecución',
+                        'children' => $phaseChildren('fase.ejecucion', 'de ejecución'),
+                    ],
+                    [
+                        'code' => 'fase.cierre',
+                        'title' => 'Cierre',
+                        'node_type' => 'folder',
+                        'iso_clause' => null,
+                        'description' => 'Fase de cierre',
+                        'children' => $phaseChildren('fase.cierre', 'de cierre'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function materializeNodeTree(int $projectId, array $definition, ?string $parentCode): void
+    {
+        $this->ensureNode(
+            $projectId,
+            (string) $definition['code'],
+            (string) $definition['title'],
+            (string) $definition['node_type'],
+            $parentCode,
+            $definition['iso_clause'] ?? null,
+            $definition['description'] ?? null
+        );
+
+        foreach ($definition['children'] ?? [] as $child) {
+            $this->materializeNodeTree($projectId, $child, (string) $definition['code']);
+        }
+    }
+
+    private function ensureNode(
+        int $projectId,
+        string $code,
+        string $title,
+        string $nodeType,
+        ?string $parentCode,
+        ?string $isoClause,
+        ?string $description
+    ): int {
+        $normalizedCode = trim($code);
+        if ($normalizedCode === '') {
+            throw new \InvalidArgumentException('El código del nodo no puede estar vacío.');
+        }
+
+        $parentId = null;
+        if ($parentCode !== null) {
+            $parent = $this->db->fetchOne(
+                'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+                [
+                    ':project' => $projectId,
+                    ':code' => $parentCode,
+                ]
+            );
+            $parentId = $parent ? (int) ($parent['id'] ?? 0) : null;
+        }
+
         $existing = $this->db->fetchOne(
-            'SELECT id FROM project_nodes WHERE project_id = :project AND parent_id ' . ($parentId === null ? 'IS NULL' : '= :parent') . ' AND title = :title AND node_type = "folder" LIMIT 1',
-            $parentId === null
-                ? [
-                    ':project' => $projectId,
-                    ':title' => $title,
-                ]
-                : [
-                    ':project' => $projectId,
-                    ':parent' => $parentId,
-                    ':title' => $title,
-                ]
+            'SELECT id, parent_id, node_type, iso_clause, title, description FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':code' => $normalizedCode,
+            ]
         );
 
         if ($existing) {
+            $updates = [];
+            $params = [
+                ':id' => (int) $existing['id'],
+            ];
+
+            if ((int) ($existing['parent_id'] ?? 0) !== (int) ($parentId ?? 0)) {
+                $updates[] = 'parent_id = :parent_id';
+                $params[':parent_id'] = $parentId;
+            }
+
+            if ((string) $existing['node_type'] !== $nodeType) {
+                $updates[] = 'node_type = :node_type';
+                $params[':node_type'] = $nodeType;
+            }
+
+            if ((string) ($existing['iso_clause'] ?? '') !== (string) ($isoClause ?? '')) {
+                $updates[] = 'iso_clause = :iso_clause';
+                $params[':iso_clause'] = $isoClause;
+            }
+
+            if ((string) ($existing['title'] ?? '') !== $title) {
+                $updates[] = 'title = :title';
+                $params[':title'] = $title;
+            }
+
+            if ((string) ($existing['description'] ?? '') !== (string) ($description ?? '')) {
+                $updates[] = 'description = :description';
+                $params[':description'] = $description;
+            }
+
+            if (!empty($updates)) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET ' . implode(', ', $updates) . ' WHERE id = :id',
+                    $params
+                );
+            }
+
             return (int) $existing['id'];
         }
 
         return $this->db->insert(
-            'INSERT INTO project_nodes (project_id, parent_id, node_type, iso_clause, title, description)
-             VALUES (:project_id, :parent_id, :node_type, :iso_clause, :title, :description)',
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description)',
             [
                 ':project_id' => $projectId,
                 ':parent_id' => $parentId,
-                ':node_type' => 'folder',
+                ':code' => $normalizedCode,
+                ':node_type' => $nodeType,
                 ':iso_clause' => $isoClause,
                 ':title' => $title,
                 ':description' => $description,
             ]
         );
+    }
+
+    private function generateChildCode(int $projectId, ?array $parent, string $title, string $nodeType): string
+    {
+        $parentCode = $parent && !empty($parent['code']) ? $parent['code'] . '.' : '';
+        $slug = $this->slugifyCode($title);
+        $candidate = $parentCode . $slug;
+
+        if (!$this->codeExists($projectId, $candidate)) {
+            return $candidate;
+        }
+
+        $suffix = 2;
+        while ($this->codeExists($projectId, $candidate . '-' . $suffix)) {
+            $suffix++;
+        }
+
+        return $candidate . '-' . $suffix;
+    }
+
+    private function codeExists(int $projectId, string $code): bool
+    {
+        $found = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':code' => $code,
+            ]
+        );
+
+        return (bool) $found;
+    }
+
+    private function slugifyCode(string $value): string
+    {
+        $normalized = iconv('UTF-8', 'ASCII//TRANSLIT', $value);
+        $normalized = strtolower(trim((string) $normalized));
+        $normalized = preg_replace('/[^a-z0-9]+/', '.', $normalized);
+        $normalized = trim((string) $normalized, '.');
+
+        return $normalized !== '' ? $normalized : 'nodo';
     }
 
     private function folderStatus(int $folderId, array $filesByFolder): string
@@ -295,7 +568,7 @@ class ProjectNodesRepository
     private function findNode(int $projectId, int $nodeId): ?array
     {
         return $this->db->fetchOne(
-            'SELECT id, project_id, parent_id, node_type, iso_clause FROM project_nodes WHERE id = :id AND project_id = :project_id',
+            'SELECT id, project_id, parent_id, node_type, iso_clause, code FROM project_nodes WHERE id = :id AND project_id = :project_id',
             [
                 ':id' => $nodeId,
                 ':project_id' => $projectId,
