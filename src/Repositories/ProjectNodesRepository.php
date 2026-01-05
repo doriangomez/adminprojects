@@ -4,27 +4,33 @@ declare(strict_types=1);
 
 class ProjectNodesRepository
 {
-    private const REQUIRED_CLAUSES = ['8.3.2', '8.3.3', '8.3.4', '8.3.5'];
+    private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
 
     public function __construct(private Database $db)
     {
     }
 
-    public function synchronizeFromProject(int $projectId, string $methodology, ?string $phase, array $phasesByMethodology): array
+    public function createBaseTree(int $projectId, string $methodology): void
+    {
+        if (!$this->db->tableExists('project_nodes')) {
+            return;
+        }
+
+        foreach ($this->baseTreeDefinition($methodology) as $definition) {
+            $this->materializeNodeTree($projectId, $definition, null);
+        }
+    }
+
+    public function snapshot(int $projectId): array
     {
         if (!$this->db->tableExists('project_nodes')) {
             return [
-                'flags' => $this->defaultIsoFlags(),
                 'nodes' => [],
                 'pending_critical' => [],
             ];
         }
 
-        $phases = is_array($phasesByMethodology[$methodology] ?? null) ? $phasesByMethodology[$methodology] : [];
-        $this->ensureBaseTree($projectId, $phases, $phase);
-
         return [
-            'flags' => $this->defaultIsoFlags(),
             'nodes' => $this->treeWithFiles($projectId),
             'pending_critical' => $this->pendingCriticalNodes($projectId),
         ];
@@ -65,7 +71,7 @@ class ProjectNodesRepository
         $this->assertTable();
         $parent = $this->findNode($projectId, $parentId);
 
-        if (!$parent || $parent['node_type'] !== 'folder') {
+        if (!$parent || $parent['node_type'] !== 'folder' || $this->isRestrictedContainer((string) ($parent['code'] ?? ''))) {
             throw new \InvalidArgumentException('Selecciona una carpeta válida para adjuntar.');
         }
 
@@ -223,176 +229,94 @@ class ProjectNodesRepository
         return $missing;
     }
 
-    private function ensureBaseTree(int $projectId, array $phases, ?string $currentPhase): void
+    private function baseTreeDefinition(string $methodology): array
     {
-        unset($phases, $currentPhase);
+        $normalizedMethodology = strtolower(trim($methodology)) === 'scrum' ? 'scrum' : 'cascada';
 
-        foreach ($this->deterministicTree() as $definition) {
-            $this->materializeNodeTree($projectId, $definition, null);
-        }
-    }
-
-    private function deterministicTree(): array
-    {
-        $phaseChildren = fn (string $phaseCode, string $label) => [
-            [
-                'code' => "{$phaseCode}.docs",
-                'title' => 'Documentación',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => "Documentos de la fase {$label}",
-                'children' => [],
+        $phaseSets = [
+            'scrum' => [
+                'descubrimiento' => 'Descubrimiento',
+                'backlog' => 'Backlog',
+                'sprint' => 'Sprint',
+                'deploy' => 'Deploy',
             ],
-            [
-                'code' => "{$phaseCode}.evidencias",
-                'title' => 'Evidencias',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => "Evidencias de la fase {$label}",
-                'children' => [],
-            ],
-            [
-                'code' => "{$phaseCode}.controles",
-                'title' => 'Controles',
-                'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => "Controles aplicados en {$label}",
-                'children' => [],
+            'cascada' => [
+                'inicio' => 'Inicio',
+                'planificacion' => 'Planificación',
+                'ejecucion' => 'Ejecución',
+                'cierre' => 'Cierre',
             ],
         ];
 
+        $phases = $phaseSets[$normalizedMethodology];
+        $phaseNodes = [];
+
+        foreach ($phases as $phaseCode => $label) {
+            $phaseNodes[] = [
+                'code' => 'fase.' . $phaseCode,
+                'title' => $label,
+                'node_type' => 'folder',
+                'iso_clause' => null,
+                'description' => 'Fase de ' . strtolower($label),
+                'children' => $this->standardFolders('fase.' . $phaseCode, $label),
+            ];
+        }
+
         return [
             [
-                'code' => 'ISO',
-                'title' => 'ISO 9001',
+                'code' => 'project',
+                'title' => 'Proyecto',
                 'node_type' => 'folder',
                 'iso_clause' => null,
-                'description' => 'Estructura documental ISO 9001',
+                'description' => 'Estructura documental del proyecto',
                 'children' => [
                     [
-                        'code' => 'iso.8.3',
-                        'title' => '8.3 Diseño y desarrollo',
+                        'code' => 'metodologia.' . $normalizedMethodology,
+                        'title' => strtoupper($normalizedMethodology),
                         'node_type' => 'folder',
-                        'iso_clause' => '8.3.2',
-                        'description' => 'Planificación de diseño y desarrollo',
-                        'children' => [
-                            [
-                                'code' => 'iso.8.3.inputs',
-                                'title' => 'Entradas de diseño (8.3.3)',
-                                'node_type' => 'folder',
-                                'iso_clause' => '8.3.3',
-                                'description' => 'Entradas de diseño y desarrollo',
-                                'children' => [],
-                            ],
-                            [
-                                'code' => 'iso.8.3.controls',
-                                'title' => 'Controles de diseño (8.3.4)',
-                                'node_type' => 'folder',
-                                'iso_clause' => '8.3.4',
-                                'description' => 'Controles de revisión, verificación y validación',
-                                'children' => [],
-                            ],
-                            [
-                                'code' => 'iso.8.3.outputs',
-                                'title' => 'Salidas de diseño (8.3.5)',
-                                'node_type' => 'folder',
-                                'iso_clause' => '8.3.5',
-                                'description' => 'Salidas controladas de diseño',
-                                'children' => [],
-                            ],
-                            [
-                                'code' => 'iso.8.3.changes',
-                                'title' => 'Cambios de diseño (8.3.6)',
-                                'node_type' => 'folder',
-                                'iso_clause' => '8.3.6',
-                                'description' => 'Control de cambios de diseño y desarrollo',
-                                'children' => [],
-                            ],
-                        ],
+                        'iso_clause' => null,
+                        'description' => 'Metodología seleccionada para el proyecto',
+                        'children' => $phaseNodes,
                     ],
                 ],
             ],
+        ];
+    }
+
+    private function standardFolders(string $phaseCode, string $phaseLabel): array
+    {
+        return [
             [
-                'code' => 'SCRUM',
-                'title' => 'SCRUM',
+                'code' => $phaseCode . '.documentacion',
+                'title' => 'Documentación',
                 'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => 'Fases y artefactos en metodología Scrum',
-                'children' => [
-                    [
-                        'code' => 'fase.descubrimiento',
-                        'title' => 'Descubrimiento',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Fase de descubrimiento',
-                        'children' => $phaseChildren('fase.descubrimiento', 'de descubrimiento'),
-                    ],
-                    [
-                        'code' => 'fase.backlog',
-                        'title' => 'Backlog',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Fase de backlog',
-                        'children' => $phaseChildren('fase.backlog', 'de backlog'),
-                    ],
-                    [
-                        'code' => 'fase.sprint',
-                        'title' => 'Sprint',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Ejecución de sprint',
-                        'children' => $phaseChildren('fase.sprint', 'de sprint'),
-                    ],
-                    [
-                        'code' => 'fase.deploy',
-                        'title' => 'Deploy',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Despliegue de entregables',
-                        'children' => $phaseChildren('fase.deploy', 'de deploy'),
-                    ],
-                ],
+                'iso_clause' => '8.3.2',
+                'description' => 'Documentación de la fase ' . strtolower($phaseLabel),
+                'children' => [],
             ],
             [
-                'code' => 'CASCADA',
-                'title' => 'CASCADA',
+                'code' => $phaseCode . '.evidencias',
+                'title' => 'Evidencias',
                 'node_type' => 'folder',
-                'iso_clause' => null,
-                'description' => 'Fases y artefactos en proyectos en cascada',
-                'children' => [
-                    [
-                        'code' => 'fase.inicio',
-                        'title' => 'Inicio',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Fase de inicio',
-                        'children' => $phaseChildren('fase.inicio', 'de inicio'),
-                    ],
-                    [
-                        'code' => 'fase.planificacion',
-                        'title' => 'Planificación',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Fase de planificación',
-                        'children' => $phaseChildren('fase.planificacion', 'de planificación'),
-                    ],
-                    [
-                        'code' => 'fase.ejecucion',
-                        'title' => 'Ejecución',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Fase de ejecución',
-                        'children' => $phaseChildren('fase.ejecucion', 'de ejecución'),
-                    ],
-                    [
-                        'code' => 'fase.cierre',
-                        'title' => 'Cierre',
-                        'node_type' => 'folder',
-                        'iso_clause' => null,
-                        'description' => 'Fase de cierre',
-                        'children' => $phaseChildren('fase.cierre', 'de cierre'),
-                    ],
-                ],
+                'iso_clause' => '8.3.5',
+                'description' => 'Evidencias de la fase ' . strtolower($phaseLabel),
+                'children' => [],
+            ],
+            [
+                'code' => $phaseCode . '.controles',
+                'title' => 'Controles',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.4',
+                'description' => 'Controles aplicados en ' . strtolower($phaseLabel),
+                'children' => [],
+            ],
+            [
+                'code' => $phaseCode . '.cambios',
+                'title' => 'Cambios',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.6',
+                'description' => 'Cambios registrados en ' . strtolower($phaseLabel),
+                'children' => [],
             ],
         ];
     }
@@ -664,15 +588,12 @@ class ProjectNodesRepository
         }
     }
 
-    private function defaultIsoFlags(): array
+    private function isRestrictedContainer(string $code): bool
     {
-        return [
-            'design_inputs_defined' => 0,
-            'design_review_done' => 0,
-            'design_verification_done' => 0,
-            'design_validation_done' => 0,
-            'legal_requirements' => 0,
-            'change_control_required' => 0,
-        ];
+        $normalized = strtolower(trim($code));
+
+        return $normalized === 'project'
+            || str_starts_with($normalized, 'metodologia.')
+            || str_starts_with($normalized, 'fase.');
     }
 }
