@@ -62,7 +62,7 @@ class ProjectsController extends Controller
         $hasTasks = $repo->hasTasks($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
 
-        $this->render('projects/edit', [
+        $this->render('projects/edit', array_merge([
             'title' => 'Editar proyecto',
             'project' => $project,
             'delivery' => array_merge(
@@ -76,8 +76,7 @@ class ProjectsController extends Controller
                 ]
             ),
             'hasTasks' => $hasTasks,
-            ...$deleteContext,
-        ]);
+        ], $deleteContext));
     }
 
     public function update(int $id): void
@@ -875,7 +874,7 @@ class ProjectsController extends Controller
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
 
-        return [
+        return array_merge([
             'title' => 'Detalle de proyecto',
             'project' => $project,
             'assignments' => $assignments,
@@ -891,8 +890,7 @@ class ProjectsController extends Controller
             'projectNodes' => $projectNodes,
             'lifecyclePhases' => $lifecyclePhases,
             'criticalNodes' => $criticalNodes,
-            ...$deleteContext,
-        ];
+        ], $deleteContext);
     }
 
     private function projectDeletionContext(int $projectId, ?ProjectsRepository $repo = null): array
