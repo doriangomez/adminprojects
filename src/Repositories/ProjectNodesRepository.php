@@ -1460,7 +1460,19 @@ class ProjectNodesRepository
         $phaseNode = $this->ensurePhaseFolder($projectId, $phaseCode);
 
         if (($phaseNode['node_type'] ?? '') !== 'folder') {
-            throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
+            $this->db->execute(
+                'UPDATE project_nodes SET node_type = "folder", file_path = NULL, parent_id = NULL WHERE id = :id AND project_id = :project_id',
+                [
+                    ':id' => (int) ($phaseNode['id'] ?? 0),
+                    ':project_id' => $projectId,
+                ]
+            );
+
+            $phaseNode = $this->findNode($projectId, (int) ($phaseNode['id'] ?? 0)) ?? $phaseNode;
+
+            if (($phaseNode['node_type'] ?? '') !== 'folder') {
+                throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
+            }
         }
 
         $parentCode = $phaseCode;
