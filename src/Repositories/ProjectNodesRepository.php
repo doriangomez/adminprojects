@@ -1342,7 +1342,7 @@ class ProjectNodesRepository
     public function findNodeByCode(int $projectId, string $code): ?array
     {
         return $this->db->fetchOne(
-            'SELECT id, parent_id, node_type, iso_clause, code, title, description FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            'SELECT id, parent_id, node_type, iso_clause, code, title, description, sort_order FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
             [
                 ':project' => $projectId,
                 ':code' => $code,
@@ -1434,27 +1434,16 @@ class ProjectNodesRepository
         }
 
         $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
-        if (!$phaseNode) {
-            $this->ensureNode($projectId, $phaseCode, $phaseCode, 'folder', null, null, null, 0);
-            $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
-        }
+        $existingTitle = (string) ($phaseNode['title'] ?? $phaseCode);
+        $phaseNodeId = $this->ensurePhaseRoot($projectId, [
+            'code' => $phaseCode,
+            'title' => $existingTitle !== '' ? $existingTitle : $phaseCode,
+            'iso_clause' => $phaseNode['iso_clause'] ?? null,
+            'sort_order' => (int) ($phaseNode['sort_order'] ?? 0),
+        ]);
+        $phaseNode = $this->findNode($projectId, $phaseNodeId);
 
-        if (!$phaseNode) {
-            throw new \InvalidArgumentException('No existe la carpeta de fase requerida para la acción ISO.');
-        }
-
-        if (($phaseNode['node_type'] ?? '') !== 'folder' || ($phaseNode['parent_id'] ?? null) !== null) {
-            $this->db->execute(
-                'UPDATE project_nodes SET node_type = "folder", parent_id = NULL, file_path = NULL WHERE id = :id AND project_id = :project_id',
-                [
-                    ':id' => (int) ($phaseNode['id'] ?? 0),
-                    ':project_id' => $projectId,
-                ]
-            );
-            $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
-        }
-
-        if (($phaseNode['node_type'] ?? '') !== 'folder') {
+        if (!$phaseNode || ($phaseNode['node_type'] ?? '') !== 'folder') {
             throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
         }
 
