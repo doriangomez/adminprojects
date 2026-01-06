@@ -1408,6 +1408,7 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
+            $existing = $this->normalizeNodeType($projectId, $existing, 'folder');
             $this->assertNonEmptyNodeType($existing);
 
             if (($existing['node_type'] ?? '') !== 'folder') {
@@ -1514,6 +1515,7 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
+            $existing = $this->normalizeNodeType($projectId, $existing, 'folder');
             $this->assertNonEmptyNodeType($existing);
 
             if ((int) ($existing['parent_id'] ?? 0) !== $parentId) {
@@ -1724,6 +1726,32 @@ class ProjectNodesRepository
         }
     }
 
+    private function normalizeNodeType(int $projectId, array $node, string $fallbackType): array
+    {
+        $nodeType = $node['node_type'] ?? null;
+        $isEmpty = $nodeType === null || (is_string($nodeType) && trim($nodeType) === '');
+
+        if (!$isEmpty) {
+            return $node;
+        }
+
+        $nodeId = (int) ($node['id'] ?? 0);
+        if ($nodeId > 0) {
+            $this->db->execute(
+                'UPDATE project_nodes SET node_type = :node_type WHERE id = :id AND project_id = :project_id',
+                [
+                    ':node_type' => $fallbackType,
+                    ':id' => $nodeId,
+                    ':project_id' => $projectId,
+                ]
+            );
+        }
+
+        $node['node_type'] = $fallbackType;
+
+        return $node;
+    }
+
     private function assertFolderParent(int $projectId, int $parentId): array
     {
         $parentNode = $this->findNode($projectId, $parentId);
@@ -1731,6 +1759,7 @@ class ProjectNodesRepository
             throw new \InvalidArgumentException('La carpeta inicial no es válida.');
         }
 
+        $parentNode = $this->normalizeNodeType($projectId, $parentNode, 'folder');
         $this->assertNonEmptyNodeType($parentNode);
 
         if (($parentNode['node_type'] ?? '') !== 'folder') {
