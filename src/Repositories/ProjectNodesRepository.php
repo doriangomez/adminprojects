@@ -427,6 +427,24 @@ class ProjectNodesRepository
         return $tree;
     }
 
+    public function updateNodeStatus(int $projectId, int $nodeId, string $status): void
+    {
+        $this->assertTable();
+        $validStatuses = ['pendiente', 'en_progreso', 'completado', 'bloqueado'];
+        $normalized = in_array($status, $validStatuses, true) ? $status : 'pendiente';
+        $completedAt = $normalized === 'completado' ? date('Y-m-d H:i:s') : null;
+
+        $this->db->execute(
+            'UPDATE project_nodes SET status = :status, completed_at = :completed_at WHERE id = :id AND project_id = :project_id',
+            [
+                ':status' => $normalized,
+                ':completed_at' => $completedAt,
+                ':id' => $nodeId,
+                ':project_id' => $projectId,
+            ]
+        );
+    }
+
     public function pendingCriticalNodes(int $projectId): array
     {
         $missing = [];
@@ -1203,7 +1221,7 @@ class ProjectNodesRepository
         }
     }
 
-    private function ensureNode(
+    public function ensureNode(
         int $projectId,
         string $code,
         string $title,
@@ -1360,6 +1378,60 @@ class ProjectNodesRepository
         );
 
         return (bool) $found;
+    }
+
+    public function findNodeByCode(int $projectId, string $code): ?array
+    {
+        return $this->db->fetchOne(
+            'SELECT id, parent_id, node_type, iso_clause, code, title, description FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':code' => $code,
+            ]
+        ) ?: null;
+    }
+
+    public function ensureFolderPath(int $projectId, array $path, string $phaseCode): int
+    {
+        $this->assertTable();
+        if ($phaseCode === '') {
+            throw new \InvalidArgumentException('La fase del ciclo de proyecto es obligatoria para vincular evidencia ISO.');
+        }
+
+        $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
+        if (!$phaseNode) {
+            throw new \InvalidArgumentException('No existe la carpeta de fase requerida para la acción ISO.');
+        }
+        if (($phaseNode['node_type'] ?? '') !== 'folder') {
+            throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
+        }
+
+        $parentCode = $phaseCode;
+        $lastNodeId = (int) ($phaseNode['id'] ?? 0);
+
+        foreach ($path as $index => $definition) {
+            $code = (string) ($definition['code'] ?? '');
+            $title = (string) ($definition['title'] ?? '');
+            if ($code === '' || $title === '') {
+                throw new \InvalidArgumentException('La ruta ISO contiene nodos inválidos.');
+            }
+
+            $nodeId = $this->ensureNode(
+                $projectId,
+                $code,
+                $title,
+                $definition['node_type'] ?? 'folder',
+                $parentCode,
+                $definition['iso_clause'] ?? null,
+                $definition['description'] ?? null,
+                (int) ($definition['sort_order'] ?? (($index + 1) * 10))
+            );
+
+            $parentCode = $code;
+            $lastNodeId = $nodeId;
+        }
+
+        return $lastNodeId;
     }
 
     private function slugifyCode(string $value): string

@@ -22,6 +22,7 @@ class DesignControlsRepository
     public function create(array $payload, ?int $userId = null): int
     {
         $projectId = (int) ($payload['project_id'] ?? 0);
+        $projectNodeId = (int) ($payload['project_node_id'] ?? 0);
         $controlType = trim((string) ($payload['control_type'] ?? ''));
         $description = trim((string) ($payload['description'] ?? ''));
         $result = trim((string) ($payload['result'] ?? ''));
@@ -35,6 +36,7 @@ class DesignControlsRepository
             : null;
 
         $this->assertValidProject($projectId);
+        $this->assertValidNode($projectId, $projectNodeId);
         $this->assertValidControlType($controlType);
         $this->assertValidDescription($description);
         $this->assertValidResult($result, $correctiveAction);
@@ -43,6 +45,7 @@ class DesignControlsRepository
 
         $columns = [
             'project_id',
+            'project_node_id',
             'control_type',
             'description',
             'result',
@@ -51,6 +54,7 @@ class DesignControlsRepository
         ];
         $placeholders = [
             ':project_id',
+            ':project_node_id',
             ':control_type',
             ':description',
             ':result',
@@ -59,6 +63,7 @@ class DesignControlsRepository
         ];
         $params = [
             ':project_id' => $projectId,
+            ':project_node_id' => $projectNodeId,
             ':control_type' => $controlType,
             ':description' => $description,
             ':result' => $result,
@@ -88,6 +93,7 @@ class DesignControlsRepository
             'performed_by' => $performedBy,
             'corrective_action' => $correctiveAction !== '' ? $correctiveAction : null,
             'performed_at' => $performedAt,
+            'project_node_id' => $projectNodeId,
         ]);
 
         return $id;
@@ -98,7 +104,7 @@ class DesignControlsRepository
         $this->assertValidProject($projectId);
 
         return $this->db->fetchAll(
-            'SELECT c.id, c.project_id, c.control_type, c.description, c.result, c.corrective_action, c.performed_by, c.performed_at, u.name AS performer_name
+            'SELECT c.id, c.project_id, c.project_node_id, c.control_type, c.description, c.result, c.corrective_action, c.performed_by, c.performed_at, u.name AS performer_name
              FROM project_design_controls c
              LEFT JOIN users u ON u.id = c.performed_by
              WHERE c.project_id = :project
@@ -165,6 +171,25 @@ class DesignControlsRepository
     {
         if ($projectId <= 0) {
             throw new \InvalidArgumentException('El proyecto es obligatorio.');
+        }
+    }
+
+    private function assertValidNode(int $projectId, int $nodeId): void
+    {
+        if ($nodeId <= 0) {
+            throw new \InvalidArgumentException('No se pudo vincular el control ISO a una carpeta del proyecto.');
+        }
+
+        $exists = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE id = :id AND project_id = :project LIMIT 1',
+            [
+                ':id' => $nodeId,
+                ':project' => $projectId,
+            ]
+        );
+
+        if (!$exists) {
+            throw new \InvalidArgumentException('La carpeta seleccionada para el control ISO no es válida.');
         }
     }
 

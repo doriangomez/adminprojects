@@ -148,40 +148,44 @@ $findByCodePrefix = static function (string $prefix) use ($phaseCandidates): ?ar
     return null;
 };
 
-$phases = [];
-if ($normalizedMethodology === 'scrum') {
-    $backlog = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-BACKLOG');
-    $sprintsContainer = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-SPRINTS');
-    $artefacts = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-ARTEFACTOS');
-
-    $phases[] = ['key' => 'descubrimiento', 'label' => 'Descubrimiento', 'node' => $backlog];
-    $phases[] = ['key' => 'backlog', 'label' => 'Backlog', 'node' => $backlog];
-
-    foreach ($sprintsContainer['children'] ?? [] as $sprint) {
-        $phases[] = [
-            'key' => 'sprint-' . (int) ($sprint['id'] ?? 0),
-            'label' => $sprint['name'] ?? $sprint['title'] ?? $sprint['code'] ?? 'Sprint',
-            'node' => $sprint,
-        ];
-    }
-
-    $phases[] = ['key' => 'release', 'label' => 'Release', 'node' => $artefacts ?: $sprintsContainer ?: $backlog];
+if (!empty($lifecyclePhases)) {
+    $phases = $lifecyclePhases;
 } else {
-    $phaseOrder = [
-        'inicio' => ['label' => 'Inicio', 'prefix' => '01-'],
-        'planificacion' => ['label' => 'Planificación', 'prefix' => '02-'],
-        'ejecucion' => ['label' => 'Ejecución', 'prefix' => '03-'],
-        'seguimiento' => ['label' => 'Seguimiento', 'prefix' => '04-'],
-        'cierre' => ['label' => 'Cierre', 'prefix' => '05-'],
-    ];
+    $phases = [];
+    if ($normalizedMethodology === 'scrum') {
+        $backlog = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-BACKLOG');
+        $sprintsContainer = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-SPRINTS');
+        $artefacts = $findNodeInTree($projectNodes, static fn ($node) => ($node['code'] ?? '') === 'SCRUM-ARTEFACTOS');
 
-    foreach ($phaseOrder as $key => $definition) {
-        $node = $findByCodePrefix($definition['prefix']);
-        $phases[] = [
-            'key' => $key,
-            'label' => $definition['label'],
-            'node' => $node,
+        $phases[] = ['key' => 'descubrimiento', 'label' => 'Descubrimiento', 'node' => $backlog];
+        $phases[] = ['key' => 'backlog', 'label' => 'Backlog', 'node' => $backlog];
+
+        foreach ($sprintsContainer['children'] ?? [] as $sprint) {
+            $phases[] = [
+                'key' => 'sprint-' . (int) ($sprint['id'] ?? 0),
+                'label' => $sprint['name'] ?? $sprint['title'] ?? $sprint['code'] ?? 'Sprint',
+                'node' => $sprint,
+            ];
+        }
+
+        $phases[] = ['key' => 'release', 'label' => 'Release', 'node' => $artefacts ?: $sprintsContainer ?: $backlog];
+    } else {
+        $phaseOrder = [
+            'inicio' => ['label' => 'Inicio', 'prefix' => '01-'],
+            'planificacion' => ['label' => 'Planificación', 'prefix' => '02-'],
+            'ejecucion' => ['label' => 'Ejecución', 'prefix' => '03-'],
+            'seguimiento' => ['label' => 'Seguimiento', 'prefix' => '04-'],
+            'cierre' => ['label' => 'Cierre', 'prefix' => '05-'],
         ];
+
+        foreach ($phaseOrder as $key => $definition) {
+            $node = $findByCodePrefix($definition['prefix']);
+            $phases[] = [
+                'key' => $key,
+                'label' => $definition['label'],
+                'node' => $node,
+            ];
+        }
     }
 }
 
@@ -337,6 +341,9 @@ $activePhaseKey = $_GET['phase'] ?? ($phases[0]['key'] ?? '');
                         <p style="margin:2px 0 0 0; color:var(--muted);">
                             <?= $phaseNode ? 'Selecciona el bloque y adjunta evidencias para esta fase.' : 'Aún no hay nodos configurados para esta fase.' ?>
                         </p>
+                        <?php if (isset($phase['progress'])): ?>
+                            <small style="color:var(--muted); display:block;">Avance: <?= htmlspecialchars((string) ($phase['progress'])) ?>%</small>
+                        <?php endif; ?>
                     </div>
                     <?php if ($phaseNode): ?>
                         <?php $phaseStatus = $statusStyle($phaseNode['status'] ?? ''); ?>
@@ -350,19 +357,16 @@ $activePhaseKey = $_GET['phase'] ?? ($phases[0]['key'] ?? '');
                     <p style="margin:0; color:var(--muted);">No hay nodos de proyecto para esta fase. El backend generará las carpetas cuando corresponda.</p>
                 <?php else: ?>
                     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">
-                        <?php foreach ($blockDefinitions as $block): ?>
+                            <?php foreach ($blockDefinitions as $block): ?>
                             <?php
                                 $blockNodes = $collectNodesByIso($phaseNode, $block['iso']);
-                                $usesPhaseFallback = empty($blockNodes);
-                                if ($usesPhaseFallback && !empty($phaseNode)) {
-                                    $blockNodes = [$phaseNode];
-                                }
                                 $completedNodes = 0;
                                 foreach ($blockNodes as $candidate) {
                                     if (($candidate['status'] ?? '') === 'completado') {
                                         $completedNodes++;
                                     }
                                 }
+                                $totalNodes = count($blockNodes);
                             ?>
                             <div style="border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:8px;">
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -370,11 +374,8 @@ $activePhaseKey = $_GET['phase'] ?? ($phases[0]['key'] ?? '');
                                         <h6 style="margin:0;"><?= htmlspecialchars($block['label']) ?></h6>
                                         <small style="color:var(--muted);">ISO <?= htmlspecialchars($block['iso']) ?></small>
                                     </div>
-                                    <span class="pill" style="background:#e2e8f0; color:#0f172a;"><?= $completedNodes ?>/<?= count($blockNodes) ?> controles</span>
+                                    <span class="pill" style="background:#e2e8f0; color:#0f172a;"><?= $completedNodes ?>/<?= $totalNodes ?> controles</span>
                                 </div>
-                                <?php if ($usesPhaseFallback): ?>
-                                    <p style="margin:0; color:#b45309;">Sin carpeta específica. Usando la carpeta principal de la fase.</p>
-                                <?php endif; ?>
                                 <?php if (empty($blockNodes)): ?>
                                     <p style="margin:0; color:var(--muted);">No hay nodos disponibles para este bloque.</p>
                                 <?php else: ?>

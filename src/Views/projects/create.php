@@ -363,10 +363,6 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <span>Horas reales</span>
                     <input type="number" step="0.1" name="actual_hours" value="<?= htmlspecialchars((string) $fieldValue('actual_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
-                <label class="input">
-                    <span>Progreso (%)</span>
-                    <input type="number" step="0.1" min="0" max="100" name="progress" value="<?= htmlspecialchars((string) $fieldValue('progress', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
             </section>
         </div>
     </div>

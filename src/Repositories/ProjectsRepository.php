@@ -671,7 +671,7 @@ class ProjectsRepository
                 ':actual_cost' => $payload['actual_cost'] ?? 0,
                 ':planned_hours' => $payload['planned_hours'] ?? 0,
                 ':actual_hours' => $payload['actual_hours'] ?? 0,
-                ':progress' => $payload['progress'] ?? 0,
+                ':progress' => 0.0,
                 ':start_date' => $payload['start_date'] ?? null,
                 ':end_date' => $payload['end_date'] ?? null,
             ];
@@ -873,11 +873,6 @@ class ProjectsRepository
             $params[':actual_hours'] = $payload['actual_hours'];
         }
 
-        if ($this->db->columnExists('projects', 'progress')) {
-            $fields[] = 'progress = :progress';
-            $params[':progress'] = $payload['progress'];
-        }
-
         if ($this->db->columnExists('projects', 'scope')) {
             $fields[] = 'scope = :scope';
             $params[':scope'] = $payload['scope'] ?? '';
@@ -941,6 +936,22 @@ class ProjectsRepository
         if (is_array($riskEvaluations)) {
             $this->syncProjectRiskEvaluations($id, $riskEvaluations);
         }
+    }
+
+    public function persistProgress(int $projectId, float $progress): void
+    {
+        if (!$this->db->columnExists('projects', 'progress')) {
+            return;
+        }
+
+        $clamped = max(0.0, min(100.0, $progress));
+        $this->db->execute(
+            'UPDATE projects SET progress = :progress WHERE id = :id',
+            [
+                ':progress' => $clamped,
+                ':id' => $projectId,
+            ]
+        );
     }
 
     public function deleteProject(int $id, bool $forceDelete = false, bool $isAdmin = false): array

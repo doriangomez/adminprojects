@@ -17,6 +17,7 @@ class DesignChangesRepository
     public function create(array $payload, ?int $userId = null): int
     {
         $projectId = (int) ($payload['project_id'] ?? 0);
+        $projectNodeId = (int) ($payload['project_node_id'] ?? 0);
         $description = trim((string) ($payload['description'] ?? ''));
         $impactScope = $this->normalizeImpact($payload['impact_scope'] ?? '');
         $impactTime = $this->normalizeImpact($payload['impact_time'] ?? '');
@@ -26,11 +27,13 @@ class DesignChangesRepository
 
         $this->assertTableExists();
         $this->assertValidProject($projectId);
+        $this->assertValidNode($projectId, $projectNodeId);
         $this->assertDescription($description);
 
         $id = $this->db->insert(
             'INSERT INTO project_design_changes (
                 project_id,
+                project_node_id,
                 description,
                 impact_scope,
                 impact_time,
@@ -41,6 +44,7 @@ class DesignChangesRepository
                 created_by
             ) VALUES (
                 :project_id,
+                :project_node_id,
                 :description,
                 :impact_scope,
                 :impact_time,
@@ -52,6 +56,7 @@ class DesignChangesRepository
             )',
             [
                 ':project_id' => $projectId,
+                ':project_node_id' => $projectNodeId,
                 ':description' => $description,
                 ':impact_scope' => $impactScope,
                 ':impact_time' => $impactTime,
@@ -70,6 +75,7 @@ class DesignChangesRepository
             'impact_cost' => $impactCost,
             'impact_quality' => $impactQuality,
             'requires_review_validation' => $requiresReviewValidation,
+            'project_node_id' => $projectNodeId,
         ]);
 
         return $id;
@@ -120,6 +126,7 @@ class DesignChangesRepository
         return $this->db->fetchAll(
             'SELECT c.id,
                     c.project_id,
+                    c.project_node_id,
                     c.description,
                     c.impact_scope,
                     c.impact_time,
@@ -215,6 +222,25 @@ class DesignChangesRepository
     {
         if ($projectId <= 0) {
             throw new \InvalidArgumentException('El proyecto es obligatorio.');
+        }
+    }
+
+    private function assertValidNode(int $projectId, int $nodeId): void
+    {
+        if ($nodeId <= 0) {
+            throw new \InvalidArgumentException('No se pudo vincular el cambio ISO a una carpeta del proyecto.');
+        }
+
+        $exists = $this->db->fetchOne(
+            'SELECT id FROM project_nodes WHERE id = :id AND project_id = :project LIMIT 1',
+            [
+                ':id' => $nodeId,
+                ':project' => $projectId,
+            ]
+        );
+
+        if (!$exists) {
+            throw new \InvalidArgumentException('La carpeta seleccionada para el cambio ISO no es válida.');
         }
     }
 
