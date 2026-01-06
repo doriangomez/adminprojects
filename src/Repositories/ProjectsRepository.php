@@ -1294,13 +1294,13 @@ class ProjectsRepository
 
         if (!$this->isPrivileged($user)) {
             if ($hasClientPm) {
-                $conditions[] = $clientAlias . '.pm_id = :pmId';
-                $params[':pmId'] = $user['id'];
+                $conditions[] = $clientAlias . '.pm_id = :clientPmId';
+                $params[':clientPmId'] = $user['id'];
             }
 
             if ($hasProjectPm) {
-                $conditions[] = $projectAlias . '.pm_id = :pmId';
-                $params[':pmId'] = $user['id'];
+                $conditions[] = $projectAlias . '.pm_id = :projectPmId';
+                $params[':projectPmId'] = $user['id'];
             }
         }
 
