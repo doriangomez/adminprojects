@@ -161,6 +161,11 @@ class ProjectsController extends Controller
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
             $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
+            (new ProjectTreeService($this->db))->bootstrapFreshTree(
+                $projectId,
+                (string) ($payload['methodology'] ?? 'cascada'),
+                (int) ($this->auth->user()['id'] ?? 0)
+            );
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -259,10 +264,10 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $nodeSnapshot = $this->projectNodesSnapshot((int) $project['id']);
-        if (!empty($nodeSnapshot['pending_critical'])) {
+        $treeService = new ProjectTreeService($this->db);
+        if ($treeService->isLegacy((int) $project['id'])) {
             http_response_code(400);
-            exit('No puedes cerrar el proyecto: hay nodos críticos pendientes en la estructura ISO 8.3.');
+            exit('Proyecto legacy requiere saneamiento antes de cerrarse.');
         }
 
         $confirm = (string) ($_POST['confirm'] ?? '');
@@ -477,137 +482,36 @@ class ProjectsController extends Controller
     public function storeDesignInput(int $projectId): void
     {
         $this->requirePermission('projects.manage');
-
-        try {
-            $project = (new ProjectsRepository($this->db))->find($projectId);
-            if (!$project) {
-                http_response_code(404);
-                exit('Proyecto no encontrado');
-            }
-
-            $lifecycle = new ProjectLifecycleService($this->db);
-            $nodeId = $lifecycle->ensureIsoNode($projectId, 'design_inputs', $project);
-            $repo = new DesignInputsRepository($this->db);
-            $repo->create([
-                'project_id' => $projectId,
-                'project_node_id' => $nodeId,
-                'input_type' => $_POST['input_type'] ?? '',
-                'description' => $_POST['description'] ?? '',
-                'source' => $_POST['source'] ?? null,
-                'resolved_conflict' => isset($_POST['resolved_conflict']) ? 1 : 0,
-            ], (int) ($this->auth->user()['id'] ?? 0));
-
-            $lifecycle->refreshLifecycle($project);
-            header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designInputError' => $e->getMessage()]
-            ));
-        }
+        http_response_code(410);
+        exit('El registro de entradas de diseño fue sustituido por los controles integrados en el árbol de proyecto.');
     }
 
     public function deleteDesignInput(int $projectId, int $inputId): void
     {
         $this->requirePermission('projects.manage');
-
-        try {
-            $repo = new DesignInputsRepository($this->db);
-            $repo->delete($inputId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
-            $this->refreshLifecycle($projectId);
-            header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designInputError' => $e->getMessage()]
-            ));
-        }
+        http_response_code(410);
+        exit('El registro de entradas de diseño fue sustituido por los controles integrados en el árbol de proyecto.');
     }
 
     public function storeDesignControl(int $projectId): void
     {
         $this->requirePermission('projects.manage');
-
-        try {
-            $project = (new ProjectsRepository($this->db))->find($projectId);
-            if (!$project) {
-                http_response_code(404);
-                exit('Proyecto no encontrado');
-            }
-
-            $controlType = $_POST['control_type'] ?? '';
-            $action = $this->isoActionForControl($controlType);
-            $lifecycle = new ProjectLifecycleService($this->db);
-            $nodeId = $lifecycle->ensureIsoNode($projectId, $action, $project);
-            $repo = new DesignControlsRepository($this->db);
-            $repo->create([
-                'project_id' => $projectId,
-                'project_node_id' => $nodeId,
-                'control_type' => $controlType,
-                'description' => $_POST['description'] ?? '',
-                'result' => $_POST['result'] ?? '',
-                'corrective_action' => $_POST['corrective_action'] ?? null,
-                'performed_by' => (int) ($_POST['performed_by'] ?? 0),
-                'performed_at' => $_POST['performed_at'] ?? null,
-            ], (int) ($this->auth->user()['id'] ?? 0));
-
-            $lifecycle->refreshLifecycle($project);
-            header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designControlError' => $e->getMessage()]
-            ));
-        }
+        http_response_code(410);
+        exit('Los controles de diseño se gestionan ahora desde el árbol de proyecto (03-Controles).');
     }
 
     public function updateDesignOutputs(int $projectId): void
     {
         $this->requirePermission('projects.manage');
-        http_response_code(400);
-        $this->render('projects/show', array_merge(
-            $this->projectDetailData($projectId),
-            ['designOutputError' => 'Los indicadores de revisión, verificación y validación se calculan automáticamente a partir de los nodos y controles registrados.']
-        ));
+        http_response_code(410);
+        exit('Los resultados de diseño se calculan desde los controles del árbol de proyecto.');
     }
 
     public function storeDesignChange(int $projectId): void
     {
         $this->requirePermission('projects.manage');
-
-        try {
-            $project = (new ProjectsRepository($this->db))->find($projectId);
-            if (!$project) {
-                http_response_code(404);
-                exit('Proyecto no encontrado');
-            }
-
-            $lifecycle = new ProjectLifecycleService($this->db);
-            $nodeId = $lifecycle->ensureIsoNode($projectId, 'design_changes', $project);
-            $repo = new DesignChangesRepository($this->db);
-            $repo->create([
-                'project_id' => $projectId,
-                'project_node_id' => $nodeId,
-                'description' => $_POST['description'] ?? '',
-                'impact_scope' => $_POST['impact_scope'] ?? '',
-                'impact_time' => $_POST['impact_time'] ?? '',
-                'impact_cost' => $_POST['impact_cost'] ?? '',
-                'impact_quality' => $_POST['impact_quality'] ?? '',
-                'requires_review_validation' => isset($_POST['requires_review_validation']) ? 1 : 0,
-            ], (int) ($this->auth->user()['id'] ?? 0));
-
-            $lifecycle->refreshLifecycle($project);
-            header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designChangeError' => $e->getMessage()]
-            ));
-        }
+        http_response_code(410);
+        exit('Los cambios de diseño se controlan desde la carpeta 05-Cambios de cada fase/sprint.');
     }
 
     public function uploadNodeFile(int $projectId, int $nodeId): void
@@ -616,10 +520,29 @@ class ProjectsController extends Controller
 
         try {
             $nodesRepo = new ProjectNodesRepository($this->db);
-            $result = $nodesRepo->createFileNode($projectId, $nodeId, $_FILES['node_file'] ?? [], (int) ($this->auth->user()['id'] ?? 0));
+            $userId = (int) ($this->auth->user()['id'] ?? 0);
+            $payloadFiles = $_FILES['node_files'] ?? null;
+            $results = [];
+
+            if (is_array($payloadFiles) && isset($payloadFiles['name']) && is_array($payloadFiles['name'])) {
+                $total = count($payloadFiles['name']);
+                for ($i = 0; $i < $total; $i++) {
+                    $file = [
+                        'name' => $payloadFiles['name'][$i] ?? '',
+                        'type' => $payloadFiles['type'][$i] ?? '',
+                        'tmp_name' => $payloadFiles['tmp_name'][$i] ?? '',
+                        'error' => $payloadFiles['error'][$i] ?? UPLOAD_ERR_NO_FILE,
+                        'size' => $payloadFiles['size'][$i] ?? 0,
+                    ];
+
+                    $results[] = $nodesRepo->createFileNode($projectId, $nodeId, $file, $userId);
+                }
+            } else {
+                $results[] = $nodesRepo->createFileNode($projectId, $nodeId, $_FILES['node_file'] ?? [], $userId);
+            }
 
             if ($this->wantsJson()) {
-                $this->json(['status' => 'ok', 'data' => $result]);
+                $this->json(['status' => 'ok', 'data' => $results]);
                 return;
             }
 
@@ -703,11 +626,33 @@ class ProjectsController extends Controller
             return;
         }
 
-        $this->createProjectNodeTree($projectId, $methodology, $project['phase'] ?? null);
-
         try {
+            $treeService = new ProjectTreeService($this->db);
             $nodesRepo = new ProjectNodesRepository($this->db);
-            $nodesRepo->createSprint($projectId, (int) ($this->auth->user()['id'] ?? 0));
+            $rootTree = $nodesRepo->treeWithFiles($projectId);
+            $root = $rootTree[0] ?? null;
+            $sprintsContainer = null;
+
+            if ($root) {
+                foreach ($root['children'] ?? [] as $child) {
+                    if (($child['code'] ?? '') === 'SPRINT-ROOT') {
+                        $sprintsContainer = $child;
+                        break;
+                    }
+                }
+            }
+
+            if (!$sprintsContainer) {
+                http_response_code(400);
+                $this->render('projects/show', array_merge(
+                    $this->projectDetailData($projectId),
+                    ['nodeFileError' => 'No se encontró el contenedor de sprints. El proyecto podría requerir saneamiento.']
+                ));
+                return;
+            }
+
+            $nextNumber = count($sprintsContainer['children'] ?? []) + 1;
+            $treeService->createSprintNodes($projectId, (int) ($sprintsContainer['id'] ?? 0), $nextNumber, (int) ($this->auth->user()['id'] ?? 0));
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -759,19 +704,8 @@ class ProjectsController extends Controller
     {
         $this->requirePermission('projects.manage');
 
-        try {
-            $repo = new DesignChangesRepository($this->db);
-            $repo->approve($changeId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
-            $this->refreshLifecycle($projectId);
-
-            header('Location: /project/public/projects/' . $projectId);
-        } catch (\InvalidArgumentException $e) {
-            http_response_code(400);
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                ['designChangeError' => $e->getMessage()]
-            ));
-        }
+        http_response_code(410);
+        exit('La aprobación de cambios se gestiona ahora desde los nodos de 05-Cambios en el árbol de proyecto.');
     }
 
     public function listNodeChildren(int $projectId, ?int $parentId = null): void
@@ -855,22 +789,12 @@ class ProjectsController extends Controller
         }
 
         $assignments = $repo->assignmentsForProject($id, $user);
-        $designInputsRepo = new DesignInputsRepository($this->db);
-        $designControlsRepo = new DesignControlsRepository($this->db);
-        $designChangesRepo = new DesignChangesRepository($this->db);
-        $users = (new UsersRepository($this->db))->all();
-        $this->createProjectNodeTree(
-            (int) ($project['id'] ?? 0),
-            (string) ($project['methodology'] ?? 'cascada'),
-            (string) ($project['phase'] ?? '')
-        );
-        $nodeSnapshot = $this->projectNodesSnapshot((int) ($project['id'] ?? 0));
-        $projectNodes = $nodeSnapshot['nodes'] ?? [];
-        $criticalNodes = $nodeSnapshot['pending_critical'] ?? [];
-        $lifecycleService = new ProjectLifecycleService($this->db);
-        $lifecycle = $lifecycleService->refreshLifecycle($project, $projectNodes);
-        $project['progress'] = $lifecycle['project_progress'] ?? ($project['progress'] ?? 0);
-        $lifecyclePhases = $lifecycle['phases'] ?? [];
+        $treeService = new ProjectTreeService($this->db);
+        $isLegacy = $treeService->isLegacy($id);
+        $nodesRepo = new ProjectNodesRepository($this->db);
+        $projectNodes = $isLegacy ? [] : $nodesRepo->treeWithFiles($id);
+        $progress = $isLegacy ? ['project_progress' => 0.0, 'phases' => []] : $treeService->summarizeProgress($id);
+        $project['progress'] = $progress['project_progress'] ?? ($project['progress'] ?? 0);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
 
@@ -879,17 +803,9 @@ class ProjectsController extends Controller
             'project' => $project,
             'assignments' => $assignments,
             'canManage' => $this->auth->can('projects.manage'),
-            'designInputs' => $designInputsRepo->listByProject($id),
-            'designInputTypes' => $designInputsRepo->allowedTypes(),
-            'designControls' => $designControlsRepo->listByProject($id),
-            'designControlTypes' => $designControlsRepo->allowedTypes(),
-            'designControlResults' => $designControlsRepo->allowedResults(),
-            'designChanges' => $designChangesRepo->listByProject($id),
-            'designChangeImpactLevels' => $designChangesRepo->impactLevels(),
-            'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
             'projectNodes' => $projectNodes,
-            'lifecyclePhases' => $lifecyclePhases,
-            'criticalNodes' => $criticalNodes,
+            'progressPhases' => $progress['phases'] ?? [],
+            'isLegacy' => $isLegacy,
         ], $deleteContext);
     }
 
@@ -1145,13 +1061,8 @@ class ProjectsController extends Controller
                 throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
             }
 
-            $nodeSnapshot = $this->projectNodesSnapshot((int) $current['id']);
-            if (!empty($nodeSnapshot['pending_critical'])) {
-                $pendingNames = array_map(fn ($node) => $node['name'] ?? ($node['code'] ?? ''), $nodeSnapshot['pending_critical']);
-                $pendingSummary = implode(', ', array_filter($pendingNames, fn ($name) => $name !== ''));
-                throw new \InvalidArgumentException(
-                    'No puedes cerrar el proyecto: hay nodos críticos pendientes' . ($pendingSummary !== '' ? " ({$pendingSummary})." : '.')
-                );
+            if ((new ProjectTreeService($this->db))->isLegacy((int) $current['id'])) {
+                throw new \InvalidArgumentException('No puedes cerrar un proyecto legacy: requiere saneamiento de estructura.');
             }
         }
 
@@ -1483,28 +1394,6 @@ class ProjectsController extends Controller
         }
 
         return ($actual - $planned) / $planned;
-    }
-
-    private function createProjectNodeTree(int $projectId, string $methodology, ?string $phase = null): void
-    {
-        $nodesRepo = new ProjectNodesRepository($this->db);
-        $nodesRepo->synchronizeFromProject($projectId, $methodology, $phase);
-    }
-
-    private function projectNodesSnapshot(int $projectId): array
-    {
-        $nodesRepo = new ProjectNodesRepository($this->db);
-        return $nodesRepo->snapshot($projectId);
-    }
-
-    private function refreshLifecycle(int $projectId): void
-    {
-        $project = (new ProjectsRepository($this->db))->find($projectId);
-        if (!$project) {
-            return;
-        }
-
-        (new ProjectLifecycleService($this->db))->refreshLifecycle($project);
     }
 
     private function isoActionForControl(string $controlType): string
