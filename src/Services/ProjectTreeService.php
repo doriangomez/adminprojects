@@ -114,7 +114,30 @@ class ProjectTreeService
     public function isLegacy(int $projectId): bool
     {
         $nodesRepo = new ProjectNodesRepository($this->db);
-        return $nodesRepo->hasStructuralIssues($projectId);
+        if (!$this->db->tableExists('project_nodes')) {
+            return false;
+        }
+
+        $hasIssues = $nodesRepo->hasStructuralIssues($projectId);
+
+        if ($hasIssues) {
+            try {
+                $project = (new ProjectsRepository($this->db))->find($projectId);
+                if ($project) {
+                    $nodesRepo->synchronizeFromProject(
+                        $projectId,
+                        (string) ($project['methodology'] ?? 'cascada'),
+                        $project['phase'] ?? null
+                    );
+
+                    $hasIssues = $nodesRepo->hasStructuralIssues($projectId);
+                }
+            } catch (\Throwable) {
+                // Si el saneamiento falla, mantenemos el indicador legacy para evitar errores posteriores
+            }
+        }
+
+        return $hasIssues;
     }
 
     public function summarizeProgress(int $projectId): array
@@ -230,4 +253,3 @@ class ProjectTreeService
         return 'cascada';
     }
 }
-
