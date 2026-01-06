@@ -1352,98 +1352,114 @@ class ProjectNodesRepository
 
     public function ensurePhaseRoot(int $projectId, array $definition): int
     {
-        $this->assertTable();
-        $code = trim((string) ($definition['code'] ?? ''));
-        $title = trim((string) ($definition['title'] ?? ''));
-        $isoClause = $definition['iso_clause'] ?? null;
-        $sortOrder = (int) ($definition['sort_order'] ?? 0);
+        $node = $this->ensurePhaseFolder($projectId, (string) ($definition['code'] ?? ''), [
+            'title' => (string) ($definition['title'] ?? ''),
+            'iso_clause' => $definition['iso_clause'] ?? null,
+            'sort_order' => (int) ($definition['sort_order'] ?? 0),
+        ]);
 
-        if ($code === '' || $title === '') {
-            throw new \InvalidArgumentException('Las fases del proyecto deben tener código y título.');
+        return (int) ($node['id'] ?? 0);
+    }
+
+    public function ensurePhaseFolder(int $projectId, string $phaseCode, array $attributes = []): array
+    {
+        $this->assertTable();
+        $normalizedCode = trim($phaseCode);
+        if ($normalizedCode === '') {
+            throw new \InvalidArgumentException('La fase del ciclo de proyecto es obligatoria para vincular evidencia ISO.');
         }
+
+        $title = trim((string) ($attributes['title'] ?? ''));
+        $isoClause = $attributes['iso_clause'] ?? null;
+        $sortOrder = $attributes['sort_order'] ?? null;
+        $hasIsoClause = array_key_exists('iso_clause', $attributes);
+        $hasSortOrder = array_key_exists('sort_order', $attributes);
 
         $existing = $this->db->fetchOne(
             'SELECT id, node_type, parent_id, iso_clause, title, sort_order FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
             [
                 ':project' => $projectId,
-                ':code' => $code,
+                ':code' => $normalizedCode,
             ]
         );
 
-        if (!$existing) {
-            return $this->ensureNode(
-                $projectId,
-                $code,
-                $title,
-                'folder',
-                null,
-                $isoClause,
-                null,
-                $sortOrder
-            );
-        }
-
-        $updates = [];
-        if (($existing['node_type'] ?? '') !== 'folder') {
-            $updates['node_type'] = 'folder';
-            $updates['file_path'] = null;
-        }
-
-        if ($existing['parent_id'] !== null) {
-            $updates['parent_id'] = null;
-        }
-
-        if (($existing['iso_clause'] ?? null) !== $isoClause) {
-            $updates['iso_clause'] = $isoClause;
-        }
-
-        if ($title !== '' && $title !== ($existing['title'] ?? '')) {
-            $updates['title'] = $title;
-        }
-
-        if ($sortOrder > 0 && $sortOrder !== (int) ($existing['sort_order'] ?? 0)) {
-            $updates['sort_order'] = $sortOrder;
-        }
-
-        if (!empty($updates)) {
-            $setClauses = [];
-            $params = [
-                ':id' => (int) ($existing['id'] ?? 0),
-                ':project_id' => $projectId,
-            ];
-
-            foreach ($updates as $field => $value) {
-                $setClauses[] = $field . ' = :' . $field;
-                $params[':' . $field] = $value;
+        if ($existing) {
+            if (($existing['node_type'] ?? '') !== 'folder') {
+                throw new \InvalidArgumentException('La fase ' . $normalizedCode . ' está corrupta: no es una carpeta.');
             }
 
-            $this->db->execute(
-                'UPDATE project_nodes SET ' . implode(', ', $setClauses) . ' WHERE id = :id AND project_id = :project_id',
-                $params
-            );
+            $updates = [];
+            if (($existing['parent_id'] ?? null) !== null) {
+                $updates['parent_id'] = null;
+            }
+
+            if ($title !== '' && $title !== ($existing['title'] ?? '')) {
+                $updates['title'] = $title;
+            }
+
+            if ($hasIsoClause && $isoClause !== ($existing['iso_clause'] ?? null)) {
+                $updates['iso_clause'] = $isoClause;
+            }
+
+            $sortOrderValue = (int) ($sortOrder ?? 0);
+            if ($hasSortOrder && $sortOrderValue > 0 && $sortOrderValue !== (int) ($existing['sort_order'] ?? 0)) {
+                $updates['sort_order'] = $sortOrderValue;
+            }
+
+            if (!empty($updates)) {
+                $setClauses = [];
+                $params = [
+                    ':id' => (int) ($existing['id'] ?? 0),
+                    ':project_id' => $projectId,
+                ];
+
+                foreach ($updates as $field => $value) {
+                    $setClauses[] = $field . ' = :' . $field;
+                    $params[':' . $field] = $value;
+                }
+
+                $this->db->execute(
+                    'UPDATE project_nodes SET ' . implode(', ', $setClauses) . ' WHERE id = :id AND project_id = :project_id',
+                    $params
+                );
+            }
+
+            return $this->findNode($projectId, (int) ($existing['id'] ?? 0)) ?? [
+                'id' => (int) ($existing['id'] ?? 0),
+                'code' => $normalizedCode,
+                'node_type' => 'folder',
+                'parent_id' => null,
+            ];
         }
 
-        return (int) ($existing['id'] ?? 0);
+        $resolvedTitle = $title !== '' ? $title : $normalizedCode;
+        $sortOrderValue = (int) ($sortOrder ?? 0);
+        $nodeId = $this->ensureNode(
+            $projectId,
+            $normalizedCode,
+            $resolvedTitle,
+            'folder',
+            null,
+            $isoClause,
+            null,
+            $sortOrderValue > 0 ? $sortOrderValue : 0
+        );
+
+        return $this->findNode($projectId, $nodeId) ?? [
+            'id' => $nodeId,
+            'code' => $normalizedCode,
+            'node_type' => 'folder',
+            'parent_id' => null,
+            'title' => $resolvedTitle,
+            'iso_clause' => $isoClause,
+        ];
     }
 
     public function ensureFolderPath(int $projectId, array $path, string $phaseCode): int
     {
-        $this->assertTable();
-        if ($phaseCode === '') {
-            throw new \InvalidArgumentException('La fase del ciclo de proyecto es obligatoria para vincular evidencia ISO.');
-        }
+        $phaseNode = $this->ensurePhaseFolder($projectId, $phaseCode);
 
-        $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
-        $existingTitle = (string) ($phaseNode['title'] ?? $phaseCode);
-        $phaseNodeId = $this->ensurePhaseRoot($projectId, [
-            'code' => $phaseCode,
-            'title' => $existingTitle !== '' ? $existingTitle : $phaseCode,
-            'iso_clause' => $phaseNode['iso_clause'] ?? null,
-            'sort_order' => (int) ($phaseNode['sort_order'] ?? 0),
-        ]);
-        $phaseNode = $this->findNode($projectId, $phaseNodeId);
-
-        if (!$phaseNode || ($phaseNode['node_type'] ?? '') !== 'folder') {
+        if (($phaseNode['node_type'] ?? '') !== 'folder') {
             throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
         }
 
