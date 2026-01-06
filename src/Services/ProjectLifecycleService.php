@@ -315,12 +315,12 @@ class ProjectLifecycleService
         $ids = [];
 
         foreach ($definitions as $definition) {
-            $ids[$definition['code']] = $nodesRepo->ensurePhaseRoot($projectId, [
-                'code' => (string) ($definition['code'] ?? ''),
+            $node = $nodesRepo->ensurePhaseFolder($projectId, (string) ($definition['code'] ?? ''), [
                 'title' => (string) ($definition['title'] ?? ''),
                 'iso_clause' => $definition['iso_clause'] ?? null,
                 'sort_order' => (int) ($definition['sort_order'] ?? 0),
             ]);
+            $ids[$definition['code']] = (int) ($node['id'] ?? 0);
         }
 
         return $ids;
