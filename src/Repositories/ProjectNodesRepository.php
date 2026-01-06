@@ -1358,6 +1358,8 @@ class ProjectNodesRepository
             return [];
         }
 
+        $this->healStructuralData($projectId);
+
         $issues = [];
 
         $invalidTypes = $this->db->fetchOne(
@@ -1383,6 +1385,41 @@ class ProjectNodesRepository
         }
 
         return $issues;
+    }
+
+    private function healStructuralData(int $projectId): void
+    {
+        // Normalizar valores válidos existentes (espacios, mayúsculas)
+        $this->db->execute(
+            'UPDATE project_nodes
+             SET node_type = LOWER(TRIM(node_type))
+             WHERE project_id = :project_id
+               AND node_type IS NOT NULL
+               AND TRIM(node_type) <> ""
+               AND LOWER(TRIM(node_type)) IN ("folder","file","iso_control","metadata")',
+            [':project_id' => $projectId]
+        );
+
+        // Asignar un tipo a nodos con valores vacíos o no válidos
+        $this->db->execute(
+            'UPDATE project_nodes
+             SET node_type = CASE
+                 WHEN file_path IS NOT NULL AND TRIM(file_path) <> "" THEN "file"
+                 ELSE "folder"
+             END
+             WHERE project_id = :project_id
+               AND (node_type IS NULL OR TRIM(node_type) = "" OR LOWER(TRIM(node_type)) NOT IN ("folder","file","iso_control","metadata"))',
+            [':project_id' => $projectId]
+        );
+
+        // Rellenar códigos faltantes para evitar árboles sin identificadores
+        $this->db->execute(
+            'UPDATE project_nodes
+             SET code = CONCAT("legacy-", id)
+             WHERE project_id = :project_id
+               AND (code IS NULL OR TRIM(code) = "")',
+            [':project_id' => $projectId]
+        );
     }
 
     private function nodeDefinitionMissing(int $projectId, array $definition): bool
