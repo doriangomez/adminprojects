@@ -1460,15 +1460,37 @@ class ProjectNodesRepository
         $phaseNode = $this->ensurePhaseFolder($projectId, $phaseCode);
 
         if (($phaseNode['node_type'] ?? '') !== 'folder') {
-            $this->db->execute(
-                'UPDATE project_nodes SET node_type = "folder", file_path = NULL, parent_id = NULL WHERE id = :id AND project_id = :project_id',
-                [
-                    ':id' => (int) ($phaseNode['id'] ?? 0),
-                    ':project_id' => $projectId,
-                ]
-            );
+            $phaseId = (int) ($phaseNode['id'] ?? 0);
+            if ($phaseId > 0) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET node_type = "folder", file_path = NULL, parent_id = NULL WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':id' => $phaseId,
+                        ':project_id' => $projectId,
+                    ]
+                );
+            }
 
-            $phaseNode = $this->findNode($projectId, (int) ($phaseNode['id'] ?? 0)) ?? $phaseNode;
+            $phaseNode = $this->findNode($projectId, $phaseId) ?? $phaseNode;
+
+            if (($phaseNode['node_type'] ?? '') !== 'folder') {
+                $title = (string) ($phaseNode['title'] ?? $phaseCode);
+                $isoClause = $phaseNode['iso_clause'] ?? null;
+                $sortOrder = (int) ($phaseNode['sort_order'] ?? 0);
+
+                $this->ensureNode(
+                    $projectId,
+                    $phaseCode,
+                    $title !== '' ? $title : $phaseCode,
+                    'folder',
+                    null,
+                    $isoClause,
+                    $phaseNode['description'] ?? null,
+                    $sortOrder
+                );
+
+                $phaseNode = $this->findNodeByCode($projectId, $phaseCode) ?? $phaseNode;
+            }
 
             if (($phaseNode['node_type'] ?? '') !== 'folder') {
                 throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
