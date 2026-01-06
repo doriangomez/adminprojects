@@ -5,6 +5,13 @@ $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => 
 $methodologies = $deliveryConfig['methodologies'] ?? [];
 $phasesByMethodology = $deliveryConfig['phases'] ?? [];
 $riskCatalog = $deliveryConfig['risks'] ?? [];
+$canDelete = !empty($canDelete);
+$canInactivate = !empty($canInactivate);
+$dependencies = $dependencies ?? [];
+$hasDependencies = !empty($hasDependencies);
+$mathOperand1 = (int) ($mathOperand1 ?? 0);
+$mathOperand2 = (int) ($mathOperand2 ?? 0);
+$mathOperator = $mathOperator ?? '+';
 $riskGroups = [];
 foreach ($riskCatalog as $risk) {
     $category = $risk['category'] ?? 'Otros';
@@ -110,6 +117,64 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Guardar cambios</button>
 </form>
 
+<?php if ($canDelete || $canInactivate): ?>
+    <section style="margin-top:16px; padding:16px; border:1px solid #fecaca; background:#fff7ed; border-radius:14px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+            <span aria-hidden="true" style="width:34px; height:34px; border-radius:10px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; display:inline-flex; align-items:center; justify-content:center; font-weight:800;">!</span>
+            <div>
+                <p style="margin:0; font-weight:700; color:#b91c1c;">Zona crítica</p>
+                <p style="margin:4px 0 0 0; color:#7f1d1d;">Elimina el proyecto y todas sus dependencias (tareas, timesheets, nodos ISO, asignaciones, evidencias y archivos). Solo roles autorizados pueden continuar.</p>
+            </div>
+        </div>
+
+        <div style="border:1px solid #fed7aa; background:#fffbeb; border-radius:12px; padding:12px;">
+            <p style="margin:0 0 6px 0; font-weight:600; color:#92400e;">Dependencias detectadas</p>
+            <ul style="margin:0; padding-left:18px; color:#b45309; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:4px 12px;">
+                <li><?= (int) ($dependencies['tasks'] ?? 0) ?> tareas</li>
+                <li><?= (int) ($dependencies['timesheets'] ?? 0) ?> timesheets</li>
+                <li><?= (int) ($dependencies['assignments'] ?? 0) ?> asignaciones</li>
+                <li><?= (int) ($dependencies['design_inputs'] ?? 0) ?> entradas de diseño</li>
+                <li><?= (int) ($dependencies['design_controls'] ?? 0) ?> controles de diseño</li>
+                <li><?= (int) ($dependencies['design_changes'] ?? 0) ?> cambios de diseño</li>
+                <li><?= (int) ($dependencies['nodes'] ?? 0) ?> nodos/evidencias ISO</li>
+            </ul>
+            <?php if ($hasDependencies): ?>
+                <p style="margin:8px 0 0 0; color:#9a3412; font-size:14px;">La eliminación forzada borrará todo en cascada. No quedarán registros huérfanos.</p>
+            <?php endif; ?>
+        </div>
+
+        <?php if ($canDelete): ?>
+            <form method="POST" action="<?= $basePath ?>/projects/delete" id="danger-delete-form" class="grid" style="gap:12px;">
+                <input type="hidden" name="id" value="<?= (int) ($project['id'] ?? 0) ?>">
+                <input type="hidden" name="math_operand1" value="<?= (int) $mathOperand1 ?>">
+                <input type="hidden" name="math_operand2" value="<?= (int) $mathOperand2 ?>">
+                <input type="hidden" name="math_operator" value="<?= htmlspecialchars($mathOperator) ?>">
+                <input type="hidden" name="force_delete" value="1">
+                <div>
+                    <p style="margin:0 0 4px 0; color:#7f1d1d; font-weight:700;">Confirmación obligatoria</p>
+                    <p style="margin:0 0 8px 0; color:#9ca3af;">Resuelve la operación para habilitar la eliminación definitiva.</p>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="flex:1;">
+                            <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgb(249, 250, 251); font-weight:700;">
+                                <?= (int) $mathOperand1 ?> <?= htmlspecialchars($mathOperator) ?> <?= (int) $mathOperand2 ?> =
+                            </div>
+                        </div>
+                        <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado" style="width:140px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+                    </div>
+                </div>
+
+                <div id="delete-feedback" style="display:none; padding:10px 12px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; border-radius:10px; font-weight:600;"></div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="submit" class="btn" id="confirm-delete-btn" style="color:#b91c1c; border-color:#fecaca; background:#fef2f2;" disabled>Eliminar permanentemente</button>
+                </div>
+            </form>
+        <?php else: ?>
+            <p style="margin:0; color:#92400e;">Solo administradores o PMO pueden eliminar definitivamente un proyecto. Solicita asistencia a un administrador.</p>
+        <?php endif; ?>
+    </section>
+<?php endif; ?>
+
 <script>
     const phasesByMethodology = <?= json_encode($phasesByMethodology) ?>;
     const phaseSelect = document.getElementById('phaseSelect');
@@ -185,5 +250,59 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     if (projectTypeSelect) {
         projectTypeSelect.addEventListener('change', toggleByProjectType);
         toggleByProjectType();
+    }
+
+    const deleteForm = document.getElementById('danger-delete-form');
+    const deleteResult = document.getElementById('math_result');
+    const deleteButton = document.getElementById('confirm-delete-btn');
+    const deleteFeedback = document.getElementById('delete-feedback');
+
+    if (deleteForm && deleteResult && deleteButton) {
+        const operand1 = Number(deleteForm.querySelector('[name="math_operand1"]')?.value || 0);
+        const operand2 = Number(deleteForm.querySelector('[name="math_operand2"]')?.value || 0);
+        const operator = (deleteForm.querySelector('[name="math_operator"]')?.value || '').trim();
+        const expected = operator === '+' ? operand1 + operand2 : operand1 - operand2;
+
+        const syncDeleteState = () => {
+            const current = Number(deleteResult.value.trim());
+            const isValid = !Number.isNaN(current) && current === expected;
+            deleteButton.disabled = !isValid;
+        };
+
+        deleteResult.addEventListener('input', syncDeleteState);
+
+        deleteForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (deleteButton.disabled) return;
+
+            deleteFeedback.style.display = 'none';
+            deleteFeedback.textContent = '';
+
+            try {
+                const response = await fetch(deleteForm.getAttribute('action') || '', {
+                    method: 'POST',
+                    body: new FormData(deleteForm),
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data?.success) {
+                    alert(data.message || 'Proyecto eliminado correctamente.');
+                    window.location.href = '<?= $basePath ?>/projects';
+                    return;
+                }
+
+                deleteFeedback.textContent = data?.message || 'No se pudo completar la eliminación.';
+                deleteFeedback.style.display = 'block';
+            } catch (error) {
+                deleteFeedback.textContent = 'No se pudo completar la eliminación. Intenta nuevamente o contacta al administrador.';
+                deleteFeedback.style.display = 'block';
+            }
+        });
+
+        syncDeleteState();
     }
 </script>

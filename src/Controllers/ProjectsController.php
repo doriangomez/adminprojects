@@ -60,6 +60,7 @@ class ProjectsController extends Controller
 
         $config = (new ConfigService($this->db))->getConfig();
         $hasTasks = $repo->hasTasks($id);
+        $deleteContext = $this->projectDeletionContext($id, $repo);
 
         $this->render('projects/edit', [
             'title' => 'Editar proyecto',
@@ -75,6 +76,7 @@ class ProjectsController extends Controller
                 ]
             ),
             'hasTasks' => $hasTasks,
+            ...$deleteContext,
         ]);
     }
 
@@ -349,8 +351,10 @@ class ProjectsController extends Controller
             return;
         }
 
+        $auditRepo = new AuditLogRepository($this->db);
+
         try {
-            $result = $repo->deleteProject($projectId, $forceDelete, $isAdmin);
+            $result = $repo->deleteProject($projectId, $forceDelete, $isAdmin, (int) ($user['id'] ?? 0));
 
             if (($result['success'] ?? false) === true) {
                 $actionLabel = $forceDelete ? 'eliminó' : 'inactivó';
@@ -365,9 +369,12 @@ class ProjectsController extends Controller
                     date('c')
                 ));
 
+                $this->logProjectDeletion($auditRepo, $user, $projectId, (string) ($project['name'] ?? ''), $forceDelete, $dependencies, $result['deleted'] ?? []);
+
                 $this->json([
                     'success' => true,
                     'message' => $forceDelete ? 'Proyecto eliminado correctamente' : 'Proyecto inactivado correctamente',
+                    'deleted' => $result['deleted'] ?? [],
                 ]);
                 return;
             }
@@ -866,11 +873,7 @@ class ProjectsController extends Controller
         $project['progress'] = $lifecycle['project_progress'] ?? ($project['progress'] ?? 0);
         $lifecyclePhases = $lifecycle['phases'] ?? [];
         $dependencies = $repo->dependencySummary($id);
-        $mathOperand1 = random_int(1, 10);
-        $mathOperand2 = random_int(1, 10);
-        $mathOperator = random_int(0, 1) === 0 ? '+' : '-';
-        $canDelete = $this->canForceDeleteProjects();
-        $canInactivate = $this->canDeleteProjects();
+        $deleteContext = $this->projectDeletionContext($id, $repo);
 
         return [
             'title' => 'Detalle de proyecto',
@@ -888,14 +891,24 @@ class ProjectsController extends Controller
             'projectNodes' => $projectNodes,
             'lifecyclePhases' => $lifecyclePhases,
             'criticalNodes' => $criticalNodes,
+            ...$deleteContext,
+        ];
+    }
+
+    private function projectDeletionContext(int $projectId, ?ProjectsRepository $repo = null): array
+    {
+        $repo ??= new ProjectsRepository($this->db);
+        $dependencies = $repo->dependencySummary($projectId);
+
+        return [
             'dependencies' => $dependencies,
             'hasDependencies' => $dependencies['has_dependencies'] ?? false,
-            'canDelete' => $canDelete,
-            'canInactivate' => $canInactivate,
-            'isAdmin' => $canDelete,
-            'mathOperand1' => $mathOperand1,
-            'mathOperand2' => $mathOperand2,
-            'mathOperator' => $mathOperator,
+            'canDelete' => $this->canForceDeleteProjects(),
+            'canInactivate' => $this->canDeleteProjects(),
+            'isAdmin' => $this->canForceDeleteProjects(),
+            'mathOperand1' => random_int(1, 10),
+            'mathOperand2' => random_int(1, 10),
+            'mathOperator' => random_int(0, 1) === 0 ? '+' : '-',
         ];
     }
 
@@ -978,6 +991,34 @@ class ProjectsController extends Controller
         }
 
         return $response;
+    }
+
+    private function logProjectDeletion(
+        AuditLogRepository $auditRepo,
+        array $user,
+        int $projectId,
+        string $projectName,
+        bool $forceDelete,
+        array $dependencies,
+        array $deleted
+    ): void {
+        try {
+            $auditRepo->log(
+                (int) ($user['id'] ?? 0),
+                'project',
+                $projectId,
+                $forceDelete ? 'project.force_delete' : 'project.inactivate',
+                [
+                    'project_name' => $projectName,
+                    'force_delete' => $forceDelete,
+                    'dependencies' => $dependencies,
+                    'deleted' => $deleted,
+                    'performed_at' => date('c'),
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('No se pudo registrar la eliminación del proyecto: ' . $e->getMessage());
+        }
     }
 
     private function truncateTrace(string $trace): string
