@@ -5,7 +5,7 @@ declare(strict_types=1);
 class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
-    private const TREE_VERSION = '2024.12';
+    private const TREE_VERSION = '2025.01';
     private const SCRUM_DISCOVERY_CODE = '01-DISCOVERY';
     private const SCRUM_DISCOVERY_TITLE = '01 · Discovery';
     private const SCRUM_BACKLOG_CODE = '02-BACKLOG';
@@ -40,6 +40,7 @@ class ProjectNodesRepository
             || $this->missingBaseNodes($projectId, $normalizedMethodology);
 
         if ($needsSync) {
+            $this->resetProjectTree($projectId);
             foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
                 $this->materializeNodeTree(
                     $projectId,
@@ -479,7 +480,7 @@ class ProjectNodesRepository
                 'iso_clause' => null,
                 'description' => null,
                 'sort_order' => 10,
-                'children' => [
+                'children' => array_merge($this->isoStandardChildren('01-INICIO'), [
                     [
                         'code' => '01-INICIO-PROPUESTA-CONTRATO',
                         'title' => 'Propuesta y contrato',
@@ -516,7 +517,7 @@ class ProjectNodesRepository
                         'sort_order' => 40,
                         'children' => [],
                     ],
-                ],
+                ]),
             ],
             [
                 'code' => '02-PLANIFICACION',
@@ -525,7 +526,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3',
                 'description' => null,
                 'sort_order' => 20,
-                'children' => [
+                'children' => array_merge($this->isoStandardChildren('02-PLANIFICACION'), [
                     [
                         'code' => '02-PLANIFICACION-ALCANCE-APROBADO',
                         'title' => 'Alcance aprobado',
@@ -580,7 +581,7 @@ class ProjectNodesRepository
                         'sort_order' => 60,
                         'children' => [],
                     ],
-                ],
+                ]),
             ],
             [
                 'code' => '03-EJECUCION',
@@ -589,7 +590,7 @@ class ProjectNodesRepository
                 'iso_clause' => null,
                 'description' => null,
                 'sort_order' => 30,
-                'children' => [
+                'children' => array_merge($this->isoStandardChildren('03-EJECUCION'), [
                     [
                         'code' => '03-EJECUCION-ENTREGABLES',
                         'title' => 'Entregables',
@@ -626,7 +627,7 @@ class ProjectNodesRepository
                         'sort_order' => 40,
                         'children' => [],
                     ],
-                ],
+                ]),
             ],
             [
                 'code' => '04-SEGUIMIENTO',
@@ -635,7 +636,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.4',
                 'description' => null,
                 'sort_order' => 40,
-                'children' => [
+                'children' => array_merge($this->isoStandardChildren('04-SEGUIMIENTO'), [
                     [
                         'code' => '04-SEGUIMIENTO-AVANCE-PLAN',
                         'title' => 'Avance vs plan',
@@ -681,7 +682,7 @@ class ProjectNodesRepository
                         'sort_order' => 50,
                         'children' => [],
                     ],
-                ],
+                ]),
             ],
             [
                 'code' => '05-CIERRE',
@@ -690,7 +691,7 @@ class ProjectNodesRepository
                 'iso_clause' => null,
                 'description' => null,
                 'sort_order' => 50,
-                'children' => [
+                'children' => array_merge($this->isoStandardChildren('05-CIERRE'), [
                     [
                         'code' => '05-CIERRE-ENTREGABLES-FINALES',
                         'title' => 'Entregables finales',
@@ -727,7 +728,7 @@ class ProjectNodesRepository
                         'sort_order' => 40,
                         'children' => [],
                     ],
-                ],
+                ]),
             ],
         ];
     }
@@ -784,7 +785,7 @@ class ProjectNodesRepository
                 'iso_clause' => null,
                 'description' => null,
                 'sort_order' => 5,
-                'children' => [],
+                'children' => $this->isoStandardChildren(self::SCRUM_DISCOVERY_CODE, 5),
             ],
             [
                 'code' => self::SCRUM_BACKLOG_CODE,
@@ -793,7 +794,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.2',
                 'description' => null,
                 'sort_order' => 10,
-                'children' => [],
+                'children' => $this->isoStandardChildren(self::SCRUM_BACKLOG_CODE, 5),
             ],
             [
                 'code' => self::SCRUM_SPRINT_CONTAINER_CODE,
@@ -802,7 +803,7 @@ class ProjectNodesRepository
                 'iso_clause' => null,
                 'description' => null,
                 'sort_order' => self::SCRUM_SPRINT_CONTAINER_ORDER,
-                'children' => [],
+                'children' => $this->isoStandardChildren(self::SCRUM_SPRINT_CONTAINER_CODE, 5),
             ],
             [
                 'code' => self::SCRUM_REVIEW_CODE,
@@ -811,7 +812,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.4',
                 'description' => null,
                 'sort_order' => 30,
-                'children' => [],
+                'children' => $this->isoStandardChildren(self::SCRUM_REVIEW_CODE, 5),
             ],
             [
                 'code' => self::SCRUM_RELEASE_CODE,
@@ -820,7 +821,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.5',
                 'description' => null,
                 'sort_order' => 40,
-                'children' => [],
+                'children' => $this->isoStandardChildren(self::SCRUM_RELEASE_CODE, 5),
             ],
         ];
     }
@@ -835,7 +836,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.2',
                 'description' => null,
                 'sort_order' => 10,
-                'children' => [],
+                'children' => $this->isoStandardChildren('01-BACKLOG', 5),
             ],
             [
                 'code' => '02-EN-CURSO',
@@ -844,7 +845,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.4',
                 'description' => null,
                 'sort_order' => 20,
-                'children' => [],
+                'children' => $this->isoStandardChildren('02-EN-CURSO', 5),
             ],
             [
                 'code' => '03-EN-REVISION',
@@ -853,7 +854,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.5',
                 'description' => null,
                 'sort_order' => 30,
-                'children' => [],
+                'children' => $this->isoStandardChildren('03-EN-REVISION', 5),
             ],
             [
                 'code' => '04-HECHO',
@@ -862,7 +863,7 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.5',
                 'description' => null,
                 'sort_order' => 40,
-                'children' => [],
+                'children' => $this->isoStandardChildren('04-HECHO', 5),
             ],
             [
                 'code' => '05-MEJORA-CONTINUA',
@@ -871,8 +872,31 @@ class ProjectNodesRepository
                 'iso_clause' => '8.3.6',
                 'description' => null,
                 'sort_order' => 50,
-                'children' => [],
+                'children' => $this->isoStandardChildren('05-MEJORA-CONTINUA', 5),
             ],
+        ];
+    }
+
+    private function isoStandardChildren(string $phaseCode, int $startSort = 10): array
+    {
+        return [
+            $this->isoChildDefinition($phaseCode, '01-ENTRADAS', 'Entradas', '8.3.3', $startSort),
+            $this->isoChildDefinition($phaseCode, '02-CONTROLES', 'Controles', '8.3.4', $startSort + 10),
+            $this->isoChildDefinition($phaseCode, '03-EVIDENCIAS', 'Evidencias', '8.3.5', $startSort + 20),
+            $this->isoChildDefinition($phaseCode, '04-CAMBIOS', 'Cambios', '8.3.6', $startSort + 30),
+        ];
+    }
+
+    private function isoChildDefinition(string $phaseCode, string $suffix, string $title, ?string $clause, int $sortOrder): array
+    {
+        return [
+            'code' => $phaseCode . '-' . $suffix,
+            'title' => $title,
+            'node_type' => 'folder',
+            'iso_clause' => $clause,
+            'description' => null,
+            'sort_order' => $sortOrder,
+            'children' => [],
         ];
     }
 
