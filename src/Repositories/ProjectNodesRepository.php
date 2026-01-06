@@ -1384,11 +1384,11 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
-            if (($existing['node_type'] ?? '') !== 'folder') {
-                throw new \InvalidArgumentException('La fase ' . $normalizedCode . ' está corrupta: no es una carpeta.');
-            }
-
             $updates = [];
+            if (($existing['node_type'] ?? '') !== 'folder') {
+                $updates['node_type'] = 'folder';
+                $updates['file_path'] = null;
+            }
             if (($existing['parent_id'] ?? null) !== null) {
                 $updates['parent_id'] = null;
             }
