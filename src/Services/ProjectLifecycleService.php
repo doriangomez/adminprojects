@@ -82,12 +82,31 @@ class ProjectLifecycleService
         }
 
         $nodesRepo = new ProjectNodesRepository($this->db);
+        $phaseDefinition = null;
+
+        foreach ($definitions as $definition) {
+            if (($definition['code'] ?? null) === $phaseCode) {
+                $phaseDefinition = $definition;
+                break;
+            }
+        }
+
+        $phaseNode = $nodesRepo->ensurePhaseFolder(
+            $projectId,
+            $phaseCode,
+            [
+                'title' => (string) ($phaseDefinition['title'] ?? ''),
+                'iso_clause' => $phaseDefinition['iso_clause'] ?? null,
+                'sort_order' => (int) ($phaseDefinition['sort_order'] ?? 0),
+            ]
+        );
+
         $this->ensurePhaseFolders($projectId, $definitions, $nodesRepo);
 
         return $nodesRepo->ensureFolderPath(
             $projectId,
             $path,
-            $phaseCode
+            (int) ($phaseNode['id'] ?? 0)
         );
     }
 

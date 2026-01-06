@@ -1455,51 +1455,38 @@ class ProjectNodesRepository
         ];
     }
 
-    public function ensureFolderPath(int $projectId, array $path, string $phaseCode): int
+    public function ensureFolderPath(int $projectId, array $path, ?int $parentId = null): int
     {
-        $phaseNode = $this->ensurePhaseFolder($projectId, $phaseCode);
+        $this->assertTable();
 
-        if (($phaseNode['node_type'] ?? '') !== 'folder') {
-            $phaseId = (int) ($phaseNode['id'] ?? 0);
-            if ($phaseId > 0) {
+        $parentCode = null;
+        $lastNodeId = $parentId;
+
+        if ($parentId !== null) {
+            $parentNode = $this->findNode($projectId, $parentId);
+            if (!$parentNode) {
+                throw new \InvalidArgumentException('La carpeta inicial no es válida.');
+            }
+
+            if (($parentNode['node_type'] ?? '') !== 'folder') {
                 $this->db->execute(
-                    'UPDATE project_nodes SET node_type = "folder", file_path = NULL, parent_id = NULL WHERE id = :id AND project_id = :project_id',
+                    'UPDATE project_nodes SET node_type = "folder", file_path = NULL WHERE id = :id AND project_id = :project_id',
                     [
-                        ':id' => $phaseId,
+                        ':id' => $parentId,
                         ':project_id' => $projectId,
                     ]
                 );
+
+                $parentNode = $this->findNode($projectId, $parentId) ?? $parentNode;
             }
 
-            $phaseNode = $this->findNode($projectId, $phaseId) ?? $phaseNode;
-
-            if (($phaseNode['node_type'] ?? '') !== 'folder') {
-                $title = (string) ($phaseNode['title'] ?? $phaseCode);
-                $isoClause = $phaseNode['iso_clause'] ?? null;
-                $sortOrder = (int) ($phaseNode['sort_order'] ?? 0);
-
-                $this->ensureNode(
-                    $projectId,
-                    $phaseCode,
-                    $title !== '' ? $title : $phaseCode,
-                    'folder',
-                    null,
-                    $isoClause,
-                    $phaseNode['description'] ?? null,
-                    $sortOrder
-                );
-
-                $phaseNode = $this->findNodeByCode($projectId, $phaseCode) ?? $phaseNode;
+            if (($parentNode['node_type'] ?? '') !== 'folder') {
+                throw new \InvalidArgumentException('El nodo inicial no es una carpeta válida.');
             }
 
-            if (($phaseNode['node_type'] ?? '') !== 'folder') {
-                throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
-            }
+            $parentCode = (string) ($parentNode['code'] ?? '');
+            $lastNodeId = (int) ($parentNode['id'] ?? 0);
         }
-
-        $parentCode = $phaseCode;
-        $parentId = (int) ($phaseNode['id'] ?? 0);
-        $lastNodeId = $parentId;
 
         foreach ($path as $index => $definition) {
             $code = (string) ($definition['code'] ?? '');
