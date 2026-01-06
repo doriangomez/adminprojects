@@ -400,6 +400,7 @@ class DatabaseMigrator
     private function ensureProjectDesignInputsTable(): void
     {
         if ($this->db->tableExists('project_design_inputs')) {
+            $this->ensureProjectDesignInputsColumns();
             return;
         }
 
@@ -407,6 +408,7 @@ class DatabaseMigrator
             "CREATE TABLE project_design_inputs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
+                project_node_id INT NULL,
                 input_type ENUM(
                     'requisitos_funcionales',
                     'requisitos_desempeno',
@@ -420,7 +422,8 @@ class DatabaseMigrator
                 source VARCHAR(255),
                 resolved_conflict TINYINT(1) DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL
             ) ENGINE=InnoDB"
         );
     }
@@ -428,6 +431,7 @@ class DatabaseMigrator
     private function ensureProjectDesignControlsTable(): void
     {
         if ($this->db->tableExists('project_design_controls')) {
+            $this->ensureProjectDesignControlsColumns();
             return;
         }
 
@@ -435,6 +439,7 @@ class DatabaseMigrator
             "CREATE TABLE project_design_controls (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
+                project_node_id INT NULL,
                 control_type ENUM(
                     'revision',
                     'verificacion',
@@ -446,6 +451,7 @@ class DatabaseMigrator
                 performed_by INT NOT NULL,
                 performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL,
                 FOREIGN KEY (performed_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
@@ -454,6 +460,7 @@ class DatabaseMigrator
     private function ensureProjectDesignChangesTable(): void
     {
         if ($this->db->tableExists('project_design_changes')) {
+            $this->ensureProjectDesignChangesColumns();
             return;
         }
 
@@ -461,6 +468,7 @@ class DatabaseMigrator
             "CREATE TABLE project_design_changes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
+                project_node_id INT NULL,
                 description TEXT NOT NULL,
                 impact_scope ENUM('bajo','medio','alto') NOT NULL,
                 impact_time ENUM('bajo','medio','alto') NOT NULL,
@@ -473,6 +481,7 @@ class DatabaseMigrator
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 approved_at TIMESTAMP NULL,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL,
                 FOREIGN KEY (created_by) REFERENCES users(id),
                 FOREIGN KEY (approved_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
@@ -531,6 +540,48 @@ class DatabaseMigrator
                 FOREIGN KEY (uploaded_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
+    }
+
+    private function ensureProjectDesignInputsColumns(): void
+    {
+        if (!$this->db->columnExists('project_design_inputs', 'project_node_id')) {
+            $this->db->execute('ALTER TABLE project_design_inputs ADD COLUMN project_node_id INT NULL AFTER project_id');
+            $this->db->clearColumnCache();
+
+            try {
+                $this->db->execute('ALTER TABLE project_design_inputs ADD CONSTRAINT fk_design_inputs_node FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL');
+            } catch (\Throwable) {
+                // Evitar fallo en entornos legacy
+            }
+        }
+    }
+
+    private function ensureProjectDesignControlsColumns(): void
+    {
+        if (!$this->db->columnExists('project_design_controls', 'project_node_id')) {
+            $this->db->execute('ALTER TABLE project_design_controls ADD COLUMN project_node_id INT NULL AFTER project_id');
+            $this->db->clearColumnCache();
+
+            try {
+                $this->db->execute('ALTER TABLE project_design_controls ADD CONSTRAINT fk_design_controls_node FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL');
+            } catch (\Throwable) {
+                // Evitar fallo en entornos legacy
+            }
+        }
+    }
+
+    private function ensureProjectDesignChangesColumns(): void
+    {
+        if (!$this->db->columnExists('project_design_changes', 'project_node_id')) {
+            $this->db->execute('ALTER TABLE project_design_changes ADD COLUMN project_node_id INT NULL AFTER project_id');
+            $this->db->clearColumnCache();
+
+            try {
+                $this->db->execute('ALTER TABLE project_design_changes ADD CONSTRAINT fk_design_changes_node FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL');
+            } catch (\Throwable) {
+                // Evitar fallo en entornos legacy
+            }
+        }
     }
 
     private function migrateProjectNodesTable(): void

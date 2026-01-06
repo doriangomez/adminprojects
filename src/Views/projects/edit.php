@@ -74,9 +74,6 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     <label>Horas reales
         <input type="number" step="0.01" name="actual_hours" value="<?= htmlspecialchars((string) ($project['actual_hours'] ?? 0)) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
     </label>
-    <label id="progressGroup">Progreso (%)
-        <input type="number" step="0.1" name="progress" id="progressInput" value="<?= htmlspecialchars((string) ($project['progress'] ?? 0)) ?>" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;" placeholder="Seguimiento porcentual o por sprint">
-    </label>
     <fieldset style="border:1px solid var(--border); padding:10px; border-radius:12px;">
         <legend style="font-weight:700; color:var(--text);">Riesgos (catálogo global)</legend>
         <div style="display:flex; flex-direction:column; gap:10px;">

@@ -473,15 +473,25 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.manage');
 
         try {
+            $project = (new ProjectsRepository($this->db))->find($projectId);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $lifecycle = new ProjectLifecycleService($this->db);
+            $nodeId = $lifecycle->ensureIsoNode($projectId, 'design_inputs', $project);
             $repo = new DesignInputsRepository($this->db);
             $repo->create([
                 'project_id' => $projectId,
+                'project_node_id' => $nodeId,
                 'input_type' => $_POST['input_type'] ?? '',
                 'description' => $_POST['description'] ?? '',
                 'source' => $_POST['source'] ?? null,
                 'resolved_conflict' => isset($_POST['resolved_conflict']) ? 1 : 0,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
+            $lifecycle->refreshLifecycle($project);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -499,6 +509,7 @@ class ProjectsController extends Controller
         try {
             $repo = new DesignInputsRepository($this->db);
             $repo->delete($inputId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
+            $this->refreshLifecycle($projectId);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -514,10 +525,21 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.manage');
 
         try {
+            $project = (new ProjectsRepository($this->db))->find($projectId);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $controlType = $_POST['control_type'] ?? '';
+            $action = $this->isoActionForControl($controlType);
+            $lifecycle = new ProjectLifecycleService($this->db);
+            $nodeId = $lifecycle->ensureIsoNode($projectId, $action, $project);
             $repo = new DesignControlsRepository($this->db);
             $repo->create([
                 'project_id' => $projectId,
-                'control_type' => $_POST['control_type'] ?? '',
+                'project_node_id' => $nodeId,
+                'control_type' => $controlType,
                 'description' => $_POST['description'] ?? '',
                 'result' => $_POST['result'] ?? '',
                 'corrective_action' => $_POST['corrective_action'] ?? null,
@@ -525,14 +547,15 @@ class ProjectsController extends Controller
                 'performed_at' => $_POST['performed_at'] ?? null,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
+            $lifecycle->refreshLifecycle($project);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/show', array_merge(
-            $this->projectDetailData($projectId),
-            ['designControlError' => $e->getMessage()]
-        ));
-    }
+                $this->projectDetailData($projectId),
+                ['designControlError' => $e->getMessage()]
+            ));
+        }
     }
 
     public function updateDesignOutputs(int $projectId): void
@@ -550,9 +573,18 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.manage');
 
         try {
+            $project = (new ProjectsRepository($this->db))->find($projectId);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $lifecycle = new ProjectLifecycleService($this->db);
+            $nodeId = $lifecycle->ensureIsoNode($projectId, 'design_changes', $project);
             $repo = new DesignChangesRepository($this->db);
             $repo->create([
                 'project_id' => $projectId,
+                'project_node_id' => $nodeId,
                 'description' => $_POST['description'] ?? '',
                 'impact_scope' => $_POST['impact_scope'] ?? '',
                 'impact_time' => $_POST['impact_time'] ?? '',
@@ -561,6 +593,7 @@ class ProjectsController extends Controller
                 'requires_review_validation' => isset($_POST['requires_review_validation']) ? 1 : 0,
             ], (int) ($this->auth->user()['id'] ?? 0));
 
+            $lifecycle->refreshLifecycle($project);
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -723,6 +756,7 @@ class ProjectsController extends Controller
         try {
             $repo = new DesignChangesRepository($this->db);
             $repo->approve($changeId, $projectId, (int) ($this->auth->user()['id'] ?? 0));
+            $this->refreshLifecycle($projectId);
 
             header('Location: /project/public/projects/' . $projectId);
         } catch (\InvalidArgumentException $e) {
@@ -827,6 +861,10 @@ class ProjectsController extends Controller
         $nodeSnapshot = $this->projectNodesSnapshot((int) ($project['id'] ?? 0));
         $projectNodes = $nodeSnapshot['nodes'] ?? [];
         $criticalNodes = $nodeSnapshot['pending_critical'] ?? [];
+        $lifecycleService = new ProjectLifecycleService($this->db);
+        $lifecycle = $lifecycleService->refreshLifecycle($project, $projectNodes);
+        $project['progress'] = $lifecycle['project_progress'] ?? ($project['progress'] ?? 0);
+        $lifecyclePhases = $lifecycle['phases'] ?? [];
         $dependencies = $repo->dependencySummary($id);
         $mathOperand1 = random_int(1, 10);
         $mathOperand2 = random_int(1, 10);
@@ -848,6 +886,7 @@ class ProjectsController extends Controller
             'designChangeImpactLevels' => $designChangesRepo->impactLevels(),
             'performers' => array_values(array_filter($users, fn ($candidate) => (int) ($candidate['active'] ?? 0) === 1)),
             'projectNodes' => $projectNodes,
+            'lifecyclePhases' => $lifecyclePhases,
             'criticalNodes' => $criticalNodes,
             'dependencies' => $dependencies,
             'hasDependencies' => $dependencies['has_dependencies'] ?? false,
@@ -1029,7 +1068,7 @@ class ProjectsController extends Controller
             'actual_cost' => (float) ($_POST['actual_cost'] ?? ($current['actual_cost'] ?? 0)),
             'planned_hours' => (float) ($_POST['planned_hours'] ?? ($current['planned_hours'] ?? 0)),
             'actual_hours' => (float) ($_POST['actual_hours'] ?? ($current['actual_hours'] ?? 0)),
-            'progress' => (float) ($_POST['progress'] ?? ($current['progress'] ?? 0)),
+            'progress' => (float) ($current['progress'] ?? 0),
             'start_date' => $_POST['start_date'] ?? ($current['start_date'] ?? null),
             'end_date' => $endDate,
             'methodology' => $methodology,
@@ -1419,6 +1458,26 @@ class ProjectsController extends Controller
         return $nodesRepo->snapshot($projectId);
     }
 
+    private function refreshLifecycle(int $projectId): void
+    {
+        $project = (new ProjectsRepository($this->db))->find($projectId);
+        if (!$project) {
+            return;
+        }
+
+        (new ProjectLifecycleService($this->db))->refreshLifecycle($project);
+    }
+
+    private function isoActionForControl(string $controlType): string
+    {
+        return match ($controlType) {
+            'revision' => 'design_review',
+            'verificacion' => 'design_verification',
+            'validacion' => 'design_validation',
+            default => throw new \InvalidArgumentException('El tipo de control no es válido.'),
+        };
+    }
+
     private function defaultKpis(array $kpis): array
     {
         $defaults = [
@@ -1570,7 +1629,7 @@ class ProjectsController extends Controller
         $actualCost = $this->floatOrZero($_POST['actual_cost'] ?? null);
         $plannedHours = $this->floatOrZero($_POST['planned_hours'] ?? null);
         $actualHours = $this->floatOrZero($_POST['actual_hours'] ?? null);
-        $progress = $this->floatOrZero($_POST['progress'] ?? null);
+        $progress = 0.0;
         $riskScore = $riskAssessment['score'];
         $riskLevel = $this->riskLevelFromScore($riskScore);
         $health = $this->calculateHealthScore([
