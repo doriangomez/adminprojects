@@ -1455,6 +1455,246 @@ class ProjectNodesRepository
         ];
     }
 
+    public function ensureFolderNode(
+        int $projectId,
+        int $parentId,
+        string $code,
+        string $title,
+        ?string $isoClause = null,
+        ?int $sortOrder = null
+    ): array {
+        $this->assertTable();
+        $this->assertFolderParent($projectId, $parentId);
+
+        $normalizedCode = trim($code);
+        $normalizedTitle = trim($title);
+
+        if ($normalizedCode === '' || $normalizedTitle === '') {
+            throw new \InvalidArgumentException('El código y el título de la carpeta son obligatorios.');
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT id, parent_id, node_type, iso_clause, title, sort_order FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':code' => $normalizedCode,
+            ]
+        );
+
+        if ($existing) {
+            if ((int) ($existing['parent_id'] ?? 0) !== $parentId) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'El nodo %s ya existe asociado al padre %d; se esperaba el padre %d.',
+                        $normalizedCode,
+                        (int) ($existing['parent_id'] ?? 0),
+                        $parentId
+                    )
+                );
+            }
+
+            if (($existing['node_type'] ?? '') !== 'folder') {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'ISO no puede colgarse del nodo %d porque no es carpeta. node_type encontrado: \'%s\'',
+                        (int) ($existing['id'] ?? 0),
+                        (string) ($existing['node_type'] ?? 'desconocido')
+                    )
+                );
+            }
+
+            $updates = [];
+
+            if ($normalizedTitle !== '' && $normalizedTitle !== ($existing['title'] ?? '')) {
+                $updates['title'] = $normalizedTitle;
+            }
+
+            $hasIsoClause = $isoClause !== null;
+            if ($hasIsoClause && $isoClause !== ($existing['iso_clause'] ?? null)) {
+                $updates['iso_clause'] = $isoClause;
+            }
+
+            $sortOrderValue = (int) ($sortOrder ?? 0);
+            if ($sortOrderValue > 0 && $sortOrderValue !== (int) ($existing['sort_order'] ?? 0)) {
+                $updates['sort_order'] = $sortOrderValue;
+            }
+
+            if (!empty($updates)) {
+                $setClauses = [];
+                $params = [
+                    ':id' => (int) ($existing['id'] ?? 0),
+                    ':project_id' => $projectId,
+                ];
+
+                foreach ($updates as $field => $value) {
+                    $setClauses[] = $field . ' = :' . $field;
+                    $params[':' . $field] = $value;
+                }
+
+                $this->db->execute(
+                    'UPDATE project_nodes SET ' . implode(', ', $setClauses) . ' WHERE id = :id AND project_id = :project_id',
+                    $params
+                );
+            }
+
+            return $this->findNode($projectId, (int) ($existing['id'] ?? 0)) ?? [
+                'id' => (int) ($existing['id'] ?? 0),
+                'parent_id' => $parentId,
+                'code' => $normalizedCode,
+                'node_type' => 'folder',
+            ];
+        }
+
+        $order = (int) ($sortOrder ?? 0);
+        $resolvedOrder = $order > 0 ? $order : $this->nextSortOrder($projectId, $parentId);
+        $resolvedIsoClause = $isoClause ?? $this->resolveIsoClause($projectId, $parentId);
+
+        $nodeId = $this->db->insert(
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order)',
+            [
+                ':project_id' => $projectId,
+                ':parent_id' => $parentId,
+                ':code' => $normalizedCode,
+                ':node_type' => 'folder',
+                ':iso_clause' => $resolvedIsoClause,
+                ':title' => $normalizedTitle,
+                ':description' => null,
+                ':sort_order' => $resolvedOrder,
+            ]
+        );
+
+        return $this->findNode($projectId, $nodeId) ?? [
+            'id' => $nodeId,
+            'parent_id' => $parentId,
+            'code' => $normalizedCode,
+            'node_type' => 'folder',
+            'iso_clause' => $resolvedIsoClause,
+            'title' => $normalizedTitle,
+            'sort_order' => $resolvedOrder,
+        ];
+    }
+
+    public function ensureIsoItem(int $projectId, int $parentId, array $definition): int
+    {
+        $this->assertTable();
+        $this->assertFolderParent($projectId, $parentId);
+
+        $code = trim((string) ($definition['code'] ?? ''));
+        $title = trim((string) ($definition['title'] ?? ''));
+        $isoClause = $definition['iso_clause'] ?? null;
+        $description = $definition['description'] ?? null;
+        $sortOrder = (int) ($definition['sort_order'] ?? 0);
+        $nodeType = $definition['node_type'] ?? 'iso_item';
+
+        if ($code === '' || $title === '') {
+            throw new \InvalidArgumentException('El nodo ISO carece de código o título.');
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT id, parent_id, node_type, iso_clause, title, sort_order FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':code' => $code,
+            ]
+        );
+
+        if ($existing) {
+            if ((int) ($existing['parent_id'] ?? 0) !== $parentId) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'El nodo ISO %s ya existe asociado al padre %d; no puede reasignarse automáticamente al padre %d.',
+                        $code,
+                        (int) ($existing['parent_id'] ?? 0),
+                        $parentId
+                    )
+                );
+            }
+
+            if (($existing['node_type'] ?? '') !== $nodeType) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'El nodo ISO %s existe con node_type \'%s\'; se esperaba \'%s\'.',
+                        $code,
+                        (string) ($existing['node_type'] ?? 'desconocido'),
+                        $nodeType
+                    )
+                );
+            }
+
+            $updates = [];
+
+            if ($title !== '' && $title !== ($existing['title'] ?? '')) {
+                $updates['title'] = $title;
+            }
+
+            if ($isoClause !== null && $isoClause !== ($existing['iso_clause'] ?? null)) {
+                $updates['iso_clause'] = $isoClause;
+            }
+
+            if ($sortOrder > 0 && $sortOrder !== (int) ($existing['sort_order'] ?? 0)) {
+                $updates['sort_order'] = $sortOrder;
+            }
+
+            if (!empty($updates)) {
+                $setClauses = [];
+                $params = [
+                    ':id' => (int) ($existing['id'] ?? 0),
+                    ':project_id' => $projectId,
+                ];
+
+                foreach ($updates as $field => $value) {
+                    $setClauses[] = $field . ' = :' . $field;
+                    $params[':' . $field] = $value;
+                }
+
+                $this->db->execute(
+                    'UPDATE project_nodes SET ' . implode(', ', $setClauses) . ' WHERE id = :id AND project_id = :project_id',
+                    $params
+                );
+            }
+
+            return (int) ($existing['id'] ?? 0);
+        }
+
+        $order = $sortOrder > 0 ? $sortOrder : $this->nextSortOrder($projectId, $parentId);
+
+        return $this->db->insert(
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order)',
+            [
+                ':project_id' => $projectId,
+                ':parent_id' => $parentId,
+                ':code' => $code,
+                ':node_type' => $nodeType,
+                ':iso_clause' => $isoClause,
+                ':title' => $title,
+                ':description' => $description,
+                ':sort_order' => $order,
+            ]
+        );
+    }
+
+    private function assertFolderParent(int $projectId, int $parentId): array
+    {
+        $parentNode = $this->findNode($projectId, $parentId);
+        if (!$parentNode) {
+            throw new \InvalidArgumentException('La carpeta inicial no es válida.');
+        }
+
+        if (($parentNode['node_type'] ?? '') !== 'folder') {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'ISO no puede colgarse del nodo %d porque no es carpeta. node_type encontrado: \'%s\'',
+                    $parentId,
+                    (string) ($parentNode['node_type'] ?? 'desconocido')
+                )
+            );
+        }
+
+        return $parentNode;
+    }
+
     public function ensureFolderPath(int $projectId, array $path, ?int $parentId = null): int
     {
         $this->assertTable();
@@ -1463,27 +1703,7 @@ class ProjectNodesRepository
         $lastNodeId = $parentId;
 
         if ($parentId !== null) {
-            $parentNode = $this->findNode($projectId, $parentId);
-            if (!$parentNode) {
-                throw new \InvalidArgumentException('La carpeta inicial no es válida.');
-            }
-
-            if (($parentNode['node_type'] ?? '') !== 'folder') {
-                $this->db->execute(
-                    'UPDATE project_nodes SET node_type = "folder", file_path = NULL WHERE id = :id AND project_id = :project_id',
-                    [
-                        ':id' => $parentId,
-                        ':project_id' => $projectId,
-                    ]
-                );
-
-                $parentNode = $this->findNode($projectId, $parentId) ?? $parentNode;
-            }
-
-            if (($parentNode['node_type'] ?? '') !== 'folder') {
-                throw new \InvalidArgumentException('El nodo inicial no es una carpeta válida.');
-            }
-
+            $parentNode = $this->assertFolderParent($projectId, $parentId);
             $parentCode = (string) ($parentNode['code'] ?? '');
             $lastNodeId = (int) ($parentNode['id'] ?? 0);
         }
@@ -1508,14 +1728,13 @@ class ProjectNodesRepository
 
             $node = $this->findNodeByCode($projectId, $code) ?? ['id' => $nodeId];
             if (($node['node_type'] ?? '') !== 'folder') {
-                $this->db->execute(
-                    'UPDATE project_nodes SET node_type = "folder", file_path = NULL WHERE id = :id AND project_id = :project_id',
-                    [
-                        ':id' => (int) ($node['id'] ?? $nodeId),
-                        ':project_id' => $projectId,
-                    ]
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'El nodo %s no es una carpeta válida para la ruta solicitada. node_type encontrado: \'%s\'',
+                        $code,
+                        (string) ($node['node_type'] ?? 'desconocido')
+                    )
                 );
-                $node = $this->findNodeByCode($projectId, $code) ?? ['id' => $nodeId, 'parent_id' => $parentId];
             }
 
             if ((int) ($node['parent_id'] ?? 0) !== $parentId) {

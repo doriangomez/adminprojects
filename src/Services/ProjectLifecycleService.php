@@ -76,8 +76,8 @@ class ProjectLifecycleService
             throw new \InvalidArgumentException('No se pudo determinar la fase para la acción ISO.');
         }
 
-        $path = self::ISO_ACTION_NODE_MAP[$action] ?? [];
-        if (empty($path)) {
+        $isoNodes = self::ISO_ACTION_NODE_MAP[$action] ?? [];
+        if (empty($isoNodes)) {
             throw new \InvalidArgumentException('La acción ISO no está mapeada a un nodo de proyecto.');
         }
 
@@ -103,11 +103,46 @@ class ProjectLifecycleService
 
         $this->ensurePhaseFolders($projectId, $definitions, $nodesRepo);
 
-        return $nodesRepo->ensureFolderPath(
+        $phaseNodeId = (int) ($phaseNode['id'] ?? 0);
+        if ($phaseNodeId <= 0) {
+            throw new \InvalidArgumentException('No se pudo garantizar la carpeta de fase para vincular ISO.');
+        }
+
+        $controlsFolder = $nodesRepo->ensureFolderNode(
             $projectId,
-            $path,
-            (int) ($phaseNode['id'] ?? 0)
+            $phaseNodeId,
+            '03-Controles',
+            '03 · Controles',
+            null,
+            30
         );
+
+        $controlsFolderId = (int) ($controlsFolder['id'] ?? 0);
+        if ($controlsFolderId <= 0) {
+            throw new \InvalidArgumentException('No se pudo garantizar la carpeta estándar de controles para ISO.');
+        }
+
+        $lastIsoNodeId = null;
+        foreach ($isoNodes as $index => $definition) {
+            $isoDefinition = array_merge(
+                [
+                    'node_type' => 'iso_item',
+                    'sort_order' => ($index + 1) * 10,
+                ],
+                $definition
+            );
+            $lastIsoNodeId = $nodesRepo->ensureIsoItem(
+                $projectId,
+                $controlsFolderId,
+                $isoDefinition
+            );
+        }
+
+        if ($lastIsoNodeId === null) {
+            throw new \InvalidArgumentException('No se pudo materializar el nodo ISO solicitado.');
+        }
+
+        return (int) $lastIsoNodeId;
     }
 
     public function refreshLifecycle(array $project, ?array $nodeSnapshot = null): array
