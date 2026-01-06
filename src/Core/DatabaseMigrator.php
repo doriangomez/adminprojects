@@ -501,7 +501,7 @@ class DatabaseMigrator
                 project_id INT NOT NULL,
                 parent_id INT NULL,
                 code VARCHAR(180) NOT NULL,
-                node_type ENUM('folder','file') NOT NULL,
+                node_type ENUM('folder','file','iso_control','metadata') NOT NULL,
                 iso_clause VARCHAR(20) NULL,
                 title VARCHAR(180) NOT NULL,
                 description TEXT NULL,
@@ -648,7 +648,7 @@ class DatabaseMigrator
             $this->db->clearColumnCache();
         }
 
-        $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN node_type ENUM('folder','file') NOT NULL");
+        $this->db->execute("ALTER TABLE project_nodes MODIFY COLUMN node_type ENUM('folder','file','iso_control','metadata') NOT NULL");
 
         foreach (['iso_code', 'linked_entity_type', 'linked_entity_id', 'updated_at', 'name'] as $deprecated) {
             if ($this->db->columnExists('project_nodes', $deprecated)) {

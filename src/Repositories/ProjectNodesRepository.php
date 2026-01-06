@@ -22,6 +22,44 @@ class ProjectNodesRepository
     {
     }
 
+    public function createNode(array $attributes): int
+    {
+        $this->assertTable();
+
+        $payload = [
+            ':project_id' => (int) ($attributes['project_id'] ?? 0),
+            ':parent_id' => $attributes['parent_id'] ?? null,
+            ':code' => trim((string) ($attributes['code'] ?? '')),
+            ':node_type' => $attributes['node_type'] ?? 'folder',
+            ':iso_clause' => $attributes['iso_clause'] ?? null,
+            ':title' => trim((string) ($attributes['title'] ?? '')),
+            ':description' => $attributes['description'] ?? null,
+            ':sort_order' => (int) ($attributes['sort_order'] ?? 0),
+            ':file_path' => $attributes['file_path'] ?? null,
+            ':created_by' => $attributes['created_by'] ?? null,
+        ];
+
+        if ($payload[':project_id'] <= 0 || $payload[':code'] === '' || $payload[':title'] === '') {
+            throw new \InvalidArgumentException('El nodo requiere proyecto, código y título.');
+        }
+
+        return $this->db->insert(
+            'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by)
+             VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by)',
+            $payload
+        );
+    }
+
+    public function hardResetTree(int $projectId): void
+    {
+        $this->resetProjectTree($projectId);
+    }
+
+    public function hasStructuralIssues(int $projectId): bool
+    {
+        return !empty($this->structuralIssues($projectId));
+    }
+
     public function synchronizeFromProject(int $projectId, string $methodology, ?string $phase = null): void
     {
         if (!$this->db->tableExists('project_nodes')) {
@@ -1323,7 +1361,7 @@ class ProjectNodesRepository
         $issues = [];
 
         $invalidTypes = $this->db->fetchOne(
-            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND (node_type IS NULL OR TRIM(node_type) = "" OR node_type NOT IN ("folder", "file"))',
+            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND (node_type IS NULL OR TRIM(node_type) = "" OR node_type NOT IN ("folder", "file", "iso_control", "metadata"))',
             [
                 ':project_id' => $projectId,
             ]
@@ -1656,7 +1694,7 @@ class ProjectNodesRepository
         $isoClause = $definition['iso_clause'] ?? null;
         $description = $definition['description'] ?? null;
         $sortOrder = (int) ($definition['sort_order'] ?? 0);
-        $nodeType = $definition['node_type'] ?? 'iso_item';
+        $nodeType = $definition['node_type'] ?? 'iso_control';
 
         if ($code === '' || $title === '') {
             throw new \InvalidArgumentException('El nodo ISO carece de código o título.');
