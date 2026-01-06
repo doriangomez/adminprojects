@@ -1384,11 +1384,19 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
-            $updates = [];
+            $this->assertNonEmptyNodeType($existing);
+
             if (($existing['node_type'] ?? '') !== 'folder') {
-                $updates['node_type'] = 'folder';
-                $updates['file_path'] = null;
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'La fase %s no puede asociarse al nodo %d porque no es una carpeta. Proyecto requiere saneamiento estructural.',
+                        $normalizedCode,
+                        (int) ($existing['id'] ?? 0)
+                    )
+                );
             }
+
+            $updates = [];
             if (($existing['parent_id'] ?? null) !== null) {
                 $updates['parent_id'] = null;
             }
@@ -1482,6 +1490,8 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
+            $this->assertNonEmptyNodeType($existing);
+
             if ((int) ($existing['parent_id'] ?? 0) !== $parentId) {
                 throw new \InvalidArgumentException(
                     sprintf(
@@ -1675,12 +1685,29 @@ class ProjectNodesRepository
         );
     }
 
+    private function assertNonEmptyNodeType(array $node): void
+    {
+        $nodeType = $node['node_type'] ?? null;
+        $isEmpty = $nodeType === null || (is_string($nodeType) && trim($nodeType) === '');
+
+        if ($isEmpty) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    "Nodo %d tiene node_type vacío.\nNo puede ser usado como contenedor.\nProyecto requiere saneamiento estructural.",
+                    (int) ($node['id'] ?? 0)
+                )
+            );
+        }
+    }
+
     private function assertFolderParent(int $projectId, int $parentId): array
     {
         $parentNode = $this->findNode($projectId, $parentId);
         if (!$parentNode) {
             throw new \InvalidArgumentException('La carpeta inicial no es válida.');
         }
+
+        $this->assertNonEmptyNodeType($parentNode);
 
         if (($parentNode['node_type'] ?? '') !== 'folder') {
             throw new \InvalidArgumentException(
