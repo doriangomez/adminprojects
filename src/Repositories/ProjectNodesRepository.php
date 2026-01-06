@@ -5,7 +5,7 @@ declare(strict_types=1);
 class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
-    private const TREE_VERSION = '2025.01';
+    private const TREE_VERSION = '2025.02';
     private const SCRUM_DISCOVERY_CODE = '01-DISCOVERY';
     private const SCRUM_DISCOVERY_TITLE = '01 · Discovery';
     private const SCRUM_BACKLOG_CODE = '02-BACKLOG';
@@ -32,12 +32,14 @@ class ProjectNodesRepository
         $normalizedPhase = $this->normalizePhase($phase);
         $metadata = $this->treeMetadata($projectId);
         $hasNodes = $this->projectHasNodes($projectId);
+        $structuralIssues = $this->structuralIssues($projectId);
 
         $needsSync = !$hasNodes
             || ($metadata['version'] ?? null) !== self::TREE_VERSION
             || ($metadata['methodology'] ?? null) !== $normalizedMethodology
             || ($metadata['phase'] ?? null) !== $normalizedPhase
-            || $this->missingBaseNodes($projectId, $normalizedMethodology);
+            || $this->missingBaseNodes($projectId, $normalizedMethodology)
+            || !empty($structuralIssues);
 
         if ($needsSync) {
             $this->resetProjectTree($projectId);
@@ -1310,6 +1312,39 @@ class ProjectNodesRepository
         }
 
         return false;
+    }
+
+    private function structuralIssues(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_nodes')) {
+            return [];
+        }
+
+        $issues = [];
+
+        $invalidTypes = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND (node_type IS NULL OR TRIM(node_type) = "" OR node_type NOT IN ("folder", "file"))',
+            [
+                ':project_id' => $projectId,
+            ]
+        );
+
+        if ((int) ($invalidTypes['total'] ?? 0) > 0) {
+            $issues[] = 'invalid_node_type';
+        }
+
+        $missingCodes = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND (code IS NULL OR TRIM(code) = "")',
+            [
+                ':project_id' => $projectId,
+            ]
+        );
+
+        if ((int) ($missingCodes['total'] ?? 0) > 0) {
+            $issues[] = 'missing_code';
+        }
+
+        return $issues;
     }
 
     private function nodeDefinitionMissing(int $projectId, array $definition): bool
