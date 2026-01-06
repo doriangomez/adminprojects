@@ -6,17 +6,17 @@ class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
     private const TREE_VERSION = '2024.12';
-    private const SCRUM_DISCOVERY_CODE = 'SCRUM-DESCUBRIMIENTO';
-    private const SCRUM_DISCOVERY_TITLE = 'Descubrimiento';
-    private const SCRUM_BACKLOG_CODE = 'SCRUM-BACKLOG';
-    private const SCRUM_BACKLOG_TITLE = 'Backlog del Producto';
-    private const SCRUM_SPRINT_CONTAINER_CODE = 'SCRUM-SPRINTS';
-    private const SCRUM_SPRINT_CONTAINER_TITLE = 'Sprints';
+    private const SCRUM_DISCOVERY_CODE = '01-DISCOVERY';
+    private const SCRUM_DISCOVERY_TITLE = '01 · Discovery';
+    private const SCRUM_BACKLOG_CODE = '02-BACKLOG';
+    private const SCRUM_BACKLOG_TITLE = '02 · Backlog';
+    private const SCRUM_SPRINT_CONTAINER_CODE = '03-SPRINTS';
+    private const SCRUM_SPRINT_CONTAINER_TITLE = '03 · Sprints';
     private const SCRUM_SPRINT_CONTAINER_ORDER = 20;
-    private const SCRUM_DEPLOY_CODE = 'SCRUM-DEPLOY';
-    private const SCRUM_DEPLOY_TITLE = 'Deploy / Release';
-    private const SCRUM_ARTEFACTS_CODE = 'SCRUM-ARTEFACTOS';
-    private const SCRUM_ARTEFACTS_TITLE = 'Artefactos del Proyecto';
+    private const SCRUM_REVIEW_CODE = '04-REVIEW';
+    private const SCRUM_REVIEW_TITLE = '04 · Review';
+    private const SCRUM_RELEASE_CODE = '05-RELEASE';
+    private const SCRUM_RELEASE_TITLE = '05 · Release';
 
     public function __construct(private Database $db)
     {
@@ -629,7 +629,7 @@ class ProjectNodesRepository
                 ],
             ],
             [
-                'code' => '04-SEGUIMIENTO-CONTROL',
+                'code' => '04-SEGUIMIENTO',
                 'title' => '04 · Seguimiento y Control',
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.4',
@@ -637,7 +637,7 @@ class ProjectNodesRepository
                 'sort_order' => 40,
                 'children' => [
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-AVANCE-PLAN',
+                        'code' => '04-SEGUIMIENTO-AVANCE-PLAN',
                         'title' => 'Avance vs plan',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
@@ -646,7 +646,7 @@ class ProjectNodesRepository
                         'children' => [],
                     ],
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-CAMBIOS',
+                        'code' => '04-SEGUIMIENTO-CAMBIOS',
                         'title' => 'Control de cambios',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.6',
@@ -655,7 +655,7 @@ class ProjectNodesRepository
                         'children' => [],
                     ],
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-RIESGOS-ACTIVOS',
+                        'code' => '04-SEGUIMIENTO-RIESGOS-ACTIVOS',
                         'title' => 'Riesgos activos',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
@@ -664,7 +664,7 @@ class ProjectNodesRepository
                         'children' => [],
                     ],
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-ACTAS-COMITES',
+                        'code' => '04-SEGUIMIENTO-ACTAS-COMITES',
                         'title' => 'Actas y comités',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
@@ -673,7 +673,7 @@ class ProjectNodesRepository
                         'children' => [],
                     ],
                     [
-                        'code' => '04-SEGUIMIENTO-CONTROL-KPIS',
+                        'code' => '04-SEGUIMIENTO-KPIS',
                         'title' => 'KPIs',
                         'node_type' => 'folder',
                         'iso_clause' => '8.3.4',
@@ -805,19 +805,19 @@ class ProjectNodesRepository
                 'children' => [],
             ],
             [
-                'code' => self::SCRUM_ARTEFACTS_CODE,
-                'title' => self::SCRUM_ARTEFACTS_TITLE,
+                'code' => self::SCRUM_REVIEW_CODE,
+                'title' => self::SCRUM_REVIEW_TITLE,
                 'node_type' => 'folder',
-                'iso_clause' => null,
+                'iso_clause' => '8.3.4',
                 'description' => null,
                 'sort_order' => 30,
                 'children' => [],
             ],
             [
-                'code' => self::SCRUM_DEPLOY_CODE,
-                'title' => self::SCRUM_DEPLOY_TITLE,
+                'code' => self::SCRUM_RELEASE_CODE,
+                'title' => self::SCRUM_RELEASE_TITLE,
                 'node_type' => 'folder',
-                'iso_clause' => null,
+                'iso_clause' => '8.3.5',
                 'description' => null,
                 'sort_order' => 40,
                 'children' => [],
@@ -899,114 +899,73 @@ class ProjectNodesRepository
 
     private function ensureScrumControlContainers(int $projectId): void
     {
-        $this->ensureNode(
-            $projectId,
-            self::SCRUM_DISCOVERY_CODE,
-            self::SCRUM_DISCOVERY_TITLE,
-            'folder',
-            null,
-            null,
-            null,
-            5
-        );
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_DISCOVERY_CODE, self::SCRUM_DISCOVERY_TITLE, null, 5, ['SCRUM-DESCUBRIMIENTO']);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_BACKLOG_CODE, self::SCRUM_BACKLOG_TITLE, '8.3.2', 10, ['SCRUM-BACKLOG', '02-BACKLOG-PRODUCTO']);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_SPRINT_CONTAINER_CODE, self::SCRUM_SPRINT_CONTAINER_TITLE, null, self::SCRUM_SPRINT_CONTAINER_ORDER, ['SCRUM-SPRINTS', '03-SPRINTS']);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_REVIEW_CODE, self::SCRUM_REVIEW_TITLE, '8.3.4', 30, ['SCRUM-ARTEFACTOS']);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_RELEASE_CODE, self::SCRUM_RELEASE_TITLE, '8.3.5', 40, ['SCRUM-DEPLOY']);
+    }
 
-        $backlog = $this->db->fetchOne(
+    private function upsertScrumPhaseNode(
+        int $projectId,
+        string $targetCode,
+        string $title,
+        ?string $isoClause,
+        int $sortOrder,
+        array $legacyCodes = []
+    ): void {
+        $existing = $this->db->fetchOne(
             'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-            [':project' => $projectId, ':code' => self::SCRUM_BACKLOG_CODE]
+            [':project' => $projectId, ':code' => $targetCode]
         );
 
-        if (!$backlog) {
-            $legacyBacklog = $this->db->fetchOne(
-                'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-                [':project' => $projectId, ':code' => '02-BACKLOG-PRODUCTO']
+        if ($existing) {
+            $this->db->execute(
+                'UPDATE project_nodes SET title = :title, parent_id = NULL, node_type = "folder", file_path = NULL, iso_clause = :iso_clause, sort_order = :sort_order WHERE id = :id AND project_id = :project',
+                [
+                    ':title' => $title,
+                    ':iso_clause' => $isoClause,
+                    ':sort_order' => $sortOrder,
+                    ':id' => (int) ($existing['id'] ?? 0),
+                    ':project' => $projectId,
+                ]
             );
 
-            if ($legacyBacklog) {
-                $this->db->execute(
-                    'UPDATE project_nodes SET code = :code, title = :title, parent_id = NULL, iso_clause = :iso, sort_order = 10 WHERE id = :id',
-                    [
-                        ':code' => self::SCRUM_BACKLOG_CODE,
-                        ':title' => self::SCRUM_BACKLOG_TITLE,
-                        ':iso' => '8.3.2',
-                        ':id' => (int) ($legacyBacklog['id'] ?? 0),
-                    ]
-                );
-            } else {
-                $this->ensureNode(
-                    $projectId,
-                    self::SCRUM_BACKLOG_CODE,
-                    self::SCRUM_BACKLOG_TITLE,
-                    'folder',
-                    null,
-                    '8.3.2',
-                    null,
-                    10
-                );
-            }
+            return;
         }
 
-        $sprints = $this->db->fetchOne(
-            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-            [':project' => $projectId, ':code' => self::SCRUM_SPRINT_CONTAINER_CODE]
-        );
-
-        if (!$sprints) {
-            $legacySprints = $this->db->fetchOne(
+        foreach ($legacyCodes as $legacyCode) {
+            $legacy = $this->db->fetchOne(
                 'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-                [':project' => $projectId, ':code' => '03-SPRINTS']
+                [':project' => $projectId, ':code' => $legacyCode]
             );
 
-            if ($legacySprints) {
+            if ($legacy) {
                 $this->db->execute(
-                    'UPDATE project_nodes SET code = :code, title = :title, parent_id = NULL, iso_clause = NULL, sort_order = :order WHERE id = :id',
+                    'UPDATE project_nodes SET code = :code, title = :title, parent_id = NULL, node_type = "folder", file_path = NULL, iso_clause = :iso_clause, sort_order = :sort_order WHERE id = :id AND project_id = :project',
                     [
-                        ':code' => self::SCRUM_SPRINT_CONTAINER_CODE,
-                        ':title' => self::SCRUM_SPRINT_CONTAINER_TITLE,
-                        ':order' => self::SCRUM_SPRINT_CONTAINER_ORDER,
-                        ':id' => (int) ($legacySprints['id'] ?? 0),
+                        ':code' => $targetCode,
+                        ':title' => $title,
+                        ':iso_clause' => $isoClause,
+                        ':sort_order' => $sortOrder,
+                        ':id' => (int) ($legacy['id'] ?? 0),
+                        ':project' => $projectId,
                     ]
                 );
-            } else {
-                $this->ensureNode(
-                    $projectId,
-                    self::SCRUM_SPRINT_CONTAINER_CODE,
-                    self::SCRUM_SPRINT_CONTAINER_TITLE,
-                    'folder',
-                    null,
-                    null,
-                    null,
-                    self::SCRUM_SPRINT_CONTAINER_ORDER
-                );
+
+                return;
             }
-        }
-
-        $artefacts = $this->db->fetchOne(
-            'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-            [':project' => $projectId, ':code' => self::SCRUM_ARTEFACTS_CODE]
-        );
-
-        if (!$artefacts) {
-            $this->ensureNode(
-                $projectId,
-                self::SCRUM_ARTEFACTS_CODE,
-                self::SCRUM_ARTEFACTS_TITLE,
-                'folder',
-                null,
-                null,
-                null,
-                30
-            );
         }
 
         $this->ensureNode(
             $projectId,
-            self::SCRUM_DEPLOY_CODE,
-            self::SCRUM_DEPLOY_TITLE,
+            $targetCode,
+            $title,
             'folder',
             null,
+            $isoClause,
             null,
-            null,
-            40
+            $sortOrder
         );
     }
 
@@ -1391,6 +1350,82 @@ class ProjectNodesRepository
         ) ?: null;
     }
 
+    public function ensurePhaseRoot(int $projectId, array $definition): int
+    {
+        $this->assertTable();
+        $code = trim((string) ($definition['code'] ?? ''));
+        $title = trim((string) ($definition['title'] ?? ''));
+        $isoClause = $definition['iso_clause'] ?? null;
+        $sortOrder = (int) ($definition['sort_order'] ?? 0);
+
+        if ($code === '' || $title === '') {
+            throw new \InvalidArgumentException('Las fases del proyecto deben tener código y título.');
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT id, node_type, parent_id, iso_clause, title, sort_order FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':code' => $code,
+            ]
+        );
+
+        if (!$existing) {
+            return $this->ensureNode(
+                $projectId,
+                $code,
+                $title,
+                'folder',
+                null,
+                $isoClause,
+                null,
+                $sortOrder
+            );
+        }
+
+        $updates = [];
+        if (($existing['node_type'] ?? '') !== 'folder') {
+            $updates['node_type'] = 'folder';
+            $updates['file_path'] = null;
+        }
+
+        if ($existing['parent_id'] !== null) {
+            $updates['parent_id'] = null;
+        }
+
+        if (($existing['iso_clause'] ?? null) !== $isoClause) {
+            $updates['iso_clause'] = $isoClause;
+        }
+
+        if ($title !== '' && $title !== ($existing['title'] ?? '')) {
+            $updates['title'] = $title;
+        }
+
+        if ($sortOrder > 0 && $sortOrder !== (int) ($existing['sort_order'] ?? 0)) {
+            $updates['sort_order'] = $sortOrder;
+        }
+
+        if (!empty($updates)) {
+            $setClauses = [];
+            $params = [
+                ':id' => (int) ($existing['id'] ?? 0),
+                ':project_id' => $projectId,
+            ];
+
+            foreach ($updates as $field => $value) {
+                $setClauses[] = $field . ' = :' . $field;
+                $params[':' . $field] = $value;
+            }
+
+            $this->db->execute(
+                'UPDATE project_nodes SET ' . implode(', ', $setClauses) . ' WHERE id = :id AND project_id = :project_id',
+                $params
+            );
+        }
+
+        return (int) ($existing['id'] ?? 0);
+    }
+
     public function ensureFolderPath(int $projectId, array $path, string $phaseCode): int
     {
         $this->assertTable();
@@ -1400,14 +1435,32 @@ class ProjectNodesRepository
 
         $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
         if (!$phaseNode) {
+            $this->ensureNode($projectId, $phaseCode, $phaseCode, 'folder', null, null, null, 0);
+            $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
+        }
+
+        if (!$phaseNode) {
             throw new \InvalidArgumentException('No existe la carpeta de fase requerida para la acción ISO.');
         }
+
+        if (($phaseNode['node_type'] ?? '') !== 'folder' || ($phaseNode['parent_id'] ?? null) !== null) {
+            $this->db->execute(
+                'UPDATE project_nodes SET node_type = "folder", parent_id = NULL, file_path = NULL WHERE id = :id AND project_id = :project_id',
+                [
+                    ':id' => (int) ($phaseNode['id'] ?? 0),
+                    ':project_id' => $projectId,
+                ]
+            );
+            $phaseNode = $this->findNodeByCode($projectId, $phaseCode);
+        }
+
         if (($phaseNode['node_type'] ?? '') !== 'folder') {
             throw new \InvalidArgumentException('La fase seleccionada no es una carpeta válida.');
         }
 
         $parentCode = $phaseCode;
-        $lastNodeId = (int) ($phaseNode['id'] ?? 0);
+        $parentId = (int) ($phaseNode['id'] ?? 0);
+        $lastNodeId = $parentId;
 
         foreach ($path as $index => $definition) {
             $code = (string) ($definition['code'] ?? '');
@@ -1427,8 +1480,33 @@ class ProjectNodesRepository
                 (int) ($definition['sort_order'] ?? (($index + 1) * 10))
             );
 
+            $node = $this->findNodeByCode($projectId, $code) ?? ['id' => $nodeId];
+            if (($node['node_type'] ?? '') !== 'folder') {
+                $this->db->execute(
+                    'UPDATE project_nodes SET node_type = "folder", file_path = NULL WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':id' => (int) ($node['id'] ?? $nodeId),
+                        ':project_id' => $projectId,
+                    ]
+                );
+                $node = $this->findNodeByCode($projectId, $code) ?? ['id' => $nodeId, 'parent_id' => $parentId];
+            }
+
+            if ((int) ($node['parent_id'] ?? 0) !== $parentId) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET parent_id = :parent_id WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':parent_id' => $parentId,
+                        ':id' => (int) ($node['id'] ?? $nodeId),
+                        ':project_id' => $projectId,
+                    ]
+                );
+                $node['parent_id'] = $parentId;
+            }
+
             $parentCode = $code;
-            $lastNodeId = $nodeId;
+            $parentId = (int) ($node['id'] ?? $nodeId);
+            $lastNodeId = $parentId;
         }
 
         return $lastNodeId;

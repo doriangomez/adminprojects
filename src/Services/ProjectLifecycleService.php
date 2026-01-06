@@ -17,14 +17,20 @@ class ProjectLifecycleService
             'inicio' => ['code' => '01-INICIO', 'title' => '01 · Inicio', 'iso' => null, 'sort' => 10],
             'planificacion' => ['code' => '02-PLANIFICACION', 'title' => '02 · Planificación', 'iso' => '8.3', 'sort' => 20],
             'ejecucion' => ['code' => '03-EJECUCION', 'title' => '03 · Ejecución', 'iso' => null, 'sort' => 30],
-            'seguimiento' => ['code' => '04-SEGUIMIENTO-CONTROL', 'title' => '04 · Seguimiento y Control', 'iso' => '8.3.4', 'sort' => 40],
+            'seguimiento' => ['code' => '04-SEGUIMIENTO', 'title' => '04 · Seguimiento y Control', 'iso' => '8.3.4', 'sort' => 40],
+            'seguimiento y control' => ['code' => '04-SEGUIMIENTO', 'title' => '04 · Seguimiento y Control', 'iso' => '8.3.4', 'sort' => 40],
             'cierre' => ['code' => '05-CIERRE', 'title' => '05 · Cierre', 'iso' => null, 'sort' => 50],
         ],
         'scrum' => [
-            'descubrimiento' => ['code' => 'SCRUM-DESCUBRIMIENTO', 'title' => 'Descubrimiento', 'iso' => null, 'sort' => 5],
-            'backlog listo' => ['code' => 'SCRUM-BACKLOG', 'title' => 'Backlog del Producto', 'iso' => '8.3.2', 'sort' => 10],
-            'sprint' => ['code' => 'SCRUM-SPRINTS', 'title' => 'Sprints', 'iso' => '8.3.4', 'sort' => 20],
-            'deploy' => ['code' => 'SCRUM-DEPLOY', 'title' => 'Deploy / Release', 'iso' => '8.3.5', 'sort' => 40],
+            'discovery' => ['code' => '01-DISCOVERY', 'title' => '01 · Discovery', 'iso' => null, 'sort' => 5],
+            'backlog' => ['code' => '02-BACKLOG', 'title' => '02 · Backlog', 'iso' => '8.3.2', 'sort' => 10],
+            'sprints' => ['code' => '03-SPRINTS', 'title' => '03 · Sprints', 'iso' => '8.3.4', 'sort' => 20],
+            'review' => ['code' => '04-REVIEW', 'title' => '04 · Review', 'iso' => '8.3.4', 'sort' => 30],
+            'release' => ['code' => '05-RELEASE', 'title' => '05 · Release', 'iso' => '8.3.5', 'sort' => 40],
+            'descubrimiento' => ['code' => '01-DISCOVERY', 'title' => '01 · Discovery', 'iso' => null, 'sort' => 5],
+            'backlog listo' => ['code' => '02-BACKLOG', 'title' => '02 · Backlog', 'iso' => '8.3.2', 'sort' => 10],
+            'sprint' => ['code' => '03-SPRINTS', 'title' => '03 · Sprints', 'iso' => '8.3.4', 'sort' => 20],
+            'deploy' => ['code' => '05-RELEASE', 'title' => '05 · Release', 'iso' => '8.3.5', 'sort' => 40],
         ],
         'kanban' => [
             'por hacer' => ['code' => '01-BACKLOG', 'title' => 'Backlog', 'iso' => '8.3.2', 'sort' => 10],
@@ -76,24 +82,7 @@ class ProjectLifecycleService
         }
 
         $nodesRepo = new ProjectNodesRepository($this->db);
-        $phaseDefinition = null;
-        foreach ($definitions as $definition) {
-            if (($definition['code'] ?? '') === $phaseCode) {
-                $phaseDefinition = $definition;
-                break;
-            }
-        }
-
-        $nodesRepo->ensureNode(
-            $projectId,
-            $phaseCode,
-            $phaseDefinition['title'] ?? $phaseCode,
-            'folder',
-            null,
-            $phaseDefinition['iso_clause'] ?? null,
-            null,
-            (int) ($phaseDefinition['sort_order'] ?? 0)
-        );
+        $this->ensurePhaseFolders($projectId, $definitions, $nodesRepo);
 
         return $nodesRepo->ensureFolderPath(
             $projectId,
@@ -113,18 +102,7 @@ class ProjectLifecycleService
         $phaseCodes = array_map(static fn ($definition) => $definition['code'], $definitions);
 
         $nodesRepo = new ProjectNodesRepository($this->db);
-        foreach ($definitions as $definition) {
-            $nodesRepo->ensureNode(
-                $projectId,
-                $definition['code'],
-                $definition['title'],
-                'folder',
-                null,
-                $definition['iso_clause'] ?? null,
-                null,
-                (int) ($definition['sort_order'] ?? 0)
-            );
-        }
+        $this->ensurePhaseFolders($projectId, $definitions, $nodesRepo);
 
         foreach (array_keys(self::ISO_ACTION_NODE_MAP) as $action) {
             $this->ensureIsoNode($projectId, $action, $project);
@@ -330,5 +308,21 @@ class ProjectLifecycleService
         }
 
         return $indexed;
+    }
+
+    private function ensurePhaseFolders(int $projectId, array $definitions, ProjectNodesRepository $nodesRepo): array
+    {
+        $ids = [];
+
+        foreach ($definitions as $definition) {
+            $ids[$definition['code']] = $nodesRepo->ensurePhaseRoot($projectId, [
+                'code' => (string) ($definition['code'] ?? ''),
+                'title' => (string) ($definition['title'] ?? ''),
+                'iso_clause' => $definition['iso_clause'] ?? null,
+                'sort_order' => (int) ($definition['sort_order'] ?? 0),
+            ]);
+        }
+
+        return $ids;
     }
 }
