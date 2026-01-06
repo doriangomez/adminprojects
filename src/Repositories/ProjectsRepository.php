@@ -954,10 +954,10 @@ class ProjectsRepository
         );
     }
 
-    public function deleteProject(int $id, bool $forceDelete = false, bool $isAdmin = false): array
+    public function deleteProject(int $id, bool $forceDelete = false, bool $isAdmin = false, ?int $userId = null): array
     {
         if ($forceDelete && $isAdmin) {
-            return $this->forceDeleteWithCascade($id);
+            return $this->forceDeleteWithCascade($id, $userId);
         }
 
         $inactivated = $this->inactivate($id);
@@ -1024,21 +1024,214 @@ class ProjectsRepository
         );
     }
 
-    private function forceDeleteWithCascade(int $projectId): array
+    private function forceDeleteWithCascade(int $projectId, ?int $userId = null): array
     {
+        $pdo = $this->db->connection();
+        $transactionStarted = false;
+        $deleted = [
+            'timesheets' => 0,
+            'tasks' => 0,
+            'assignments' => 0,
+            'design_inputs' => 0,
+            'design_controls' => 0,
+            'design_changes' => 0,
+            'project_nodes' => 0,
+            'risk_evaluations' => 0,
+            'project_record' => 0,
+        ];
+
         try {
-            $this->db->execute('DELETE FROM projects WHERE id = :id', [':id' => $projectId]);
+            $pdo->beginTransaction();
+            $transactionStarted = true;
+
+            $deleted['timesheets'] = $this->deleteTimesheetsForProject($projectId);
+            $deleted['tasks'] = $this->deleteTasksForProject($projectId);
+            $deleted['assignments'] = $this->deleteAssignmentsForProject($projectId);
+            $deleted['design_inputs'] = $this->deleteDesignInputsForProject($projectId);
+            $deleted['design_controls'] = $this->deleteDesignControlsForProject($projectId);
+            $deleted['design_changes'] = $this->deleteDesignChangesForProject($projectId);
+            $deleted['risk_evaluations'] = $this->deleteRiskEvaluationsForProject($projectId);
+            $deleted['project_nodes'] = $this->deleteProjectNodes($projectId);
+
+            $deleted['project_record'] = $this->db->execute('DELETE FROM projects WHERE id = :id', [':id' => $projectId]) ? 1 : 0;
+
+            $pdo->commit();
+            $transactionStarted = false;
         } catch (\PDOException $e) {
+            if ($transactionStarted && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
                 'error_code' => $e->getCode(),
             ];
+        } catch (\Throwable $e) {
+            if ($transactionStarted && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
 
         $this->deleteProjectStorage($projectId);
 
-        return ['success' => true];
+        if ($userId !== null) {
+            try {
+                (new AuditLogRepository($this->db))->log(
+                    $userId,
+                    'project',
+                    $projectId,
+                    'project.force_delete',
+                    [
+                        'deleted' => $deleted,
+                        'performed_at' => date('c'),
+                    ]
+                );
+            } catch (\Throwable $e) {
+                error_log('No se pudo registrar la eliminación en cascada: ' . $e->getMessage());
+            }
+        }
+
+        return [
+            'success' => true,
+            'deleted' => $deleted,
+        ];
+    }
+
+    private function deleteTimesheetsForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM timesheets ts JOIN tasks t ON t.id = ts.task_id WHERE t.project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute(
+            'DELETE ts FROM timesheets ts JOIN tasks t ON t.id = ts.task_id WHERE t.project_id = :project_id',
+            [':project_id' => $projectId]
+        );
+
+        return $count;
+    }
+
+    private function deleteTasksForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM tasks WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM tasks WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
+    }
+
+    private function deleteAssignmentsForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_talent_assignments WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM project_talent_assignments WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
+    }
+
+    private function deleteDesignInputsForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_design_inputs')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_design_inputs WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM project_design_inputs WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
+    }
+
+    private function deleteDesignControlsForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_design_controls')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_design_controls WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM project_design_controls WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
+    }
+
+    private function deleteDesignChangesForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_design_changes')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_design_changes WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM project_design_changes WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
+    }
+
+    private function deleteRiskEvaluationsForProject(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_risk_evaluations')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_risk_evaluations WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM project_risk_evaluations WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
+    }
+
+    private function deleteProjectNodes(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_nodes')) {
+            return 0;
+        }
+
+        $count = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        )['total'] ?? 0);
+
+        $this->db->execute('DELETE FROM project_nodes WHERE project_id = :project_id', [':project_id' => $projectId]);
+
+        return $count;
     }
 
     private function deleteProjectStorage(int $projectId): void
