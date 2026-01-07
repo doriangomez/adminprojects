@@ -813,6 +813,7 @@ class ProjectsController extends Controller
         $nodesRepo = new ProjectNodesRepository($this->db);
         $projectNodes = $nodesRepo->treeWithFiles($id);
         $progress = $treeService->summarizeProgress($id);
+        $config = (new ConfigService($this->db))->getConfig();
         $project['progress'] = $progress['project_progress'] ?? ($project['progress'] ?? 0);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
@@ -825,6 +826,8 @@ class ProjectsController extends Controller
             'canManage' => $this->auth->can('projects.manage'),
             'projectNodes' => $projectNodes,
             'progressPhases' => $progress['phases'] ?? [],
+            'documentFlowConfig' => $config['document_flow'] ?? [],
+            'accessRoles' => $config['access']['roles'] ?? [],
         ], $deleteContext);
     }
 

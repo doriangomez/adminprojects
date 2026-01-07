@@ -44,6 +44,35 @@
         },
         "risks": []
     },
+    "document_flow": {
+        "default": {
+            "reviewer_roles": [
+                "Administrador",
+                "PMO"
+            ],
+            "validator_roles": [
+                "Administrador",
+                "PMO"
+            ],
+            "approver_roles": [
+                "Administrador"
+            ]
+        },
+        "phases": {},
+        "expected_docs": [
+            "Propuesta comercial",
+            "Cotización",
+            "Alcance técnico inicial",
+            "Requerimientos base"
+        ],
+        "tag_options": [
+            "Propuesta comercial",
+            "Cotización",
+            "Alcance técnico",
+            "Requerimientos",
+            "Documento libre"
+        ]
+    },
     "access": {
         "roles": [
             "Administrador",
