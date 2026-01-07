@@ -157,16 +157,20 @@ class ProjectsController extends Controller
         $auditRepo = new AuditLogRepository($this->db);
 
         try {
+            error_log('Creando proyecto: inicio de validación');
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
+            error_log('Creando proyecto: guardado en DB con ID ' . $projectId);
             $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
             (new ProjectTreeService($this->db))->bootstrapFreshTree(
                 $projectId,
                 (string) ($payload['methodology'] ?? 'cascada'),
                 (int) ($this->auth->user()['id'] ?? 0)
             );
+            error_log('Creando proyecto: estructura inicial creada para ID ' . $projectId);
             header('Location: /project/public/projects/' . $projectId);
+            return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/create', array_merge($this->projectFormData(), [
@@ -174,6 +178,7 @@ class ProjectsController extends Controller
                 'error' => $e->getMessage(),
                 'old' => $_POST,
             ]));
+            return;
         } catch (\PDOException $e) {
             error_log('Error al crear proyecto (DB): ' . $e->getMessage());
             http_response_code(500);
@@ -182,6 +187,7 @@ class ProjectsController extends Controller
                 'error' => $this->formatExceptionForDisplay($e),
                 'old' => $_POST,
             ]));
+            return;
         } catch (\Throwable $e) {
             error_log('Error al crear proyecto: ' . $e->getMessage());
             http_response_code(500);
@@ -190,6 +196,7 @@ class ProjectsController extends Controller
                 'error' => $this->formatExceptionForDisplay($e),
                 'old' => $_POST,
             ]));
+            return;
         }
     }
 
