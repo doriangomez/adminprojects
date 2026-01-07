@@ -132,6 +132,8 @@ class ProjectTreeService
                 'progress' => $metrics['percent'],
                 'status' => $metrics['status'],
                 'pending' => $metrics['pending'],
+                'completed' => $metrics['completed'],
+                'total' => $metrics['total'],
             ];
             $projectAccum += $metrics['percent'];
         }
@@ -146,38 +148,85 @@ class ProjectTreeService
 
     private function computeNodeProgress(array $node): array
     {
-        $criticalWeight = 2;
-        $totalWeight = 0;
-        $completeWeight = 0;
-        $pending = [];
-
+        $standardSubfolders = $this->standardSubfolderSuffixes();
         $children = $node['children'] ?? [];
-        $files = $node['files'] ?? [];
+        $childrenBySuffix = [];
 
         foreach ($children as $child) {
-            $weight = ($child['critical'] ?? false) ? $criticalWeight : 1;
-            $status = $child['status'] ?? 'pendiente';
-            $totalWeight += $weight;
-
-            if ($status === 'completado') {
-                $completeWeight += $weight;
-            } else {
-                $pending[] = $child['name'] ?? $child['title'] ?? ($child['code'] ?? '');
+            $suffix = $this->extractStandardSuffix((string) ($child['code'] ?? ''));
+            if ($suffix !== null && in_array($suffix, $standardSubfolders, true)) {
+                $childrenBySuffix[$suffix] = $child;
             }
         }
 
-        $fileWeight = count($files);
-        $totalWeight += $fileWeight;
-        $completeWeight += $fileWeight;
+        $completed = 0;
+        $pending = [];
 
-        $percent = $totalWeight > 0 ? round(($completeWeight / $totalWeight) * 100, 1) : 0.0;
-        $status = $percent >= 100 ? 'completado' : ($percent >= 40 ? 'en_progreso' : 'pendiente');
+        foreach ($standardSubfolders as $suffix) {
+            if (!isset($childrenBySuffix[$suffix])) {
+                $pending[] = $suffix;
+                continue;
+            }
+
+            $child = $childrenBySuffix[$suffix];
+            if ($this->childHasEvidence($child)) {
+                $completed++;
+            } else {
+                $pending[] = $child['name'] ?? $child['title'] ?? $suffix;
+            }
+        }
+
+        $total = count($standardSubfolders);
+        $percent = $total > 0 ? round(($completed / $total) * 100, 1) : 0.0;
+        $status = $completed >= $total && $total > 0 ? 'completado' : ($completed > 0 ? 'en_progreso' : 'pendiente');
 
         return [
             'percent' => $percent,
             'status' => $status,
             'pending' => $pending,
+            'completed' => $completed,
+            'total' => $total,
         ];
+    }
+
+    private function standardSubfolderSuffixes(): array
+    {
+        return [
+            '01-ENTRADAS',
+            '02-PLANIFICACION',
+            '03-CONTROLES',
+            '04-EVIDENCIAS',
+            '05-CAMBIOS',
+        ];
+    }
+
+    private function extractStandardSuffix(string $code): ?string
+    {
+        if ($code === '') {
+            return null;
+        }
+
+        $parts = explode('-', $code);
+        if (count($parts) < 2) {
+            return null;
+        }
+
+        return implode('-', array_slice($parts, -2));
+    }
+
+    private function childHasEvidence(array $child): bool
+    {
+        if (!empty($child['files'])) {
+            return true;
+        }
+
+        foreach (($child['children'] ?? []) as $nested) {
+            if (($nested['node_type'] ?? '') === self::NODE_TYPE_ISO_CONTROL) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function phaseDefinitions(string $methodology): array

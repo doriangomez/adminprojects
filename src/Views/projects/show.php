@@ -79,6 +79,51 @@ if (empty($phaseCards)) {
         ['code' => '06-CIERRE', 'title' => 'Cierre', 'progress' => 0, 'status' => 'pendiente'],
     ];
 }
+
+$statusLabels = [
+    'pendiente' => 'Pendiente',
+    'en_progreso' => 'En progreso',
+    'completado' => 'Completo',
+];
+
+$statusBadgeClass = static function (string $status): string {
+    return match ($status) {
+        'completado' => 'status-success',
+        'en_progreso' => 'status-info',
+        default => 'status-muted',
+    };
+};
+
+$folderMetrics = static function (array $node): array {
+    $files = $node['files'] ?? [];
+    $children = $node['children'] ?? [];
+    $controls = array_filter($children, static fn (array $child): bool => ($child['node_type'] ?? '') === 'iso_control');
+    $controlTotal = count($controls);
+    $controlComplete = count(array_filter($controls, static fn (array $child): bool => ($child['status'] ?? '') === 'completado'));
+    $fileTotal = count($files);
+
+    $evidenceTotal = $controlTotal > 0 ? $controlTotal : $fileTotal;
+    $evidenceComplete = $controlTotal > 0 ? $controlComplete : $fileTotal;
+
+    $status = 'pendiente';
+    if ($evidenceTotal > 0) {
+        if ($evidenceComplete >= $evidenceTotal) {
+            $status = 'completado';
+        } elseif ($evidenceComplete > 0) {
+            $status = 'en_progreso';
+        }
+    }
+
+    return [
+        'status' => $status,
+        'complete' => $evidenceComplete,
+        'total' => $evidenceTotal,
+        'files' => $fileTotal,
+        'controls' => $controlTotal,
+    ];
+};
+
+$phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 archivo o control.';
 ?>
 
 <section class="card" style="padding:16px; border:1px solid var(--border); border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:12px;">
@@ -96,6 +141,9 @@ if (empty($phaseCards)) {
             <?php
             $status = $phase['status'] ?? 'pendiente';
             $progress = (float) ($phase['progress'] ?? 0);
+            $completed = (int) ($phase['completed'] ?? 0);
+            $total = (int) ($phase['total'] ?? 0);
+            $statusLabel = $statusLabels[$status] ?? $status;
             $statusBg = '#e5e7eb';
             $statusColor = '#111827';
             if ($status === 'completado') { $statusBg = '#dcfce7'; $statusColor = '#166534'; }
@@ -104,12 +152,16 @@ if (empty($phaseCards)) {
             if ($status === 'completado') { $statusIcon = '✅'; }
             elseif ($status === 'en_progreso') { $statusIcon = '🟢'; }
             ?>
-            <div style="min-width:180px; border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc;">
+            <div style="min-width:200px; border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong><?= $statusIcon ?> <?= htmlspecialchars($phase['title'] ?? $phase['code'] ?? '') ?></strong>
-                    <span class="pill" style="background: <?= $statusBg ?>; color: <?= $statusColor ?>;"><?= htmlspecialchars($status) ?></span>
+                    <span class="pill" style="background: <?= $statusBg ?>; color: <?= $statusColor ?>;"><?= htmlspecialchars($statusLabel) ?></span>
                 </div>
-                <div style="margin-top:6px; height:6px; background:#e5e7eb; border-radius:999px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                    <small style="color: var(--muted);"><?= $completed ?> de <?= $total ?> subcarpetas</small>
+                    <span class="tooltip-pill" title="<?= htmlspecialchars($phaseTooltip) ?>">ⓘ</span>
+                </div>
+                <div class="phase-progress" role="progressbar" aria-valuenow="<?= $progress ?>" aria-valuemin="0" aria-valuemax="100" title="<?= htmlspecialchars($phaseTooltip) ?>">
                     <div style="width: <?= $progress ?>%; height:6px; background: var(--primary); border-radius:999px;"></div>
                 </div>
                 <small style="color: var(--muted);"><?= $progress ?>% completado</small>
@@ -138,11 +190,18 @@ if (empty($phaseCards)) {
             <?php if (!$selectedNode): ?>
                 <p style="color: var(--muted);">Selecciona una carpeta para ver su contenido.</p>
             <?php else: ?>
+                <?php $selectedMetrics = $folderMetrics($selectedNode); ?>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
                     <div>
                         <p class="eyebrow" style="margin:0; color: var(--muted);">Carpeta</p>
                         <h3 style="margin:0;"><?= htmlspecialchars($selectedNode['name'] ?? $selectedNode['title'] ?? '') ?></h3>
                         <small style="color: var(--muted);">Código: <?= htmlspecialchars($selectedNode['code'] ?? '') ?> <?= ($selectedNode['iso_code'] ?? null) ? '· ISO ' . htmlspecialchars((string) $selectedNode['iso_code']) : '' ?></small>
+                        <div class="folder-meta">
+                            <span class="badge status-badge <?= $statusBadgeClass($selectedMetrics['status']) ?>">
+                                <?= $statusLabels[$selectedMetrics['status']] ?? $selectedMetrics['status'] ?>
+                            </span>
+                            <span class="count-pill"><?= $selectedMetrics['complete'] ?> de <?= $selectedMetrics['total'] ?></span>
+                        </div>
                     </div>
                     <?php if ($canManage): ?>
                         <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($selectedNode['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar este nodo y su contenido?');">
@@ -154,10 +213,24 @@ if (empty($phaseCards)) {
                 <section style="display:flex; gap:12px; flex-wrap:wrap;">
                     <?php if (!empty($selectedNode['children'])): ?>
                         <?php foreach ($selectedNode['children'] as $child): ?>
-                            <div style="border:1px solid var(--border); border-radius:10px; padding:10px; width:220px; background:#f8fafc;">
-                                <strong><?= htmlspecialchars($child['name'] ?? $child['title'] ?? '') ?></strong>
-                                <p style="margin:4px 0; color: var(--muted); font-size:13px;"><?= htmlspecialchars($child['description'] ?? 'Subcarpeta') ?></p>
-                                <a class="action-btn small" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?node=<?= (int) ($child['id'] ?? 0) ?>">Abrir</a>
+                            <?php
+                            $childMetrics = $folderMetrics($child);
+                            $childName = $child['name'] ?? $child['title'] ?? '';
+                            $isEvidenceFolder = stripos((string) $childName, 'evidencia') !== false || stripos((string) ($child['code'] ?? ''), 'EVIDENCIAS') !== false;
+                            $actionLabel = $canManage ? ($isEvidenceFolder ? 'Agregar evidencia' : 'Subir archivo') : 'Abrir';
+                            ?>
+                            <div style="border:1px solid var(--border); border-radius:10px; padding:10px; width:240px; background:#f8fafc; display:flex; flex-direction:column; gap:6px;">
+                                <strong><?= htmlspecialchars($childName) ?></strong>
+                                <p style="margin:0; color: var(--muted); font-size:13px;"><?= htmlspecialchars($child['description'] ?? 'Subcarpeta') ?></p>
+                                <div class="folder-meta">
+                                    <span class="badge status-badge <?= $statusBadgeClass($childMetrics['status']) ?>">
+                                        <?= $statusLabels[$childMetrics['status']] ?? $childMetrics['status'] ?>
+                                    </span>
+                                    <span class="count-pill"><?= $childMetrics['complete'] ?> de <?= $childMetrics['total'] ?></span>
+                                </div>
+                                <a class="action-btn small primary" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?node=<?= (int) ($child['id'] ?? 0) ?>">
+                                    <?= htmlspecialchars($actionLabel) ?>
+                                </a>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -212,4 +285,12 @@ if (empty($phaseCards)) {
     .action-btn.danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
+    .folder-meta { display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap; }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
+    .status-muted { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
+    .status-info { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
+    .status-success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
+    .count-pill { font-size:12px; font-weight:700; color: var(--text-strong); background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
+    .phase-progress { margin-top:6px; height:6px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+    .tooltip-pill { font-size:12px; font-weight:700; color: var(--secondary); background:#eef2ff; border-radius:999px; padding:2px 8px; cursor:help; }
 </style>
