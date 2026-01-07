@@ -17,6 +17,25 @@ foreach ($riskCatalog as $risk) {
     $category = $risk['category'] ?? 'Otros';
     $riskGroups[$category][] = $risk;
 }
+$riskCategoryOrder = ['Alcance', 'Costos', 'Calidad', 'Tiempo', 'Dependencias'];
+$riskCategoryIcons = [
+    'Alcance' => '🧭',
+    'Costos' => '💸',
+    'Calidad' => '✅',
+    'Tiempo' => '⏱️',
+    'Dependencias' => '🔗',
+    'Otros' => '⚠️',
+];
+$orderedRiskGroups = [];
+foreach ($riskCategoryOrder as $category) {
+    if (isset($riskGroups[$category])) {
+        $orderedRiskGroups[$category] = $riskGroups[$category];
+        unset($riskGroups[$category]);
+    }
+}
+foreach ($riskGroups as $category => $risks) {
+    $orderedRiskGroups[$category] = $risks;
+}
 
 $selectedMethodology = $oldInput['methodology'] ?? $defaults['methodology'] ?? ($methodologies[0] ?? 'scrum');
 $currentPhases = is_array($phasesByMethodology[$selectedMethodology] ?? null) ? $phasesByMethodology[$selectedMethodology] : [];
@@ -145,8 +164,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             <div class="step-card__header">
                 <div>
                     <p class="section-label">Paso 1</p>
-                    <strong>Contexto base</strong>
-                    <p class="muted">Completa los datos clave del proyecto antes de avanzar.</p>
+                    <strong>Contexto inicial</strong>
+                    <p class="muted">Tres bloques claros para capturar lo esencial sin fricción.</p>
                 </div>
                 <div class="badge soft-blue">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -154,116 +173,181 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                         <path d="M4 14h10v6H4z" />
                         <path d="M14 14l6 6" />
                     </svg>
-                    Datos base
+                    Paso 1
                 </div>
             </div>
-            <section class="grid step-card__grid">
-                <label class="input">
-                    <span>Nombre del proyecto</span>
-                    <input type="text" name="name" value="<?= htmlspecialchars((string) $fieldValue('name', '')) ?>" placeholder="Implementación, despliegue, etc." required <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-                <label class="input">
-                    <span>Cliente</span>
-                    <select name="client_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <?php if (empty($clientsList)): ?>
-                            <option value="">Registra un cliente primero</option>
-                        <?php else: ?>
-                            <?php foreach ($clientsList as $client): ?>
-                                <option value="<?= (int) $client['id'] ?>" <?= $selectedClientId === (int) $client['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                </label>
-                <label class="input">
-                    <span>PM responsable</span>
-                    <select name="pm_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <?php if (empty($projectManagersList)): ?>
-                            <option value="">Sin PM disponible</option>
-                        <?php else: ?>
-                            <?php foreach ($projectManagersList as $pm): ?>
-                                <option value="<?= (int) $pm['id'] ?>" <?= $selectedPmId === (int) $pm['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($pm['name'] ?? 'PM') ?> (<?= htmlspecialchars($pm['role_name'] ?? '') ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                </label>
-                <label class="input">
-                    <span>Tipo de proyecto</span>
-                    <select name="project_type" id="projectTypeSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
-                        <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
-                        <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
-                    </select>
-                </label>
-                <label class="input">
-                    <span>Metodología</span>
-                    <select name="methodology_display" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <?php if (empty($methodologies)): ?>
-                            <option value="<?= htmlspecialchars($selectedMethodology) ?>" selected><?= htmlspecialchars(ucfirst($selectedMethodology)) ?></option>
-                        <?php else: ?>
-                            <?php foreach ($methodologies as $methodology): ?>
-                                <option value="<?= htmlspecialchars($methodology) ?>" <?= $selectedMethodology === $methodology ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars(ucfirst($methodology)) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                    <input type="hidden" name="methodology" id="methodologyHidden" value="<?= htmlspecialchars($selectedMethodology) ?>">
-                </label>
-                <label class="input">
-                    <span>Inicio</span>
-                    <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-                <label class="input" data-role="end-date">
-                    <span>Fin</span>
-                    <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-            </section>
-            <section class="grid step-card__grid">
-                <label class="input">
-                    <span>Alcance del proyecto</span>
-                    <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
-                </label>
-                <label class="input">
-                    <span>Entradas de diseño</span>
-                    <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
-                </label>
-                <label class="input">
-                    <span>Participación del cliente</span>
-                    <select name="client_participation" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <option value="alta" <?= $clientParticipation === 'alta' ? 'selected' : '' ?>>Alta (cocreación activa)</option>
-                        <option value="media" <?= $clientParticipation === 'media' ? 'selected' : '' ?>>Media (revisiones programadas)</option>
-                        <option value="baja" <?= $clientParticipation === 'baja' ? 'selected' : '' ?>>Baja (solo aprobaciones clave)</option>
-                    </select>
-                </label>
-            </section>
-            <section class="grid step-card__grid">
-                <div class="input" style="grid-column: 1 / -1;">
-                    <span>Riesgos iniciales</span>
-                    <div id="riskChecklist" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
-                        <?php foreach ($riskGroups as $category => $risks): ?>
-                            <div style="border:1px solid var(--border); border-radius:10px; padding:10px; background: color-mix(in srgb, var(--surface) 94%, transparent);">
-                                <strong style="display:block; margin-bottom:6px;"><?= htmlspecialchars($category) ?></strong>
-                                <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                                    <?php foreach ($risks as $risk): ?>
-                                        <?php $riskCode = $risk['code'] ?? ''; $riskLabel = $risk['label'] ?? $riskCode; ?>
-                                        <label style="display:flex; gap:6px; align-items:center; background: color-mix(in srgb, var(--surface) 92%, transparent); padding:8px 10px; border-radius:10px; border:1px solid var(--border);">
-                                            <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $fieldValue('risks', []), true) ? 'checked' : '' ?>>
-                                            <?= htmlspecialchars($riskLabel) ?>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                        <?php if (empty($riskCatalog)): ?>
-                            <span class="muted">Configura el catálogo de riesgos en el módulo de configuración.</span>
-                        <?php endif; ?>
+            <div class="step-block step-block--required">
+                <div class="step-block__header">
+                    <div>
+                        <p class="step-block__eyebrow">Datos básicos</p>
+                        <strong class="step-block__title">Obligatorios para crear el proyecto</strong>
+                        <p class="step-block__help">Completa lo mínimo para habilitar el avance.</p>
+                    </div>
+                    <span class="pill soft-amber">Obligatorio</span>
+                </div>
+                <section class="grid step-block__grid">
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">📝</span>Nombre del proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <input type="text" name="name" value="<?= htmlspecialchars((string) $fieldValue('name', '')) ?>" placeholder="Implementación, despliegue, etc." required <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧑‍🤝‍🧑</span>Cliente</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <select name="client_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <?php if (empty($clientsList)): ?>
+                                <option value="">Registra un cliente primero</option>
+                            <?php else: ?>
+                                <?php foreach ($clientsList as $client): ?>
+                                    <option value="<?= (int) $client['id'] ?>" <?= $selectedClientId === (int) $client['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧑‍💼</span>PM responsable</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <select name="pm_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <?php if (empty($projectManagersList)): ?>
+                                <option value="">Sin PM disponible</option>
+                            <?php else: ?>
+                                <?php foreach ($projectManagersList as $pm): ?>
+                                    <option value="<?= (int) $pm['id'] ?>" <?= $selectedPmId === (int) $pm['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($pm['name'] ?? 'PM') ?> (<?= htmlspecialchars($pm['role_name'] ?? '') ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧩</span>Tipo de proyecto</span>
+                        </span>
+                        <select name="project_type" id="projectTypeSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
+                            <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
+                            <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
+                        </select>
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧭</span>Metodología</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <select name="methodology_display" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <?php if (empty($methodologies)): ?>
+                                <option value="<?= htmlspecialchars($selectedMethodology) ?>" selected><?= htmlspecialchars(ucfirst($selectedMethodology)) ?></option>
+                            <?php else: ?>
+                                <?php foreach ($methodologies as $methodology): ?>
+                                    <option value="<?= htmlspecialchars($methodology) ?>" <?= $selectedMethodology === $methodology ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars(ucfirst($methodology)) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                        <input type="hidden" name="methodology" id="methodologyHidden" value="<?= htmlspecialchars($selectedMethodology) ?>">
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">📅</span>Inicio</span>
+                        </span>
+                        <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                    <label class="input" data-role="end-date">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🏁</span>Fin</span>
+                        </span>
+                        <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                </section>
+            </div>
+
+            <div class="step-block step-block--recommended">
+                <div class="step-block__header">
+                    <div>
+                        <p class="step-block__eyebrow">Contexto de diseño</p>
+                        <strong class="step-block__title">Recomendado (ISO 9001 8.3)</strong>
+                        <p class="step-block__help">Define alcance y entradas para evitar reprocesos.</p>
+                    </div>
+                    <span class="pill soft-blue">Recomendado</span>
+                </div>
+                <section class="grid step-block__grid">
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🤝</span>Participación del cliente</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <select name="client_participation" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <option value="alta" <?= $clientParticipation === 'alta' ? 'selected' : '' ?>>Alta (cocreación activa)</option>
+                            <option value="media" <?= $clientParticipation === 'media' ? 'selected' : '' ?>>Media (revisiones programadas)</option>
+                            <option value="baja" <?= $clientParticipation === 'baja' ? 'selected' : '' ?>>Baja (solo aprobaciones clave)</option>
+                        </select>
+                    </label>
+                </section>
+            </div>
+
+            <div class="step-block step-block--optional">
+                <div class="step-block__header">
+                    <div>
+                        <p class="step-block__eyebrow">Riesgos iniciales</p>
+                        <strong class="step-block__title">Opcional</strong>
+                        <p class="step-block__help">Selecciona riesgos relevantes para monitorear desde el inicio.</p>
+                    </div>
+                    <div class="risk-summary">
+                        <span class="pill soft-slate" id="riskCount">0 seleccionados</span>
                     </div>
                 </div>
-            </section>
+                <div class="risk-grid" id="riskChecklist">
+                    <?php foreach ($orderedRiskGroups as $category => $risks): ?>
+                        <?php $categoryIcon = $riskCategoryIcons[$category] ?? $riskCategoryIcons['Otros']; ?>
+                        <div class="risk-group" data-limit="5">
+                            <div class="risk-group__header">
+                                <span class="risk-group__icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon) ?></span>
+                                <strong><?= htmlspecialchars($category) ?></strong>
+                            </div>
+                            <div class="risk-group__list">
+                                <?php foreach ($risks as $risk): ?>
+                                    <?php $riskCode = $risk['code'] ?? ''; $riskLabel = $risk['label'] ?? $riskCode; ?>
+                                    <label class="risk-chip">
+                                        <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $fieldValue('risks', []), true) ? 'checked' : '' ?>>
+                                        <span class="risk-chip__content">
+                                            <span class="risk-chip__icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon) ?></span>
+                                            <span class="risk-chip__label"><?= htmlspecialchars($riskLabel) ?></span>
+                                        </span>
+                                        <span class="risk-chip__check" aria-hidden="true">✓</span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                            <button type="button" class="btn ghost small risk-group__toggle">Ver más</button>
+                        </div>
+                    <?php endforeach; ?>
+                    <?php if (empty($riskCatalog)): ?>
+                        <span class="muted">Configura el catálogo de riesgos en el módulo de configuración.</span>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -279,7 +363,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             </div>
             <div class="grid step-card__grid compact">
                 <label class="input">
-                    <span>Fase</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">🪜</span>Fase</span>
+                    </span>
                     <select name="phase_display" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
                         <option value="">Sin fase</option>
                         <?php foreach ($currentPhases as $phase): ?>
@@ -291,7 +377,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <input type="hidden" name="phase" id="phaseHidden" value="<?= htmlspecialchars((string) $selectedPhase) ?>">
                 </label>
                 <label class="input">
-                    <span>Estado</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">🟢</span>Estado</span>
+                        <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                    </span>
                     <select name="status_display" id="statusSelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
                         <?php foreach ($statusesCatalog as $status): ?>
                             <?php $code = $status['code'] ?? ''; ?>
@@ -303,7 +392,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <input type="hidden" name="status" id="statusHidden" value="<?= htmlspecialchars($selectedStatus) ?>">
                 </label>
                 <label class="input">
-                    <span>Salud</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">🩺</span>Salud</span>
+                    </span>
                     <select name="health_display" id="healthSelect" disabled <?= $canCreateProject ? '' : 'disabled' ?>>
                         <?php foreach ($healthCatalog as $health): ?>
                             <?php $code = $health['code'] ?? ''; ?>
@@ -315,7 +406,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <input type="hidden" name="health" id="healthHidden" value="<?= htmlspecialchars($selectedHealth) ?>">
                 </label>
                 <label class="input">
-                    <span>Prioridad</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">🚩</span>Prioridad</span>
+                        <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                    </span>
                     <select name="priority" required <?= $canCreateProject ? '' : 'disabled' ?>>
                         <?php foreach ($prioritiesCatalog as $priority): ?>
                             <?php $code = $priority['code'] ?? ''; ?>
@@ -348,19 +442,27 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
             <section class="grid step-card__grid compact">
                 <label class="input">
-                    <span>Presupuesto plan</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">💰</span>Presupuesto plan</span>
+                    </span>
                     <input type="number" step="0.01" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
                 <label class="input">
-                    <span>Costo real</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">🧾</span>Costo real</span>
+                    </span>
                     <input type="number" step="0.01" name="actual_cost" value="<?= htmlspecialchars((string) $fieldValue('actual_cost', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
                 <label class="input">
-                    <span>Horas planificadas</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">⏱️</span>Horas planificadas</span>
+                    </span>
                     <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
                 <label class="input">
-                    <span>Horas reales</span>
+                    <span class="field-label">
+                        <span class="field-title"><span class="field-icon">⌛</span>Horas reales</span>
+                    </span>
                     <input type="number" step="0.1" name="actual_hours" value="<?= htmlspecialchars((string) $fieldValue('actual_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
             </section>
@@ -408,6 +510,36 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .step-card__header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .step-card__grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     .step-card__grid.compact { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .step-block { padding:14px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); display:flex; flex-direction:column; gap:12px; }
+    .step-block__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .step-block__eyebrow { margin:0; font-weight:800; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .step-block__title { display:block; font-size:16px; color: var(--text-strong); }
+    .step-block__help { margin:4px 0 0 0; font-size:13px; color: var(--muted); }
+    .step-block--required { background: color-mix(in srgb, #fef3c7 16%, var(--surface)); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
+    .step-block--recommended { background: color-mix(in srgb, #dbeafe 24%, var(--surface)); border-color: color-mix(in srgb, #60a5fa 30%, var(--border)); }
+    .step-block--optional { background: color-mix(in srgb, #ecfdf3 22%, var(--surface)); border-color: color-mix(in srgb, #34d399 24%, var(--border)); }
+    .field-label { display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:700; color: var(--text-strong); }
+    .field-title { display:flex; align-items:center; gap:8px; }
+    .field-icon { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, transparent); font-size:14px; }
+    .field-required { display:inline-flex; align-items:center; gap:4px; font-size:11px; color: #b91c1c; background: color-mix(in srgb, #fecaca 60%, transparent); padding:2px 6px; border-radius:999px; border:1px solid color-mix(in srgb, #fca5a5 70%, transparent); }
+    .field-required__icon { font-size:12px; }
+    .risk-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .risk-group { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 95%, transparent); display:flex; flex-direction:column; gap:10px; }
+    .risk-group__header { display:flex; align-items:center; gap:8px; font-weight:800; color: var(--text-strong); }
+    .risk-group__icon { width:28px; height:28px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 12%, transparent); }
+    .risk-group__list { display:grid; gap:8px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .risk-chip { position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:999px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); cursor:pointer; transition: all 160ms ease; }
+    .risk-chip:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 12%, transparent); }
+    .risk-chip input { position:absolute; opacity:0; pointer-events:none; }
+    .risk-chip__content { display:flex; align-items:center; gap:8px; font-weight:600; color: var(--text-strong); }
+    .risk-chip__icon { width:22px; height:22px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, transparent); font-size:13px; }
+    .risk-chip__check { opacity:0; font-weight:900; color: var(--primary); }
+    .risk-chip input:checked ~ .risk-chip__check { opacity:1; }
+    .risk-chip input:checked ~ .risk-chip__content { color: var(--primary-strong); }
+    .risk-chip input:checked ~ .risk-chip__content .risk-chip__icon { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+    .risk-chip.is-hidden { display:none; }
+    .risk-group__toggle { align-self:flex-start; }
+    .btn.small { padding:6px 10px; font-size:12px; }
     .wizard-footer { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-top:1px dashed var(--border); padding-top:12px; }
     .wizard-footer__nav, .wizard-footer__actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .muted { color: var(--muted); font-weight:600; margin:0; }
@@ -451,7 +583,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const healthSelect = document.getElementById('healthSelect');
     const healthHidden = document.getElementById('healthHidden');
     const riskChecklist = document.querySelectorAll('#riskChecklist input[type="checkbox"]');
-    const initialRiskGroupPresent = riskChecklist.length > 0;
+    const riskCount = document.getElementById('riskCount');
+    const riskGroups = document.querySelectorAll('.risk-group');
     const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban' };
 
     let currentStep = 0;
@@ -569,6 +702,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         if (stepLabel) {
             stepLabel.textContent = (currentStep + 1).toString();
         }
+        updateNavState();
     }
 
     function validateStep(index) {
@@ -581,14 +715,55 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 return false;
             }
         }
-        if (index === 0 && initialRiskGroupPresent) {
-            const hasRisk = Array.from(riskChecklist).some((checkbox) => checkbox.checked);
-            if (!hasRisk) {
-                alert('Define al menos un riesgo inicial antes de continuar.');
-                return false;
-            }
-        }
         return true;
+    }
+
+    function isStepValid(index) {
+        const section = wizardSections[index];
+        if (!section) return true;
+        const requiredFields = section.querySelectorAll('[required]');
+        return Array.from(requiredFields).every((field) => field.checkValidity());
+    }
+
+    function updateNavState() {
+        if (!canCreateProject) return;
+        const stepValid = isStepValid(currentStep);
+        if (nextButton) {
+            nextButton.disabled = !stepValid;
+        }
+        if (submitButton) {
+            submitButton.disabled = !stepValid;
+        }
+    }
+
+    function updateRiskCount() {
+        if (!riskCount) return;
+        const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
+        riskCount.textContent = `${selected} seleccionados`;
+    }
+
+    function configureRiskGroups() {
+        riskGroups.forEach((group) => {
+            const limit = Number.parseInt(group.dataset.limit || '5', 10);
+            const items = Array.from(group.querySelectorAll('.risk-chip'));
+            const toggle = group.querySelector('.risk-group__toggle');
+            if (items.length > limit) {
+                items.slice(limit).forEach((item) => item.classList.add('is-hidden'));
+                if (toggle) {
+                    toggle.dataset.expanded = 'false';
+                    toggle.textContent = 'Ver más';
+                    toggle.style.display = 'inline-flex';
+                    toggle.addEventListener('click', () => {
+                        const expanded = toggle.dataset.expanded === 'true';
+                        toggle.dataset.expanded = expanded ? 'false' : 'true';
+                        items.slice(limit).forEach((item) => item.classList.toggle('is-hidden', expanded));
+                        toggle.textContent = expanded ? 'Ver más' : 'Ver menos';
+                    });
+                }
+            } else if (toggle) {
+                toggle.style.display = 'none';
+            }
+        });
     }
 
     refreshPhases();
@@ -596,6 +771,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     syncStatusHealth();
     toggleEndDateByType();
     setStep(0);
+    updateRiskCount();
+    configureRiskGroups();
+    updateNavState();
 
     if (methodologySelect) {
         methodologySelect.addEventListener('change', () => {
@@ -610,6 +788,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         projectTypeSelect.addEventListener('change', () => {
             syncMethodology();
             toggleEndDateByType();
+            updateNavState();
         });
     }
 
@@ -625,4 +804,14 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             setStep(Math.min(wizardSections.length - 1, currentStep + 1));
         });
     }
+
+    wizardSections.forEach((section) => {
+        section.querySelectorAll('input, select, textarea').forEach((field) => {
+            field.addEventListener('input', updateNavState);
+            field.addEventListener('change', () => {
+                updateNavState();
+                updateRiskCount();
+            });
+        });
+    });
 </script>
