@@ -27,9 +27,9 @@ class ConfigService
         'delivery' => [
             'methodologies' => ['scrum', 'cascada', 'kanban'],
             'phases' => [
-                'scrum' => ['discovery', 'backlog', 'sprints', 'review', 'release'],
-                'cascada' => ['inicio', 'planificación', 'ejecución', 'seguimiento', 'cierre'],
-                'kanban' => ['por hacer', 'en curso', 'en revisión', 'hecho'],
+                'scrum' => ['01-INICIO', '02-BACKLOG', '03-SPRINTS', '04-CIERRE'],
+                'cascada' => ['01-INICIO', '02-PLANIFICACION', '03-DISEÑO', '04-EJECUCION', '05-SEGUIMIENTO_Y_CONTROL', '06-CIERRE'],
+                'kanban' => ['01-BACKLOG', '02-EN-CURSO', '03-EN-REVISION', '04-HECHO'],
             ],
             'risks' => [],
         ],

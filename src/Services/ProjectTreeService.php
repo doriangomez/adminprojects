@@ -15,6 +15,7 @@ class ProjectTreeService
     public const CONTENT_TYPE_CHANGE = 'change';
 
     private const SCRUM_SPRINT_PREFIX = 'SPRINT-';
+    private const SCRUM_SPRINT_CONTAINER = '03-SPRINTS';
 
     public function __construct(private Database $db)
     {
@@ -68,7 +69,7 @@ class ProjectTreeService
                 ]);
             }
 
-            if ($normalizedMethodology === 'scrum' && str_contains($phase['code'], self::SCRUM_SPRINT_PREFIX)) {
+            if ($normalizedMethodology === 'scrum' && ($phase['code'] ?? '') === self::SCRUM_SPRINT_CONTAINER) {
                 $this->createSprintNodes($projectId, $phaseId, 1, $createdBy);
             }
         }
@@ -109,35 +110,6 @@ class ProjectTreeService
         }
 
         return $nodesRepo->findNodeByCode($projectId, $code) ?? [];
-    }
-
-    public function isLegacy(int $projectId): bool
-    {
-        $nodesRepo = new ProjectNodesRepository($this->db);
-        if (!$this->db->tableExists('project_nodes')) {
-            return false;
-        }
-
-        $hasIssues = $nodesRepo->hasStructuralIssues($projectId);
-
-        if ($hasIssues) {
-            try {
-                $project = (new ProjectsRepository($this->db))->find($projectId);
-                if ($project) {
-                    $nodesRepo->synchronizeFromProject(
-                        $projectId,
-                        (string) ($project['methodology'] ?? 'cascada'),
-                        $project['phase'] ?? null
-                    );
-
-                    $hasIssues = $nodesRepo->hasStructuralIssues($projectId);
-                }
-            } catch (\Throwable) {
-                // Si el saneamiento falla, mantenemos el indicador legacy para evitar errores posteriores
-            }
-        }
-
-        return $hasIssues;
     }
 
     public function summarizeProgress(int $projectId): array
@@ -214,8 +186,8 @@ class ProjectTreeService
             return [
                 ['code' => '01-INICIO', 'title' => '01 · Inicio', 'iso_clause' => null, 'description' => null],
                 ['code' => '02-BACKLOG', 'title' => '02 · Backlog', 'iso_clause' => '8.3.2', 'description' => null],
-                ['code' => 'SPRINT-ROOT', 'title' => 'Sprints', 'iso_clause' => '8.3.4', 'description' => 'Contenedor de sprints'],
-                ['code' => '04-CIERRE', 'title' => 'Cierre', 'iso_clause' => '8.3.5', 'description' => null],
+                ['code' => '03-SPRINTS', 'title' => '03 · Sprints', 'iso_clause' => '8.3.4', 'description' => 'Contenedor de sprints'],
+                ['code' => '04-CIERRE', 'title' => '04 · Cierre', 'iso_clause' => '8.3.5', 'description' => null],
             ];
         }
 

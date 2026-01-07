@@ -4,9 +4,7 @@ $project = $project ?? [];
 $projectNodes = is_array($projectNodes ?? null) ? $projectNodes : [];
 $progressPhases = is_array($progressPhases ?? null) ? $progressPhases : [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
-$isLegacy = !empty($isLegacy);
 $canManage = !empty($canManage);
-$canDeleteProject = !empty($canDelete);
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -93,18 +91,6 @@ if (empty($phaseCards)) {
         <span class="pill" style="background: <?= $badge['bg'] ?>; color: <?= $badge['color'] ?>; font-weight:700;"><?= htmlspecialchars($badge['label']) ?></span>
     </header>
 
-    <?php if ($isLegacy): ?>
-        <div class="alert" style="border:1px solid #f97316; background:#fff7ed; color:#9a3412; padding:12px; border-radius:12px;">
-            <strong>Proyecto legacy</strong>
-            <p style="margin:6px 0;">Proyecto legacy requiere saneamiento o recreación. El árbol actual tiene node_type vacío o inconsistencias.</p>
-            <?php if ($canDeleteProject): ?>
-                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/delete" style="margin-top:8px;">
-                    <button type="submit" class="action-btn danger">Eliminar proyecto (admin)</button>
-                </form>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
-
     <div class="timeline" style="display:flex; gap:8px; overflow-x:auto; padding:8px 0;">
         <?php foreach ($phaseCards as $phase): ?>
             <?php
@@ -114,10 +100,13 @@ if (empty($phaseCards)) {
             $statusColor = '#111827';
             if ($status === 'completado') { $statusBg = '#dcfce7'; $statusColor = '#166534'; }
             elseif ($status === 'en_progreso') { $statusBg = '#e0f2fe'; $statusColor = '#075985'; }
+            $statusIcon = '⚪';
+            if ($status === 'completado') { $statusIcon = '✅'; }
+            elseif ($status === 'en_progreso') { $statusIcon = '🟢'; }
             ?>
             <div style="min-width:180px; border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong><?= htmlspecialchars($phase['title'] ?? $phase['code'] ?? '') ?></strong>
+                    <strong><?= $statusIcon ?> <?= htmlspecialchars($phase['title'] ?? $phase['code'] ?? '') ?></strong>
                     <span class="pill" style="background: <?= $statusBg ?>; color: <?= $statusColor ?>;"><?= htmlspecialchars($status) ?></span>
                 </div>
                 <div style="margin-top:6px; height:6px; background:#e5e7eb; border-radius:999px;">

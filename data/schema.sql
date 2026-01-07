@@ -205,13 +205,16 @@ CREATE TABLE project_nodes (
     project_id INT NOT NULL,
     parent_id INT NULL,
     code VARCHAR(180) NOT NULL,
-    node_type ENUM('folder','file') NOT NULL,
+    node_type ENUM('folder','file','iso_control','metadata') NOT NULL,
     iso_clause VARCHAR(20) NULL,
     title VARCHAR(180) NOT NULL,
     description TEXT NULL,
     sort_order INT NOT NULL DEFAULT 0,
     file_path VARCHAR(255) NULL,
     created_by INT NULL,
+    reviewed_by INT NULL,
+    validated_by INT NULL,
+    approved_by INT NULL,
     status VARCHAR(40) NOT NULL DEFAULT 'pendiente',
     critical TINYINT(1) NOT NULL DEFAULT 0,
     completed_at DATETIME NULL,
@@ -219,7 +222,10 @@ CREATE TABLE project_nodes (
     UNIQUE KEY uq_project_nodes_code (project_id, code),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id)
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (reviewed_by) REFERENCES users(id),
+    FOREIGN KEY (validated_by) REFERENCES users(id),
+    FOREIGN KEY (approved_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE project_files (
@@ -410,9 +416,9 @@ INSERT INTO config_settings (config_key, config_value) VALUES
     "delivery": {
         "methodologies": ["scrum", "cascada", "kanban"],
         "phases": {
-            "scrum": ["descubrimiento", "backlog listo", "sprint", "deploy"],
-            "cascada": ["inicio", "planificación", "ejecución", "cierre"],
-            "kanban": ["por hacer", "en curso", "en revisión", "hecho"]
+            "scrum": ["01-INICIO", "02-BACKLOG", "03-SPRINTS", "04-CIERRE"],
+            "cascada": ["01-INICIO", "02-PLANIFICACION", "03-DISEÑO", "04-EJECUCION", "05-SEGUIMIENTO_Y_CONTROL", "06-CIERRE"],
+            "kanban": ["01-BACKLOG", "02-EN-CURSO", "03-EN-REVISION", "04-HECHO"]
         },
         "risks": []
     },

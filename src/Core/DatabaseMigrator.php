@@ -160,6 +160,37 @@ class DatabaseMigrator
         }
     }
 
+    public function resetProjectModuleDataOnce(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        $resetKey = 'project_module_reset_2025_02';
+        if ($this->db->tableExists('config_settings')) {
+            $existing = $this->db->fetchOne(
+                'SELECT 1 FROM config_settings WHERE config_key = :key LIMIT 1',
+                [':key' => $resetKey]
+            );
+
+            if ($existing) {
+                return;
+            }
+        }
+
+        $this->purgeProjectModuleTables();
+
+        if ($this->db->tableExists('config_settings')) {
+            $this->db->execute(
+                'INSERT INTO config_settings (config_key, config_value, updated_at) VALUES (:key, :value, NOW())',
+                [
+                    ':key' => $resetKey,
+                    ':value' => json_encode(['executed_at' => date('c')], JSON_UNESCAPED_UNICODE),
+                ]
+            );
+        }
+    }
+
     private function ensurePmIntegrity(string $table, string $afterColumn): void
     {
         try {
@@ -197,6 +228,42 @@ class DatabaseMigrator
                 $referencedTable
             )
         );
+    }
+
+    private function purgeProjectModuleTables(): void
+    {
+        $tables = [
+            'timesheets',
+            'tasks',
+            'project_talent_assignments',
+            'project_risk_evaluations',
+            'project_design_changes',
+            'project_design_controls',
+            'project_design_inputs',
+            'project_files',
+            'project_nodes',
+            'costs',
+            'revenues',
+            'projects',
+        ];
+
+        try {
+            $this->db->execute('SET FOREIGN_KEY_CHECKS=0');
+        } catch (\Throwable) {
+            // Ignorar si el motor no soporta la operación
+        }
+
+        foreach ($tables as $table) {
+            if ($this->db->tableExists($table)) {
+                $this->db->execute('DELETE FROM ' . $table);
+            }
+        }
+
+        try {
+            $this->db->execute('SET FOREIGN_KEY_CHECKS=1');
+        } catch (\Throwable) {
+            // Ignorar si el motor no soporta la operación
+        }
     }
 
     private function addClientPriorityColumn(): void
@@ -508,6 +575,9 @@ class DatabaseMigrator
                 sort_order INT NOT NULL DEFAULT 0,
                 file_path VARCHAR(255) NULL,
                 created_by INT NULL,
+                reviewed_by INT NULL,
+                validated_by INT NULL,
+                approved_by INT NULL,
                 status VARCHAR(40) NOT NULL DEFAULT 'pendiente',
                 critical TINYINT(1) NOT NULL DEFAULT 0,
                 completed_at DATETIME NULL,
@@ -515,7 +585,10 @@ class DatabaseMigrator
                 UNIQUE KEY uq_project_nodes_code (project_id, code),
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
-                FOREIGN KEY (created_by) REFERENCES users(id)
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (reviewed_by) REFERENCES users(id),
+                FOREIGN KEY (validated_by) REFERENCES users(id),
+                FOREIGN KEY (approved_by) REFERENCES users(id)
             ) ENGINE=InnoDB"
         );
     }
@@ -551,7 +624,7 @@ class DatabaseMigrator
             try {
                 $this->db->execute('ALTER TABLE project_design_inputs ADD CONSTRAINT fk_design_inputs_node FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL');
             } catch (\Throwable) {
-                // Evitar fallo en entornos legacy
+                // Evitar fallo en entornos anteriores
             }
         }
     }
@@ -565,7 +638,7 @@ class DatabaseMigrator
             try {
                 $this->db->execute('ALTER TABLE project_design_controls ADD CONSTRAINT fk_design_controls_node FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL');
             } catch (\Throwable) {
-                // Evitar fallo en entornos legacy
+                // Evitar fallo en entornos anteriores
             }
         }
     }
@@ -579,7 +652,7 @@ class DatabaseMigrator
             try {
                 $this->db->execute('ALTER TABLE project_design_changes ADD CONSTRAINT fk_design_changes_node FOREIGN KEY (project_node_id) REFERENCES project_nodes(id) ON DELETE SET NULL');
             } catch (\Throwable) {
-                // Evitar fallo en entornos legacy
+                // Evitar fallo en entornos anteriores
             }
         }
     }
@@ -631,6 +704,45 @@ class DatabaseMigrator
         if (!$this->db->columnExists('project_nodes', 'created_by')) {
             $this->db->execute('ALTER TABLE project_nodes ADD COLUMN created_by INT NULL AFTER file_path');
             $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'reviewed_by')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN reviewed_by INT NULL AFTER created_by');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'validated_by')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN validated_by INT NULL AFTER reviewed_by');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'approved_by')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN approved_by INT NULL AFTER validated_by');
+            $this->db->clearColumnCache();
+        }
+
+        try {
+            if ($this->db->columnExists('project_nodes', 'reviewed_by')) {
+                $this->db->execute('ALTER TABLE project_nodes ADD CONSTRAINT fk_project_nodes_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id)');
+            }
+        } catch (\Throwable) {
+            // Ignorar si ya existe la clave foránea
+        }
+
+        try {
+            if ($this->db->columnExists('project_nodes', 'validated_by')) {
+                $this->db->execute('ALTER TABLE project_nodes ADD CONSTRAINT fk_project_nodes_validated_by FOREIGN KEY (validated_by) REFERENCES users(id)');
+            }
+        } catch (\Throwable) {
+            // Ignorar si ya existe la clave foránea
+        }
+
+        try {
+            if ($this->db->columnExists('project_nodes', 'approved_by')) {
+                $this->db->execute('ALTER TABLE project_nodes ADD CONSTRAINT fk_project_nodes_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)');
+            }
+        } catch (\Throwable) {
+            // Ignorar si ya existe la clave foránea
         }
 
         if (!$this->db->columnExists('project_nodes', 'status')) {
@@ -696,7 +808,7 @@ class DatabaseMigrator
             $this->db->execute(
                 'UPDATE project_nodes SET code = :code WHERE id = :id',
                 [
-                    ':code' => 'legacy-' . (int) ($node['id'] ?? 0),
+                    ':code' => 'node-' . (int) ($node['id'] ?? 0),
                     ':id' => (int) ($node['id'] ?? 0),
                 ]
             );

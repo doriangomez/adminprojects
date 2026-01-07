@@ -55,54 +55,6 @@ class ProjectNodesRepository
         $this->resetProjectTree($projectId);
     }
 
-    public function hasStructuralIssues(int $projectId): bool
-    {
-        return !empty($this->structuralIssues($projectId));
-    }
-
-    public function synchronizeFromProject(int $projectId, string $methodology, ?string $phase = null): void
-    {
-        if (!$this->db->tableExists('project_nodes')) {
-            return;
-        }
-
-        $normalizedMethodology = $this->normalizeMethodology($methodology);
-        $normalizedPhase = $this->normalizePhase($phase);
-        $metadata = $this->treeMetadata($projectId);
-        $hasNodes = $this->projectHasNodes($projectId);
-        $structuralIssues = $this->structuralIssues($projectId);
-
-        $needsSync = !$hasNodes
-            || ($metadata['version'] ?? null) !== self::TREE_VERSION
-            || ($metadata['methodology'] ?? null) !== $normalizedMethodology
-            || ($metadata['phase'] ?? null) !== $normalizedPhase
-            || $this->missingBaseNodes($projectId, $normalizedMethodology)
-            || !empty($structuralIssues);
-
-        if ($needsSync) {
-            $this->resetProjectTree($projectId);
-            foreach ($this->baseTreeDefinition($normalizedMethodology) as $definition) {
-                $this->materializeNodeTree(
-                    $projectId,
-                    $definition,
-                    null,
-                    true
-                );
-            }
-
-            if ($normalizedMethodology === 'scrum') {
-                $this->ensureScrumControlContainers($projectId);
-            }
-
-            $this->persistTreeMetadata($projectId, $normalizedMethodology, $normalizedPhase);
-        }
-    }
-
-    public function createBaseTree(int $projectId, string $methodology): void
-    {
-        $this->synchronizeFromProject($projectId, $methodology, null);
-    }
-
     public function snapshot(int $projectId): array
     {
         if (!$this->db->tableExists('project_nodes')) {
@@ -777,39 +729,48 @@ class ProjectNodesRepository
     {
         return [
             [
-                'code' => 'OBJETIVO',
-                'title' => 'Objetivo del sprint',
+                'code' => '01-ENTRADAS',
+                'title' => '01-Entradas',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.2',
+                'iso_clause' => '8.3.3',
                 'description' => null,
                 'sort_order' => 10,
                 'children' => [],
             ],
             [
-                'code' => 'HISTORIAS',
-                'title' => 'Historias comprometidas',
+                'code' => '02-PLANIFICACION',
+                'title' => '02-Planificación',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.4',
+                'iso_clause' => '8.3.2',
                 'description' => null,
                 'sort_order' => 20,
                 'children' => [],
             ],
             [
-                'code' => 'EVIDENCIAS',
-                'title' => 'Evidencias',
+                'code' => '03-CONTROLES',
+                'title' => '03-Controles',
                 'node_type' => 'folder',
-                'iso_clause' => '8.3.5',
-                'description' => null,
+                'iso_clause' => '8.3.4',
+                'description' => 'Controles ISO 9001',
                 'sort_order' => 30,
                 'children' => [],
             ],
             [
-                'code' => 'RETROSPECTIVA',
-                'title' => 'Retrospectiva',
+                'code' => '04-EVIDENCIAS',
+                'title' => '04-Evidencias',
+                'node_type' => 'folder',
+                'iso_clause' => '8.3.5',
+                'description' => null,
+                'sort_order' => 40,
+                'children' => [],
+            ],
+            [
+                'code' => '05-CAMBIOS',
+                'title' => '05-Cambios',
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.6',
                 'description' => null,
-                'sort_order' => 40,
+                'sort_order' => 50,
                 'children' => [],
             ],
         ];
@@ -942,7 +903,6 @@ class ProjectNodesRepository
 
     private function ensureSprintsContainer(int $projectId, ?int $userId = null): array
     {
-        $this->ensureScrumControlContainers($projectId);
         $containerId = $this->ensureNode(
             $projectId,
             self::SCRUM_SPRINT_CONTAINER_CODE,
@@ -963,11 +923,11 @@ class ProjectNodesRepository
 
     private function ensureScrumControlContainers(int $projectId): void
     {
-        $this->upsertScrumPhaseNode($projectId, self::SCRUM_DISCOVERY_CODE, self::SCRUM_DISCOVERY_TITLE, null, 5, ['SCRUM-DESCUBRIMIENTO']);
-        $this->upsertScrumPhaseNode($projectId, self::SCRUM_BACKLOG_CODE, self::SCRUM_BACKLOG_TITLE, '8.3.2', 10, ['SCRUM-BACKLOG', '02-BACKLOG-PRODUCTO']);
-        $this->upsertScrumPhaseNode($projectId, self::SCRUM_SPRINT_CONTAINER_CODE, self::SCRUM_SPRINT_CONTAINER_TITLE, null, self::SCRUM_SPRINT_CONTAINER_ORDER, ['SCRUM-SPRINTS', '03-SPRINTS']);
-        $this->upsertScrumPhaseNode($projectId, self::SCRUM_REVIEW_CODE, self::SCRUM_REVIEW_TITLE, '8.3.4', 30, ['SCRUM-ARTEFACTOS']);
-        $this->upsertScrumPhaseNode($projectId, self::SCRUM_RELEASE_CODE, self::SCRUM_RELEASE_TITLE, '8.3.5', 40, ['SCRUM-DEPLOY']);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_DISCOVERY_CODE, self::SCRUM_DISCOVERY_TITLE, null, 5);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_BACKLOG_CODE, self::SCRUM_BACKLOG_TITLE, '8.3.2', 10);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_SPRINT_CONTAINER_CODE, self::SCRUM_SPRINT_CONTAINER_TITLE, null, self::SCRUM_SPRINT_CONTAINER_ORDER);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_REVIEW_CODE, self::SCRUM_REVIEW_TITLE, '8.3.4', 30);
+        $this->upsertScrumPhaseNode($projectId, self::SCRUM_RELEASE_CODE, self::SCRUM_RELEASE_TITLE, '8.3.5', 40);
     }
 
     private function upsertScrumPhaseNode(
@@ -975,8 +935,7 @@ class ProjectNodesRepository
         string $targetCode,
         string $title,
         ?string $isoClause,
-        int $sortOrder,
-        array $legacyCodes = []
+        int $sortOrder
     ): void {
         $existing = $this->db->fetchOne(
             'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
@@ -996,29 +955,6 @@ class ProjectNodesRepository
             );
 
             return;
-        }
-
-        foreach ($legacyCodes as $legacyCode) {
-            $legacy = $this->db->fetchOne(
-                'SELECT id FROM project_nodes WHERE project_id = :project AND code = :code LIMIT 1',
-                [':project' => $projectId, ':code' => $legacyCode]
-            );
-
-            if ($legacy) {
-                $this->db->execute(
-                    'UPDATE project_nodes SET code = :code, title = :title, parent_id = NULL, node_type = "folder", file_path = NULL, iso_clause = :iso_clause, sort_order = :sort_order WHERE id = :id AND project_id = :project',
-                    [
-                        ':code' => $targetCode,
-                        ':title' => $title,
-                        ':iso_clause' => $isoClause,
-                        ':sort_order' => $sortOrder,
-                        ':id' => (int) ($legacy['id'] ?? 0),
-                        ':project' => $projectId,
-                    ]
-                );
-
-                return;
-            }
         }
 
         $this->ensureNode(
@@ -1341,107 +1277,6 @@ class ProjectNodesRepository
         return $result !== null;
     }
 
-    private function missingBaseNodes(int $projectId, string $methodology): bool
-    {
-        foreach ($this->baseTreeDefinition($methodology) as $definition) {
-            if ($this->nodeDefinitionMissing($projectId, $definition)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function structuralIssues(int $projectId): array
-    {
-        if (!$this->db->tableExists('project_nodes')) {
-            return [];
-        }
-
-        $this->healStructuralData($projectId);
-
-        $issues = [];
-
-        $invalidTypes = $this->db->fetchOne(
-            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND (node_type IS NULL OR TRIM(node_type) = "" OR node_type NOT IN ("folder", "file", "iso_control", "metadata"))',
-            [
-                ':project_id' => $projectId,
-            ]
-        );
-
-        if ((int) ($invalidTypes['total'] ?? 0) > 0) {
-            $issues[] = 'invalid_node_type';
-        }
-
-        $missingCodes = $this->db->fetchOne(
-            'SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :project_id AND (code IS NULL OR TRIM(code) = "")',
-            [
-                ':project_id' => $projectId,
-            ]
-        );
-
-        if ((int) ($missingCodes['total'] ?? 0) > 0) {
-            $issues[] = 'missing_code';
-        }
-
-        return $issues;
-    }
-
-    private function healStructuralData(int $projectId): void
-    {
-        // Normalizar valores válidos existentes (espacios, mayúsculas)
-        $this->db->execute(
-            'UPDATE project_nodes
-             SET node_type = LOWER(TRIM(node_type))
-             WHERE project_id = :project_id
-               AND node_type IS NOT NULL
-               AND TRIM(node_type) <> ""
-               AND LOWER(TRIM(node_type)) IN ("folder","file","iso_control","metadata")',
-            [':project_id' => $projectId]
-        );
-
-        // Asignar un tipo a nodos con valores vacíos o no válidos
-        $this->db->execute(
-            'UPDATE project_nodes
-             SET node_type = CASE
-                 WHEN file_path IS NOT NULL AND TRIM(file_path) <> "" THEN "file"
-                 ELSE "folder"
-             END
-             WHERE project_id = :project_id
-               AND (node_type IS NULL OR TRIM(node_type) = "" OR LOWER(TRIM(node_type)) NOT IN ("folder","file","iso_control","metadata"))',
-            [':project_id' => $projectId]
-        );
-
-        // Rellenar códigos faltantes para evitar árboles sin identificadores
-        $this->db->execute(
-            'UPDATE project_nodes
-             SET code = CONCAT("legacy-", id)
-             WHERE project_id = :project_id
-               AND (code IS NULL OR TRIM(code) = "")',
-            [':project_id' => $projectId]
-        );
-    }
-
-    private function nodeDefinitionMissing(int $projectId, array $definition): bool
-    {
-        $code = (string) ($definition['code'] ?? '');
-        if ($code === '') {
-            return false;
-        }
-
-        if (!$this->codeExists($projectId, $code)) {
-            return true;
-        }
-
-        foreach ($definition['children'] ?? [] as $child) {
-            if ($this->nodeDefinitionMissing($projectId, $child)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private function generateChildCode(int $projectId, ?array $parent, string $title, string $nodeType): string
     {
         $parentCode = $parent && !empty($parent['code']) ? $parent['code'] . '.' : '';
@@ -1518,13 +1353,10 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
-            $existing = $this->normalizeNodeType($projectId, $existing, 'folder');
-            $this->assertNonEmptyNodeType($existing);
-
             if (($existing['node_type'] ?? '') !== 'folder') {
                 throw new \InvalidArgumentException(
                     sprintf(
-                        'La fase %s no puede asociarse al nodo %d porque no es una carpeta. Proyecto requiere saneamiento estructural.',
+                        'La fase %s no puede asociarse al nodo %d porque no es una carpeta.',
                         $normalizedCode,
                         (int) ($existing['id'] ?? 0)
                     )
@@ -1625,9 +1457,6 @@ class ProjectNodesRepository
         );
 
         if ($existing) {
-            $existing = $this->normalizeNodeType($projectId, $existing, 'folder');
-            $this->assertNonEmptyNodeType($existing);
-
             if ((int) ($existing['parent_id'] ?? 0) !== $parentId) {
                 throw new \InvalidArgumentException(
                     sprintf(
@@ -1821,46 +1650,6 @@ class ProjectNodesRepository
         );
     }
 
-    private function assertNonEmptyNodeType(array $node): void
-    {
-        $nodeType = $node['node_type'] ?? null;
-        $isEmpty = $nodeType === null || (is_string($nodeType) && trim($nodeType) === '');
-
-        if ($isEmpty) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Nodo %d tiene node_type vacío.\nNo puede ser usado como contenedor.\nProyecto requiere saneamiento estructural.",
-                    (int) ($node['id'] ?? 0)
-                )
-            );
-        }
-    }
-
-    private function normalizeNodeType(int $projectId, array $node, string $fallbackType): array
-    {
-        $nodeType = $node['node_type'] ?? null;
-        $isEmpty = $nodeType === null || (is_string($nodeType) && trim($nodeType) === '');
-
-        if (!$isEmpty) {
-            return $node;
-        }
-
-        $nodeId = (int) ($node['id'] ?? 0);
-        if ($nodeId > 0) {
-            $this->db->execute(
-                'UPDATE project_nodes SET node_type = :node_type WHERE id = :id AND project_id = :project_id',
-                [
-                    ':node_type' => $fallbackType,
-                    ':id' => $nodeId,
-                    ':project_id' => $projectId,
-                ]
-            );
-        }
-
-        $node['node_type'] = $fallbackType;
-
-        return $node;
-    }
 
     private function assertFolderParent(int $projectId, int $parentId): array
     {
@@ -1868,9 +1657,6 @@ class ProjectNodesRepository
         if (!$parentNode) {
             throw new \InvalidArgumentException('La carpeta inicial no es válida.');
         }
-
-        $parentNode = $this->normalizeNodeType($projectId, $parentNode, 'folder');
-        $this->assertNonEmptyNodeType($parentNode);
 
         if (($parentNode['node_type'] ?? '') !== 'folder') {
             throw new \InvalidArgumentException(
