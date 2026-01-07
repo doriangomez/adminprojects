@@ -120,7 +120,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <span class="wizard-step__number">1</span>
             </div>
             <div class="wizard-step__body">
-                <p class="wizard-step__title">Contexto base</p>
+                <p class="wizard-step__title">Datos del proyecto</p>
                 <p class="wizard-step__subtitle">Cliente, nombre, responsable</p>
             </div>
         </div>
@@ -134,11 +134,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                         <path d="M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
                     </svg>
                 </div>
-                <span class="wizard-step__number">3</span>
+                <span class="wizard-step__number">2</span>
             </div>
             <div class="wizard-step__body">
-                <p class="wizard-step__title">Planeación</p>
-                <p class="wizard-step__subtitle">Horas, presupuesto y fechas</p>
+                <p class="wizard-step__title">Planeación inicial</p>
+                <p class="wizard-step__subtitle">Completa y crea el proyecto</p>
             </div>
         </div>
     </div>
@@ -148,7 +148,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             <div class="step-card__header">
                 <div>
                     <p class="section-label">Paso 1</p>
-                    <strong>Contexto inicial</strong>
+                    <strong>Datos del proyecto</strong>
                     <p class="muted">Tres bloques claros para capturar lo esencial sin fricción.</p>
                 </div>
                 <div class="badge soft-blue">
@@ -372,20 +372,20 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         <div class="step-card">
             <div class="step-card__header">
                 <div>
-                    <p class="section-label">Paso 3</p>
-                    <strong>Planeación y seguimiento</strong>
-                    <p class="muted">Horas, presupuesto y fechas previstas para el proyecto.</p>
+                    <p class="section-label">Paso 2</p>
+                    <strong>Planeación inicial + Crear proyecto</strong>
+                    <p class="muted">Define la planeación mínima y confirma la creación.</p>
                 </div>
                 <div class="badge soft-green">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 20a8 8 0 1 0-8-8" />
                         <path d="M12 6v6l3 3" />
                     </svg>
-                    Seguimiento
+                    Crear proyecto
                 </div>
             </div>
             <div class="alert warning wizard-docs-note">
-                Las cotizaciones, planes y sprints se gestionan en el expediente del proyecto dentro de la estructura de carpetas.
+                Las evidencias, cotizaciones y planes se cargan después en el expediente del proyecto (carpeta principal &rarr; Evidencias).
             </div>
 
             <section class="grid step-card__grid compact">
@@ -413,7 +413,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         <div class="wizard-footer__actions">
             <a class="btn ghost" href="<?= $basePath ?>/projects">Cancelar</a>
             <button type="button" class="btn" data-nav="next" <?= $canCreateProject ? '' : 'disabled' ?>>Siguiente</button>
-            <button type="submit" class="btn primary" data-nav="submit" <?= $canCreateProject ? '' : 'disabled' ?>>Crear proyecto</button>
+            <button type="button" class="btn primary" data-nav="submit" <?= $canCreateProject ? '' : 'disabled' ?>>Crear proyecto</button>
         </div>
     </div>
 </form>
@@ -797,6 +797,30 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
     }
 
+    function submitProjectCreation() {
+        if (!wizardForm) return;
+        const stepValid = validateStep(currentStep);
+        if (!stepValid) {
+            return;
+        }
+        if (wizardLoader) {
+            wizardLoader.classList.add('is-visible');
+            wizardLoader.setAttribute('aria-hidden', 'false');
+        }
+        const actionButtons = wizardForm.querySelectorAll('button, a.btn');
+        actionButtons.forEach((button) => {
+            button.setAttribute('aria-disabled', 'true');
+            if (button.tagName === 'BUTTON') {
+                button.disabled = true;
+            }
+        });
+        if (typeof wizardForm.requestSubmit === 'function') {
+            wizardForm.requestSubmit();
+        } else {
+            wizardForm.submit();
+        }
+    }
+
     function updateRiskCount() {
         if (!riskCount) return;
         const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
@@ -865,6 +889,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 return;
             }
             setStep(Math.min(wizardSections.length - 1, currentStep + 1));
+        });
+    }
+
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            submitProjectCreation();
         });
     }
 
