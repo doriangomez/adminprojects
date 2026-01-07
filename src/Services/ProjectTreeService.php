@@ -74,7 +74,7 @@ class ProjectTreeService
             }
         }
 
-        return $nodesRepo->treeWithFiles($projectId);
+        return [];
     }
 
     public function createSprintNodes(int $projectId, int $parentId, int $number, ?int $createdBy = null): array

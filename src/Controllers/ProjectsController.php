@@ -117,6 +117,7 @@ class ProjectsController extends Controller
             }
 
             header('Location: /project/public/projects/' . $id);
+            return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/edit', [
@@ -135,6 +136,7 @@ class ProjectsController extends Controller
                 'error' => $e->getMessage(),
                 'hasTasks' => $hasTasks,
             ]);
+            return;
         }
     }
 
@@ -156,20 +158,17 @@ class ProjectsController extends Controller
         $repo = new ProjectsRepository($this->db);
 
         try {
-            error_log('inicio submit');
-            error_log('Creando proyecto: inicio de validación');
+            error_log('inicio');
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
             error_log('proyecto creado');
-            error_log('Creando proyecto: guardado en DB con ID ' . $projectId);
             (new ProjectTreeService($this->db))->bootstrapFreshTree(
                 $projectId,
                 (string) ($payload['methodology'] ?? 'cascada'),
                 (int) ($this->auth->user()['id'] ?? 0)
             );
             error_log('estructura creada');
-            error_log('Creando proyecto: estructura inicial creada para ID ' . $projectId);
             error_log('retornando respuesta');
             header('Location: /project/public/projects/' . $projectId);
             return;
@@ -306,6 +305,7 @@ class ProjectsController extends Controller
             $governed = $this->applyLifecycleGovernance($project, $closingPayload, $delivery, $repo, $riskCatalog);
             $repo->closeProject($id, $governed['health'], $governed['risk_level'] ?? null);
             header('Location: /project/public/projects/' . $id);
+            return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -397,6 +397,7 @@ class ProjectsController extends Controller
                 'dependencies' => $dependencies,
                 'inactivated' => $result['inactivated'] ?? false,
             ], 500);
+            return;
         } catch (\Throwable $e) {
             error_log('Error al eliminar proyecto: ' . $e->getMessage());
             http_response_code(500);
@@ -457,6 +458,7 @@ class ProjectsController extends Controller
                 'success' => true,
                 'message' => 'Proyecto inactivado correctamente',
             ]);
+            return;
         } catch (\Throwable $e) {
             error_log('Error al inactivar proyecto: ' . $e->getMessage());
             http_response_code(500);
@@ -475,6 +477,7 @@ class ProjectsController extends Controller
             $redirectId = (int) ($payload['project_id'] ?? 0);
             $destination = $redirectId > 0 ? '/project/public/projects/' . $redirectId . '/talent' : '/project/public/projects';
             header('Location: ' . $destination);
+            return;
         } catch (\Throwable $e) {
             error_log('Error al asignar talento: ' . $e->getMessage());
             http_response_code(500);
@@ -550,6 +553,7 @@ class ProjectsController extends Controller
             }
 
             header('Location: /project/public/projects/' . $projectId);
+            return;
         } catch (\Throwable $e) {
             error_log('Error al adjuntar archivo en nodo: ' . $e->getMessage());
 
@@ -566,6 +570,7 @@ class ProjectsController extends Controller
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => $e->getMessage()]
             ));
+            return;
         }
     }
 
@@ -593,12 +598,14 @@ class ProjectsController extends Controller
                 (int) ($this->auth->user()['id'] ?? 0)
             );
             header('Location: /project/public/projects/' . $projectId);
+            return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => $e->getMessage()]
             ));
+            return;
         } catch (\Throwable $e) {
             error_log('Error al crear carpeta del proyecto: ' . $e->getMessage());
             http_response_code(500);
@@ -606,6 +613,7 @@ class ProjectsController extends Controller
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => 'No se pudo crear la carpeta del proyecto.']
             ));
+            return;
         }
     }
 
@@ -657,12 +665,14 @@ class ProjectsController extends Controller
             $nextNumber = count($sprintsContainer['children'] ?? []) + 1;
             $treeService->createSprintNodes($projectId, (int) ($sprintsContainer['id'] ?? 0), $nextNumber, (int) ($this->auth->user()['id'] ?? 0));
             header('Location: /project/public/projects/' . $projectId);
+            return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => $e->getMessage()]
             ));
+            return;
         } catch (\Throwable $e) {
             error_log('Error al crear sprint: ' . $e->getMessage());
             http_response_code(500);
@@ -670,6 +680,7 @@ class ProjectsController extends Controller
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => 'No se pudo crear el sprint del proyecto.']
             ));
+            return;
         }
     }
 
@@ -687,6 +698,7 @@ class ProjectsController extends Controller
             }
 
             header('Location: /project/public/projects/' . $projectId);
+            return;
         } catch (\Throwable $e) {
             error_log('Error al eliminar nodo documental: ' . $e->getMessage());
 
@@ -700,6 +712,7 @@ class ProjectsController extends Controller
                 $this->projectDetailData($projectId),
                 ['nodeFileError' => $this->isDebugMode() ? $e->getMessage() : 'No se pudo eliminar el nodo.']
             ));
+            return;
         }
     }
 
@@ -719,9 +732,11 @@ class ProjectsController extends Controller
             $nodesRepo = new ProjectNodesRepository($this->db);
             $children = $nodesRepo->listChildren($projectId, $parentId);
             $this->json(['status' => 'ok', 'data' => $children]);
+            return;
         } catch (\Throwable $e) {
             $status = $e instanceof \InvalidArgumentException ? 400 : 500;
             $this->json($this->nodeErrorResponse($e, 'No se pudo obtener el contenido de la carpeta.'), $status);
+            return;
         }
     }
 
@@ -752,10 +767,12 @@ class ProjectsController extends Controller
             header('Content-Length: ' . filesize($physicalPath));
             header('Content-Disposition: attachment; filename="' . $downloadName . '"');
             readfile($physicalPath);
+            return;
         } catch (\Throwable $e) {
             error_log('Error al descargar archivo: ' . $e->getMessage());
             http_response_code(500);
             echo $this->isDebugMode() ? $e->getMessage() : 'No se pudo descargar el archivo.';
+            return;
         }
     }
 
