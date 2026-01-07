@@ -33,6 +33,27 @@ class ConfigService
             ],
             'risks' => [],
         ],
+        'document_flow' => [
+            'default' => [
+                'reviewer_roles' => ['Administrador', 'PMO'],
+                'validator_roles' => ['Administrador', 'PMO'],
+                'approver_roles' => ['Administrador'],
+            ],
+            'phases' => [],
+            'expected_docs' => [
+                'Propuesta comercial',
+                'Cotización',
+                'Alcance técnico inicial',
+                'Requerimientos base',
+            ],
+            'tag_options' => [
+                'Propuesta comercial',
+                'Cotización',
+                'Alcance técnico',
+                'Requerimientos',
+                'Documento libre',
+            ],
+        ],
         'access' => [
             'roles' => ['Administrador', 'PMO', 'Talento'],
             'user_management' => [
@@ -81,6 +102,15 @@ class ConfigService
                 'phases' => array_merge($this->defaults['delivery']['phases'], $stored['delivery']['phases'] ?? []),
                 'risks' => $this->loadRiskCatalog(),
             ],
+            'document_flow' => [
+                'default' => array_merge(
+                    $this->defaults['document_flow']['default'],
+                    $stored['document_flow']['default'] ?? []
+                ),
+                'phases' => $stored['document_flow']['phases'] ?? $this->defaults['document_flow']['phases'],
+                'expected_docs' => $stored['document_flow']['expected_docs'] ?? $this->defaults['document_flow']['expected_docs'],
+                'tag_options' => $stored['document_flow']['tag_options'] ?? $this->defaults['document_flow']['tag_options'],
+            ],
             'access' => [
                 'roles' => $stored['access']['roles'] ?? $this->defaults['access']['roles'],
                 'user_management' => array_merge(
@@ -123,6 +153,15 @@ class ConfigService
                 'methodologies' => $payload['delivery']['methodologies'] ?? $current['delivery']['methodologies'],
                 'phases' => array_merge($current['delivery']['phases'], $payload['delivery']['phases'] ?? []),
                 'risks' => $current['delivery']['risks'],
+            ],
+            'document_flow' => [
+                'default' => array_merge(
+                    $current['document_flow']['default'] ?? [],
+                    $payload['document_flow']['default'] ?? []
+                ),
+                'phases' => $payload['document_flow']['phases'] ?? ($current['document_flow']['phases'] ?? []),
+                'expected_docs' => $payload['document_flow']['expected_docs'] ?? ($current['document_flow']['expected_docs'] ?? []),
+                'tag_options' => $payload['document_flow']['tag_options'] ?? ($current['document_flow']['tag_options'] ?? []),
             ],
             'access' => [
                 'roles' => $payload['access']['roles'] ?? $current['access']['roles'],
