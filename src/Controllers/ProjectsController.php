@@ -154,21 +154,23 @@ class ProjectsController extends Controller
         $masterRepo = new MasterFilesRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
         $repo = new ProjectsRepository($this->db);
-        $auditRepo = new AuditLogRepository($this->db);
 
         try {
+            error_log('inicio submit');
             error_log('Creando proyecto: inicio de validación');
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
+            error_log('proyecto creado');
             error_log('Creando proyecto: guardado en DB con ID ' . $projectId);
-            $this->logRiskAudit($auditRepo, $projectId, [], $payload['risk_evaluations'] ?? []);
             (new ProjectTreeService($this->db))->bootstrapFreshTree(
                 $projectId,
                 (string) ($payload['methodology'] ?? 'cascada'),
                 (int) ($this->auth->user()['id'] ?? 0)
             );
+            error_log('estructura creada');
             error_log('Creando proyecto: estructura inicial creada para ID ' . $projectId);
+            error_log('retornando respuesta');
             header('Location: /project/public/projects/' . $projectId);
             return;
         } catch (\InvalidArgumentException $e) {
@@ -802,6 +804,7 @@ class ProjectsController extends Controller
             'title' => 'Detalle de proyecto',
             'project' => $project,
             'assignments' => $assignments,
+            'currentUser' => $this->auth->user() ?? [],
             'canManage' => $this->auth->can('projects.manage'),
             'projectNodes' => $projectNodes,
             'progressPhases' => $progress['phases'] ?? [],
