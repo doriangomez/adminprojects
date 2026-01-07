@@ -20,6 +20,7 @@ class App
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureSystemSettings();
+        $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
         $this->auth = new Auth($this->db);
     }

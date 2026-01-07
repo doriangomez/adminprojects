@@ -14,50 +14,42 @@ class ProjectLifecycleService
 
     private const PHASE_NODE_MAP = [
         'cascada' => [
-            'inicio' => ['code' => '01-INICIO', 'title' => '01 · Inicio', 'iso' => null, 'sort' => 10],
-            'planificacion' => ['code' => '02-PLANIFICACION', 'title' => '02 · Planificación', 'iso' => '8.3', 'sort' => 20],
-            'ejecucion' => ['code' => '03-EJECUCION', 'title' => '03 · Ejecución', 'iso' => null, 'sort' => 30],
-            'seguimiento' => ['code' => '04-SEGUIMIENTO', 'title' => '04 · Seguimiento y Control', 'iso' => '8.3.4', 'sort' => 40],
-            'seguimiento y control' => ['code' => '04-SEGUIMIENTO', 'title' => '04 · Seguimiento y Control', 'iso' => '8.3.4', 'sort' => 40],
-            'cierre' => ['code' => '05-CIERRE', 'title' => '05 · Cierre', 'iso' => null, 'sort' => 50],
+            '01 inicio' => ['code' => '01-INICIO', 'title' => '01 · Inicio', 'iso' => null, 'sort' => 10],
+            '02 planificacion' => ['code' => '02-PLANIFICACION', 'title' => '02 · Planificación', 'iso' => '8.3', 'sort' => 20],
+            '03 diseno' => ['code' => '03-DISEÑO', 'title' => '03 · Diseño', 'iso' => '8.3.4', 'sort' => 30],
+            '04 ejecucion' => ['code' => '04-EJECUCION', 'title' => '04 · Ejecución', 'iso' => '8.3.5', 'sort' => 40],
+            '05 seguimiento y control' => ['code' => '05-SEGUIMIENTO_Y_CONTROL', 'title' => '05 · Seguimiento y Control', 'iso' => '8.3.4', 'sort' => 50],
+            '06 cierre' => ['code' => '06-CIERRE', 'title' => '06 · Cierre', 'iso' => '8.3.5', 'sort' => 60],
         ],
         'scrum' => [
-            'discovery' => ['code' => '01-DISCOVERY', 'title' => '01 · Discovery', 'iso' => null, 'sort' => 5],
-            'backlog' => ['code' => '02-BACKLOG', 'title' => '02 · Backlog', 'iso' => '8.3.2', 'sort' => 10],
-            'sprints' => ['code' => '03-SPRINTS', 'title' => '03 · Sprints', 'iso' => '8.3.4', 'sort' => 20],
-            'review' => ['code' => '04-REVIEW', 'title' => '04 · Review', 'iso' => '8.3.4', 'sort' => 30],
-            'release' => ['code' => '05-RELEASE', 'title' => '05 · Release', 'iso' => '8.3.5', 'sort' => 40],
-            'descubrimiento' => ['code' => '01-DISCOVERY', 'title' => '01 · Discovery', 'iso' => null, 'sort' => 5],
-            'backlog listo' => ['code' => '02-BACKLOG', 'title' => '02 · Backlog', 'iso' => '8.3.2', 'sort' => 10],
-            'sprint' => ['code' => '03-SPRINTS', 'title' => '03 · Sprints', 'iso' => '8.3.4', 'sort' => 20],
-            'deploy' => ['code' => '05-RELEASE', 'title' => '05 · Release', 'iso' => '8.3.5', 'sort' => 40],
+            '01 inicio' => ['code' => '01-INICIO', 'title' => '01 · Inicio', 'iso' => null, 'sort' => 10],
+            '02 backlog' => ['code' => '02-BACKLOG', 'title' => '02 · Backlog', 'iso' => '8.3.2', 'sort' => 20],
+            '03 sprints' => ['code' => '03-SPRINTS', 'title' => '03 · Sprints', 'iso' => '8.3.4', 'sort' => 30],
+            '04 cierre' => ['code' => '04-CIERRE', 'title' => '04 · Cierre', 'iso' => '8.3.5', 'sort' => 40],
         ],
         'kanban' => [
-            'por hacer' => ['code' => '01-BACKLOG', 'title' => 'Backlog', 'iso' => '8.3.2', 'sort' => 10],
-            'en curso' => ['code' => '02-EN-CURSO', 'title' => 'En curso', 'iso' => '8.3.4', 'sort' => 20],
-            'en revision' => ['code' => '03-EN-REVISION', 'title' => 'En revisión', 'iso' => '8.3.5', 'sort' => 30],
-            'hecho' => ['code' => '04-HECHO', 'title' => 'Hecho', 'iso' => '8.3.5', 'sort' => 40],
+            '01 backlog' => ['code' => '01-BACKLOG', 'title' => '01 · Backlog', 'iso' => '8.3.2', 'sort' => 10],
+            '02 en curso' => ['code' => '02-EN-CURSO', 'title' => '02 · En curso', 'iso' => '8.3.4', 'sort' => 20],
+            '03 en revision' => ['code' => '03-EN-REVISION', 'title' => '03 · En revisión', 'iso' => '8.3.5', 'sort' => 30],
+            '04 hecho' => ['code' => '04-HECHO', 'title' => '04 · Hecho', 'iso' => '8.3.5', 'sort' => 40],
         ],
     ];
 
     private const ISO_ACTION_NODE_MAP = [
         'design_inputs' => [
-            ['code' => '01-entradas-diseno', 'title' => 'Entradas de diseño', 'iso_clause' => '8.3.3'],
+            ['code' => '01-ENTRADAS-DISENO', 'title' => 'Entradas de diseño', 'iso_clause' => '8.3.3'],
         ],
         'design_review' => [
-            ['code' => '03-controles', 'title' => 'Controles de diseño', 'iso_clause' => '8.3.4'],
-            ['code' => '03-controles-revision', 'title' => 'Revisión de diseño', 'iso_clause' => '8.3.4'],
+            ['code' => '03-CONTROLES-REVISION', 'title' => 'Revisión de diseño', 'iso_clause' => '8.3.4'],
         ],
         'design_verification' => [
-            ['code' => '03-controles', 'title' => 'Controles de diseño', 'iso_clause' => '8.3.4'],
-            ['code' => '03-controles-verificacion', 'title' => 'Verificación de diseño', 'iso_clause' => '8.3.4'],
+            ['code' => '03-CONTROLES-VERIFICACION', 'title' => 'Verificación de diseño', 'iso_clause' => '8.3.4'],
         ],
         'design_validation' => [
-            ['code' => '03-controles', 'title' => 'Controles de diseño', 'iso_clause' => '8.3.5'],
-            ['code' => '03-controles-validacion', 'title' => 'Validación de diseño', 'iso_clause' => '8.3.5'],
+            ['code' => '03-CONTROLES-VALIDACION', 'title' => 'Validación de diseño', 'iso_clause' => '8.3.5'],
         ],
         'design_changes' => [
-            ['code' => '05-cambios', 'title' => 'Control de cambios', 'iso_clause' => '8.3.6'],
+            ['code' => '05-CAMBIOS-CONTROL', 'title' => 'Control de cambios', 'iso_clause' => '8.3.6'],
         ],
     ];
 
@@ -108,32 +100,38 @@ class ProjectLifecycleService
             throw new \InvalidArgumentException('No se pudo garantizar la carpeta de fase para vincular ISO.');
         }
 
-        $controlsFolder = $nodesRepo->ensureFolderNode(
+        $folderConfig = match ($action) {
+            'design_inputs' => ['code' => '01-ENTRADAS', 'title' => '01 · Entradas', 'sort' => 10],
+            'design_changes' => ['code' => '05-CAMBIOS', 'title' => '05 · Cambios', 'sort' => 50],
+            default => ['code' => '03-CONTROLES', 'title' => '03 · Controles', 'sort' => 30],
+        };
+
+        $targetFolder = $nodesRepo->ensureFolderNode(
             $projectId,
             $phaseNodeId,
-            '03-Controles',
-            '03 · Controles',
+            $folderConfig['code'],
+            $folderConfig['title'],
             null,
-            30
+            $folderConfig['sort']
         );
 
-        $controlsFolderId = (int) ($controlsFolder['id'] ?? 0);
-        if ($controlsFolderId <= 0) {
-            throw new \InvalidArgumentException('No se pudo garantizar la carpeta estándar de controles para ISO.');
+        $targetFolderId = (int) ($targetFolder['id'] ?? 0);
+        if ($targetFolderId <= 0) {
+            throw new \InvalidArgumentException('No se pudo garantizar la carpeta ISO requerida.');
         }
 
         $lastIsoNodeId = null;
         foreach ($isoNodes as $index => $definition) {
             $isoDefinition = array_merge(
                 [
-                    'node_type' => 'iso_item',
+                    'node_type' => 'iso_control',
                     'sort_order' => ($index + 1) * 10,
                 ],
                 $definition
             );
             $lastIsoNodeId = $nodesRepo->ensureIsoItem(
                 $projectId,
-                $controlsFolderId,
+                $targetFolderId,
                 $isoDefinition
             );
         }

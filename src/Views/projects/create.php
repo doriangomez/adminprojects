@@ -83,7 +83,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <span aria-hidden="true">🧭</span>
                 Metodologías desde configuración
             </div>
-            <div class="pill soft-slate ghosted-pill">Estructura sin modificar la lógica ni validaciones</div>
+            <div class="pill soft-slate ghosted-pill">Estructura limpia y reconstruida por metodología</div>
         </div>
     </div>
 

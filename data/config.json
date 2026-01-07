@@ -22,22 +22,24 @@
         ],
         "phases": {
             "scrum": [
-                "descubrimiento",
-                "backlog listo",
-                "sprint",
-                "deploy"
+                "01-INICIO",
+                "02-BACKLOG",
+                "03-SPRINTS",
+                "04-CIERRE"
             ],
             "cascada": [
-                "inicio",
-                "planificación",
-                "ejecución",
-                "cierre"
+                "01-INICIO",
+                "02-PLANIFICACION",
+                "03-DISEÑO",
+                "04-EJECUCION",
+                "05-SEGUIMIENTO_Y_CONTROL",
+                "06-CIERRE"
             ],
             "kanban": [
-                "por hacer",
-                "en curso",
-                "en revisión",
-                "hecho"
+                "01-BACKLOG",
+                "02-EN-CURSO",
+                "03-EN-REVISION",
+                "04-HECHO"
             ]
         },
         "risks": []

@@ -264,12 +264,6 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $treeService = new ProjectTreeService($this->db);
-        if ($treeService->isLegacy((int) $project['id'])) {
-            http_response_code(400);
-            exit('Proyecto legacy requiere saneamiento antes de cerrarse.');
-        }
-
         $confirm = (string) ($_POST['confirm'] ?? '');
         if ($confirm !== 'yes') {
             header('Location: /project/public/projects/' . $id . '/close');
@@ -635,7 +629,7 @@ class ProjectsController extends Controller
 
             if ($root) {
                 foreach ($root['children'] ?? [] as $child) {
-                    if (($child['code'] ?? '') === 'SPRINT-ROOT') {
+                    if (($child['code'] ?? '') === '03-SPRINTS') {
                         $sprintsContainer = $child;
                         break;
                     }
@@ -646,7 +640,7 @@ class ProjectsController extends Controller
                 http_response_code(400);
                 $this->render('projects/show', array_merge(
                     $this->projectDetailData($projectId),
-                    ['nodeFileError' => 'No se encontró el contenedor de sprints. El proyecto podría requerir saneamiento.']
+                    ['nodeFileError' => 'No se encontró el contenedor de sprints.']
                 ));
                 return;
             }
@@ -790,10 +784,9 @@ class ProjectsController extends Controller
 
         $assignments = $repo->assignmentsForProject($id, $user);
         $treeService = new ProjectTreeService($this->db);
-        $isLegacy = $treeService->isLegacy($id);
         $nodesRepo = new ProjectNodesRepository($this->db);
-        $projectNodes = $isLegacy ? [] : $nodesRepo->treeWithFiles($id);
-        $progress = $isLegacy ? ['project_progress' => 0.0, 'phases' => []] : $treeService->summarizeProgress($id);
+        $projectNodes = $nodesRepo->treeWithFiles($id);
+        $progress = $treeService->summarizeProgress($id);
         $project['progress'] = $progress['project_progress'] ?? ($project['progress'] ?? 0);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
@@ -805,7 +798,6 @@ class ProjectsController extends Controller
             'canManage' => $this->auth->can('projects.manage'),
             'projectNodes' => $projectNodes,
             'progressPhases' => $progress['phases'] ?? [],
-            'isLegacy' => $isLegacy,
         ], $deleteContext);
     }
 
@@ -1061,9 +1053,6 @@ class ProjectsController extends Controller
                 throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
             }
 
-            if ((new ProjectTreeService($this->db))->isLegacy((int) $current['id'])) {
-                throw new \InvalidArgumentException('No puedes cerrar un proyecto legacy: requiere saneamiento de estructura.');
-            }
         }
 
         if ($repo->hasTasks((int) $current['id']) && ($payload['methodology'] ?? '') !== ($current['methodology'] ?? '')) {
