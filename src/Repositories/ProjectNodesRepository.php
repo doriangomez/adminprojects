@@ -390,6 +390,7 @@ class ProjectNodesRepository
                 'id' => $nodeId,
                 'parent_id' => $node['parent_id'],
                 'code' => $node['code'] ?? '',
+                'node_type' => $node['node_type'] ?? 'folder',
                 'name' => $node['title'],
                 'iso_code' => $node['iso_clause'],
                 'status' => $node['status'] ?? 'pendiente',
