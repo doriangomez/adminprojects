@@ -128,22 +128,6 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             <div class="wizard-step__marker">
                 <div class="wizard-step__icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 6v6" />
-                        <path d="M8 12h8" />
-                        <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
-                    </svg>
-                </div>
-                <span class="wizard-step__number">2</span>
-            </div>
-            <div class="wizard-step__body">
-                <p class="wizard-step__title">Flujo y estado</p>
-                <p class="wizard-step__subtitle">Metodología, fase y salud</p>
-            </div>
-        </div>
-        <div class="wizard-step" data-step-indicator="2" role="listitem">
-            <div class="wizard-step__marker">
-                <div class="wizard-step__icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 9h18" />
                         <path d="M9 13h6" />
                         <path d="M8 17h8" />
@@ -175,6 +159,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </svg>
                     Paso 1
                 </div>
+            </div>
+            <div class="alert error wizard-validation" id="wizardValidationMessage" role="alert">
+                Faltan datos obligatorios para continuar
             </div>
             <div class="step-block step-block--required">
                 <div class="step-block__header">
@@ -258,8 +245,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📅</span>Inicio</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" required <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
                     <label class="input" data-role="end-date">
                         <span class="field-label">
@@ -283,23 +271,20 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
+                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
+                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🤝</span>Participación del cliente</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <select name="client_participation" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <select name="client_participation" <?= $canCreateProject ? '' : 'disabled' ?>>
                             <option value="alta" <?= $clientParticipation === 'alta' ? 'selected' : '' ?>>Alta (cocreación activa)</option>
                             <option value="media" <?= $clientParticipation === 'media' ? 'selected' : '' ?>>Media (revisiones programadas)</option>
                             <option value="baja" <?= $clientParticipation === 'baja' ? 'selected' : '' ?>>Baja (solo aprobaciones clave)</option>
@@ -351,85 +336,45 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         </div>
     </div>
 
-    <div class="wizard-content" data-step="1">
-        <div class="step-card">
-            <div class="step-card__header">
-                <div>
-                    <p class="section-label">Paso 2</p>
-                    <strong>Flujo de entrega</strong>
-                    <p class="muted">La metodología define la fase y el estado inicial conforme al ciclo ISO 9001 8.3.</p>
-                </div>
-                <div class="pill soft-slate" id="phaseStatusPill" aria-live="polite"></div>
-            </div>
-            <div class="grid step-card__grid compact">
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">🪜</span>Fase</span>
-                    </span>
-                    <select name="phase_display" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <option value="">Sin fase</option>
-                        <?php foreach ($currentPhases as $phase): ?>
-                            <option value="<?= htmlspecialchars($phase) ?>" <?= $selectedPhase === $phase ? 'selected' : '' ?>>
-                                <?= htmlspecialchars(ucfirst($phase)) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="phase" id="phaseHidden" value="<?= htmlspecialchars((string) $selectedPhase) ?>">
-                </label>
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">🟢</span>Estado</span>
-                        <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
-                    </span>
-                    <select name="status_display" id="statusSelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <?php foreach ($statusesCatalog as $status): ?>
-                            <?php $code = $status['code'] ?? ''; ?>
-                            <option value="<?= htmlspecialchars($code) ?>" <?= $selectedStatus === $code ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($status['label'] ?? $code) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="status" id="statusHidden" value="<?= htmlspecialchars($selectedStatus) ?>">
-                </label>
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">🩺</span>Salud</span>
-                    </span>
-                    <select name="health_display" id="healthSelect" disabled <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <?php foreach ($healthCatalog as $health): ?>
-                            <?php $code = $health['code'] ?? ''; ?>
-                            <option value="<?= htmlspecialchars($code) ?>" <?= $selectedHealth === $code ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($health['label'] ?? $code) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="health" id="healthHidden" value="<?= htmlspecialchars($selectedHealth) ?>">
-                </label>
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">🚩</span>Prioridad</span>
-                        <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
-                    </span>
-                    <select name="priority" required <?= $canCreateProject ? '' : 'disabled' ?>>
-                        <?php foreach ($prioritiesCatalog as $priority): ?>
-                            <?php $code = $priority['code'] ?? ''; ?>
-                            <option value="<?= htmlspecialchars($code) ?>" <?= $selectedPriority === $code ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($priority['label'] ?? $code) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </label>
-            </div>
-        </div>
+    <div class="wizard-hidden-step" aria-hidden="true">
+        <select name="phase_display" id="phaseSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+            <option value="">Sin fase</option>
+            <?php foreach ($currentPhases as $phase): ?>
+                <option value="<?= htmlspecialchars($phase) ?>" <?= $selectedPhase === $phase ? 'selected' : '' ?>>
+                    <?= htmlspecialchars(ucfirst($phase)) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <input type="hidden" name="phase" id="phaseHidden" value="<?= htmlspecialchars((string) $selectedPhase) ?>">
+        <select name="status_display" id="statusSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+            <?php foreach ($statusesCatalog as $status): ?>
+                <?php $code = $status['code'] ?? ''; ?>
+                <option value="<?= htmlspecialchars($code) ?>" <?= $selectedStatus === $code ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($status['label'] ?? $code) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <input type="hidden" name="status" id="statusHidden" value="<?= htmlspecialchars($selectedStatus) ?>">
+        <select name="health_display" id="healthSelect" disabled <?= $canCreateProject ? '' : 'disabled' ?>>
+            <?php foreach ($healthCatalog as $health): ?>
+                <?php $code = $health['code'] ?? ''; ?>
+                <option value="<?= htmlspecialchars($code) ?>" <?= $selectedHealth === $code ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($health['label'] ?? $code) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <input type="hidden" name="health" id="healthHidden" value="<?= htmlspecialchars($selectedHealth) ?>">
+        <input type="hidden" name="priority" id="priorityHidden" value="<?= htmlspecialchars($selectedPriority) ?>">
+        <div class="pill soft-slate" id="phaseStatusPill" aria-live="polite"></div>
     </div>
 
-    <div class="wizard-content" data-step="2">
+    <div class="wizard-content" data-step="1">
         <div class="step-card">
             <div class="step-card__header">
                 <div>
                     <p class="section-label">Paso 3</p>
                     <strong>Planeación y seguimiento</strong>
-                    <p class="muted">Horas, presupuesto y progreso inicial del proyecto.</p>
+                    <p class="muted">Horas, presupuesto y fechas previstas para el proyecto.</p>
                 </div>
                 <div class="badge soft-green">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -438,6 +383,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </svg>
                     Seguimiento
                 </div>
+            </div>
+            <div class="alert warning wizard-docs-note">
+                Las cotizaciones, planes y sprints se gestionan en el expediente del proyecto dentro de la estructura de carpetas.
             </div>
 
             <section class="grid step-card__grid compact">
@@ -449,21 +397,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 </label>
                 <label class="input">
                     <span class="field-label">
-                        <span class="field-title"><span class="field-icon">🧾</span>Costo real</span>
-                    </span>
-                    <input type="number" step="0.01" name="actual_cost" value="<?= htmlspecialchars((string) $fieldValue('actual_cost', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-                <label class="input">
-                    <span class="field-label">
                         <span class="field-title"><span class="field-icon">⏱️</span>Horas planificadas</span>
                     </span>
                     <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">⌛</span>Horas reales</span>
-                    </span>
-                    <input type="number" step="0.1" name="actual_hours" value="<?= htmlspecialchars((string) $fieldValue('actual_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                 </label>
             </section>
         </div>
@@ -472,7 +408,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     <div class="wizard-footer">
         <div class="wizard-footer__nav">
             <button type="button" class="btn ghost" data-nav="prev">← Paso anterior</button>
-            <span class="muted" aria-live="polite">Paso <span id="wizardStepLabel">1</span> de 3</span>
+            <span class="muted" aria-live="polite">Paso <span id="wizardStepLabel">1</span> de 2</span>
         </div>
         <div class="wizard-footer__actions">
             <a class="btn ghost" href="<?= $basePath ?>/projects">Cancelar</a>
@@ -481,6 +417,15 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         </div>
     </div>
 </form>
+<div class="wizard-loader" id="wizardLoader" aria-live="assertive" aria-hidden="true">
+    <div class="wizard-loader__card">
+        <span class="wizard-loader__spinner" aria-hidden="true"></span>
+        <div>
+            <strong>Creando proyecto y estructura…</strong>
+            <p class="muted">Por favor espera mientras preparamos todo.</p>
+        </div>
+    </div>
+</div>
 
 <style>
     .wizard-shell { display:flex; flex-direction:column; gap:18px; }
@@ -523,6 +468,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .field-icon { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, transparent); font-size:14px; }
     .field-required { display:inline-flex; align-items:center; gap:4px; font-size:11px; color: #b91c1c; background: color-mix(in srgb, #fecaca 60%, transparent); padding:2px 6px; border-radius:999px; border:1px solid color-mix(in srgb, #fca5a5 70%, transparent); }
     .field-required__icon { font-size:12px; }
+    .input.is-invalid input,
+    .input.is-invalid select,
+    .input.is-invalid textarea { border-color:#ef4444 !important; box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 25%, transparent); }
+    .input.is-invalid .field-title { color:#b91c1c; }
+    .wizard-validation { display:none; }
+    .wizard-validation.is-visible { display:block; }
+    .wizard-docs-note { margin-top:4px; }
     .risk-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     .risk-group { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 95%, transparent); display:flex; flex-direction:column; gap:10px; }
     .risk-group__header { display:flex; align-items:center; gap:8px; font-weight:800; color: var(--text-strong); }
@@ -552,6 +504,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .alert { padding:12px 14px; border-radius:10px; margin-bottom:10px; font-weight:700; }
     .alert.error { background:#fee2e2; border:1px solid #fecaca; color:#991b1b; }
     .alert.warning { background:#fef9c3; border:1px solid #fde68a; color:#92400e; }
+    .wizard-hidden-step { display:none; }
+    .wizard-loader { position:fixed; inset:0; background: color-mix(in srgb, #0f172a 45%, transparent); display:none; align-items:center; justify-content:center; z-index:9999; padding:24px; }
+    .wizard-loader.is-visible { display:flex; }
+    .wizard-loader__card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:14px; box-shadow: 0 18px 40px color-mix(in srgb, #0f172a 35%, transparent); }
+    .wizard-loader__spinner { width:28px; height:28px; border-radius:50%; border:3px solid color-mix(in srgb, var(--primary) 25%, transparent); border-top-color: var(--primary); animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 840px) {
         .wizard-steps { grid-template-columns: 1fr; }
         .wizard-step { align-items:center; }
@@ -585,9 +543,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const riskChecklist = document.querySelectorAll('#riskChecklist input[type="checkbox"]');
     const riskCount = document.getElementById('riskCount');
     const riskGroups = document.querySelectorAll('.risk-group');
+    const wizardValidationMessage = document.getElementById('wizardValidationMessage');
+    const wizardForm = document.getElementById('projectWizardForm');
+    const wizardLoader = document.getElementById('wizardLoader');
     const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban' };
 
     let currentStep = 0;
+    let hasValidatedStep0 = false;
     const step0RequiredFields = [
         { name: 'name', label: 'Nombre del proyecto' },
         { name: 'client_id', label: 'Cliente' },
@@ -717,6 +679,36 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         return document.querySelector(`[name="${name}"]`);
     }
 
+    function updateValidationMessage(isValid) {
+        if (!wizardValidationMessage) return;
+        const shouldShow = hasValidatedStep0 && !isValid;
+        wizardValidationMessage.classList.toggle('is-visible', shouldShow);
+    }
+
+    function clearStep0FieldErrors() {
+        step0RequiredFields.forEach(({ name }) => {
+            const field = getStep0FieldNode(name);
+            if (!field) return;
+            const wrapper = field.closest('.input');
+            if (wrapper) {
+                wrapper.classList.remove('is-invalid');
+            }
+        });
+    }
+
+    function handleStep0FieldChange(field) {
+        if (!field) return;
+        const isStep0Field = step0RequiredFields.some(({ name }) => name === field.name);
+        if (!isStep0Field) return;
+        if (field.value.trim() !== '') {
+            field.setCustomValidity('');
+            const wrapper = field.closest('.input');
+            if (wrapper) {
+                wrapper.classList.remove('is-invalid');
+            }
+        }
+    }
+
     function isStep0Valid() {
         return step0RequiredFields.every(({ name }) => {
             const field = getStep0FieldNode(name);
@@ -727,6 +719,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function validateStep0() {
         let firstInvalidField = null;
         const missingFields = [];
+        clearStep0FieldErrors();
+        hasValidatedStep0 = true;
 
         step0RequiredFields.forEach(({ name, label }) => {
             const field = getStep0FieldNode(name);
@@ -741,6 +735,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 if (!firstInvalidField && !field.disabled) {
                     firstInvalidField = field;
                 }
+                const wrapper = field.closest('.input');
+                if (wrapper) {
+                    wrapper.classList.add('is-invalid');
+                }
             } else {
                 field.setCustomValidity('');
             }
@@ -748,14 +746,15 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
         if (missingFields.length > 0) {
             console.warn('[Wizard] Validación Paso 1 fallida. Faltan:', missingFields);
+            updateValidationMessage(false);
             if (firstInvalidField) {
+                firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 firstInvalidField.reportValidity();
-            } else {
-                alert(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
             }
             return false;
         }
 
+        updateValidationMessage(true);
         console.log('[Wizard] Validación Paso 1 OK.');
         return true;
     }
@@ -789,6 +788,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function updateNavState() {
         if (!canCreateProject) return;
         const stepValid = isStepValid(currentStep);
+        updateValidationMessage(stepValid || currentStep !== 0);
         if (nextButton) {
             nextButton.disabled = !stepValid;
         }
@@ -870,11 +870,31 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     wizardSections.forEach((section) => {
         section.querySelectorAll('input, select, textarea').forEach((field) => {
-            field.addEventListener('input', updateNavState);
+            field.addEventListener('input', () => {
+                handleStep0FieldChange(field);
+                updateNavState();
+            });
             field.addEventListener('change', () => {
+                handleStep0FieldChange(field);
                 updateNavState();
                 updateRiskCount();
             });
         });
     });
+
+    if (wizardForm) {
+        wizardForm.addEventListener('submit', () => {
+            if (wizardLoader) {
+                wizardLoader.classList.add('is-visible');
+                wizardLoader.setAttribute('aria-hidden', 'false');
+            }
+            const actionButtons = wizardForm.querySelectorAll('button, a.btn');
+            actionButtons.forEach((button) => {
+                button.setAttribute('aria-disabled', 'true');
+                if (button.tagName === 'BUTTON') {
+                    button.disabled = true;
+                }
+            });
+        });
+    }
 </script>
