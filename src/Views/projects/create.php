@@ -588,6 +588,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban' };
 
     let currentStep = 0;
+    const step0RequiredFields = [
+        { name: 'name', label: 'Nombre del proyecto' },
+        { name: 'client_id', label: 'Cliente' },
+        { name: 'pm_id', label: 'PM responsable' },
+        { name: 'methodology_display', label: 'Metodología' },
+        { name: 'start_date', label: 'Fecha de inicio' },
+    ];
 
     function refreshPhases() {
         if (!phaseSelect || !methodologySelect) return;
@@ -679,6 +686,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function setStep(index) {
         if (index < 0 || index >= wizardSections.length) return;
         currentStep = index;
+        console.log('[Wizard] Cambio de paso:', currentStep + 1);
         wizardSections.forEach((section, position) => {
             const isActive = position === currentStep;
             section.classList.toggle('active', isActive);
@@ -705,7 +713,57 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         updateNavState();
     }
 
+    function getStep0FieldNode(name) {
+        return document.querySelector(`[name="${name}"]`);
+    }
+
+    function isStep0Valid() {
+        return step0RequiredFields.every(({ name }) => {
+            const field = getStep0FieldNode(name);
+            return field ? field.value.trim() !== '' : false;
+        });
+    }
+
+    function validateStep0() {
+        let firstInvalidField = null;
+        const missingFields = [];
+
+        step0RequiredFields.forEach(({ name, label }) => {
+            const field = getStep0FieldNode(name);
+            if (!field) {
+                missingFields.push(label);
+                return;
+            }
+            const fieldValue = field.value.trim();
+            if (!fieldValue) {
+                field.setCustomValidity(`Completa el campo obligatorio: ${label}.`);
+                missingFields.push(label);
+                if (!firstInvalidField && !field.disabled) {
+                    firstInvalidField = field;
+                }
+            } else {
+                field.setCustomValidity('');
+            }
+        });
+
+        if (missingFields.length > 0) {
+            console.warn('[Wizard] Validación Paso 1 fallida. Faltan:', missingFields);
+            if (firstInvalidField) {
+                firstInvalidField.reportValidity();
+            } else {
+                alert(`Faltan campos obligatorios: ${missingFields.join(', ')}`);
+            }
+            return false;
+        }
+
+        console.log('[Wizard] Validación Paso 1 OK.');
+        return true;
+    }
+
     function validateStep(index) {
+        if (index === 0) {
+            return validateStep0();
+        }
         const section = wizardSections[index];
         if (!section) return true;
         const requiredFields = section.querySelectorAll('[required]');
@@ -719,6 +777,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     }
 
     function isStepValid(index) {
+        if (index === 0) {
+            return isStep0Valid();
+        }
         const section = wizardSections[index];
         if (!section) return true;
         const requiredFields = section.querySelectorAll('[required]');
@@ -798,7 +859,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     if (nextButton) {
         nextButton.addEventListener('click', () => {
-            if (!validateStep(currentStep)) {
+            const stepValid = validateStep(currentStep);
+            console.log('[Wizard] Click Siguiente. Paso válido:', stepValid);
+            if (!stepValid) {
                 return;
             }
             setStep(Math.min(wizardSections.length - 1, currentStep + 1));
