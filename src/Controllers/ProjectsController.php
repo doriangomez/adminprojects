@@ -802,6 +802,7 @@ class ProjectsController extends Controller
             'title' => 'Detalle de proyecto',
             'project' => $project,
             'assignments' => $assignments,
+            'currentUser' => $this->auth->user() ?? [],
             'canManage' => $this->auth->can('projects.manage'),
             'projectNodes' => $projectNodes,
             'progressPhases' => $progress['phases'] ?? [],
