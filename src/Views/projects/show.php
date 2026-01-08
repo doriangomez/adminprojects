@@ -296,7 +296,6 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
                     $documentNode = $selectedNode;
                     $documentExpectedDocs = $expectedDocsForSubphase;
                     $documentTagOptions = $documentFlowTagOptions;
-                    $documentRoleOptions = $documentRoleOptions;
                     $documentKeyTags = $expectedDocsForSubphase;
                     $documentCanManage = $canManage;
                     $documentProjectId = (int) ($project['id'] ?? 0);
