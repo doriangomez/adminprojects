@@ -88,27 +88,9 @@ if (is_array($selectedNode)) {
 }
 $isSubphase = $selectedSuffix !== null && in_array($selectedSuffix, $standardSubphaseSuffixes, true);
 
-$assignmentOptions = [];
-foreach ($assignments as $assignment) {
-    $assignmentOptions[] = [
-        'id' => (int) ($assignment['talent_id'] ?? 0),
-        'name' => (string) ($assignment['talent_name'] ?? $assignment['name'] ?? 'Usuario'),
-        'role' => (string) ($assignment['role'] ?? ''),
-        'can_review_documents' => (int) ($assignment['can_review_documents'] ?? 0) === 1,
-        'can_validate_documents' => (int) ($assignment['can_validate_documents'] ?? 0) === 1,
-        'can_approve_documents' => (int) ($assignment['can_approve_documents'] ?? 0) === 1,
-    ];
-}
-
 $documentFlowConfig = is_array($documentFlowConfig ?? null) ? $documentFlowConfig : [];
 $documentFlowExpectedDocs = is_array($documentFlowConfig['expected_docs'] ?? null) ? $documentFlowConfig['expected_docs'] : [];
 $documentFlowTagOptions = is_array($documentFlowConfig['tag_options'] ?? null) ? $documentFlowConfig['tag_options'] : [];
-
-$documentRoleOptions = [
-    'reviewer' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => $option['can_review_documents'])),
-    'validator' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => $option['can_validate_documents'])),
-    'approver' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => $option['can_approve_documents'])),
-];
 $expectedDocsForSubphase = [];
 if ($isSubphase) {
     $methodDocs = is_array($documentFlowExpectedDocs[$methodology] ?? null) ? $documentFlowExpectedDocs[$methodology] : [];
@@ -314,7 +296,6 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
                     $documentNode = $selectedNode;
                     $documentExpectedDocs = $expectedDocsForSubphase;
                     $documentTagOptions = $documentFlowTagOptions;
-                    $documentRoleOptions = $documentRoleOptions;
                     $documentKeyTags = $expectedDocsForSubphase;
                     $documentCanManage = $canManage;
                     $documentProjectId = (int) ($project['id'] ?? 0);
