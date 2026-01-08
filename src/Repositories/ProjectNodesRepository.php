@@ -360,12 +360,49 @@ class ProjectNodesRepository
             return [];
         }
 
+        $selectColumns = [
+            'id',
+            'parent_id',
+            'code',
+            'node_type',
+            'iso_clause',
+            'title',
+            'description',
+            'file_path',
+            'created_at',
+            'status',
+            'critical',
+            'completed_at',
+            'sort_order',
+        ];
+
+        $flowColumns = [
+            'reviewer_id',
+            'validator_id',
+            'approver_id',
+            'reviewed_by',
+            'reviewed_at',
+            'validated_by',
+            'validated_at',
+            'approved_by',
+            'approved_at',
+            'document_status',
+        ];
+
+        foreach ($flowColumns as $column) {
+            $selectColumns[] = $this->db->columnExists('project_nodes', $column)
+                ? $column
+                : sprintf('NULL AS %s', $column);
+        }
+
         $nodes = $this->db->fetchAll(
-            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at, status, critical, completed_at, sort_order,
-                    reviewer_id, validator_id, approver_id, reviewed_by, reviewed_at, validated_by, validated_at, approved_by, approved_at, document_status
-             FROM project_nodes
-             WHERE project_id = :project
-             ORDER BY parent_id IS NULL DESC, sort_order ASC, id ASC',
+            sprintf(
+                'SELECT %s
+                 FROM project_nodes
+                 WHERE project_id = :project
+                 ORDER BY parent_id IS NULL DESC, sort_order ASC, id ASC',
+                implode(', ', $selectColumns)
+            ),
             [':project' => $projectId]
         );
 
