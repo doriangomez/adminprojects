@@ -139,15 +139,16 @@ class ConfigController extends Controller
         $repo = new UsersRepository($this->db);
         $password = $_POST['password'] ?? '';
         $isAdmin = $this->auth->hasRole('Administrador');
+        $documentRoles = $this->documentRolePayload($isAdmin);
         $repo->create([
             'name' => $_POST['name'],
             'email' => $_POST['email'],
             'role_id' => (int) $_POST['role_id'],
             'password_hash' => password_hash($password, PASSWORD_BCRYPT),
             'active' => isset($_POST['active']) ? 1 : 0,
-            'can_review_documents' => $isAdmin && isset($_POST['can_review_documents']) ? 1 : 0,
-            'can_validate_documents' => $isAdmin && isset($_POST['can_validate_documents']) ? 1 : 0,
-            'can_approve_documents' => $isAdmin && isset($_POST['can_approve_documents']) ? 1 : 0,
+            'can_review_documents' => $documentRoles['can_review_documents'],
+            'can_validate_documents' => $documentRoles['can_validate_documents'],
+            'can_approve_documents' => $documentRoles['can_approve_documents'],
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -160,15 +161,18 @@ class ConfigController extends Controller
         $repo = new UsersRepository($this->db);
         $password = $_POST['password'] ?? '';
         $isAdmin = $this->auth->hasRole('Administrador');
-        $repo->update((int) $_POST['id'], [
+        $userId = (int) $_POST['id'];
+        $current = $repo->find($userId) ?? [];
+        $documentRoles = $this->documentRolePayload($isAdmin, $current);
+        $repo->update($userId, [
             'name' => $_POST['name'],
             'email' => $_POST['email'],
             'role_id' => (int) $_POST['role_id'],
             'password_hash' => $password ? password_hash($password, PASSWORD_BCRYPT) : null,
             'active' => isset($_POST['active']) ? 1 : 0,
-            'can_review_documents' => $isAdmin && isset($_POST['can_review_documents']) ? 1 : 0,
-            'can_validate_documents' => $isAdmin && isset($_POST['can_validate_documents']) ? 1 : 0,
-            'can_approve_documents' => $isAdmin && isset($_POST['can_approve_documents']) ? 1 : 0,
+            'can_review_documents' => $documentRoles['can_review_documents'],
+            'can_validate_documents' => $documentRoles['can_validate_documents'],
+            'can_approve_documents' => $documentRoles['can_approve_documents'],
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -308,6 +312,34 @@ class ConfigController extends Controller
         $decoded = json_decode($trimmed, true);
 
         return is_array($decoded) ? $decoded : $default;
+    }
+
+    private function documentRolePayload(bool $isAdmin, array $existing = []): array
+    {
+        if (!$isAdmin) {
+            return [
+                'can_review_documents' => (int) ($existing['can_review_documents'] ?? 0),
+                'can_validate_documents' => (int) ($existing['can_validate_documents'] ?? 0),
+                'can_approve_documents' => (int) ($existing['can_approve_documents'] ?? 0),
+            ];
+        }
+
+        return [
+            'can_review_documents' => $this->checkboxValue(['can_review_documents', 'can_reviewer']) ? 1 : 0,
+            'can_validate_documents' => $this->checkboxValue(['can_validate_documents', 'can_validator']) ? 1 : 0,
+            'can_approve_documents' => $this->checkboxValue(['can_approve_documents', 'can_approver']) ? 1 : 0,
+        ];
+    }
+
+    private function checkboxValue(array $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (isset($_POST[$key])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function ensureConfigAccess(): void
