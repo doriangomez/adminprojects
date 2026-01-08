@@ -53,6 +53,7 @@ class ConfigController extends Controller
             'riskCatalog' => $riskCatalog,
             'risksByCategory' => $risksByCategory,
             'savedMessage' => !empty($_GET['saved']) ? 'Preferencias actualizadas y aplicadas en la interfaz.' : null,
+            'isAdmin' => $this->auth->hasRole('Administrador'),
         ]);
     }
 
@@ -137,12 +138,16 @@ class ConfigController extends Controller
 
         $repo = new UsersRepository($this->db);
         $password = $_POST['password'] ?? '';
+        $isAdmin = $this->auth->hasRole('Administrador');
         $repo->create([
             'name' => $_POST['name'],
             'email' => $_POST['email'],
             'role_id' => (int) $_POST['role_id'],
             'password_hash' => password_hash($password, PASSWORD_BCRYPT),
             'active' => isset($_POST['active']) ? 1 : 0,
+            'can_review_documents' => $isAdmin && isset($_POST['can_review_documents']) ? 1 : 0,
+            'can_validate_documents' => $isAdmin && isset($_POST['can_validate_documents']) ? 1 : 0,
+            'can_approve_documents' => $isAdmin && isset($_POST['can_approve_documents']) ? 1 : 0,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -154,12 +159,16 @@ class ConfigController extends Controller
 
         $repo = new UsersRepository($this->db);
         $password = $_POST['password'] ?? '';
+        $isAdmin = $this->auth->hasRole('Administrador');
         $repo->update((int) $_POST['id'], [
             'name' => $_POST['name'],
             'email' => $_POST['email'],
             'role_id' => (int) $_POST['role_id'],
             'password_hash' => $password ? password_hash($password, PASSWORD_BCRYPT) : null,
             'active' => isset($_POST['active']) ? 1 : 0,
+            'can_review_documents' => $isAdmin && isset($_POST['can_review_documents']) ? 1 : 0,
+            'can_validate_documents' => $isAdmin && isset($_POST['can_validate_documents']) ? 1 : 0,
+            'can_approve_documents' => $isAdmin && isset($_POST['can_approve_documents']) ? 1 : 0,
         ]);
 
         header('Location: /project/public/config?saved=1');

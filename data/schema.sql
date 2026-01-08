@@ -36,6 +36,9 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role_id INT NOT NULL,
     active TINYINT(1) DEFAULT 1,
+    can_review_documents TINYINT(1) DEFAULT 0,
+    can_validate_documents TINYINT(1) DEFAULT 0,
+    can_approve_documents TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (role_id) REFERENCES roles(id)
