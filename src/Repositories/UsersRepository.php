@@ -50,36 +50,43 @@ class UsersRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO users (name, email, password_hash, role_id, active, created_at, updated_at)
-             VALUES (:name, :email, :password_hash, :role_id, :active, NOW(), NOW())',
+            'INSERT INTO users (name, email, password_hash, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, created_at, updated_at)
+             VALUES (:name, :email, :password_hash, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, NOW(), NOW())',
             [
                 ':name' => $payload['name'],
                 ':email' => $payload['email'],
                 ':password_hash' => $payload['password_hash'],
                 ':role_id' => $payload['role_id'],
                 ':active' => $payload['active'] ?? 1,
+                ':can_review_documents' => $payload['can_review_documents'] ?? 0,
+                ':can_validate_documents' => $payload['can_validate_documents'] ?? 0,
+                ':can_approve_documents' => $payload['can_approve_documents'] ?? 0,
             ]
         );
     }
 
     public function update(int $id, array $payload): void
     {
-        $fields = [
-            'name' => ':name',
-            'email' => ':email',
-            'role_id' => ':role_id',
-            'active' => ':active',
-        ];
-
         $params = [
             ':name' => $payload['name'],
             ':email' => $payload['email'],
             ':role_id' => $payload['role_id'],
             ':active' => $payload['active'] ?? 1,
+            ':can_review_documents' => $payload['can_review_documents'] ?? 0,
+            ':can_validate_documents' => $payload['can_validate_documents'] ?? 0,
+            ':can_approve_documents' => $payload['can_approve_documents'] ?? 0,
             ':id' => $id,
         ];
 
-        $setParts = ['name = :name', 'email = :email', 'role_id = :role_id', 'active = :active'];
+        $setParts = [
+            'name = :name',
+            'email = :email',
+            'role_id = :role_id',
+            'active = :active',
+            'can_review_documents = :can_review_documents',
+            'can_validate_documents = :can_validate_documents',
+            'can_approve_documents = :can_approve_documents',
+        ];
 
         if (!empty($payload['password_hash'])) {
             $setParts[] = 'password_hash = :password_hash';

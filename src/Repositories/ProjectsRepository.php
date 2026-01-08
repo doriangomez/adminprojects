@@ -511,10 +511,17 @@ class ProjectsRepository
 
         $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
 
-        $select = ['a.*', 'p.id AS project_id'];
+        $select = [
+            'a.*',
+            'p.id AS project_id',
+            'u.can_review_documents',
+            'u.can_validate_documents',
+            'u.can_approve_documents',
+        ];
         $joins = [
             'JOIN projects p ON p.id = a.project_id',
             'JOIN clients c ON c.id = p.client_id',
+            'JOIN users u ON u.id = a.user_id',
         ];
 
         if ($hasTalentColumn) {
@@ -525,7 +532,6 @@ class ProjectsRepository
             $select[] = 'u.name AS talent_name';
             $select[] = '0 AS weekly_capacity';
             $select[] = 'a.user_id AS talent_id';
-            $joins[] = 'LEFT JOIN users u ON u.id = a.user_id';
         }
 
         return $this->db->fetchAll(

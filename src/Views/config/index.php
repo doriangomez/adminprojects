@@ -382,6 +382,24 @@
                     <input type="checkbox" name="active" checked>
                     Usuario activo
                 </label>
+                <div class="config-flow-roles full-span">
+                    <strong>Roles del flujo documental</strong>
+                    <label class="option compact">
+                        <input type="checkbox" name="can_review_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                        Puede ser Revisor
+                    </label>
+                    <label class="option compact">
+                        <input type="checkbox" name="can_validate_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                        Puede ser Validador
+                    </label>
+                    <label class="option compact">
+                        <input type="checkbox" name="can_approve_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                        Puede ser Aprobador
+                    </label>
+                    <?php if (!$isAdmin): ?>
+                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                    <?php endif; ?>
+                </div>
                 <div class="form-footer">
                     <div></div>
                     <button class="btn primary" type="submit">Crear usuario</button>
@@ -421,6 +439,21 @@
                                                 <input type="checkbox" name="active" <?= ((int)$user['active'] === 1) ? 'checked' : '' ?>>
                                                 Activo
                                             </label>
+                                            <div class="config-flow-roles">
+                                                <strong>Flujo documental</strong>
+                                                <label class="option compact">
+                                                    <input type="checkbox" name="can_review_documents" <?= ((int) ($user['can_review_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    Revisor
+                                                </label>
+                                                <label class="option compact">
+                                                    <input type="checkbox" name="can_validate_documents" <?= ((int) ($user['can_validate_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    Validador
+                                                </label>
+                                                <label class="option compact">
+                                                    <input type="checkbox" name="can_approve_documents" <?= ((int) ($user['can_approve_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    Aprobador
+                                                </label>
+                                            </div>
                                             <button class="btn secondary" type="submit">Guardar</button>
                                         </form>
                                         <form method="POST" action="/project/public/config/users/deactivate" onsubmit="return confirm('Desactivar usuario?');">

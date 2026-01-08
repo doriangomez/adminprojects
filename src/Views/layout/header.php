@@ -305,6 +305,8 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
         .table-wrapper { overflow-x: auto; }
+        .config-flow-roles { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px dashed var(--border); border-radius:10px; background: var(--surface); }
+        .config-flow-roles strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
         @media (max-width: 1180px) {
             .section-grid.twothirds, .section-grid.wide { grid-template-columns: 1fr; }
         }

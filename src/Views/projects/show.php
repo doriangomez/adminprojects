@@ -94,28 +94,20 @@ foreach ($assignments as $assignment) {
         'id' => (int) ($assignment['talent_id'] ?? 0),
         'name' => (string) ($assignment['talent_name'] ?? $assignment['name'] ?? 'Usuario'),
         'role' => (string) ($assignment['role'] ?? ''),
+        'can_review_documents' => (int) ($assignment['can_review_documents'] ?? 0) === 1,
+        'can_validate_documents' => (int) ($assignment['can_validate_documents'] ?? 0) === 1,
+        'can_approve_documents' => (int) ($assignment['can_approve_documents'] ?? 0) === 1,
     ];
 }
 
 $documentFlowConfig = is_array($documentFlowConfig ?? null) ? $documentFlowConfig : [];
-$accessRoles = is_array($accessRoles ?? null) ? $accessRoles : [];
-$documentFlowDefaults = is_array($documentFlowConfig['default'] ?? null) ? $documentFlowConfig['default'] : [];
-$documentFlowPhaseOverrides = is_array($documentFlowConfig['phases'] ?? null) ? $documentFlowConfig['phases'] : [];
 $documentFlowExpectedDocs = is_array($documentFlowConfig['expected_docs'] ?? null) ? $documentFlowConfig['expected_docs'] : [];
 $documentFlowTagOptions = is_array($documentFlowConfig['tag_options'] ?? null) ? $documentFlowConfig['tag_options'] : [];
 
-$phaseFlowConfig = is_array($documentFlowPhaseOverrides[$phaseCodeForFlow] ?? null) ? $documentFlowPhaseOverrides[$phaseCodeForFlow] : [];
-$defaultRoles = !empty($accessRoles) ? $accessRoles : ['Administrador', 'PMO', 'Talento'];
-$documentFlowRoles = [
-    'reviewer' => array_values((array) ($phaseFlowConfig['reviewer_roles'] ?? $documentFlowDefaults['reviewer_roles'] ?? $defaultRoles)),
-    'validator' => array_values((array) ($phaseFlowConfig['validator_roles'] ?? $documentFlowDefaults['validator_roles'] ?? $defaultRoles)),
-    'approver' => array_values((array) ($phaseFlowConfig['approver_roles'] ?? $documentFlowDefaults['approver_roles'] ?? $defaultRoles)),
-];
-
 $documentRoleOptions = [
-    'reviewer' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => in_array($option['role'], $documentFlowRoles['reviewer'], true))),
-    'validator' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => in_array($option['role'], $documentFlowRoles['validator'], true))),
-    'approver' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => in_array($option['role'], $documentFlowRoles['approver'], true))),
+    'reviewer' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => $option['can_review_documents'])),
+    'validator' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => $option['can_validate_documents'])),
+    'approver' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => $option['can_approve_documents'])),
 ];
 $expectedDocsForSubphase = [];
 if ($isSubphase) {
