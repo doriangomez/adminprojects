@@ -101,4 +101,23 @@ class UsersRepository
     {
         $this->db->execute('UPDATE users SET active = 0, updated_at = NOW() WHERE id = :id', [':id' => $id]);
     }
+
+    public function byDocumentRole(string $role): array
+    {
+        $map = [
+            'reviewer' => 'can_review_documents',
+            'validator' => 'can_validate_documents',
+            'approver' => 'can_approve_documents',
+        ];
+
+        if (!isset($map[$role])) {
+            return [];
+        }
+
+        $column = $map[$role];
+
+        return $this->db->fetchAll(
+            "SELECT id, name FROM users WHERE active = 1 AND {$column} = 1 ORDER BY name ASC"
+        );
+    }
 }
