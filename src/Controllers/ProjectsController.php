@@ -13,6 +13,14 @@ class ProjectsController extends Controller
         'closing' => ['closing', 'closed'],
         'closed' => ['closed'],
     ];
+    private const DOCUMENT_STATUSES = [
+        'pendiente_revision',
+        'en_revision',
+        'validacion_pendiente',
+        'aprobacion_pendiente',
+        'aprobado',
+        'rechazado',
+    ];
 
     public function index(): void
     {
@@ -716,6 +724,114 @@ class ProjectsController extends Controller
         }
     }
 
+    public function saveDocumentFlow(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $payload = [
+                'reviewer_id' => $_POST['reviewer_id'] ?? null,
+                'validator_id' => $_POST['validator_id'] ?? null,
+                'approver_id' => $_POST['approver_id'] ?? null,
+                'document_status' => 'pendiente_revision',
+            ];
+
+            $repo = new ProjectNodesRepository($this->db);
+            $data = $repo->updateDocumentFlow($projectId, $nodeId, $payload);
+
+            $this->json(['status' => 'ok', 'data' => $data]);
+            return;
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json($this->nodeErrorResponse($e, 'No se pudo guardar el flujo documental.'), $status);
+            return;
+        }
+    }
+
+    public function updateDocumentStatus(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.view');
+
+        try {
+            $repo = new ProjectNodesRepository($this->db);
+            $node = $repo->findById($projectId, $nodeId);
+            if (!$node || ($node['node_type'] ?? '') !== 'file') {
+                throw new \InvalidArgumentException('Documento no encontrado.');
+            }
+
+            $currentUserId = (int) ($this->auth->user()['id'] ?? 0);
+            $action = trim((string) ($_POST['action'] ?? ''));
+            $documentStatus = trim((string) ($_POST['document_status'] ?? ''));
+            $status = $documentStatus !== '' ? $documentStatus : $this->statusFromDocumentAction($action);
+
+            if (!in_array($status, self::DOCUMENT_STATUSES, true)) {
+                throw new \InvalidArgumentException('Estado documental inválido.');
+            }
+
+            $nodeFlow = $repo->documentFlowForNode($projectId, $nodeId);
+            $payload = [
+                'document_status' => $status,
+                'reviewed_by' => $nodeFlow['reviewed_by'],
+                'reviewed_at' => $nodeFlow['reviewed_at'],
+                'validated_by' => $nodeFlow['validated_by'],
+                'validated_at' => $nodeFlow['validated_at'],
+                'approved_by' => $nodeFlow['approved_by'],
+                'approved_at' => $nodeFlow['approved_at'],
+            ];
+
+            $now = date('Y-m-d H:i:s');
+            $currentStatus = $nodeFlow['document_status'] ?? 'pendiente_revision';
+            $this->assertDocumentActionAllowed($action, $currentStatus, $nodeFlow, $currentUserId);
+
+            switch ($action) {
+                case 'send_review':
+                    $payload['document_status'] = 'en_revision';
+                    break;
+                case 'reviewed':
+                    $payload['document_status'] = 'validacion_pendiente';
+                    $payload['reviewed_by'] = $currentUserId;
+                    $payload['reviewed_at'] = $now;
+                    break;
+                case 'validated':
+                    $payload['document_status'] = 'aprobacion_pendiente';
+                    $payload['validated_by'] = $currentUserId;
+                    $payload['validated_at'] = $now;
+                    break;
+                case 'approved':
+                    $payload['document_status'] = 'aprobado';
+                    $payload['approved_by'] = $currentUserId;
+                    $payload['approved_at'] = $now;
+                    break;
+                case 'rejected':
+                    $payload['document_status'] = 'rechazado';
+                    if ($currentStatus === 'en_revision') {
+                        $payload['reviewed_by'] = $currentUserId;
+                        $payload['reviewed_at'] = $now;
+                    }
+                    if ($currentStatus === 'validacion_pendiente') {
+                        $payload['validated_by'] = $currentUserId;
+                        $payload['validated_at'] = $now;
+                    }
+                    if ($currentStatus === 'aprobacion_pendiente') {
+                        $payload['approved_by'] = $currentUserId;
+                        $payload['approved_at'] = $now;
+                    }
+                    break;
+                default:
+                    $payload['document_status'] = $status;
+                    break;
+            }
+
+            $data = $repo->updateDocumentStatus($projectId, $nodeId, $payload);
+            $this->json(['status' => 'ok', 'data' => $data]);
+            return;
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json($this->nodeErrorResponse($e, 'No se pudo actualizar el estado documental.'), $status);
+            return;
+        }
+    }
+
     public function approveDesignChange(int $projectId, int $changeId): void
     {
         $this->requirePermission('projects.manage');
@@ -927,6 +1043,72 @@ class ProjectsController extends Controller
         }
 
         return $response;
+    }
+
+    private function statusFromDocumentAction(string $action): string
+    {
+        return match ($action) {
+            'send_review' => 'en_revision',
+            'reviewed' => 'validacion_pendiente',
+            'validated' => 'aprobacion_pendiente',
+            'approved' => 'aprobado',
+            'rejected' => 'rechazado',
+            default => 'pendiente_revision',
+        };
+    }
+
+    private function assertDocumentActionAllowed(string $action, string $currentStatus, array $nodeFlow, int $currentUserId): void
+    {
+        $canManage = $this->auth->can('projects.manage');
+        $reviewerId = (int) ($nodeFlow['reviewer_id'] ?? 0);
+        $validatorId = (int) ($nodeFlow['validator_id'] ?? 0);
+        $approverId = (int) ($nodeFlow['approver_id'] ?? 0);
+
+        if ($action === 'send_review') {
+            if (!$canManage) {
+                throw new \InvalidArgumentException('No tienes permisos para enviar a revisión.');
+            }
+            if ($reviewerId === 0) {
+                throw new \InvalidArgumentException('Debes asignar un revisor antes de enviar.');
+            }
+            return;
+        }
+
+        if ($action === 'reviewed') {
+            if ($currentStatus !== 'en_revision' || $reviewerId !== $currentUserId) {
+                throw new \InvalidArgumentException('Solo el revisor asignado puede aprobar esta revisión.');
+            }
+            return;
+        }
+
+        if ($action === 'validated') {
+            if ($currentStatus !== 'validacion_pendiente' || $validatorId !== $currentUserId) {
+                throw new \InvalidArgumentException('Solo el validador asignado puede validar este documento.');
+            }
+            return;
+        }
+
+        if ($action === 'approved') {
+            if ($currentStatus !== 'aprobacion_pendiente' || $approverId !== $currentUserId) {
+                throw new \InvalidArgumentException('Solo el aprobador asignado puede aprobar este documento.');
+            }
+            return;
+        }
+
+        if ($action === 'rejected') {
+            $allowed = ($currentStatus === 'en_revision' && $reviewerId === $currentUserId)
+                || ($currentStatus === 'validacion_pendiente' && $validatorId === $currentUserId)
+                || ($currentStatus === 'aprobacion_pendiente' && $approverId === $currentUserId);
+
+            if (!$allowed) {
+                throw new \InvalidArgumentException('No tienes permisos para rechazar en este estado.');
+            }
+            return;
+        }
+
+        if (!$canManage) {
+            throw new \InvalidArgumentException('No tienes permisos para actualizar este documento.');
+        }
     }
 
     private function logProjectDeletion(

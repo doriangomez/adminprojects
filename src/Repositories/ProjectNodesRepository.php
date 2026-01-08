@@ -361,7 +361,8 @@ class ProjectNodesRepository
         }
 
         $nodes = $this->db->fetchAll(
-            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at, status, critical, completed_at, sort_order
+            'SELECT id, parent_id, code, node_type, iso_clause, title, description, file_path, created_at, status, critical, completed_at, sort_order,
+                    reviewer_id, validator_id, approver_id, reviewed_by, reviewed_at, validated_by, validated_at, approved_by, approved_at, document_status
              FROM project_nodes
              WHERE project_id = :project
              ORDER BY parent_id IS NULL DESC, sort_order ASC, id ASC',
@@ -381,6 +382,16 @@ class ProjectNodesRepository
                     'storage_path' => $node['file_path'],
                     'created_at' => $node['created_at'],
                     'iso_clause' => $node['iso_clause'] ?? null,
+                    'reviewer_id' => $node['reviewer_id'] !== null ? (int) $node['reviewer_id'] : null,
+                    'validator_id' => $node['validator_id'] !== null ? (int) $node['validator_id'] : null,
+                    'approver_id' => $node['approver_id'] !== null ? (int) $node['approver_id'] : null,
+                    'reviewed_by' => $node['reviewed_by'] !== null ? (int) $node['reviewed_by'] : null,
+                    'reviewed_at' => $node['reviewed_at'] ?? null,
+                    'validated_by' => $node['validated_by'] !== null ? (int) $node['validated_by'] : null,
+                    'validated_at' => $node['validated_at'] ?? null,
+                    'approved_by' => $node['approved_by'] !== null ? (int) $node['approved_by'] : null,
+                    'approved_at' => $node['approved_at'] ?? null,
+                    'document_status' => $node['document_status'] ?? 'pendiente_revision',
                 ];
                 continue;
             }
@@ -419,6 +430,113 @@ class ProjectNodesRepository
         unset($folder);
 
         return $tree;
+    }
+
+    public function updateDocumentFlow(int $projectId, int $fileNodeId, array $payload): array
+    {
+        $this->assertTable();
+        $node = $this->findNode($projectId, $fileNodeId);
+        if (!$node || ($node['node_type'] ?? '') !== 'file') {
+            throw new \InvalidArgumentException('Documento no encontrado.');
+        }
+
+        $reviewerId = isset($payload['reviewer_id']) && $payload['reviewer_id'] !== '' ? (int) $payload['reviewer_id'] : null;
+        $validatorId = isset($payload['validator_id']) && $payload['validator_id'] !== '' ? (int) $payload['validator_id'] : null;
+        $approverId = isset($payload['approver_id']) && $payload['approver_id'] !== '' ? (int) $payload['approver_id'] : null;
+
+        $this->db->execute(
+            'UPDATE project_nodes
+             SET reviewer_id = :reviewer_id,
+                 validator_id = :validator_id,
+                 approver_id = :approver_id,
+                 reviewed_by = NULL,
+                 reviewed_at = NULL,
+                 validated_by = NULL,
+                 validated_at = NULL,
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 document_status = :document_status
+             WHERE id = :id AND project_id = :project_id',
+            [
+                ':reviewer_id' => $reviewerId,
+                ':validator_id' => $validatorId,
+                ':approver_id' => $approverId,
+                ':document_status' => $payload['document_status'] ?? 'pendiente_revision',
+                ':id' => $fileNodeId,
+                ':project_id' => $projectId,
+            ]
+        );
+
+        return $this->documentFlowForNode($projectId, $fileNodeId);
+    }
+
+    public function updateDocumentStatus(int $projectId, int $fileNodeId, array $payload): array
+    {
+        $this->assertTable();
+        $node = $this->findNode($projectId, $fileNodeId);
+        if (!$node || ($node['node_type'] ?? '') !== 'file') {
+            throw new \InvalidArgumentException('Documento no encontrado.');
+        }
+
+        $fields = [
+            'document_status' => $payload['document_status'] ?? 'pendiente_revision',
+            'reviewed_by' => $payload['reviewed_by'] ?? null,
+            'reviewed_at' => $payload['reviewed_at'] ?? null,
+            'validated_by' => $payload['validated_by'] ?? null,
+            'validated_at' => $payload['validated_at'] ?? null,
+            'approved_by' => $payload['approved_by'] ?? null,
+            'approved_at' => $payload['approved_at'] ?? null,
+        ];
+
+        $setClauses = [];
+        $params = [
+            ':id' => $fileNodeId,
+            ':project_id' => $projectId,
+        ];
+
+        foreach ($fields as $field => $value) {
+            $setClauses[] = "{$field} = :{$field}";
+            $params[":{$field}"] = $value;
+        }
+
+        $this->db->execute(
+            'UPDATE project_nodes SET ' . implode(', ', $setClauses) . ' WHERE id = :id AND project_id = :project_id',
+            $params
+        );
+
+        return $this->documentFlowForNode($projectId, $fileNodeId);
+    }
+
+    public function documentFlowForNode(int $projectId, int $fileNodeId): array
+    {
+        $this->assertTable();
+        $row = $this->db->fetchOne(
+            'SELECT id, reviewer_id, validator_id, approver_id, reviewed_by, reviewed_at, validated_by, validated_at, approved_by, approved_at, document_status
+             FROM project_nodes
+             WHERE id = :id AND project_id = :project_id',
+            [
+                ':id' => $fileNodeId,
+                ':project_id' => $projectId,
+            ]
+        );
+
+        if (!$row) {
+            throw new \InvalidArgumentException('Documento no encontrado.');
+        }
+
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'reviewer_id' => $row['reviewer_id'] !== null ? (int) $row['reviewer_id'] : null,
+            'validator_id' => $row['validator_id'] !== null ? (int) $row['validator_id'] : null,
+            'approver_id' => $row['approver_id'] !== null ? (int) $row['approver_id'] : null,
+            'reviewed_by' => $row['reviewed_by'] !== null ? (int) $row['reviewed_by'] : null,
+            'reviewed_at' => $row['reviewed_at'] ?? null,
+            'validated_by' => $row['validated_by'] !== null ? (int) $row['validated_by'] : null,
+            'validated_at' => $row['validated_at'] ?? null,
+            'approved_by' => $row['approved_by'] !== null ? (int) $row['approved_by'] : null,
+            'approved_at' => $row['approved_at'] ?? null,
+            'document_status' => $row['document_status'] ?? 'pendiente_revision',
+        ];
     }
 
     public function updateNodeStatus(int $projectId, int $nodeId, string $status): void
@@ -1747,7 +1865,8 @@ class ProjectNodesRepository
     private function findNode(int $projectId, int $nodeId): ?array
     {
         return $this->db->fetchOne(
-            'SELECT id, project_id, parent_id, node_type, iso_clause, code, file_path, title FROM project_nodes WHERE id = :id AND project_id = :project_id',
+            'SELECT id, project_id, parent_id, node_type, iso_clause, code, file_path, title, reviewer_id, validator_id, approver_id, document_status
+             FROM project_nodes WHERE id = :id AND project_id = :project_id',
             [
                 ':id' => $nodeId,
                 ':project_id' => $projectId,

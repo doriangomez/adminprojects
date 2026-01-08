@@ -575,9 +575,16 @@ class DatabaseMigrator
                 sort_order INT NOT NULL DEFAULT 0,
                 file_path VARCHAR(255) NULL,
                 created_by INT NULL,
+                reviewer_id INT NULL,
+                validator_id INT NULL,
+                approver_id INT NULL,
                 reviewed_by INT NULL,
+                reviewed_at DATETIME NULL,
                 validated_by INT NULL,
+                validated_at DATETIME NULL,
                 approved_by INT NULL,
+                approved_at DATETIME NULL,
+                document_status VARCHAR(40) NOT NULL DEFAULT 'pendiente_revision',
                 status VARCHAR(40) NOT NULL DEFAULT 'pendiente',
                 critical TINYINT(1) NOT NULL DEFAULT 0,
                 completed_at DATETIME NULL,
@@ -586,6 +593,9 @@ class DatabaseMigrator
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 FOREIGN KEY (parent_id) REFERENCES project_nodes(id) ON DELETE CASCADE,
                 FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (reviewer_id) REFERENCES users(id),
+                FOREIGN KEY (validator_id) REFERENCES users(id),
+                FOREIGN KEY (approver_id) REFERENCES users(id),
                 FOREIGN KEY (reviewed_by) REFERENCES users(id),
                 FOREIGN KEY (validated_by) REFERENCES users(id),
                 FOREIGN KEY (approved_by) REFERENCES users(id)
@@ -706,19 +716,78 @@ class DatabaseMigrator
             $this->db->clearColumnCache();
         }
 
+        if (!$this->db->columnExists('project_nodes', 'reviewer_id')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN reviewer_id INT NULL AFTER created_by');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'validator_id')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN validator_id INT NULL AFTER reviewer_id');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'approver_id')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN approver_id INT NULL AFTER validator_id');
+            $this->db->clearColumnCache();
+        }
+
         if (!$this->db->columnExists('project_nodes', 'reviewed_by')) {
-            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN reviewed_by INT NULL AFTER created_by');
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN reviewed_by INT NULL AFTER approver_id');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'reviewed_at')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN reviewed_at DATETIME NULL AFTER reviewed_by');
             $this->db->clearColumnCache();
         }
 
         if (!$this->db->columnExists('project_nodes', 'validated_by')) {
-            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN validated_by INT NULL AFTER reviewed_by');
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN validated_by INT NULL AFTER reviewed_at');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'validated_at')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN validated_at DATETIME NULL AFTER validated_by');
             $this->db->clearColumnCache();
         }
 
         if (!$this->db->columnExists('project_nodes', 'approved_by')) {
-            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN approved_by INT NULL AFTER validated_by');
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN approved_by INT NULL AFTER validated_at');
             $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'approved_at')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN approved_at DATETIME NULL AFTER approved_by');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('project_nodes', 'document_status')) {
+            $this->db->execute("ALTER TABLE project_nodes ADD COLUMN document_status VARCHAR(40) NOT NULL DEFAULT 'pendiente_revision' AFTER approved_at");
+            $this->db->clearColumnCache();
+        }
+
+        try {
+            if ($this->db->columnExists('project_nodes', 'reviewer_id')) {
+                $this->db->execute('ALTER TABLE project_nodes ADD CONSTRAINT fk_project_nodes_reviewer_id FOREIGN KEY (reviewer_id) REFERENCES users(id)');
+            }
+        } catch (\Throwable) {
+            // Ignorar si ya existe la clave foránea
+        }
+
+        try {
+            if ($this->db->columnExists('project_nodes', 'validator_id')) {
+                $this->db->execute('ALTER TABLE project_nodes ADD CONSTRAINT fk_project_nodes_validator_id FOREIGN KEY (validator_id) REFERENCES users(id)');
+            }
+        } catch (\Throwable) {
+            // Ignorar si ya existe la clave foránea
+        }
+
+        try {
+            if ($this->db->columnExists('project_nodes', 'approver_id')) {
+                $this->db->execute('ALTER TABLE project_nodes ADD CONSTRAINT fk_project_nodes_approver_id FOREIGN KEY (approver_id) REFERENCES users(id)');
+            }
+        } catch (\Throwable) {
+            // Ignorar si ya existe la clave foránea
         }
 
         try {
