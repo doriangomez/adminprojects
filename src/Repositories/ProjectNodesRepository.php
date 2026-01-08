@@ -234,9 +234,14 @@ class ProjectNodesRepository
             $isoClause = $meta['iso_clause'] ?? $this->resolveIsoClause($projectId, $parentId);
             $description = $meta['description'] ?? null;
 
+            $reviewerId = isset($meta['reviewer_id']) && $meta['reviewer_id'] !== '' ? (int) $meta['reviewer_id'] : null;
+            $validatorId = isset($meta['validator_id']) && $meta['validator_id'] !== '' ? (int) $meta['validator_id'] : null;
+            $approverId = isset($meta['approver_id']) && $meta['approver_id'] !== '' ? (int) $meta['approver_id'] : null;
+            $documentStatus = $meta['document_status'] ?? 'pendiente_revision';
+
             $nodeId = $this->db->insert(
-                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by)
-                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by)',
+                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by, reviewer_id, validator_id, approver_id, document_status)
+                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by, :reviewer_id, :validator_id, :approver_id, :document_status)',
                 [
                     ':project_id' => $projectId,
                     ':parent_id' => $parentId,
@@ -248,6 +253,10 @@ class ProjectNodesRepository
                     ':sort_order' => $sortOrder,
                     ':file_path' => null,
                     ':created_by' => $userId ?: null,
+                    ':reviewer_id' => $reviewerId,
+                    ':validator_id' => $validatorId,
+                    ':approver_id' => $approverId,
+                    ':document_status' => $documentStatus,
                 ]
             );
 

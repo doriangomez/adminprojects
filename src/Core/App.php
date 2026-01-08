@@ -171,6 +171,18 @@ class App
                 $controller->saveDocumentFlow((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-review-approve$#', $path, $matches) && $method === 'POST') {
+                $controller->approveDocumentReview((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-validate$#', $path, $matches) && $method === 'POST') {
+                $controller->validateDocument((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-approve$#', $path, $matches) && $method === 'POST') {
+                $controller->approveDocumentFinal((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-status$#', $path, $matches) && $method === 'POST') {
                 $controller->updateDocumentStatus((int) $matches[1], (int) $matches[2]);
                 return;
