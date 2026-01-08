@@ -76,7 +76,17 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                     <span>Acciones</span>
                 </div>
                 <?php foreach ($documentFiles as $file): ?>
-                    <div class="document-file-row" data-file-row data-file-id="<?= (int) ($file['id'] ?? 0) ?>">
+                    <div class="document-file-row" data-file-row data-file-id="<?= (int) ($file['id'] ?? 0) ?>"
+                         data-reviewer-id="<?= htmlspecialchars((string) ($file['reviewer_id'] ?? '')) ?>"
+                         data-validator-id="<?= htmlspecialchars((string) ($file['validator_id'] ?? '')) ?>"
+                         data-approver-id="<?= htmlspecialchars((string) ($file['approver_id'] ?? '')) ?>"
+                         data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'pendiente_revision')) ?>"
+                         data-reviewed-by="<?= htmlspecialchars((string) ($file['reviewed_by'] ?? '')) ?>"
+                         data-reviewed-at="<?= htmlspecialchars((string) ($file['reviewed_at'] ?? '')) ?>"
+                         data-validated-by="<?= htmlspecialchars((string) ($file['validated_by'] ?? '')) ?>"
+                         data-validated-at="<?= htmlspecialchars((string) ($file['validated_at'] ?? '')) ?>"
+                         data-approved-by="<?= htmlspecialchars((string) ($file['approved_by'] ?? '')) ?>"
+                         data-approved-at="<?= htmlspecialchars((string) ($file['approved_at'] ?? '')) ?>">
                         <div>
                             <strong><?= htmlspecialchars($file['file_name'] ?? $file['title'] ?? '') ?></strong>
                             <small class="section-muted">Subido: <?= htmlspecialchars((string) ($file['created_at'] ?? '')) ?></small>
@@ -100,11 +110,14 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                         </div>
                         <div>
                             <span class="status-pill status-pending" data-status-label>Pendiente</span>
-                            <button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>
+                            <?php if ($documentCanManage): ?>
+                                <button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>
+                            <?php endif; ?>
                             <div class="review-actions" data-review-actions hidden>
-                                <button type="button" class="action-btn small" data-action="reviewed">Marcar como Revisado</button>
-                                <button type="button" class="action-btn small" data-action="validated">Marcar como Validado</button>
-                                <button type="button" class="action-btn small primary" data-action="approved">Marcar como Aprobado</button>
+                                <button type="button" class="action-btn small" data-action="reviewed">Aprobar revisión</button>
+                                <button type="button" class="action-btn small" data-action="validated">Validar documento</button>
+                                <button type="button" class="action-btn small primary" data-action="approved">Aprobar documento</button>
+                                <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
                             </div>
                         </div>
                         <div class="file-actions">
@@ -138,6 +151,9 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                                         <option value="">Seleccionar</option>
                                     </select>
                                 </label>
+                            </div>
+                            <div class="flow-actions">
+                                <button type="button" class="action-btn small primary" data-save-flow>Guardar flujo</button>
                             </div>
                             <small class="section-muted">Asigna responsables para habilitar las acciones por rol.</small>
                         </div>
@@ -183,8 +199,10 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
     .flow-grid label { display:flex; flex-direction:column; gap:4px; font-size:13px; color: var(--text-strong); }
     .flow-grid select { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .review-actions { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+    .review-actions .danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
     .document-alert { background:#fef3c7; color:#92400e; padding:8px 10px; border-radius:10px; font-size:13px; display:flex; flex-direction:column; gap:4px; min-width:200px; }
     .file-trace { margin-top:6px; font-size:12px; color: var(--muted); }
+    .flow-actions { display:flex; justify-content:flex-end; margin-bottom:6px; }
     @media (max-width: 900px) {
         .document-file-row { grid-template-columns: 1fr; }
         .document-file-head { display:none; }
@@ -203,10 +221,12 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         const roleCache = new Map();
 
         const statusConfig = {
-            pendiente: { label: 'Pendiente', className: 'status-pending' },
-            revision: { label: 'En revisión', className: 'status-review' },
-            validado: { label: 'Validado', className: 'status-validated' },
-            aprobado: { label: 'Aprobado', className: 'status-approved' }
+            pendiente_revision: { label: 'Pendiente de revisión', className: 'status-pending' },
+            en_revision: { label: 'En revisión', className: 'status-review' },
+            validacion_pendiente: { label: 'Validación pendiente', className: 'status-review' },
+            aprobacion_pendiente: { label: 'Aprobación pendiente', className: 'status-review' },
+            aprobado: { label: 'Aprobado', className: 'status-approved' },
+            rechazado: { label: 'Rechazado', className: 'status-pending' }
         };
 
         const updateAlert = () => {
@@ -221,7 +241,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
 
             root.querySelectorAll('[data-file-row]').forEach(row => {
                 const tags = row.dataset.tags ? row.dataset.tags.split('|').filter(Boolean) : [];
-                const status = row.dataset.status || 'pendiente';
+                const status = row.dataset.documentStatus || 'pendiente_revision';
                 tags.forEach(tag => {
                     if (summary[tag]) {
                         if (status === 'aprobado') {
@@ -257,13 +277,13 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         };
 
         const updateStatus = (row, statusKey, traceNote) => {
-            const config = statusConfig[statusKey] || statusConfig.pendiente;
+            const config = statusConfig[statusKey] || statusConfig.pendiente_revision;
             const label = row.querySelector('[data-status-label]');
             if (label) {
                 label.textContent = config.label;
                 label.className = `status-pill ${config.className}`;
             }
-            row.dataset.status = statusKey;
+            row.dataset.documentStatus = statusKey;
             const trace = row.querySelector('[data-file-trace]');
             if (trace && traceNote) {
                 const now = new Date();
@@ -272,14 +292,44 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             updateAlert();
         };
 
+        const updateTraceFromData = (row) => {
+            const trace = row.querySelector('[data-file-trace]');
+            if (!trace) return;
+            const status = row.dataset.documentStatus || 'pendiente_revision';
+            const traceMap = [
+                { status: 'aprobado', by: row.dataset.approvedBy, at: row.dataset.approvedAt, label: 'Aprobado' },
+                { status: 'aprobacion_pendiente', by: row.dataset.validatedBy, at: row.dataset.validatedAt, label: 'Validado' },
+                { status: 'validacion_pendiente', by: row.dataset.reviewedBy, at: row.dataset.reviewedAt, label: 'Revisado' },
+                { status: 'en_revision', by: row.dataset.reviewedBy, at: row.dataset.reviewedAt, label: 'En revisión' },
+                { status: 'rechazado', by: row.dataset.approvedBy || row.dataset.validatedBy || row.dataset.reviewedBy, at: row.dataset.approvedAt || row.dataset.validatedAt || row.dataset.reviewedAt, label: 'Rechazado' },
+            ];
+
+            const entry = traceMap.find(item => item.status === status && item.by && item.at);
+            if (!entry) {
+                return;
+            }
+
+            trace.textContent = `${entry.label} · Usuario #${entry.by} · ${entry.at}`;
+        };
+
         const updateRoleActions = (row) => {
             const actions = row.querySelector('[data-review-actions]');
             if (!actions) return;
             const reviewer = row.dataset.reviewerId;
             const validator = row.dataset.validatorId;
             const approver = row.dataset.approverId;
-            const shouldShow = [reviewer, validator, approver].some(id => Number(id) === currentUserId);
+            const status = row.dataset.documentStatus || 'pendiente_revision';
+            const shouldShow = (status === 'en_revision' && Number(reviewer) === currentUserId)
+                || (status === 'validacion_pendiente' && Number(validator) === currentUserId)
+                || (status === 'aprobacion_pendiente' && Number(approver) === currentUserId);
             actions.hidden = !shouldShow;
+        };
+
+        const toggleSendReview = (row) => {
+            const button = row.querySelector('[data-send-review]');
+            if (!button) return;
+            const status = row.dataset.documentStatus || 'pendiente_revision';
+            button.hidden = status !== 'pendiente_revision';
         };
 
         const setRoleSelectLoading = (select) => {
@@ -322,6 +372,17 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             });
         };
 
+        const applyRoleSelection = (select) => {
+            const row = select.closest('[data-file-row]');
+            if (!row) return;
+            const role = select.dataset.roleSelect;
+            const key = `${role}Id`;
+            const value = row.dataset[key];
+            if (value) {
+                select.value = value;
+            }
+        };
+
         const loadRoleOptions = async (role, select) => {
             if (!role) return;
             if (roleCache.has(role)) {
@@ -330,6 +391,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                     setRoleSelectEmpty(select);
                 } else {
                     setRoleSelectOptions(select, cached);
+                    applyRoleSelection(select);
                 }
                 return;
             }
@@ -354,6 +416,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                     setRoleSelectEmpty(select);
                 } else {
                     setRoleSelectOptions(select, users);
+                    applyRoleSelection(select);
                 }
             } catch (error) {
                 roleCache.set(role, []);
@@ -363,7 +426,11 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
 
         root.querySelectorAll('[data-file-row]').forEach(row => {
             updateTagsDisplay(row, []);
-            updateStatus(row, 'pendiente');
+            const status = row.dataset.documentStatus || 'pendiente_revision';
+            updateStatus(row, status);
+            updateTraceFromData(row);
+            updateRoleActions(row);
+            toggleSendReview(row);
         });
 
         root.querySelectorAll('select[data-role-select]').forEach(select => {
@@ -416,24 +483,114 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             const sendReview = event.target.closest('[data-send-review]');
             if (sendReview) {
                 const row = sendReview.closest('[data-file-row]');
-                updateStatus(row, 'revision', 'Enviado a revisión');
+                const fileId = row.dataset.fileId;
+                sendReview.disabled = true;
+                fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new URLSearchParams({ action: 'send_review' }),
+                })
+                    .then(response => response.json())
+                    .then(payload => {
+                        if (payload.status !== 'ok') {
+                            throw new Error(payload.message || 'No se pudo enviar a revisión.');
+                        }
+                        updateFlowRow(row, payload.data, 'Enviado a revisión');
+                    })
+                    .catch(error => {
+                        alert(error.message);
+                    })
+                    .finally(() => {
+                        sendReview.disabled = false;
+                    });
             }
 
             const actionBtn = event.target.closest('[data-action]');
             if (actionBtn) {
                 const row = actionBtn.closest('[data-file-row]');
                 const action = actionBtn.dataset.action;
-                if (action === 'reviewed' && row.dataset.reviewerId && Number(row.dataset.reviewerId) === currentUserId) {
-                    updateStatus(row, 'revision', 'Revisado');
-                }
-                if (action === 'validated' && row.dataset.validatorId && Number(row.dataset.validatorId) === currentUserId) {
-                    updateStatus(row, 'validado', 'Validado');
-                }
-                if (action === 'approved' && row.dataset.approverId && Number(row.dataset.approverId) === currentUserId) {
-                    updateStatus(row, 'aprobado', 'Aprobado');
-                }
+                const fileId = row.dataset.fileId;
+                actionBtn.disabled = true;
+                fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new URLSearchParams({ action }),
+                })
+                    .then(response => response.json())
+                    .then(payload => {
+                        if (payload.status !== 'ok') {
+                            throw new Error(payload.message || 'No se pudo actualizar el estado.');
+                        }
+                        updateFlowRow(row, payload.data, 'Estado actualizado');
+                    })
+                    .catch(error => {
+                        alert(error.message);
+                    })
+                    .finally(() => {
+                        actionBtn.disabled = false;
+                    });
+            }
+
+            const saveFlow = event.target.closest('[data-save-flow]');
+            if (saveFlow) {
+                const row = saveFlow.closest('[data-file-row]');
+                const fileId = row.dataset.fileId;
+                const reviewerId = row.dataset.reviewerId || '';
+                const validatorId = row.dataset.validatorId || '';
+                const approverId = row.dataset.approverId || '';
+                saveFlow.disabled = true;
+                fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-flow`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new URLSearchParams({
+                        reviewer_id: reviewerId,
+                        validator_id: validatorId,
+                        approver_id: approverId,
+                    }),
+                })
+                    .then(response => response.json())
+                    .then(payload => {
+                        if (payload.status !== 'ok') {
+                            throw new Error(payload.message || 'No se pudo guardar el flujo.');
+                        }
+                        updateFlowRow(row, payload.data, 'Flujo guardado');
+                    })
+                    .catch(error => {
+                        alert(error.message);
+                    })
+                    .finally(() => {
+                        saveFlow.disabled = false;
+                    });
             }
         });
+
+        const updateFlowRow = (row, data, traceNote) => {
+            row.dataset.reviewerId = data.reviewer_id ?? '';
+            row.dataset.validatorId = data.validator_id ?? '';
+            row.dataset.approverId = data.approver_id ?? '';
+            row.dataset.documentStatus = data.document_status ?? 'pendiente_revision';
+            row.dataset.reviewedBy = data.reviewed_by ?? '';
+            row.dataset.reviewedAt = data.reviewed_at ?? '';
+            row.dataset.validatedBy = data.validated_by ?? '';
+            row.dataset.validatedAt = data.validated_at ?? '';
+            row.dataset.approvedBy = data.approved_by ?? '';
+            row.dataset.approvedAt = data.approved_at ?? '';
+            updateStatus(row, row.dataset.documentStatus, traceNote);
+            if (!traceNote) {
+                updateTraceFromData(row);
+            }
+            updateRoleActions(row);
+            toggleSendReview(row);
+        };
 
         const uploadInput = root.querySelector('.upload-form input[type="file"]');
         const preview = root.querySelector('[data-upload-preview]');

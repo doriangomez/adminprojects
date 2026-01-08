@@ -167,6 +167,14 @@ class App
                 $controller->deleteNode((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-flow$#', $path, $matches) && $method === 'POST') {
+                $controller->saveDocumentFlow((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateDocumentStatus((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)$#', $path, $matches) && $method === 'DELETE') {
                 $controller->deleteNode((int) $matches[1], (int) $matches[2]);
                 return;
