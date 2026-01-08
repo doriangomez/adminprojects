@@ -3,7 +3,6 @@ $documentFlowId = $documentFlowId ?? ('document-flow-' . bin2hex(random_bytes(4)
 $documentNode = is_array($documentNode ?? null) ? $documentNode : [];
 $documentExpectedDocs = is_array($documentExpectedDocs ?? null) ? $documentExpectedDocs : [];
 $documentTagOptions = is_array($documentTagOptions ?? null) ? $documentTagOptions : [];
-$documentRoleOptions = is_array($documentRoleOptions ?? null) ? $documentRoleOptions : [];
 $documentKeyTags = is_array($documentKeyTags ?? null) ? $documentKeyTags : $documentExpectedDocs;
 $documentCanManage = !empty($documentCanManage);
 $documentProjectId = (int) ($documentProjectId ?? 0);
@@ -13,16 +12,6 @@ $documentFiles = is_array($documentNode['files'] ?? null) ? $documentNode['files
 $documentNodeName = (string) ($documentNode['name'] ?? $documentNode['title'] ?? $documentNode['code'] ?? 'Subfase');
 $documentNodeCode = (string) ($documentNode['code'] ?? '');
 
-$renderRoleOptions = static function (array $options): void {
-    if (empty($options)) {
-        echo '<option value="" disabled>Sin usuarios disponibles</option>';
-        return;
-    }
-
-    foreach ($options as $option) {
-        echo '<option value="' . (int) ($option['id'] ?? 0) . '">' . htmlspecialchars($option['name'] ?? 'Usuario') . '</option>';
-    }
-};
 ?>
 
 <section class="document-flow" data-document-flow="<?= htmlspecialchars($documentFlowId) ?>">
@@ -135,21 +124,18 @@ $renderRoleOptions = static function (array $options): void {
                                     <span>Revisor</span>
                                     <select data-role-select="reviewer">
                                         <option value="">Seleccionar</option>
-                                        <?php $renderRoleOptions($documentRoleOptions['reviewer'] ?? []); ?>
                                     </select>
                                 </label>
                                 <label>
                                     <span>Validador</span>
                                     <select data-role-select="validator">
                                         <option value="">Seleccionar</option>
-                                        <?php $renderRoleOptions($documentRoleOptions['validator'] ?? []); ?>
                                     </select>
                                 </label>
                                 <label>
                                     <span>Aprobador</span>
                                     <select data-role-select="approver">
                                         <option value="">Seleccionar</option>
-                                        <?php $renderRoleOptions($documentRoleOptions['approver'] ?? []); ?>
                                     </select>
                                 </label>
                             </div>
@@ -213,6 +199,8 @@ $renderRoleOptions = static function (array $options): void {
         const currentUserId = <?= (int) ($documentCurrentUser['id'] ?? 0) ?>;
         const currentUserName = <?= json_encode((string) ($documentCurrentUser['name'] ?? 'Usuario')) ?>;
         const keyTags = <?= json_encode(array_values($documentKeyTags)) ?>;
+        const basePath = <?= json_encode((string) $documentBasePath) ?>;
+        const roleCache = new Map();
 
         const statusConfig = {
             pendiente: { label: 'Pendiente', className: 'status-pending' },
@@ -294,9 +282,93 @@ $renderRoleOptions = static function (array $options): void {
             actions.hidden = !shouldShow;
         };
 
+        const setRoleSelectLoading = (select) => {
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Cargando...';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+        };
+
+        const setRoleSelectEmpty = (select) => {
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seleccionar';
+            select.appendChild(placeholder);
+
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = 'No hay usuarios disponibles para este rol';
+            emptyOption.disabled = true;
+            select.appendChild(emptyOption);
+        };
+
+        const setRoleSelectOptions = (select, users) => {
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Seleccionar';
+            select.appendChild(placeholder);
+
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                const label = user.name ? `${user.name} (#${user.id})` : `Usuario (#${user.id})`;
+                option.textContent = label;
+                select.appendChild(option);
+            });
+        };
+
+        const loadRoleOptions = async (role, select) => {
+            if (!role) return;
+            if (roleCache.has(role)) {
+                const cached = roleCache.get(role);
+                if (cached.length === 0) {
+                    setRoleSelectEmpty(select);
+                } else {
+                    setRoleSelectOptions(select, cached);
+                }
+                return;
+            }
+
+            setRoleSelectLoading(select);
+            try {
+                const response = await fetch(`${basePath}/users?role=${encodeURIComponent(role)}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                if (!response.ok) {
+                    roleCache.set(role, []);
+                    setRoleSelectEmpty(select);
+                    return;
+                }
+                const payload = await response.json();
+                const users = Array.isArray(payload.users) ? payload.users : [];
+                roleCache.set(role, users);
+                if (users.length === 0) {
+                    setRoleSelectEmpty(select);
+                } else {
+                    setRoleSelectOptions(select, users);
+                }
+            } catch (error) {
+                roleCache.set(role, []);
+                setRoleSelectEmpty(select);
+            }
+        };
+
         root.querySelectorAll('[data-file-row]').forEach(row => {
             updateTagsDisplay(row, []);
             updateStatus(row, 'pendiente');
+        });
+
+        root.querySelectorAll('select[data-role-select]').forEach(select => {
+            const role = select.dataset.roleSelect;
+            loadRoleOptions(role, select);
         });
 
         root.addEventListener('change', (event) => {

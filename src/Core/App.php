@@ -58,6 +58,11 @@ class App
             return;
         }
 
+        if ($path === '/users' && $method === 'GET') {
+            (new UsersController($this->db, $this->auth))->index();
+            return;
+        }
+
         if (str_starts_with($path, '/clients')) {
             $controller = new ClientsController($this->db, $this->auth);
             if ($path === '/clients/create') {
