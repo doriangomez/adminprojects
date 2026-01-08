@@ -41,10 +41,120 @@ class ConfigService
             ],
             'phases' => [],
             'expected_docs' => [
-                'Propuesta comercial',
-                'Cotización',
-                'Alcance técnico inicial',
-                'Requerimientos base',
+                'cascada' => [
+                    'default' => [
+                        '01-ENTRADAS' => [
+                            'Acta de inicio',
+                            'Stakeholders iniciales',
+                            'Requerimientos base',
+                        ],
+                        '02-PLANIFICACION' => [
+                            'Plan del proyecto',
+                            'Cronograma detallado',
+                            'Presupuesto preliminar',
+                        ],
+                        '03-CONTROLES' => [
+                            'Matriz de riesgos',
+                            'Plan de comunicaciones',
+                            'Plan de calidad',
+                        ],
+                        '04-EVIDENCIAS' => [
+                            'Reporte de avances',
+                            'Actas de seguimiento',
+                            'Registro de entregables',
+                        ],
+                        '05-CAMBIOS' => [
+                            'Solicitud de cambio',
+                            'Evaluación de impacto',
+                            'Acta de aprobación de cambio',
+                        ],
+                    ],
+                    '02-PLANIFICACION' => [
+                        '01-ENTRADAS' => [
+                            'Propuesta comercial',
+                            'Cotización',
+                            'Alcance técnico inicial',
+                        ],
+                        '02-PLANIFICACION' => [
+                            'WBS y cronograma',
+                            'Plan de recursos',
+                            'Plan de comunicaciones',
+                        ],
+                        '03-CONTROLES' => [
+                            'Matriz de riesgos',
+                            'Plan de calidad',
+                            'Checklist de control',
+                        ],
+                        '04-EVIDENCIAS' => [
+                            'Acta de aprobación',
+                            'Registro de decisiones',
+                            'Reporte de kickoff',
+                        ],
+                        '05-CAMBIOS' => [
+                            'Solicitud de ajuste',
+                            'Evaluación de impacto',
+                            'Acta de comité de cambios',
+                        ],
+                    ],
+                ],
+                'scrum' => [
+                    'default' => [
+                        '01-ENTRADAS' => [
+                            'Visión del producto',
+                            'Backlog inicial',
+                            'Mapa de stakeholders',
+                        ],
+                        '02-PLANIFICACION' => [
+                            'Sprint backlog',
+                            'Definición de listo',
+                            'Objetivo del sprint',
+                        ],
+                        '03-CONTROLES' => [
+                            'Burndown chart',
+                            'Tablero de tareas',
+                            'Checklist de calidad',
+                        ],
+                        '04-EVIDENCIAS' => [
+                            'Demo y feedback',
+                            'Reporte de sprint',
+                            'Retrospectiva',
+                        ],
+                        '05-CAMBIOS' => [
+                            'Ajustes de backlog',
+                            'Registro de impedimentos',
+                            'Decisiones de refinamiento',
+                        ],
+                    ],
+                ],
+                'kanban' => [
+                    'default' => [
+                        '01-ENTRADAS' => [
+                            'Backlog de demandas',
+                            'Definición de servicio',
+                            'Políticas iniciales',
+                        ],
+                        '02-PLANIFICACION' => [
+                            'WIP permitido',
+                            'Acuerdos de capacidad',
+                            'Criterios de priorización',
+                        ],
+                        '03-CONTROLES' => [
+                            'Métricas de flujo',
+                            'Revisión de bloqueos',
+                            'Checklist de calidad',
+                        ],
+                        '04-EVIDENCIAS' => [
+                            'Reporte de throughput',
+                            'Retro semanal',
+                            'Registro de mejoras',
+                        ],
+                        '05-CAMBIOS' => [
+                            'Actualización de políticas',
+                            'Solicitudes de ajuste',
+                            'Decisiones de proceso',
+                        ],
+                    ],
+                ],
             ],
             'tag_options' => [
                 'Propuesta comercial',
@@ -92,6 +202,7 @@ class ConfigService
     public function getConfig(): array
     {
         $stored = $this->readConfigStorage();
+        $expectedDocs = $this->normalizeExpectedDocs($stored['document_flow']['expected_docs'] ?? $this->defaults['document_flow']['expected_docs']);
 
         return [
             'debug' => (bool) ($stored['debug'] ?? false),
@@ -108,7 +219,7 @@ class ConfigService
                     $stored['document_flow']['default'] ?? []
                 ),
                 'phases' => $stored['document_flow']['phases'] ?? $this->defaults['document_flow']['phases'],
-                'expected_docs' => $stored['document_flow']['expected_docs'] ?? $this->defaults['document_flow']['expected_docs'],
+                'expected_docs' => $expectedDocs,
                 'tag_options' => $stored['document_flow']['tag_options'] ?? $this->defaults['document_flow']['tag_options'],
             ],
             'access' => [
@@ -160,7 +271,9 @@ class ConfigService
                     $payload['document_flow']['default'] ?? []
                 ),
                 'phases' => $payload['document_flow']['phases'] ?? ($current['document_flow']['phases'] ?? []),
-                'expected_docs' => $payload['document_flow']['expected_docs'] ?? ($current['document_flow']['expected_docs'] ?? []),
+                'expected_docs' => $this->normalizeExpectedDocs(
+                    $payload['document_flow']['expected_docs'] ?? ($current['document_flow']['expected_docs'] ?? [])
+                ),
                 'tag_options' => $payload['document_flow']['tag_options'] ?? ($current['document_flow']['tag_options'] ?? []),
             ],
             'access' => [
@@ -264,6 +377,17 @@ class ConfigService
         } catch (\Throwable) {
             return $this->defaults['delivery']['risks'];
         }
+    }
+
+    private function normalizeExpectedDocs(array $expectedDocs): array
+    {
+        foreach ($expectedDocs as $key => $value) {
+            if (!is_int($key) && is_array($value)) {
+                return $expectedDocs;
+            }
+        }
+
+        return $this->defaults['document_flow']['expected_docs'];
     }
 
     private function readConfigStorage(): array

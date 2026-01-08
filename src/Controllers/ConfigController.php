@@ -94,6 +94,16 @@ class ConfigController extends Controller
                     'require_approval' => isset($_POST['require_approval']),
                 ],
             ],
+            'document_flow' => [
+                'default' => [
+                    'reviewer_roles' => $this->parseList($_POST['document_reviewer_roles'] ?? implode(', ', $current['document_flow']['default']['reviewer_roles'] ?? [])),
+                    'validator_roles' => $this->parseList($_POST['document_validator_roles'] ?? implode(', ', $current['document_flow']['default']['validator_roles'] ?? [])),
+                    'approver_roles' => $this->parseList($_POST['document_approver_roles'] ?? implode(', ', $current['document_flow']['default']['approver_roles'] ?? [])),
+                ],
+                'phases' => $current['document_flow']['phases'] ?? [],
+                'expected_docs' => $this->decodeJson($_POST['document_expected_docs_json'] ?? '', $current['document_flow']['expected_docs'] ?? []),
+                'tag_options' => $this->parseList($_POST['document_tag_options'] ?? implode(', ', $current['document_flow']['tag_options'] ?? [])),
+            ],
             'operational_rules' => [
                 'semaforization' => [
                     'progress' => [

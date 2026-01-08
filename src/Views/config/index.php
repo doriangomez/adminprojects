@@ -132,6 +132,33 @@
                     </div>
                 </div>
 
+                <div class="form-block">
+                    <span class="section-label">Gestión documental: roles y catálogo sugerido</span>
+                    <div class="config-form-grid tight">
+                        <div class="input-stack">
+                            <label>Roles habilitados para Revisores (coma)</label>
+                            <input name="document_reviewer_roles" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['reviewer_roles'] ?? [])) ?>">
+                        </div>
+                        <div class="input-stack">
+                            <label>Roles habilitados para Validadores (coma)</label>
+                            <input name="document_validator_roles" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['validator_roles'] ?? [])) ?>">
+                        </div>
+                        <div class="input-stack">
+                            <label>Roles habilitados para Aprobadores (coma)</label>
+                            <input name="document_approver_roles" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['approver_roles'] ?? [])) ?>">
+                        </div>
+                    </div>
+                    <div class="input-stack">
+                        <label>Catálogo de documentos esperados (JSON por metodología/fase/subfase)</label>
+                        <textarea name="document_expected_docs_json" rows="6"><?= htmlspecialchars(json_encode($configData['document_flow']['expected_docs'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
+                        <small class="subtext">Estructura: {"cascada": {"02-PLANIFICACION": {"01-ENTRADAS": ["..."]}}}</small>
+                    </div>
+                    <div class="input-stack">
+                        <label>Tags sugeridos para documentos (separados por coma)</label>
+                        <input name="document_tag_options" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['tag_options'] ?? [])) ?>">
+                    </div>
+                </div>
+
                 <div class="form-footer">
                     <span class="text-muted">Los cambios se aplican en todo el sistema.</span>
                     <button class="btn primary" type="submit">Guardar y aplicar</button>

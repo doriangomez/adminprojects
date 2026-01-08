@@ -101,19 +101,8 @@ $documentFlowConfig = is_array($documentFlowConfig ?? null) ? $documentFlowConfi
 $accessRoles = is_array($accessRoles ?? null) ? $accessRoles : [];
 $documentFlowDefaults = is_array($documentFlowConfig['default'] ?? null) ? $documentFlowConfig['default'] : [];
 $documentFlowPhaseOverrides = is_array($documentFlowConfig['phases'] ?? null) ? $documentFlowConfig['phases'] : [];
-$documentFlowExpectedDocs = is_array($documentFlowConfig['expected_docs'] ?? null) ? $documentFlowConfig['expected_docs'] : [
-    'Propuesta comercial',
-    'Cotización',
-    'Alcance técnico inicial',
-    'Requerimientos base',
-];
-$documentFlowTagOptions = is_array($documentFlowConfig['tag_options'] ?? null) ? $documentFlowConfig['tag_options'] : [
-    'Propuesta comercial',
-    'Cotización',
-    'Alcance técnico',
-    'Requerimientos',
-    'Documento libre',
-];
+$documentFlowExpectedDocs = is_array($documentFlowConfig['expected_docs'] ?? null) ? $documentFlowConfig['expected_docs'] : [];
+$documentFlowTagOptions = is_array($documentFlowConfig['tag_options'] ?? null) ? $documentFlowConfig['tag_options'] : [];
 
 $phaseFlowConfig = is_array($documentFlowPhaseOverrides[$phaseCodeForFlow] ?? null) ? $documentFlowPhaseOverrides[$phaseCodeForFlow] : [];
 $defaultRoles = !empty($accessRoles) ? $accessRoles : ['Administrador', 'PMO', 'Talento'];
@@ -128,6 +117,15 @@ $documentRoleOptions = [
     'validator' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => in_array($option['role'], $documentFlowRoles['validator'], true))),
     'approver' => array_values(array_filter($assignmentOptions, static fn (array $option): bool => in_array($option['role'], $documentFlowRoles['approver'], true))),
 ];
+$expectedDocsForSubphase = [];
+if ($isSubphase) {
+    $methodDocs = is_array($documentFlowExpectedDocs[$methodology] ?? null) ? $documentFlowExpectedDocs[$methodology] : [];
+    $phaseDocs = is_array($methodDocs[$phaseCodeForFlow] ?? null) ? $methodDocs[$phaseCodeForFlow] : [];
+    if (empty($phaseDocs)) {
+        $phaseDocs = is_array($methodDocs['default'] ?? null) ? $methodDocs['default'] : [];
+    }
+    $expectedDocsForSubphase = is_array($phaseDocs[$selectedSuffix] ?? null) ? $phaseDocs[$selectedSuffix] : [];
+}
 
 $renderTree = static function (array $nodes, int $projectId, ?int $activeId) use (&$renderTree, $basePath): void {
     echo '<ul class="tree-list">';
@@ -322,10 +320,10 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
                     <?php
                     $documentFlowId = 'document-flow-' . (int) ($selectedNode['id'] ?? 0);
                     $documentNode = $selectedNode;
-                    $documentExpectedDocs = $documentFlowExpectedDocs;
+                    $documentExpectedDocs = $expectedDocsForSubphase;
                     $documentTagOptions = $documentFlowTagOptions;
                     $documentRoleOptions = $documentRoleOptions;
-                    $documentKeyTags = $documentFlowExpectedDocs;
+                    $documentKeyTags = $expectedDocsForSubphase;
                     $documentCanManage = $canManage;
                     $documentProjectId = (int) ($project['id'] ?? 0);
                     $documentBasePath = $basePath;
