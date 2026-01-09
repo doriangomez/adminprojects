@@ -187,6 +187,10 @@ class App
                 $controller->updateDocumentStatus((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)/document-metadata$#', $path, $matches) && $method === 'POST') {
+                $controller->updateDocumentMetadata((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/nodes/(\\d+)$#', $path, $matches) && $method === 'DELETE') {
                 $controller->deleteNode((int) $matches[1], (int) $matches[2]);
                 return;
