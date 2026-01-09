@@ -560,7 +560,16 @@ class ProjectsController extends Controller
                 return;
             }
 
-            header('Location: /project/public/projects/' . $projectId);
+            $redirectNode = isset($_POST['redirect_node']) && $_POST['redirect_node'] !== '' ? (int) $_POST['redirect_node'] : null;
+            $redirectAnchor = isset($_POST['redirect_anchor']) && $_POST['redirect_anchor'] !== '' ? (string) $_POST['redirect_anchor'] : '';
+            $location = '/project/public/projects/' . $projectId;
+            if ($redirectNode) {
+                $location .= '?node=' . $redirectNode;
+                if ($redirectAnchor !== '') {
+                    $location .= '#' . rawurlencode($redirectAnchor);
+                }
+            }
+            header('Location: ' . $location);
             return;
         } catch (\Throwable $e) {
             error_log('Error al adjuntar archivo en nodo: ' . $e->getMessage());
@@ -576,7 +585,10 @@ class ProjectsController extends Controller
 
             $this->render('projects/show', array_merge(
                 $this->projectDetailData($projectId),
-                ['nodeFileError' => $e->getMessage()]
+                [
+                    'nodeFileError' => $e->getMessage(),
+                    'selectedNodeId' => isset($_POST['redirect_node']) && $_POST['redirect_node'] !== '' ? (int) $_POST['redirect_node'] : null,
+                ]
             ));
             return;
         }
@@ -761,6 +773,27 @@ class ProjectsController extends Controller
         } catch (\Throwable $e) {
             $status = $e instanceof \InvalidArgumentException ? 400 : 500;
             $this->json($this->nodeErrorResponse($e, 'No se pudo actualizar el estado documental.'), $status);
+            return;
+        }
+    }
+
+    public function updateDocumentMetadata(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $repo = new ProjectNodesRepository($this->db);
+            $tags = $_POST['tags'] ?? null;
+            $version = $_POST['version'] ?? null;
+            $data = $repo->updateDocumentMetadata($projectId, $nodeId, [
+                'tags' => $tags,
+                'version' => $version,
+            ]);
+            $this->json(['status' => 'ok', 'data' => $data]);
+            return;
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json($this->nodeErrorResponse($e, 'No se pudo guardar la metadata del documento.'), $status);
             return;
         }
     }

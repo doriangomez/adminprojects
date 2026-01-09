@@ -6,6 +6,13 @@ class ProjectNodesRepository
 {
     private const REQUIRED_CLAUSES = ['8.3.2', '8.3.4', '8.3.5', '8.3.6'];
     private const TREE_VERSION = '2025.02';
+    private const STANDARD_SUBPHASE_SUFFIXES = [
+        '01-ENTRADAS',
+        '02-PLANIFICACION',
+        '03-CONTROLES',
+        '04-EVIDENCIAS',
+        '05-CAMBIOS',
+    ];
     private const SCRUM_DISCOVERY_CODE = '01-DISCOVERY';
     private const SCRUM_DISCOVERY_TITLE = '01 · Discovery';
     private const SCRUM_BACKLOG_CODE = '02-BACKLOG';
@@ -205,6 +212,9 @@ class ProjectNodesRepository
         if (!$parent || $parent['node_type'] !== 'folder') {
             throw new \InvalidArgumentException('Selecciona una carpeta válida para adjuntar.');
         }
+        if (!$this->isStandardSubphase($parent)) {
+            throw new \InvalidArgumentException('Sube archivos dentro de una subfase.');
+        }
 
         if (($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($uploadedFile['tmp_name']) || !is_file((string) $uploadedFile['tmp_name'])) {
             throw new \InvalidArgumentException('Selecciona un archivo válido para subir.');
@@ -238,10 +248,13 @@ class ProjectNodesRepository
             $validatorId = isset($meta['validator_id']) && $meta['validator_id'] !== '' ? (int) $meta['validator_id'] : null;
             $approverId = isset($meta['approver_id']) && $meta['approver_id'] !== '' ? (int) $meta['approver_id'] : null;
             $documentStatus = $meta['document_status'] ?? 'pendiente_revision';
+            $documentTags = $this->normalizeDocumentTags($meta['document_tags'] ?? $meta['tags'] ?? null);
+            $documentVersion = trim((string) ($meta['document_version'] ?? $meta['version'] ?? ''));
+            $documentVersion = $documentVersion !== '' ? $documentVersion : null;
 
             $nodeId = $this->db->insert(
-                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by, reviewer_id, validator_id, approver_id, document_status)
-                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by, :reviewer_id, :validator_id, :approver_id, :document_status)',
+                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by, reviewer_id, validator_id, approver_id, document_status, document_tags, document_version)
+                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by, :reviewer_id, :validator_id, :approver_id, :document_status, :document_tags, :document_version)',
                 [
                     ':project_id' => $projectId,
                     ':parent_id' => $parentId,
@@ -257,6 +270,8 @@ class ProjectNodesRepository
                     ':validator_id' => $validatorId,
                     ':approver_id' => $approverId,
                     ':document_status' => $documentStatus,
+                    ':document_tags' => empty($documentTags) ? null : json_encode($documentTags, JSON_UNESCAPED_UNICODE),
+                    ':document_version' => $documentVersion,
                 ]
             );
 
@@ -404,6 +419,17 @@ class ProjectNodesRepository
                 : sprintf('NULL AS %s', $column);
         }
 
+        $metadataColumns = [
+            'document_tags',
+            'document_version',
+        ];
+
+        foreach ($metadataColumns as $column) {
+            $selectColumns[] = $this->db->columnExists('project_nodes', $column)
+                ? $column
+                : sprintf('NULL AS %s', $column);
+        }
+
         $nodes = $this->db->fetchAll(
             sprintf(
                 'SELECT %s
@@ -438,6 +464,8 @@ class ProjectNodesRepository
                     'approved_by' => $node['approved_by'] !== null ? (int) $node['approved_by'] : null,
                     'approved_at' => $node['approved_at'] ?? null,
                     'document_status' => $node['document_status'] ?? 'pendiente_revision',
+                    'tags' => $this->normalizeDocumentTags($node['document_tags'] ?? null),
+                    'version' => $node['document_version'] ?? null,
                 ];
                 continue;
             }
@@ -551,6 +579,38 @@ class ProjectNodesRepository
         );
 
         return $this->documentFlowForNode($projectId, $fileNodeId);
+    }
+
+    public function updateDocumentMetadata(int $projectId, int $fileNodeId, array $payload): array
+    {
+        $this->assertTable();
+        $node = $this->findNode($projectId, $fileNodeId);
+        if (!$node || ($node['node_type'] ?? '') !== 'file') {
+            throw new \InvalidArgumentException('Documento no encontrado.');
+        }
+
+        $tags = $this->normalizeDocumentTags($payload['tags'] ?? $payload['document_tags'] ?? null);
+        $version = trim((string) ($payload['version'] ?? $payload['document_version'] ?? ''));
+        $version = $version !== '' ? $version : null;
+
+        $this->db->execute(
+            'UPDATE project_nodes
+             SET document_tags = :document_tags,
+                 document_version = :document_version
+             WHERE id = :id AND project_id = :project_id',
+            [
+                ':document_tags' => empty($tags) ? null : json_encode($tags, JSON_UNESCAPED_UNICODE),
+                ':document_version' => $version,
+                ':id' => $fileNodeId,
+                ':project_id' => $projectId,
+            ]
+        );
+
+        return [
+            'id' => $fileNodeId,
+            'document_tags' => $tags,
+            'document_version' => $version,
+        ];
     }
 
     public function documentFlowForNode(int $projectId, int $fileNodeId): array
@@ -1911,13 +1971,69 @@ class ProjectNodesRepository
     private function findNode(int $projectId, int $nodeId): ?array
     {
         return $this->db->fetchOne(
-            'SELECT id, project_id, parent_id, node_type, iso_clause, code, file_path, title, reviewer_id, validator_id, approver_id, document_status
+            'SELECT id, project_id, parent_id, node_type, iso_clause, code, file_path, title, reviewer_id, validator_id, approver_id, document_status, document_tags, document_version
              FROM project_nodes WHERE id = :id AND project_id = :project_id',
             [
                 ':id' => $nodeId,
                 ':project_id' => $projectId,
             ]
         );
+    }
+
+    private function isStandardSubphase(array $node): bool
+    {
+        $code = (string) ($node['code'] ?? '');
+        if ($code === '') {
+            return false;
+        }
+
+        $parts = explode('-', $code);
+        if (count($parts) < 4) {
+            return false;
+        }
+
+        $suffix = implode('-', array_slice($parts, -2));
+
+        return in_array($suffix, self::STANDARD_SUBPHASE_SUFFIXES, true);
+    }
+
+    private function normalizeDocumentTags(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $this->sanitizeTags($value);
+        }
+
+        if (!is_string($value)) {
+            return [];
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return [];
+        }
+
+        $decoded = json_decode($trimmed, true);
+        if (is_array($decoded)) {
+            return $this->sanitizeTags($decoded);
+        }
+
+        $parts = preg_split('/[|,]/', $trimmed) ?: [];
+
+        return $this->sanitizeTags($parts);
+    }
+
+    private function sanitizeTags(array $tags): array
+    {
+        $clean = [];
+        foreach ($tags as $tag) {
+            $label = trim((string) $tag);
+            if ($label === '') {
+                continue;
+            }
+            $clean[] = $label;
+        }
+
+        return array_values(array_unique($clean));
     }
 
     private function resolveIsoClause(int $projectId, ?int $nodeId): ?string

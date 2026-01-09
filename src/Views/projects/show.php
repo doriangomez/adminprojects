@@ -44,7 +44,7 @@ foreach ($allNodes as $candidate) {
     }
 }
 
-$selectedNodeId = isset($_GET['node']) ? (int) $_GET['node'] : null;
+$selectedNodeId = $selectedNodeId ?? (isset($_GET['node']) ? (int) $_GET['node'] : null);
 if ($selectedNodeId) {
     foreach ($allNodes as $candidate) {
         if ((int) ($candidate['id'] ?? 0) === $selectedNodeId) {
@@ -95,9 +95,6 @@ $expectedDocsForSubphase = [];
 if ($isSubphase) {
     $methodDocs = is_array($documentFlowExpectedDocs[$methodology] ?? null) ? $documentFlowExpectedDocs[$methodology] : [];
     $phaseDocs = is_array($methodDocs[$phaseCodeForFlow] ?? null) ? $methodDocs[$phaseCodeForFlow] : [];
-    if (empty($phaseDocs)) {
-        $phaseDocs = is_array($methodDocs['default'] ?? null) ? $methodDocs['default'] : [];
-    }
     $expectedDocsForSubphase = is_array($phaseDocs[$selectedSuffix] ?? null) ? $phaseDocs[$selectedSuffix] : [];
 }
 
@@ -307,6 +304,7 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
                     <section style="border:1px dashed var(--border); border-radius:12px; padding:12px; background:#f8fafc;">
                         <h4 style="margin:0 0 6px;">Gestión documental por subfase</h4>
                         <p style="color: var(--muted); margin:0;">Esta fase agrupa subfases. Selecciona una subfase para cargar y revisar documentos.</p>
+                        <p style="color:#7f1d1d; margin:6px 0 0;">Sube archivos dentro de una subfase.</p>
                     </section>
                 <?php endif; ?>
             <?php endif; ?>

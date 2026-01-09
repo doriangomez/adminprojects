@@ -43,6 +43,8 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                 <?php if ($documentCanManage): ?>
                     <form class="upload-form" method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($documentNode['id'] ?? 0) ?>/files" enctype="multipart/form-data">
                         <input type="file" name="node_files[]" multiple required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
+                        <input type="hidden" name="redirect_node" value="<?= (int) ($documentNode['id'] ?? 0) ?>">
+                        <input type="hidden" name="redirect_anchor" value="<?= htmlspecialchars($documentFlowId) ?>">
                         <button type="submit" class="action-btn primary">Subir archivos</button>
                     </form>
                 <?php endif; ?>
@@ -81,6 +83,8 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                          data-validator-id="<?= htmlspecialchars((string) ($file['validator_id'] ?? '')) ?>"
                          data-approver-id="<?= htmlspecialchars((string) ($file['approver_id'] ?? '')) ?>"
                          data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'pendiente_revision')) ?>"
+                         data-tags="<?= htmlspecialchars(implode('|', array_map('strval', $file['tags'] ?? []))) ?>"
+                         data-document-version="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>"
                          data-reviewed-by="<?= htmlspecialchars((string) ($file['reviewed_by'] ?? '')) ?>"
                          data-reviewed-at="<?= htmlspecialchars((string) ($file['reviewed_at'] ?? '')) ?>"
                          data-validated-by="<?= htmlspecialchars((string) ($file['validated_by'] ?? '')) ?>"
@@ -106,7 +110,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                             </div>
                         </div>
                         <div>
-                            <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input>
+                            <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input value="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>">
                         </div>
                         <div>
                             <span class="status-pill status-pending" data-status-label>Pendiente</span>
@@ -219,6 +223,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         const keyTags = <?= json_encode(array_values($documentKeyTags)) ?>;
         const basePath = <?= json_encode((string) $documentBasePath) ?>;
         const roleCache = new Map();
+        const saveTimers = new Map();
 
         const statusConfig = {
             pendiente_revision: { label: 'Pendiente de revisión', className: 'status-pending' },
@@ -227,6 +232,16 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             aprobacion_pendiente: { label: 'Aprobación pendiente', className: 'status-review' },
             aprobado: { label: 'Aprobado', className: 'status-approved' },
             rechazado: { label: 'Rechazado', className: 'status-pending' }
+        };
+
+        const parseTagString = (value) => {
+            if (!value) return [];
+            return value.split('|').map(tag => tag.trim()).filter(Boolean);
+        };
+
+        const sanitizeTags = (tags) => {
+            const clean = tags.map(tag => tag.trim()).filter(Boolean);
+            return Array.from(new Set(clean));
         };
 
         const updateAlert = () => {
@@ -272,8 +287,76 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                 pill.textContent = tag;
                 pills.appendChild(pill);
             });
-            row.dataset.tags = finalTags.join('|');
+            row.dataset.tags = tags.join('|');
             updateAlert();
+        };
+
+        const applyTagSelection = (row, tags) => {
+            const select = row.querySelector('[data-tag-select]');
+            const customInput = row.querySelector('[data-tag-custom]');
+            if (!select) return;
+            const options = Array.from(select.options);
+            const optionValues = new Set(options.map(option => option.value));
+            const selected = tags.filter(tag => optionValues.has(tag));
+            options.forEach(option => {
+                option.selected = selected.includes(option.value);
+            });
+            if (customInput) {
+                const customTags = tags.filter(tag => !optionValues.has(tag));
+                customInput.value = customTags.join(', ');
+            }
+        };
+
+        const collectTags = (row) => {
+            const select = row.querySelector('[data-tag-select]');
+            const customInput = row.querySelector('[data-tag-custom]');
+            const selectedTags = select ? Array.from(select.selectedOptions).map(option => option.value) : [];
+            const customTags = customInput && customInput.value.trim()
+                ? customInput.value.split(',').map(tag => tag.trim()).filter(Boolean)
+                : [];
+            return sanitizeTags([...selectedTags, ...customTags]);
+        };
+
+        const scheduleMetadataSave = (row) => {
+            const fileId = row.dataset.fileId;
+            if (!fileId) return;
+            if (saveTimers.has(fileId)) {
+                clearTimeout(saveTimers.get(fileId));
+            }
+            saveTimers.set(fileId, setTimeout(() => {
+                saveDocumentMetadata(row);
+            }, 400));
+        };
+
+        const saveDocumentMetadata = (row) => {
+            const fileId = row.dataset.fileId;
+            if (!fileId) return;
+            const tags = collectTags(row);
+            const versionInput = row.querySelector('[data-version-input]');
+            const version = versionInput ? versionInput.value.trim() : '';
+            fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-metadata`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: new URLSearchParams({
+                    tags: JSON.stringify(tags),
+                    version,
+                }),
+            })
+                .then(response => response.json())
+                .then(payload => {
+                    if (payload.status !== 'ok') {
+                        throw new Error(payload.message || 'No se pudo guardar la metadata del documento.');
+                    }
+                    row.dataset.tags = tags.join('|');
+                    row.dataset.documentVersion = payload.data.document_version ?? '';
+                    updateTagsDisplay(row, tags);
+                })
+                .catch(error => {
+                    alert(error.message);
+                });
         };
 
         const updateStatus = (row, statusKey, traceNote) => {
@@ -425,12 +508,18 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         };
 
         root.querySelectorAll('[data-file-row]').forEach(row => {
-            updateTagsDisplay(row, []);
+            const existingTags = parseTagString(row.dataset.tags);
+            updateTagsDisplay(row, existingTags);
+            applyTagSelection(row, existingTags);
             const status = row.dataset.documentStatus || 'pendiente_revision';
             updateStatus(row, status);
             updateTraceFromData(row);
             updateRoleActions(row);
             toggleSendReview(row);
+            const versionInput = row.querySelector('[data-version-input]');
+            if (versionInput) {
+                versionInput.value = row.dataset.documentVersion || '';
+            }
         });
 
         root.querySelectorAll('select[data-role-select]').forEach(select => {
@@ -442,23 +531,17 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             const select = event.target.closest('[data-tag-select]');
             if (select) {
                 const row = select.closest('[data-file-row]');
-                const customInput = row.querySelector('[data-tag-custom]');
-                const tags = Array.from(select.selectedOptions).map(option => option.value);
-                if (customInput && customInput.value.trim()) {
-                    tags.push(customInput.value.trim());
-                }
+                const tags = collectTags(row);
                 updateTagsDisplay(row, tags);
+                scheduleMetadataSave(row);
             }
 
             const customInput = event.target.closest('[data-tag-custom]');
             if (customInput) {
                 const row = customInput.closest('[data-file-row]');
-                const select = row.querySelector('[data-tag-select]');
-                const tags = Array.from(select.selectedOptions).map(option => option.value);
-                if (customInput.value.trim()) {
-                    tags.push(customInput.value.trim());
-                }
+                const tags = collectTags(row);
                 updateTagsDisplay(row, tags);
+                scheduleMetadataSave(row);
             }
 
             const roleSelect = event.target.closest('[data-role-select]');
@@ -468,7 +551,30 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                 row.dataset[`${role}Id`] = roleSelect.value;
                 updateRoleActions(row);
             }
+
+            const versionInput = event.target.closest('[data-version-input]');
+            if (versionInput) {
+                const row = versionInput.closest('[data-file-row]');
+                row.dataset.documentVersion = versionInput.value.trim();
+                scheduleMetadataSave(row);
+            }
         });
+
+        root.addEventListener('blur', (event) => {
+            const customInput = event.target.closest('[data-tag-custom]');
+            if (customInput) {
+                const row = customInput.closest('[data-file-row]');
+                const tags = collectTags(row);
+                updateTagsDisplay(row, tags);
+                scheduleMetadataSave(row);
+            }
+            const versionInput = event.target.closest('[data-version-input]');
+            if (versionInput) {
+                const row = versionInput.closest('[data-file-row]');
+                row.dataset.documentVersion = versionInput.value.trim();
+                scheduleMetadataSave(row);
+            }
+        }, true);
 
         root.addEventListener('click', (event) => {
             const toggleFlow = event.target.closest('[data-toggle-flow]');
