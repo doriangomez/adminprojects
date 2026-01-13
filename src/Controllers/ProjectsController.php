@@ -533,6 +533,7 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.manage');
 
         try {
+            $this->ensureDocumentFlowSchema();
             $nodesRepo = new ProjectNodesRepository($this->db);
             $userId = (int) ($this->auth->user()['id'] ?? 0);
             $payloadFiles = $_FILES['node_files'] ?? null;
@@ -759,6 +760,7 @@ class ProjectsController extends Controller
         $this->requirePermission('projects.manage');
 
         try {
+            $this->ensureDocumentFlowSchema();
             $payload = [
                 'reviewer_id' => $_POST['reviewer_id'] ?? null,
                 'validator_id' => $_POST['validator_id'] ?? null,
@@ -1067,7 +1069,7 @@ class ProjectsController extends Controller
             'document_tags' => $documentTags,
             'document_version' => $documentVersion,
             'description' => $description,
-            'document_status' => $startFlow ? 'en_revision' : 'pendiente_revision',
+            'document_status' => 'pendiente_revision',
             'reviewer_id' => $reviewerId,
             'validator_id' => $validatorId,
             'approver_id' => $approverId,
@@ -1127,6 +1129,42 @@ class ProjectsController extends Controller
     private function canForceDeleteProjects(): bool
     {
         return $this->auth->can('config.manage') || $this->auth->hasRole('Administrador');
+    }
+
+    private function ensureDocumentFlowSchema(): void
+    {
+        if (!$this->db->tableExists('project_nodes')) {
+            throw new \InvalidArgumentException('La tabla project_nodes no existe. Ejecuta el script de migración antes de guardar documentos.');
+        }
+
+        $requiredColumns = [
+            'reviewer_id',
+            'validator_id',
+            'approver_id',
+            'reviewed_by',
+            'document_status',
+            'document_tags',
+            'document_version',
+            'document_type',
+            'reviewed_at',
+            'validated_by',
+            'validated_at',
+            'approved_by',
+            'approved_at',
+        ];
+
+        $missing = [];
+        foreach ($requiredColumns as $column) {
+            if (!$this->db->columnExists('project_nodes', $column)) {
+                $missing[] = $column;
+            }
+        }
+
+        if ($missing !== []) {
+            throw new \InvalidArgumentException(
+                'Debes aplicar la migración de project_nodes (reviewer_id, validator_id, approver_id, reviewed_by, validated_by, approved_by, reviewed_at, validated_at, approved_at, document_status, document_tags, document_version, document_type) antes de guardar documentos o flujos.'
+            );
+        }
     }
 
     private function isLocalEnvironment(): bool

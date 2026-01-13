@@ -207,6 +207,7 @@ class ProjectNodesRepository
     public function createFileNode(int $projectId, int $parentId, array $uploadedFile, ?int $userId = null, array $meta = []): array
     {
         $this->assertTable();
+        $this->assertDocumentFlowColumns();
         $parent = $this->findNode($projectId, $parentId);
 
         if (!$parent || $parent['node_type'] !== 'folder') {
@@ -523,6 +524,7 @@ class ProjectNodesRepository
     public function updateDocumentFlow(int $projectId, int $fileNodeId, array $payload): array
     {
         $this->assertTable();
+        $this->assertDocumentFlowColumns();
         $node = $this->findNode($projectId, $fileNodeId);
         if (!$node || ($node['node_type'] ?? '') !== 'file') {
             throw new \InvalidArgumentException('Documento no encontrado.');
@@ -2250,6 +2252,38 @@ class ProjectNodesRepository
     {
         if (!$this->db->tableExists('project_nodes')) {
             throw new \InvalidArgumentException('No se encontró el repositorio documental del proyecto.');
+        }
+    }
+
+    private function assertDocumentFlowColumns(): void
+    {
+        $requiredColumns = [
+            'reviewer_id',
+            'validator_id',
+            'approver_id',
+            'reviewed_by',
+            'document_status',
+            'document_tags',
+            'document_version',
+            'document_type',
+            'reviewed_at',
+            'validated_by',
+            'validated_at',
+            'approved_by',
+            'approved_at',
+        ];
+
+        $missing = [];
+        foreach ($requiredColumns as $column) {
+            if (!$this->db->columnExists('project_nodes', $column)) {
+                $missing[] = $column;
+            }
+        }
+
+        if ($missing !== []) {
+            throw new \InvalidArgumentException(
+                'Debes aplicar la migración de project_nodes (reviewer_id, validator_id, approver_id, reviewed_by, validated_by, approved_by, reviewed_at, validated_at, approved_at, document_status, document_tags, document_version, document_type) antes de guardar documentos o flujos.'
+            );
         }
     }
 }
