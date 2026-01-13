@@ -62,6 +62,19 @@ foreach ($allNodes as $node) {
         break;
     }
 }
+$breadcrumb = [];
+if (is_array($selectedNode)) {
+    $cursor = $selectedNode;
+    while (is_array($cursor)) {
+        $breadcrumb[] = $cursor;
+        $parentId = $cursor['parent_id'] ?? null;
+        if ($parentId === null) {
+            break;
+        }
+        $cursor = $nodesById[(int) $parentId] ?? null;
+    }
+    $breadcrumb = array_reverse($breadcrumb);
+}
 $phaseNode = null;
 if (is_array($selectedNode)) {
     $cursor = $selectedNode;
@@ -104,9 +117,19 @@ $renderTree = static function (array $nodes, int $projectId, ?int $activeId) use
         $isActive = $activeId && (int) ($node['id'] ?? 0) === $activeId;
         $hasChildren = !empty($node['children']);
         $link = $basePath . '/projects/' . $projectId . '?node=' . (int) ($node['id'] ?? 0);
+        $code = strtoupper((string) ($node['code'] ?? ''));
+        $icon = '📁';
+        if (($node['node_type'] ?? '') === 'iso_control') {
+            $icon = '🛡️';
+        } elseif (str_contains($code, 'CAMBIOS')) {
+            $icon = '🔁';
+        } elseif (str_contains($code, 'EVIDENCIAS')) {
+            $icon = '📎';
+        }
         echo '<li>';
         echo '<a href="' . htmlspecialchars($link) . '" class="tree-link' . ($isActive ? ' active' : '') . '">';
         echo '<span class="tree-toggle">' . ($hasChildren ? '▾' : '•') . '</span>';
+        echo '<span class="tree-icon">' . $icon . '</span>';
         echo '<span>' . htmlspecialchars($node['name'] ?? $node['title'] ?? $node['code'] ?? '') . '</span>';
         echo '</a>';
         if ($hasChildren) {
@@ -240,6 +263,17 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
                 <p style="color: var(--muted);">Selecciona una carpeta para ver su contenido.</p>
             <?php else: ?>
                 <?php $selectedMetrics = $folderMetrics($selectedNode); ?>
+                <nav class="breadcrumb">
+                    <?php foreach ($breadcrumb as $index => $crumb): ?>
+                        <?php
+                        $crumbLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?node=' . (int) ($crumb['id'] ?? 0);
+                        ?>
+                        <a href="<?= htmlspecialchars($crumbLink) ?>"><?= htmlspecialchars($crumb['name'] ?? $crumb['title'] ?? $crumb['code'] ?? 'Raíz') ?></a>
+                        <?php if ($index < count($breadcrumb) - 1): ?>
+                            <span>›</span>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </nav>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
                     <div>
                         <p class="eyebrow" style="margin:0; color: var(--muted);">Carpeta</p>
@@ -305,6 +339,7 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
                         <h4 style="margin:0 0 6px;">Gestión documental por subfase</h4>
                         <p style="color: var(--muted); margin:0;">Esta fase agrupa subfases. Selecciona una subfase para cargar y revisar documentos.</p>
                         <p style="color:#7f1d1d; margin:6px 0 0;">Sube archivos dentro de una subfase.</p>
+                        <button class="action-btn primary" type="button" disabled style="opacity:0.6; cursor:not-allowed;">Subir documento (deshabilitado)</button>
                     </section>
                 <?php endif; ?>
             <?php endif; ?>
@@ -318,6 +353,7 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
     .tree-link:hover { background: #e5e7eb; }
     .tree-link.active { background: var(--text-strong); color:#fff; }
     .tree-toggle { width:14px; color: var(--muted); }
+    .tree-icon { width:18px; text-align:center; }
     .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
     .action-btn.danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
@@ -331,4 +367,7 @@ $phaseTooltip = 'Cada subcarpeta estándar vale 20%. Cuenta si tiene al menos 1 
     .count-pill { font-size:12px; font-weight:700; color: var(--text-strong); background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
     .phase-progress { margin-top:6px; height:6px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
     .tooltip-pill { font-size:12px; font-weight:700; color: var(--secondary); background:#eef2ff; border-radius:999px; padding:2px 8px; cursor:help; }
+    .breadcrumb { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; color: var(--muted); margin-bottom:8px; }
+    .breadcrumb a { color: var(--text-strong); text-decoration:none; font-weight:600; }
+    .breadcrumb span { color: var(--muted); }
 </style>

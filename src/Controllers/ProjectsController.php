@@ -536,6 +536,7 @@ class ProjectsController extends Controller
             $nodesRepo = new ProjectNodesRepository($this->db);
             $userId = (int) ($this->auth->user()['id'] ?? 0);
             $payloadFiles = $_FILES['node_files'] ?? null;
+            $meta = $this->collectDocumentUploadMeta();
             $results = [];
 
             if (is_array($payloadFiles) && isset($payloadFiles['name']) && is_array($payloadFiles['name'])) {
@@ -549,10 +550,27 @@ class ProjectsController extends Controller
                         'size' => $payloadFiles['size'][$i] ?? 0,
                     ];
 
-                    $results[] = $nodesRepo->createFileNode($projectId, $nodeId, $file, $userId);
+                    $results[] = $nodesRepo->createFileNode($projectId, $nodeId, $file, $userId, $meta);
                 }
             } else {
-                $results[] = $nodesRepo->createFileNode($projectId, $nodeId, $_FILES['node_file'] ?? [], $userId);
+                $results[] = $nodesRepo->createFileNode($projectId, $nodeId, $_FILES['node_file'] ?? [], $userId, $meta);
+            }
+
+            $auditRepo = new AuditLogRepository($this->db);
+            foreach ($results as $result) {
+                $auditRepo->log(
+                    $userId,
+                    'project_node_file',
+                    (int) ($result['id'] ?? 0),
+                    'document_uploaded',
+                    [
+                        'document_type' => $meta['document_type'] ?? null,
+                        'document_tags' => $meta['document_tags'] ?? null,
+                        'document_version' => $meta['document_version'] ?? null,
+                        'description' => $meta['description'] ?? null,
+                        'document_status' => $meta['document_status'] ?? null,
+                    ]
+                );
             }
 
             if ($this->wantsJson()) {
@@ -751,6 +769,19 @@ class ProjectsController extends Controller
             $repo = new ProjectNodesRepository($this->db);
             $data = $repo->updateDocumentFlow($projectId, $nodeId, $payload);
 
+            (new AuditLogRepository($this->db))->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'project_node_file',
+                $nodeId,
+                'document_flow_assigned',
+                [
+                    'reviewer_id' => $payload['reviewer_id'] ?? null,
+                    'validator_id' => $payload['validator_id'] ?? null,
+                    'approver_id' => $payload['approver_id'] ?? null,
+                    'document_status' => $data['document_status'] ?? null,
+                ]
+            );
+
             $this->json(['status' => 'ok', 'data' => $data]);
             return;
         } catch (\Throwable $e) {
@@ -767,7 +798,20 @@ class ProjectsController extends Controller
         try {
             $action = trim((string) ($_POST['action'] ?? ''));
             $documentStatus = trim((string) ($_POST['document_status'] ?? ''));
+            $comment = trim((string) ($_POST['comment'] ?? ''));
             $data = $this->processDocumentStatusUpdate($projectId, $nodeId, $action, $documentStatus);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'project_node_file',
+                $nodeId,
+                $this->auditActionForDocument($action, $documentStatus),
+                [
+                    'document_status' => $data['document_status'] ?? null,
+                    'comment' => $comment !== '' ? $comment : null,
+                ]
+            );
+
             $this->json(['status' => 'ok', 'data' => $data]);
             return;
         } catch (\Throwable $e) {
@@ -789,6 +833,17 @@ class ProjectsController extends Controller
                 'tags' => $tags,
                 'version' => $version,
             ]);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'project_node_file',
+                $nodeId,
+                'document_metadata_updated',
+                [
+                    'document_tags' => $data['document_tags'] ?? null,
+                    'document_version' => $data['document_version'] ?? null,
+                ]
+            );
             $this->json(['status' => 'ok', 'data' => $data]);
             return;
         } catch (\Throwable $e) {
@@ -863,6 +918,28 @@ class ProjectsController extends Controller
         } catch (\Throwable $e) {
             $status = $e instanceof \InvalidArgumentException ? 400 : 500;
             $this->json($this->nodeErrorResponse($e, 'No se pudo obtener el contenido de la carpeta.'), $status);
+            return;
+        }
+    }
+
+    public function documentHistory(int $projectId, int $nodeId): void
+    {
+        $this->requirePermission('projects.view');
+
+        try {
+            $repo = new ProjectNodesRepository($this->db);
+            $node = $repo->findById($projectId, $nodeId);
+            if (!$node || ($node['node_type'] ?? '') !== 'file') {
+                throw new \InvalidArgumentException('Documento no encontrado.');
+            }
+
+            $auditRepo = new AuditLogRepository($this->db);
+            $entries = $auditRepo->listForEntity('project_node_file', $nodeId, 100);
+            $this->json(['status' => 'ok', 'data' => $entries]);
+            return;
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json($this->nodeErrorResponse($e, 'No se pudo cargar el historial documental.'), $status);
             return;
         }
     }
@@ -956,6 +1033,57 @@ class ProjectsController extends Controller
             'documentFlowConfig' => $config['document_flow'] ?? [],
             'accessRoles' => $config['access']['roles'] ?? [],
         ], $deleteContext);
+    }
+
+    private function collectDocumentUploadMeta(): array
+    {
+        $documentType = trim((string) ($_POST['document_type'] ?? ''));
+        $documentTags = $_POST['document_tags'] ?? null;
+        $documentVersion = trim((string) ($_POST['document_version'] ?? ''));
+        $description = trim((string) ($_POST['document_description'] ?? ''));
+        $startFlow = isset($_POST['start_flow']) && $_POST['start_flow'] !== '';
+        $reviewerId = $_POST['reviewer_id'] ?? null;
+        $validatorId = $_POST['validator_id'] ?? null;
+        $approverId = $_POST['approver_id'] ?? null;
+
+        if ($documentType === '') {
+            throw new \InvalidArgumentException('El tipo documental es obligatorio.');
+        }
+        if ($documentTags === null || $documentTags === '') {
+            throw new \InvalidArgumentException('Debes seleccionar al menos un tag.');
+        }
+        if ($documentVersion === '') {
+            throw new \InvalidArgumentException('La versión del documento es obligatoria.');
+        }
+        if ($description === '') {
+            throw new \InvalidArgumentException('La descripción del documento es obligatoria.');
+        }
+        if ($startFlow && ($reviewerId === null || $reviewerId === '')) {
+            throw new \InvalidArgumentException('Selecciona un revisor para iniciar el flujo.');
+        }
+
+        return [
+            'document_type' => $documentType,
+            'document_tags' => $documentTags,
+            'document_version' => $documentVersion,
+            'description' => $description,
+            'document_status' => $startFlow ? 'en_revision' : 'pendiente_revision',
+            'reviewer_id' => $reviewerId,
+            'validator_id' => $validatorId,
+            'approver_id' => $approverId,
+        ];
+    }
+
+    private function auditActionForDocument(string $action, string $documentStatus): string
+    {
+        return match ($action) {
+            'send_review' => 'document_sent_review',
+            'reviewed' => 'document_reviewed',
+            'validated' => 'document_validated',
+            'approved' => 'document_approved',
+            'rejected' => 'document_rejected',
+            default => $documentStatus !== '' ? 'document_status_updated' : 'document_action',
+        };
     }
 
     private function projectDeletionContext(int $projectId, ?ProjectsRepository $repo = null): array

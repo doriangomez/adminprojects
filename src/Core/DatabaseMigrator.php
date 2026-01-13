@@ -775,6 +775,10 @@ class DatabaseMigrator
             $this->db->execute('ALTER TABLE project_nodes ADD COLUMN document_version VARCHAR(40) NULL AFTER document_tags');
             $this->db->clearColumnCache();
         }
+        if (!$this->db->columnExists('project_nodes', 'document_type')) {
+            $this->db->execute('ALTER TABLE project_nodes ADD COLUMN document_type VARCHAR(120) NULL AFTER document_version');
+            $this->db->clearColumnCache();
+        }
 
         try {
             if ($this->db->columnExists('project_nodes', 'reviewer_id')) {

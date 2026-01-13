@@ -251,10 +251,12 @@ class ProjectNodesRepository
             $documentTags = $this->normalizeDocumentTags($meta['document_tags'] ?? $meta['tags'] ?? null);
             $documentVersion = trim((string) ($meta['document_version'] ?? $meta['version'] ?? ''));
             $documentVersion = $documentVersion !== '' ? $documentVersion : null;
+            $documentType = trim((string) ($meta['document_type'] ?? $meta['type'] ?? ''));
+            $documentType = $documentType !== '' ? $documentType : null;
 
             $nodeId = $this->db->insert(
-                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by, reviewer_id, validator_id, approver_id, document_status, document_tags, document_version)
-                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by, :reviewer_id, :validator_id, :approver_id, :document_status, :document_tags, :document_version)',
+                'INSERT INTO project_nodes (project_id, parent_id, code, node_type, iso_clause, title, description, sort_order, file_path, created_by, reviewer_id, validator_id, approver_id, document_status, document_tags, document_version, document_type)
+                 VALUES (:project_id, :parent_id, :code, :node_type, :iso_clause, :title, :description, :sort_order, :file_path, :created_by, :reviewer_id, :validator_id, :approver_id, :document_status, :document_tags, :document_version, :document_type)',
                 [
                     ':project_id' => $projectId,
                     ':parent_id' => $parentId,
@@ -272,6 +274,7 @@ class ProjectNodesRepository
                     ':document_status' => $documentStatus,
                     ':document_tags' => empty($documentTags) ? null : json_encode($documentTags, JSON_UNESCAPED_UNICODE),
                     ':document_version' => $documentVersion,
+                    ':document_type' => $documentType,
                 ]
             );
 
@@ -311,6 +314,14 @@ class ProjectNodesRepository
                 'file_name' => $originalName,
                 'storage_path' => $publicPath,
                 'created_at' => date('Y-m-d H:i:s'),
+                'description' => $description,
+                'document_status' => $documentStatus,
+                'tags' => $documentTags,
+                'version' => $documentVersion,
+                'document_type' => $documentType,
+                'reviewer_id' => $reviewerId,
+                'validator_id' => $validatorId,
+                'approver_id' => $approverId,
             ];
         } catch (\Throwable $e) {
             if ($transactionStarted && $pdo->inTransaction()) {
@@ -422,6 +433,7 @@ class ProjectNodesRepository
         $metadataColumns = [
             'document_tags',
             'document_version',
+            'document_type',
         ];
 
         foreach ($metadataColumns as $column) {
@@ -466,6 +478,8 @@ class ProjectNodesRepository
                     'document_status' => $node['document_status'] ?? 'pendiente_revision',
                     'tags' => $this->normalizeDocumentTags($node['document_tags'] ?? null),
                     'version' => $node['document_version'] ?? null,
+                    'document_type' => $node['document_type'] ?? null,
+                    'description' => $node['description'] ?? null,
                 ];
                 continue;
             }

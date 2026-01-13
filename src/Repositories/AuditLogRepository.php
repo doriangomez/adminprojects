@@ -21,4 +21,38 @@ class AuditLogRepository
             ]
         );
     }
+
+    public function listForEntity(string $entity, int $entityId, int $limit = 50): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT audit_log.id, audit_log.user_id, audit_log.action, audit_log.payload, audit_log.created_at, users.name AS user_name
+             FROM audit_log
+             LEFT JOIN users ON users.id = audit_log.user_id
+             WHERE audit_log.entity = :entity AND audit_log.entity_id = :entity_id
+             ORDER BY audit_log.created_at DESC, audit_log.id DESC
+             LIMIT :limit',
+            [
+                ':entity' => $entity,
+                ':entity_id' => $entityId,
+                ':limit' => $limit,
+            ]
+        );
+
+        return array_map(static function (array $row): array {
+            $payload = [];
+            if (!empty($row['payload'])) {
+                $decoded = json_decode((string) $row['payload'], true);
+                $payload = is_array($decoded) ? $decoded : [];
+            }
+
+            return [
+                'id' => (int) ($row['id'] ?? 0),
+                'user_id' => $row['user_id'] !== null ? (int) $row['user_id'] : null,
+                'user_name' => $row['user_name'] ?? null,
+                'action' => $row['action'] ?? '',
+                'payload' => $payload,
+                'created_at' => $row['created_at'] ?? null,
+            ];
+        }, $rows);
+    }
 }
