@@ -11,6 +11,26 @@ $documentCurrentUser = is_array($documentCurrentUser ?? null) ? $documentCurrent
 $documentFiles = is_array($documentNode['files'] ?? null) ? $documentNode['files'] : [];
 $documentNodeName = (string) ($documentNode['name'] ?? $documentNode['title'] ?? $documentNode['code'] ?? 'Subfase');
 $documentNodeCode = (string) ($documentNode['code'] ?? '');
+$documentTypeOptions = array_values(array_unique(array_merge($documentExpectedDocs, $documentTagOptions)));
+$normalizeDoc = static function (string $value): string {
+    return strtolower(trim($value));
+};
+$expectedSummary = [];
+foreach ($documentExpectedDocs as $doc) {
+    $normalized = $normalizeDoc($doc);
+    $matches = array_filter($documentFiles, static function (array $file) use ($normalized, $normalizeDoc): bool {
+        $tags = array_map($normalizeDoc, $file['tags'] ?? []);
+        $type = $normalizeDoc((string) ($file['document_type'] ?? ''));
+        return $type === $normalized || in_array($normalized, $tags, true);
+    });
+    $loaded = !empty($matches);
+    $approved = (bool) array_filter($matches, static fn (array $file): bool => ($file['document_status'] ?? '') === 'aprobado');
+    $expectedSummary[] = [
+        'name' => $doc,
+        'loaded' => $loaded,
+        'approved' => $approved,
+    ];
+}
 
 ?>
 
@@ -26,10 +46,20 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
     <div class="document-grid">
         <section class="document-section">
             <h5>Documentos esperados en esta subfase</h5>
-            <p class="section-muted">Referencia informativa (sin carga ni bloqueo).</p>
+            <p class="section-muted">Referencia informativa con estado de carga y aprobación.</p>
             <ul class="expected-list">
-                <?php foreach ($documentExpectedDocs as $doc): ?>
-                    <li><?= htmlspecialchars($doc) ?></li>
+                <?php foreach ($expectedSummary as $summary): ?>
+                    <li>
+                        <span><?= htmlspecialchars($summary['name']) ?></span>
+                        <?php if ($summary['loaded']): ?>
+                            <span class="expected-pill <?= $summary['approved'] ? 'expected-approved' : 'expected-loaded' ?>">
+                                <?= $summary['approved'] ? 'Aprobado' : 'Cargado' ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="expected-pill expected-pending">Pendiente</span>
+                        <?php endif; ?>
+                        <span class="expected-pill expected-review">Requiere aprobación</span>
+                    </li>
                 <?php endforeach; ?>
             </ul>
         </section>
@@ -41,12 +71,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                     <p class="section-muted">PDF, Word, Excel o imágenes. Se almacenan en esta subfase.</p>
                 </div>
                 <?php if ($documentCanManage): ?>
-                    <form class="upload-form" method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($documentNode['id'] ?? 0) ?>/files" enctype="multipart/form-data">
-                        <input type="file" name="node_files[]" multiple required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
-                        <input type="hidden" name="redirect_node" value="<?= (int) ($documentNode['id'] ?? 0) ?>">
-                        <input type="hidden" name="redirect_anchor" value="<?= htmlspecialchars($documentFlowId) ?>">
-                        <button type="submit" class="action-btn primary">Subir archivos</button>
-                    </form>
+                    <button type="button" class="action-btn primary" data-open-upload>Subir documento</button>
                 <?php endif; ?>
             </div>
             <div class="upload-preview" data-upload-preview hidden>
@@ -56,11 +81,97 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         </section>
     </div>
 
+    <?php if ($documentCanManage): ?>
+        <div class="modal" data-upload-modal hidden>
+            <div class="modal-backdrop" data-close-upload></div>
+            <div class="modal-panel">
+                <header>
+                    <div>
+                        <h4>Subir documento</h4>
+                        <p class="section-muted">Completa los metadatos antes de guardar.</p>
+                    </div>
+                    <button type="button" class="action-btn small" data-close-upload>✕</button>
+                </header>
+                <form class="upload-form" method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($documentNode['id'] ?? 0) ?>/files" enctype="multipart/form-data">
+                    <label class="field">
+                        <span>Archivo *</span>
+                        <input type="file" name="node_files[]" required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
+                    </label>
+                    <div class="field-grid">
+                        <label class="field">
+                            <span>Tipo documental *</span>
+                            <select data-document-type-select>
+                                <option value="">Seleccionar</option>
+                                <?php foreach ($documentTypeOptions as $type): ?>
+                                    <option value="<?= htmlspecialchars($type) ?>"><?= htmlspecialchars($type) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input type="text" placeholder="Otro tipo" data-document-type-custom>
+                        </label>
+                        <label class="field">
+                            <span>Versión *</span>
+                            <input type="text" name="document_version" placeholder="v1, v2, final" required>
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span>Tags *</span>
+                        <select multiple data-upload-tag-select>
+                            <?php foreach ($documentTagOptions as $tag): ?>
+                                <option value="<?= htmlspecialchars($tag) ?>"><?= htmlspecialchars($tag) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" placeholder="Otros tags (separados por coma)" data-upload-tag-custom>
+                    </label>
+                    <label class="field">
+                        <span>Descripción corta *</span>
+                        <textarea name="document_description" rows="3" placeholder="Describe el contenido del documento" required></textarea>
+                    </label>
+                    <div class="field">
+                        <label class="switch">
+                            <input type="checkbox" name="start_flow" value="1" data-start-flow>
+                            <span class="slider"></span>
+                            <span>Iniciar flujo de aprobación al guardar</span>
+                        </label>
+                    </div>
+                    <div class="flow-grid" data-upload-flow>
+                        <label>
+                            <span>Revisor</span>
+                            <select data-role-select="reviewer">
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Validador</span>
+                            <select data-role-select="validator">
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Aprobador</span>
+                            <select data-role-select="approver">
+                                <option value="">Seleccionar</option>
+                            </select>
+                        </label>
+                    </div>
+                    <input type="hidden" name="document_type" value="" data-document-type-hidden>
+                    <input type="hidden" name="document_tags" value="" data-document-tags-hidden>
+                    <div class="modal-actions">
+                        <button type="button" class="action-btn" data-close-upload>Cancelar</button>
+                        <button type="submit" class="action-btn primary">Guardar documento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <section class="document-files">
         <div class="section-header">
             <div>
                 <h5>Listado de archivos</h5>
                 <p class="section-muted">Administra tags, versión y flujo de revisión.</p>
+            </div>
+            <div class="document-search">
+                <input type="search" placeholder="Buscar por nombre, tag, tipo, estado o versión" data-document-search>
             </div>
             <div class="document-alert" data-document-alert hidden>
                 <strong>⚠️ Documentos clave pendientes</strong>
@@ -72,9 +183,10 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             <div class="document-file-table">
                 <div class="document-file-row document-file-head">
                     <span>Archivo</span>
+                    <span>Tipo / Descripción</span>
                     <span>Tags</span>
                     <span>Versión</span>
-                    <span>Estado</span>
+                    <span>Flujo & estado</span>
                     <span>Acciones</span>
                 </div>
                 <?php foreach ($documentFiles as $file): ?>
@@ -85,6 +197,9 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                          data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'pendiente_revision')) ?>"
                          data-tags="<?= htmlspecialchars(implode('|', array_map('strval', $file['tags'] ?? []))) ?>"
                          data-document-version="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>"
+                         data-document-type="<?= htmlspecialchars((string) ($file['document_type'] ?? '')) ?>"
+                         data-description="<?= htmlspecialchars((string) ($file['description'] ?? '')) ?>"
+                         data-file-name="<?= htmlspecialchars((string) ($file['file_name'] ?? $file['title'] ?? '')) ?>"
                          data-reviewed-by="<?= htmlspecialchars((string) ($file['reviewed_by'] ?? '')) ?>"
                          data-reviewed-at="<?= htmlspecialchars((string) ($file['reviewed_at'] ?? '')) ?>"
                          data-validated-by="<?= htmlspecialchars((string) ($file['validated_by'] ?? '')) ?>"
@@ -95,6 +210,10 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                             <strong><?= htmlspecialchars($file['file_name'] ?? $file['title'] ?? '') ?></strong>
                             <small class="section-muted">Subido: <?= htmlspecialchars((string) ($file['created_at'] ?? '')) ?></small>
                             <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
+                        </div>
+                        <div class="file-meta">
+                            <div><strong><?= htmlspecialchars((string) ($file['document_type'] ?? '')) ?></strong></div>
+                            <small class="section-muted"><?= htmlspecialchars((string) ($file['description'] ?? 'Sin descripción')) ?></small>
                         </div>
                         <div class="tag-editor" data-tag-editor>
                             <div class="tag-pills" data-tag-pills>
@@ -117,12 +236,19 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                             <?php if ($documentCanManage): ?>
                                 <button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>
                             <?php endif; ?>
+                            <small class="flow-summary" data-flow-summary>
+                                Revisor: <?= $file['reviewer_id'] ? 'Usuario #' . (int) $file['reviewer_id'] : 'No asignado' ?><br>
+                                Validador: <?= $file['validator_id'] ? 'Usuario #' . (int) $file['validator_id'] : 'No asignado' ?><br>
+                                Aprobador: <?= $file['approver_id'] ? 'Usuario #' . (int) $file['approver_id'] : 'No asignado' ?>
+                            </small>
                             <div class="review-actions" data-review-actions hidden>
+                                <textarea rows="2" placeholder="Comentario opcional" data-comment-input></textarea>
                                 <button type="button" class="action-btn small" data-action="reviewed">Aprobar revisión</button>
                                 <button type="button" class="action-btn small" data-action="validated">Validar documento</button>
                                 <button type="button" class="action-btn small primary" data-action="approved">Aprobar documento</button>
                                 <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
                             </div>
+                            <button type="button" class="action-btn small" data-toggle-history>Historial</button>
                         </div>
                         <div class="file-actions">
                             <a class="action-btn small" href="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download">Ver</a>
@@ -134,6 +260,12 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                             <?php if ($documentCanManage): ?>
                                 <button type="button" class="action-btn small" data-toggle-flow>Asignar flujo</button>
                             <?php endif; ?>
+                        </div>
+                        <div class="history-panel" data-history-panel hidden>
+                            <strong>Historial</strong>
+                            <ul class="history-list" data-history-list>
+                                <li class="section-muted">Cargando historial...</li>
+                            </ul>
                         </div>
                         <div class="flow-panel" data-flow-panel hidden>
                             <div class="flow-grid">
@@ -177,13 +309,20 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
     .document-section { border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:8px; }
     .document-section h5 { margin:0; }
     .section-muted { color: var(--muted); margin:0; font-size:13px; }
-    .expected-list { margin:0; padding-left:18px; color: var(--text-strong); }
+    .expected-list { margin:0; padding-left:0; list-style:none; color: var(--text-strong); display:flex; flex-direction:column; gap:6px; }
+    .expected-list li { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; background:#fff; padding:6px 8px; border-radius:8px; border:1px solid var(--border); }
+    .expected-pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#e5e7eb; color:#374151; }
+    .expected-loaded { background:#dbeafe; color:#1d4ed8; }
+    .expected-approved { background:#dcfce7; color:#166534; }
+    .expected-pending { background:#fef3c7; color:#92400e; }
+    .expected-review { background:#ede9fe; color:#5b21b6; }
     .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .document-search input { border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:220px; }
     .upload-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .upload-preview { margin-top:6px; background:#fff; border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
     .document-files { display:flex; flex-direction:column; gap:12px; }
     .document-file-table { display:grid; gap:8px; }
-    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(160px, 0.8fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; }
+    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; }
     .document-file-head { background:#f1f5f9; font-weight:700; }
     .document-file-head span { font-size:12px; text-transform:uppercase; color: var(--muted); }
     .tag-editor { display:flex; flex-direction:column; gap:6px; }
@@ -198,15 +337,35 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
     .status-validated { background:#dcfce7; color:#166534; }
     .status-approved { background:#ede9fe; color:#5b21b6; }
     .file-actions { display:flex; flex-wrap:wrap; gap:6px; }
+    .file-meta { display:flex; flex-direction:column; gap:4px; }
+    .flow-summary { display:block; margin:6px 0; font-size:12px; color: var(--muted); }
     .flow-panel { margin-top:6px; background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
+    .history-panel { margin-top:6px; background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
+    .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-strong); font-size:12px; }
     .flow-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:6px; }
     .flow-grid label { display:flex; flex-direction:column; gap:4px; font-size:13px; color: var(--text-strong); }
     .flow-grid select { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .review-actions { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+    .review-actions textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; }
     .review-actions .danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
     .document-alert { background:#fef3c7; color:#92400e; padding:8px 10px; border-radius:10px; font-size:13px; display:flex; flex-direction:column; gap:4px; min-width:200px; }
     .file-trace { margin-top:6px; font-size:12px; color: var(--muted); }
     .flow-actions { display:flex; justify-content:flex-end; margin-bottom:6px; }
+    .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:50; }
+    .modal[hidden] { display:none; }
+    .modal-backdrop { position:absolute; inset:0; background:rgba(15, 23, 42, 0.45); }
+    .modal-panel { position:relative; background:#fff; border-radius:14px; padding:16px; width:min(640px, 92vw); max-height:90vh; overflow:auto; display:flex; flex-direction:column; gap:12px; box-shadow:0 20px 40px rgba(15, 23, 42, 0.2); }
+    .modal-panel header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--text-strong); }
+    .field input, .field select, .field textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
+    .field-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
+    .switch { display:flex; align-items:center; gap:10px; font-size:13px; }
+    .switch input { display:none; }
+    .switch .slider { width:40px; height:22px; background:#e5e7eb; border-radius:999px; position:relative; }
+    .switch .slider::after { content:''; position:absolute; width:18px; height:18px; background:#fff; border-radius:50%; top:2px; left:2px; transition:all 0.2s ease; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+    .switch input:checked + .slider { background:#22c55e; }
+    .switch input:checked + .slider::after { transform: translateX(18px); }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
     @media (max-width: 900px) {
         .document-file-row { grid-template-columns: 1fr; }
         .document-file-head { display:none; }
@@ -222,8 +381,10 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         const currentUserName = <?= json_encode((string) ($documentCurrentUser['name'] ?? 'Usuario')) ?>;
         const keyTags = <?= json_encode(array_values($documentKeyTags)) ?>;
         const basePath = <?= json_encode((string) $documentBasePath) ?>;
+        const documentCanManage = <?= json_encode($documentCanManage) ?>;
         const roleCache = new Map();
         const saveTimers = new Map();
+        const documentTagOptions = <?= json_encode(array_values($documentTagOptions)) ?>;
 
         const statusConfig = {
             pendiente_revision: { label: 'Pendiente de revisión', className: 'status-pending' },
@@ -232,6 +393,19 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             aprobacion_pendiente: { label: 'Aprobación pendiente', className: 'status-review' },
             aprobado: { label: 'Aprobado', className: 'status-approved' },
             rechazado: { label: 'Rechazado', className: 'status-pending' }
+        };
+        const historyLabels = {
+            file_created: 'Subido',
+            document_uploaded: 'Subido',
+            document_metadata_updated: 'Metadata actualizada',
+            document_flow_assigned: 'Flujo asignado',
+            document_sent_review: 'Enviado a revisión',
+            document_reviewed: 'Revisado',
+            document_validated: 'Validado',
+            document_approved: 'Aprobado',
+            document_rejected: 'Rechazado',
+            document_status_updated: 'Estado actualizado',
+            file_deleted: 'Eliminado',
         };
 
         const parseTagString = (value) => {
@@ -256,8 +430,9 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
 
             root.querySelectorAll('[data-file-row]').forEach(row => {
                 const tags = row.dataset.tags ? row.dataset.tags.split('|').filter(Boolean) : [];
+                const type = row.dataset.documentType ? [row.dataset.documentType] : [];
                 const status = row.dataset.documentStatus || 'pendiente_revision';
-                tags.forEach(tag => {
+                [...tags, ...type].forEach(tag => {
                     if (summary[tag]) {
                         if (status === 'aprobado') {
                             summary[tag].approved = true;
@@ -289,6 +464,140 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             });
             row.dataset.tags = tags.join('|');
             updateAlert();
+        };
+
+        const updateFlowSummary = (row) => {
+            const summary = row.querySelector('[data-flow-summary]');
+            if (!summary) return;
+            const reviewer = row.dataset.reviewerId ? `Usuario #${row.dataset.reviewerId}` : 'No asignado';
+            const validator = row.dataset.validatorId ? `Usuario #${row.dataset.validatorId}` : 'No asignado';
+            const approver = row.dataset.approverId ? `Usuario #${row.dataset.approverId}` : 'No asignado';
+            summary.innerHTML = `Revisor: ${reviewer}<br>Validador: ${validator}<br>Aprobador: ${approver}`;
+        };
+
+        const escapeHtml = (value) => {
+            const div = document.createElement('div');
+            div.textContent = value ?? '';
+            return div.innerHTML;
+        };
+
+        const createTagSelect = () => {
+            const select = document.createElement('select');
+            select.multiple = true;
+            select.dataset.tagSelect = '';
+            documentTagOptions.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                select.appendChild(option);
+            });
+            return select;
+        };
+
+        const buildFileRow = (data) => {
+            const row = document.createElement('div');
+            row.className = 'document-file-row';
+            row.dataset.fileRow = '';
+            row.dataset.fileId = data.id ?? '';
+            row.dataset.reviewerId = data.reviewer_id ?? '';
+            row.dataset.validatorId = data.validator_id ?? '';
+            row.dataset.approverId = data.approver_id ?? '';
+            row.dataset.documentStatus = data.document_status ?? 'pendiente_revision';
+            row.dataset.tags = Array.isArray(data.tags) ? data.tags.join('|') : '';
+            row.dataset.documentVersion = data.version ?? '';
+            row.dataset.documentType = data.document_type ?? '';
+            row.dataset.description = data.description ?? '';
+            row.dataset.fileName = data.file_name ?? '';
+            row.dataset.reviewedBy = data.reviewed_by ?? '';
+            row.dataset.reviewedAt = data.reviewed_at ?? '';
+            row.dataset.validatedBy = data.validated_by ?? '';
+            row.dataset.validatedAt = data.validated_at ?? '';
+            row.dataset.approvedBy = data.approved_by ?? '';
+            row.dataset.approvedAt = data.approved_at ?? '';
+
+            row.innerHTML = `
+                <div>
+                    <strong>${escapeHtml(data.file_name ?? '')}</strong>
+                    <small class="section-muted">Subido: ${escapeHtml(data.created_at ?? '')}</small>
+                    <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
+                </div>
+                <div class="file-meta">
+                    <div><strong>${escapeHtml(data.document_type ?? '')}</strong></div>
+                    <small class="section-muted">${escapeHtml(data.description ?? 'Sin descripción')}</small>
+                </div>
+                <div class="tag-editor" data-tag-editor>
+                    <div class="tag-pills" data-tag-pills></div>
+                    <div class="tag-controls">
+                        ${createTagSelect().outerHTML}
+                        <input type="text" placeholder="Otro (texto libre)" data-tag-custom>
+                    </div>
+                </div>
+                <div>
+                    <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input value="${escapeHtml(data.version ?? '')}">
+                </div>
+                <div>
+                    <span class="status-pill status-pending" data-status-label>Pendiente</span>
+                    ${documentCanManage ? '<button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>' : ''}
+                    <small class="flow-summary" data-flow-summary></small>
+                    <div class="review-actions" data-review-actions hidden>
+                        <textarea rows="2" placeholder="Comentario opcional" data-comment-input></textarea>
+                        <button type="button" class="action-btn small" data-action="reviewed">Aprobar revisión</button>
+                        <button type="button" class="action-btn small" data-action="validated">Validar documento</button>
+                        <button type="button" class="action-btn small primary" data-action="approved">Aprobar documento</button>
+                        <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
+                    </div>
+                    <button type="button" class="action-btn small" data-toggle-history>Historial</button>
+                </div>
+                <div class="file-actions">
+                    <a class="action-btn small" href="${basePath}/projects/${documentProjectId}/nodes/${data.id}/download">Ver</a>
+                    ${documentCanManage ? `<form method="POST" action="${basePath}/projects/${documentProjectId}/nodes/${data.id}/delete" onsubmit="return confirm('¿Eliminar archivo?');"><button class="action-btn danger small" type="submit">Eliminar</button></form>` : ''}
+                    ${documentCanManage ? '<button type="button" class="action-btn small" data-toggle-flow>Asignar flujo</button>' : ''}
+                </div>
+                <div class="history-panel" data-history-panel hidden>
+                    <strong>Historial</strong>
+                    <ul class="history-list" data-history-list>
+                        <li class="section-muted">Cargando historial...</li>
+                    </ul>
+                </div>
+                <div class="flow-panel" data-flow-panel hidden>
+                    <div class="flow-grid">
+                        <label>
+                            <span>Revisor</span>
+                            <select data-role-select="reviewer"><option value="">Seleccionar</option></select>
+                        </label>
+                        <label>
+                            <span>Validador</span>
+                            <select data-role-select="validator"><option value="">Seleccionar</option></select>
+                        </label>
+                        <label>
+                            <span>Aprobador</span>
+                            <select data-role-select="approver"><option value="">Seleccionar</option></select>
+                        </label>
+                    </div>
+                    <div class="flow-actions">
+                        <button type="button" class="action-btn small primary" data-save-flow>Guardar flujo</button>
+                    </div>
+                    <small class="section-muted">Asigna responsables para habilitar las acciones por rol.</small>
+                </div>
+            `;
+
+            return row;
+        };
+
+        const initRow = (row) => {
+            const existingTags = parseTagString(row.dataset.tags);
+            updateTagsDisplay(row, existingTags);
+            applyTagSelection(row, existingTags);
+            const status = row.dataset.documentStatus || 'pendiente_revision';
+            updateStatus(row, status);
+            updateTraceFromData(row);
+            updateRoleActions(row);
+            updateFlowSummary(row);
+            toggleSendReview(row);
+            const versionInput = row.querySelector('[data-version-input]');
+            if (versionInput) {
+                versionInput.value = row.dataset.documentVersion || '';
+            }
         };
 
         const applyTagSelection = (row, tags) => {
@@ -508,18 +817,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
         };
 
         root.querySelectorAll('[data-file-row]').forEach(row => {
-            const existingTags = parseTagString(row.dataset.tags);
-            updateTagsDisplay(row, existingTags);
-            applyTagSelection(row, existingTags);
-            const status = row.dataset.documentStatus || 'pendiente_revision';
-            updateStatus(row, status);
-            updateTraceFromData(row);
-            updateRoleActions(row);
-            toggleSendReview(row);
-            const versionInput = row.querySelector('[data-version-input]');
-            if (versionInput) {
-                versionInput.value = row.dataset.documentVersion || '';
-            }
+            initRow(row);
         });
 
         root.querySelectorAll('select[data-role-select]').forEach(select => {
@@ -550,6 +848,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                 const role = roleSelect.dataset.roleSelect;
                 row.dataset[`${role}Id`] = roleSelect.value;
                 updateRoleActions(row);
+                updateFlowSummary(row);
             }
 
             const versionInput = event.target.closest('[data-version-input]');
@@ -590,6 +889,8 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
             if (sendReview) {
                 const row = sendReview.closest('[data-file-row]');
                 const fileId = row.dataset.fileId;
+                const commentInput = row.querySelector('[data-comment-input]');
+                const comment = commentInput ? commentInput.value.trim() : '';
                 sendReview.disabled = true;
                 fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-status`, {
                     method: 'POST',
@@ -597,7 +898,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: new URLSearchParams({ action: 'send_review' }),
+                    body: new URLSearchParams({ action: 'send_review', comment }),
                 })
                     .then(response => response.json())
                     .then(payload => {
@@ -619,6 +920,8 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                 const row = actionBtn.closest('[data-file-row]');
                 const action = actionBtn.dataset.action;
                 const fileId = row.dataset.fileId;
+                const commentInput = row.querySelector('[data-comment-input]');
+                const comment = commentInput ? commentInput.value.trim() : '';
                 actionBtn.disabled = true;
                 fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-status`, {
                     method: 'POST',
@@ -626,7 +929,7 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: new URLSearchParams({ action }),
+                    body: new URLSearchParams({ action, comment }),
                 })
                     .then(response => response.json())
                     .then(payload => {
@@ -677,6 +980,49 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                         saveFlow.disabled = false;
                     });
             }
+
+            const toggleHistory = event.target.closest('[data-toggle-history]');
+            if (toggleHistory) {
+                const row = toggleHistory.closest('[data-file-row]');
+                const panel = row.querySelector('[data-history-panel]');
+                const list = row.querySelector('[data-history-list]');
+                if (!panel || !list) return;
+                panel.hidden = !panel.hidden;
+                if (panel.hidden || panel.dataset.loaded === 'true') {
+                    return;
+                }
+                const fileId = row.dataset.fileId;
+                fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-history`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                    .then(response => response.json())
+                    .then(payload => {
+                        if (payload.status !== 'ok') {
+                            throw new Error(payload.message || 'No se pudo cargar el historial.');
+                        }
+                        list.innerHTML = '';
+                        const entries = Array.isArray(payload.data) ? payload.data : [];
+                        if (entries.length === 0) {
+                            list.innerHTML = '<li class="section-muted">Sin historial.</li>';
+                        } else {
+                            entries.forEach(entry => {
+                                const item = document.createElement('li');
+                                const actor = entry.user_name ? entry.user_name : (entry.user_id ? `Usuario #${entry.user_id}` : 'Sistema');
+                                const label = historyLabels[entry.action] || entry.action || 'Evento';
+                                const note = entry.payload && entry.payload.comment ? ` · ${entry.payload.comment}` : '';
+                                item.textContent = `${label} · ${actor} · ${entry.created_at}${note}`;
+                                list.appendChild(item);
+                            });
+                        }
+                        panel.dataset.loaded = 'true';
+                    })
+                    .catch(error => {
+                        list.innerHTML = `<li class="section-muted">${error.message}</li>`;
+                    });
+            }
         });
 
         const updateFlowRow = (row, data, traceNote) => {
@@ -695,21 +1041,162 @@ $documentNodeCode = (string) ($documentNode['code'] ?? '');
                 updateTraceFromData(row);
             }
             updateRoleActions(row);
+            updateFlowSummary(row);
             toggleSendReview(row);
         };
 
-        const uploadInput = root.querySelector('.upload-form input[type="file"]');
-        const preview = root.querySelector('[data-upload-preview]');
-        if (uploadInput && preview) {
-            uploadInput.addEventListener('change', () => {
-                const list = preview.querySelector('ul');
-                list.innerHTML = '';
-                Array.from(uploadInput.files || []).forEach(file => {
-                    const item = document.createElement('li');
-                    item.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
-                    list.appendChild(item);
+        const uploadModal = root.querySelector('[data-upload-modal]');
+        const openUpload = root.querySelector('[data-open-upload]');
+        const closeUploadButtons = root.querySelectorAll('[data-close-upload]');
+        const uploadPreview = root.querySelector('[data-upload-preview]');
+        const uploadForm = uploadModal ? uploadModal.querySelector('.upload-form') : null;
+
+        const closeModal = () => {
+            if (uploadModal) {
+                uploadModal.hidden = true;
+            }
+        };
+
+        if (openUpload && uploadModal) {
+            openUpload.addEventListener('click', () => {
+                uploadModal.hidden = false;
+            });
+        }
+
+        closeUploadButtons.forEach(button => {
+            button.addEventListener('click', closeModal);
+        });
+
+        const collectUploadTags = () => {
+            const select = uploadModal?.querySelector('[data-upload-tag-select]');
+            const customInput = uploadModal?.querySelector('[data-upload-tag-custom]');
+            const selectedTags = select ? Array.from(select.selectedOptions).map(option => option.value) : [];
+            const customTags = customInput && customInput.value.trim()
+                ? customInput.value.split(',').map(tag => tag.trim()).filter(Boolean)
+                : [];
+            return sanitizeTags([...selectedTags, ...customTags]);
+        };
+
+        const collectUploadType = () => {
+            const select = uploadModal?.querySelector('[data-document-type-select]');
+            const customInput = uploadModal?.querySelector('[data-document-type-custom]');
+            const custom = customInput ? customInput.value.trim() : '';
+            if (custom !== '') {
+                return custom;
+            }
+            return select ? select.value : '';
+        };
+
+        if (uploadForm) {
+            const uploadInput = uploadForm.querySelector('input[type="file"]');
+            if (uploadInput && uploadPreview) {
+                uploadInput.addEventListener('change', () => {
+                    const list = uploadPreview.querySelector('ul');
+                    list.innerHTML = '';
+                    Array.from(uploadInput.files || []).forEach(file => {
+                        const item = document.createElement('li');
+                        item.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+                        list.appendChild(item);
+                    });
+                    uploadPreview.hidden = list.children.length === 0;
                 });
-                preview.hidden = list.children.length === 0;
+            }
+
+            uploadForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const documentType = collectUploadType();
+                const tags = collectUploadTags();
+                const hiddenType = uploadForm.querySelector('[data-document-type-hidden]');
+                const hiddenTags = uploadForm.querySelector('[data-document-tags-hidden]');
+                if (hiddenType) hiddenType.value = documentType;
+                if (hiddenTags) hiddenTags.value = JSON.stringify(tags);
+
+                if (!documentType) {
+                    alert('Selecciona el tipo documental.');
+                    return;
+                }
+                if (tags.length === 0) {
+                    alert('Selecciona al menos un tag.');
+                    return;
+                }
+
+                const formData = new FormData(uploadForm);
+                fetch(uploadForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData,
+                })
+                    .then(response => response.json())
+                    .then(payload => {
+                        if (payload.status !== 'ok') {
+                            throw new Error(payload.message || 'No se pudo subir el documento.');
+                        }
+                        let table = root.querySelector('.document-file-table');
+                        if (!table) {
+                            const filesSection = root.querySelector('.document-files');
+                            if (filesSection) {
+                                const emptyState = filesSection.querySelector('p.section-muted');
+                                if (emptyState) {
+                                    emptyState.remove();
+                                }
+                                table = document.createElement('div');
+                                table.className = 'document-file-table';
+                                table.innerHTML = `
+                                    <div class="document-file-row document-file-head">
+                                        <span>Archivo</span>
+                                        <span>Tipo / Descripción</span>
+                                        <span>Tags</span>
+                                        <span>Versión</span>
+                                        <span>Flujo & estado</span>
+                                        <span>Acciones</span>
+                                    </div>
+                                `;
+                                filesSection.appendChild(table);
+                            }
+                        }
+                        if (table && Array.isArray(payload.data)) {
+                            payload.data.forEach(item => {
+                                const row = buildFileRow(item);
+                                table.appendChild(row);
+                                initRow(row);
+                                row.querySelectorAll('select[data-role-select]').forEach(select => {
+                                    loadRoleOptions(select.dataset.roleSelect, select);
+                                });
+                            });
+                        }
+                        uploadForm.reset();
+                        if (uploadPreview) {
+                            uploadPreview.hidden = true;
+                        }
+                        closeModal();
+                        updateAlert();
+                    })
+                    .catch(error => {
+                        alert(error.message);
+                    });
+            });
+        }
+
+        const searchInput = root.querySelector('[data-document-search]');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.trim().toLowerCase();
+                root.querySelectorAll('[data-file-row]').forEach(row => {
+                    if (!query) {
+                        row.hidden = false;
+                        return;
+                    }
+                    const tags = row.dataset.tags || '';
+                    const type = row.dataset.documentType || '';
+                    const version = row.dataset.documentVersion || '';
+                    const status = row.dataset.documentStatus || '';
+                    const name = row.dataset.fileName || '';
+                    const description = row.dataset.description || '';
+                    const haystack = `${name} ${tags} ${type} ${version} ${status} ${description}`.toLowerCase();
+                    row.hidden = !haystack.includes(query);
+                });
             });
         }
 
