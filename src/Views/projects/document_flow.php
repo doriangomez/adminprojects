@@ -9,6 +9,10 @@ $documentMode = $documentMode ?? null;
 $documentProjectId = (int) ($documentProjectId ?? 0);
 $documentBasePath = $documentBasePath ?? '/project/public';
 $documentCurrentUser = is_array($documentCurrentUser ?? null) ? $documentCurrentUser : [];
+$documentContextLabel = $documentContextLabel ?? 'SUBFASE';
+$documentContextDescription = $documentContextDescription ?? 'Documentos guiados por metodología, fase y subfase con trazabilidad ISO 9001.';
+$documentExpectedTitle = $documentExpectedTitle ?? 'Documentos sugeridos por subfase';
+$documentExpectedDescription = $documentExpectedDescription ?? 'Guía basada en metodología, fase y subfase. Puedes adjuntar documentos adicionales.';
 $documentFiles = is_array($documentNode['files'] ?? null) ? $documentNode['files'] : [];
 if ($documentMode === '03-CONTROLES') {
     $documentFiles = array_values(array_filter($documentFiles, static function (array $file): bool {
@@ -75,9 +79,9 @@ foreach ($documentExpectedItems as $doc) {
 <section class="document-flow" data-document-flow="<?= htmlspecialchars($documentFlowId) ?>">
     <header class="document-header">
         <div>
-            <p class="eyebrow" style="margin:0; color: var(--muted);">SUBFASE · <?= htmlspecialchars($documentNodeCode) ?></p>
+            <p class="eyebrow" style="margin:0; color: var(--muted);"><?= htmlspecialchars($documentContextLabel) ?> · <?= htmlspecialchars($documentNodeCode) ?></p>
             <h4 style="margin:4px 0 0;">Gestión documental de <?= htmlspecialchars($documentNodeName) ?></h4>
-            <small style="color: var(--muted);">Documentos guiados por metodología, fase y subfase con trazabilidad ISO 9001.</small>
+            <small style="color: var(--muted);"><?= htmlspecialchars($documentContextDescription) ?></small>
         </div>
     </header>
 
@@ -87,27 +91,31 @@ foreach ($documentExpectedItems as $doc) {
 
     <div class="document-grid">
         <section class="document-section">
-            <h5>Documentos sugeridos por subfase</h5>
-            <p class="section-muted">Guía basada en metodología, fase y subfase. Puedes adjuntar documentos adicionales.</p>
-            <ul class="expected-list">
-                <?php foreach ($expectedSummary as $summary): ?>
-                    <li>
-                        <span><?= htmlspecialchars($summary['name']) ?></span>
-                        <?php if ($summary['loaded']): ?>
-                            <span class="expected-pill <?= $summary['approved'] ? 'expected-approved' : 'expected-loaded' ?>">
-                                <?= $summary['approved'] ? 'Aprobado' : 'Cargado' ?>
-                            </span>
-                        <?php else: ?>
-                            <span class="expected-pill expected-pending">Pendiente</span>
-                        <?php endif; ?>
-                        <?php if (!empty($summary['requires_approval'])): ?>
-                            <span class="expected-pill expected-review">Requiere aprobación</span>
-                        <?php else: ?>
-                            <span class="expected-pill expected-optional">Opcional</span>
-                        <?php endif; ?>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <h5><?= htmlspecialchars($documentExpectedTitle) ?></h5>
+            <p class="section-muted"><?= htmlspecialchars($documentExpectedDescription) ?></p>
+            <?php if (empty($expectedSummary)): ?>
+                <p class="section-muted">No hay documentos sugeridos configurados para este contexto.</p>
+            <?php else: ?>
+                <ul class="expected-list">
+                    <?php foreach ($expectedSummary as $summary): ?>
+                        <li>
+                            <span><?= htmlspecialchars($summary['name']) ?></span>
+                            <?php if ($summary['loaded']): ?>
+                                <span class="expected-pill <?= $summary['approved'] ? 'expected-approved' : 'expected-loaded' ?>">
+                                    <?= $summary['approved'] ? 'Aprobado' : 'Cargado' ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="expected-pill expected-pending">Pendiente</span>
+                            <?php endif; ?>
+                            <?php if (!empty($summary['requires_approval'])): ?>
+                                <span class="expected-pill expected-review">Requiere aprobación</span>
+                            <?php else: ?>
+                                <span class="expected-pill expected-optional">Opcional</span>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </section>
 
         <section class="document-section">

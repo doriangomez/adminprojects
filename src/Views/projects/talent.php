@@ -23,6 +23,7 @@ $talents = is_array($talents ?? null) ? $talents : [];
                     <div>
                         <strong><?= htmlspecialchars($assignment['talent_name'] ?? 'Talento') ?></strong>
                         <div style="color:var(--muted); font-weight:600;"><?= htmlspecialchars($assignment['role'] ?? '') ?></div>
+                        <small style="color:var(--muted);">Estado: <?= htmlspecialchars((string) ($assignment['assignment_status'] ?? 'active')) ?></small>
                     </div>
                     <div style="text-align:right;">
                         <div><?= htmlspecialchars($assignment['start_date'] ?? 'N/A') ?> → <?= htmlspecialchars($assignment['end_date'] ?? 'N/A') ?></div>
@@ -68,6 +69,13 @@ $talents = is_array($talents ?? null) ? $talents : [];
             <select name="cost_type" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
                 <option value="por_horas">Por horas</option>
                 <option value="fijo">Fijo</option>
+            </select>
+        </label>
+        <label>Estado
+            <select name="assignment_status" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
+                <option value="active">Activo</option>
+                <option value="paused">En pausa</option>
+                <option value="removed">Retirado</option>
             </select>
         </label>
         <label>Valor

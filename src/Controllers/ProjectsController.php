@@ -252,6 +252,255 @@ class ProjectsController extends Controller
         ]);
     }
 
+    public function tasks(int $id): void
+    {
+        $this->requirePermission('projects.view');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $tasks = (new TasksRepository($this->db))->forProject($id, $user);
+
+        $this->render('projects/tasks', [
+            'title' => 'Tareas del proyecto',
+            'project' => $project,
+            'tasks' => $tasks,
+        ]);
+    }
+
+    public function outsourcing(int $id): void
+    {
+        $this->requirePermission('projects.view');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if (($project['project_type'] ?? '') !== 'outsourcing') {
+            http_response_code(404);
+            exit('El módulo de outsourcing no aplica para este proyecto.');
+        }
+
+        $assignments = $repo->assignmentsForProject($id, $user);
+        $talents = (new TalentsRepository($this->db))->summary();
+        $users = array_values(array_filter(
+            (new UsersRepository($this->db))->all(),
+            static fn (array $candidate): bool => (int) ($candidate['active'] ?? 0) === 1
+        ));
+
+        $outsourcingRepo = new OutsourcingRepository($this->db);
+        $settings = $outsourcingRepo->settingsForProject($id);
+        $followups = $outsourcingRepo->followupsForProject($id);
+        $indicators = $outsourcingRepo->indicators($id, (string) ($settings['followup_frequency'] ?? 'monthly'));
+
+        $nodesRepo = new ProjectNodesRepository($this->db);
+        $projectNodes = $nodesRepo->treeWithFiles($id);
+        $nodesById = $this->flattenProjectNodes($projectNodes);
+
+        foreach ($followups as &$followup) {
+            $nodeId = (int) ($followup['document_node_id'] ?? 0);
+            $followup['document_node'] = $nodeId > 0 ? ($nodesById[$nodeId] ?? null) : null;
+        }
+        unset($followup);
+
+        $this->render('projects/outsourcing', [
+            'title' => 'Control de outsourcing',
+            'project' => $project,
+            'assignments' => $assignments,
+            'talents' => $talents,
+            'users' => $users,
+            'settings' => $settings,
+            'followups' => $followups,
+            'indicators' => $indicators,
+            'documentFlowConfig' => (new ConfigService($this->db))->getConfig()['document_flow'] ?? [],
+            'currentUser' => $this->auth->user() ?? [],
+            'canManage' => $this->auth->can('projects.manage'),
+        ]);
+    }
+
+    public function updateOutsourcingSettings(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if (($project['project_type'] ?? '') !== 'outsourcing') {
+            http_response_code(404);
+            exit('El módulo de outsourcing no aplica para este proyecto.');
+        }
+
+        $frequency = (string) ($_POST['followup_frequency'] ?? 'monthly');
+
+        try {
+            $outsourcingRepo = new OutsourcingRepository($this->db);
+            $outsourcingRepo->updateSettings($id, $frequency);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'outsourcing_settings',
+                $id,
+                'updated',
+                ['followup_frequency' => $frequency]
+            );
+
+            header('Location: /project/public/projects/' . $id . '/outsourcing');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
+    public function createOutsourcingFollowup(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if (($project['project_type'] ?? '') !== 'outsourcing') {
+            http_response_code(404);
+            exit('El módulo de outsourcing no aplica para este proyecto.');
+        }
+
+        $periodStart = trim((string) ($_POST['period_start'] ?? ''));
+        $periodEnd = trim((string) ($_POST['period_end'] ?? ''));
+        if ($periodStart === '' || $periodEnd === '') {
+            http_response_code(400);
+            exit('El periodo del seguimiento es obligatorio.');
+        }
+        if (strtotime($periodEnd) < strtotime($periodStart)) {
+            http_response_code(400);
+            exit('El periodo del seguimiento es inválido.');
+        }
+
+        $responsibleId = (int) ($_POST['responsible_user_id'] ?? 0);
+        if ($responsibleId <= 0) {
+            http_response_code(400);
+            exit('Selecciona un responsable válido.');
+        }
+
+        try {
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $rootNode = $nodesRepo->findNodeByCode($id, 'ROOT');
+            $rootNodeId = $rootNode ? (int) ($rootNode['id'] ?? 0) : null;
+
+            $outsourcingRootId = $nodesRepo->ensureFolderPath($id, [
+                [
+                    'code' => 'OUTSOURCING',
+                    'title' => 'Outsourcing',
+                    'node_type' => ProjectTreeService::NODE_TYPE_FOLDER,
+                ],
+            ], $rootNodeId);
+
+            $folderCode = 'OUTSOURCING-FU-' . date('YmdHis') . '-' . random_int(100, 999);
+            $folderTitle = sprintf('Seguimiento %s a %s', $periodStart, $periodEnd);
+            $documentNodeId = $nodesRepo->createNode([
+                'project_id' => $id,
+                'parent_id' => $outsourcingRootId,
+                'code' => $folderCode,
+                'title' => $folderTitle,
+                'node_type' => ProjectTreeService::NODE_TYPE_FOLDER,
+                'iso_clause' => null,
+                'description' => 'Documentación de seguimiento outsourcing',
+                'sort_order' => 0,
+                'created_by' => (int) ($user['id'] ?? 0),
+            ]);
+
+            $outsourcingRepo = new OutsourcingRepository($this->db);
+            $followupId = $outsourcingRepo->createFollowup([
+                'project_id' => $id,
+                'document_node_id' => $documentNodeId,
+                'period_start' => $periodStart,
+                'period_end' => $periodEnd,
+                'responsible_user_id' => $responsibleId,
+                'service_status' => $_POST['service_status'] ?? '',
+                'observations' => $_POST['observations'] ?? '',
+                'decisions' => $_POST['decisions'] ?? '',
+                'created_by' => (int) ($user['id'] ?? 0),
+            ]);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'outsourcing_followup',
+                $followupId,
+                'created',
+                [
+                    'project_id' => $id,
+                    'period_start' => $periodStart,
+                    'period_end' => $periodEnd,
+                    'service_status' => $_POST['service_status'] ?? '',
+                    'responsible_user_id' => $responsibleId,
+                ]
+            );
+
+            header('Location: /project/public/projects/' . $id . '/outsourcing');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error al crear seguimiento outsourcing: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo crear el seguimiento.');
+        }
+    }
+
+    public function updateOutsourcingAssignmentStatus(int $projectId, int $assignmentId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if (($project['project_type'] ?? '') !== 'outsourcing') {
+            http_response_code(404);
+            exit('El módulo de outsourcing no aplica para este proyecto.');
+        }
+
+        $status = (string) ($_POST['assignment_status'] ?? 'active');
+
+        try {
+            $repo->updateAssignmentStatus($projectId, $assignmentId, $status);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'outsourcing_assignment',
+                $assignmentId,
+                'status_updated',
+                ['status' => $status]
+            );
+
+            header('Location: /project/public/projects/' . $projectId . '/outsourcing');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
     public function confirmClose(int $id): void
     {
         $this->requirePermission('projects.manage');
@@ -539,7 +788,12 @@ class ProjectsController extends Controller
             $payload = $this->collectAssignmentPayload($projectId);
             $repo->assignTalent($payload);
             $redirectId = (int) ($payload['project_id'] ?? 0);
-            $destination = $redirectId > 0 ? '/project/public/projects/' . $redirectId . '/talent' : '/project/public/projects';
+            $requestedRedirect = trim((string) ($_POST['redirect_to'] ?? ''));
+            if ($requestedRedirect !== '') {
+                $destination = $requestedRedirect;
+            } else {
+                $destination = $redirectId > 0 ? '/project/public/projects/' . $redirectId . '/talent' : '/project/public/projects';
+            }
             header('Location: ' . $destination);
             return;
         } catch (\Throwable $e) {
@@ -1041,6 +1295,11 @@ class ProjectsController extends Controller
     {
         $allocationPercent = $_POST['allocation_percent'] ?? null;
         $weeklyHours = $_POST['weekly_hours'] ?? null;
+        $assignmentStatus = strtolower(trim((string) ($_POST['assignment_status'] ?? 'active')));
+        $allowedStatuses = ['active', 'paused', 'removed'];
+        if (!in_array($assignmentStatus, $allowedStatuses, true)) {
+            $assignmentStatus = 'active';
+        }
 
         return [
             'project_id' => $projectId ?? (int) ($_POST['project_id'] ?? 0),
@@ -1055,6 +1314,8 @@ class ProjectsController extends Controller
             'is_external' => isset($_POST['is_external']) ? 1 : 0,
             'requires_timesheet' => isset($_POST['requires_timesheet']) ? 1 : 0,
             'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
+            'assignment_status' => $assignmentStatus,
+            'created_by' => (int) ($this->auth->user()['id'] ?? 0),
         ];
     }
 
@@ -1217,6 +1478,27 @@ class ProjectsController extends Controller
         $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 
         return $isAjax || str_contains($accept, 'application/json');
+    }
+
+    private function flattenProjectNodes(array $nodes): array
+    {
+        $stack = $nodes;
+        $map = [];
+
+        while (!empty($stack)) {
+            $node = array_pop($stack);
+            if (!is_array($node)) {
+                continue;
+            }
+            if (isset($node['id'])) {
+                $map[(int) $node['id']] = $node;
+            }
+            foreach (($node['children'] ?? []) as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return $map;
     }
 
     private function canDeleteProjects(): bool
@@ -1625,7 +1907,7 @@ class ProjectsController extends Controller
 
     private function projectPayload(array $current, array $deliveryConfig = []): array
     {
-        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido'];
+        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
         $projectType = $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional');
         $projectType = in_array($projectType, $allowedProjectTypes, true) ? $projectType : 'convencional';
 
@@ -2165,7 +2447,7 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
         }
 
-        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido'];
+        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
         $projectTypeInput = trim((string) ($_POST['project_type'] ?? 'convencional')) ?: 'convencional';
         $projectType = in_array($projectTypeInput, $allowedProjectTypes, true) ? $projectTypeInput : 'convencional';
         $status = 'planning';
@@ -2309,6 +2591,7 @@ class ProjectsController extends Controller
         $preferred = match ($projectType) {
             'scrum' => 'scrum',
             'hibrido' => 'kanban',
+            'outsourcing' => 'cascada',
             default => 'cascada',
         };
 

@@ -47,6 +47,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
             <option value="convencional" <?= $projectType === 'convencional' ? 'selected' : '' ?>>Convencional (fechas y fases)</option>
             <option value="scrum" <?= $projectType === 'scrum' ? 'selected' : '' ?>>Scrum (sprints y backlog)</option>
             <option value="hibrido" <?= $projectType === 'hibrido' ? 'selected' : '' ?>>Híbrido (mixto)</option>
+            <option value="outsourcing" <?= $projectType === 'outsourcing' ? 'selected' : '' ?>>Outsourcing (servicio continuo)</option>
         </select>
         <small class="subtext">Convencional usa hitos secuenciales; Scrum trabaja en sprints sin fecha fin rígida.</small>
     </label>
@@ -133,6 +134,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 <li><?= (int) ($dependencies['tasks'] ?? 0) ?> tareas</li>
                 <li><?= (int) ($dependencies['timesheets'] ?? 0) ?> timesheets</li>
                 <li><?= (int) ($dependencies['assignments'] ?? 0) ?> asignaciones</li>
+                <li><?= (int) ($dependencies['outsourcing_followups'] ?? 0) ?> seguimientos outsourcing</li>
                 <li><?= (int) ($dependencies['design_inputs'] ?? 0) ?> entradas de diseño</li>
                 <li><?= (int) ($dependencies['design_controls'] ?? 0) ?> controles de diseño</li>
                 <li><?= (int) ($dependencies['design_changes'] ?? 0) ?> cambios de diseño</li>

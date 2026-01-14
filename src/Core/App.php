@@ -23,6 +23,7 @@ class App
         $migrator->ensureSystemSettings();
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
+        $migrator->ensureOutsourcingModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -247,6 +248,30 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/costs$#', $path, $matches) && $method === 'GET') {
                 $controller->costs((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/tasks$#', $path, $matches) && $method === 'GET') {
+                $controller->tasks((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method === 'GET') {
+                $controller->outsourcing((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/outsourcing/settings$#', $path, $matches) && $method === 'POST') {
+                $controller->updateOutsourcingSettings((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/outsourcing/followups$#', $path, $matches) && $method === 'POST') {
+                $controller->createOutsourcingFollowup((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/outsourcing/assignments$#', $path, $matches) && $method === 'POST') {
+                $controller->assignTalent((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/outsourcing/assignments/(\\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateOutsourcingAssignmentStatus((int) $matches[1], (int) $matches[2]);
                 return;
             }
             if (preg_match('#^/projects/(\\d+)/close$#', $path, $matches)) {

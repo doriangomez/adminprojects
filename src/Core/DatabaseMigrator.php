@@ -118,8 +118,19 @@ class DatabaseMigrator
     {
         try {
             $this->createAssignmentsTableIfMissing();
+            $this->ensureAssignmentStatusColumn();
         } catch (\PDOException $e) {
             error_log('Error asegurando tabla project_talent_assignments: ' . $e->getMessage());
+        }
+    }
+
+    public function ensureOutsourcingModule(): void
+    {
+        try {
+            $this->createOutsourcingSettingsTable();
+            $this->createOutsourcingFollowupsTable();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tablas de outsourcing: ' . $e->getMessage());
         }
     }
 
@@ -949,6 +960,7 @@ class DatabaseMigrator
                 is_external TINYINT(1) DEFAULT 0,
                 requires_timesheet TINYINT(1) DEFAULT 0,
                 requires_approval TINYINT(1) DEFAULT 0,
+                assignment_status VARCHAR(20) DEFAULT "active",
                 active TINYINT(1) DEFAULT 1,
                 start_date DATE,
                 end_date DATE,
@@ -957,6 +969,72 @@ class DatabaseMigrator
                 FOREIGN KEY (project_id) REFERENCES projects(id),
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (talent_id) REFERENCES talents(id)
+            ) ENGINE=InnoDB'
+        );
+    }
+
+    private function ensureAssignmentStatusColumn(): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('project_talent_assignments', 'assignment_status')) {
+            $this->db->execute(
+                'ALTER TABLE project_talent_assignments ADD COLUMN assignment_status VARCHAR(20) DEFAULT "active" AFTER requires_approval'
+            );
+            $this->db->clearColumnCache();
+        }
+
+        $this->db->execute(
+            "UPDATE project_talent_assignments
+             SET assignment_status = CASE
+                 WHEN assignment_status IS NULL OR assignment_status = '' THEN 'active'
+                 ELSE assignment_status
+             END"
+        );
+    }
+
+    private function createOutsourcingSettingsTable(): void
+    {
+        if ($this->db->tableExists('project_outsourcing_settings')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_outsourcing_settings (
+                project_id INT NOT NULL PRIMARY KEY,
+                followup_frequency ENUM("weekly", "biweekly", "monthly") NOT NULL DEFAULT "monthly",
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB'
+        );
+    }
+
+    private function createOutsourcingFollowupsTable(): void
+    {
+        if ($this->db->tableExists('project_outsourcing_followups')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_outsourcing_followups (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                document_node_id INT NOT NULL,
+                period_start DATE NOT NULL,
+                period_end DATE NOT NULL,
+                responsible_user_id INT NOT NULL,
+                service_status ENUM("green", "yellow", "red") NOT NULL,
+                observations TEXT NOT NULL,
+                decisions TEXT NOT NULL,
+                created_by INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (document_node_id) REFERENCES project_nodes(id),
+                FOREIGN KEY (responsible_user_id) REFERENCES users(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
             ) ENGINE=InnoDB'
         );
     }

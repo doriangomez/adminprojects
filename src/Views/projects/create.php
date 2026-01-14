@@ -222,6 +222,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
                             <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
                             <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
+                            <option value="outsourcing" <?= $selectedProjectType === 'outsourcing' ? 'selected' : '' ?>>Outsourcing</option>
                         </select>
                     </label>
                     <label class="input">
@@ -546,7 +547,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const wizardValidationMessage = document.getElementById('wizardValidationMessage');
     const wizardForm = document.getElementById('projectWizardForm');
     const wizardLoader = document.getElementById('wizardLoader');
-    const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban' };
+    const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban', outsourcing: 'cascada' };
 
     let currentStep = 0;
     let hasValidatedStep0 = false;
