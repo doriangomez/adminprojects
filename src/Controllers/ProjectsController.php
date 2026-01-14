@@ -14,10 +14,12 @@ class ProjectsController extends Controller
         'closed' => ['closed'],
     ];
     private const DOCUMENT_STATUSES = [
-        'pendiente_revision',
+        'borrador',
         'en_revision',
-        'validacion_pendiente',
-        'aprobacion_pendiente',
+        'revisado',
+        'en_validacion',
+        'validado',
+        'en_aprobacion',
         'aprobado',
         'rechazado',
     ];
@@ -748,7 +750,6 @@ class ProjectsController extends Controller
                 'reviewer_id' => $_POST['reviewer_id'] ?? null,
                 'validator_id' => $_POST['validator_id'] ?? null,
                 'approver_id' => $_POST['approver_id'] ?? null,
-                'document_status' => 'pendiente_revision',
             ];
 
             $repo = new ProjectNodesRepository($this->db);
@@ -1001,8 +1002,12 @@ class ProjectsController extends Controller
         $treeService = new ProjectTreeService($this->db);
         $nodesRepo = new ProjectNodesRepository($this->db);
         $projectNodes = $nodesRepo->treeWithFiles($id);
-        $progress = $treeService->summarizeProgress($id);
         $config = (new ConfigService($this->db))->getConfig();
+        $progress = $treeService->summarizeProgress(
+            $id,
+            (string) ($project['methodology'] ?? 'cascada'),
+            $config['document_flow']['expected_docs'] ?? []
+        );
         $project['progress'] = $progress['project_progress'] ?? ($project['progress'] ?? 0);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
@@ -1052,7 +1057,7 @@ class ProjectsController extends Controller
             'document_tags' => $documentTags,
             'document_version' => $documentVersion,
             'description' => $description,
-            'document_status' => 'pendiente_revision',
+            'document_status' => $startFlow ? 'en_revision' : 'borrador',
             'reviewer_id' => $reviewerId,
             'validator_id' => $validatorId,
             'approver_id' => $approverId,
@@ -1064,7 +1069,9 @@ class ProjectsController extends Controller
         return match ($action) {
             'send_review' => 'document_sent_review',
             'reviewed' => 'document_reviewed',
+            'send_validation' => 'document_sent_validation',
             'validated' => 'document_validated',
+            'send_approval' => 'document_sent_approval',
             'approved' => 'document_approved',
             'rejected' => 'document_rejected',
             default => $documentStatus !== '' ? 'document_status_updated' : 'document_action',
@@ -1209,29 +1216,39 @@ class ProjectsController extends Controller
     {
         return match ($action) {
             'send_review' => 'en_revision',
-            'reviewed' => 'validacion_pendiente',
-            'validated' => 'aprobacion_pendiente',
+            'reviewed' => 'revisado',
+            'send_validation' => 'en_validacion',
+            'validated' => 'validado',
+            'send_approval' => 'en_aprobacion',
             'approved' => 'aprobado',
             'rejected' => 'rechazado',
-            default => 'pendiente_revision',
+            default => 'borrador',
         };
     }
 
     private function actionFromStatusTransition(string $currentStatus, string $nextStatus): string
     {
         $transitions = [
-            'pendiente_revision' => [
+            'borrador' => [
                 'en_revision' => 'send_review',
             ],
             'en_revision' => [
-                'validacion_pendiente' => 'reviewed',
+                'revisado' => 'reviewed',
                 'rechazado' => 'rejected',
             ],
-            'validacion_pendiente' => [
-                'aprobacion_pendiente' => 'validated',
+            'revisado' => [
+                'en_validacion' => 'send_validation',
                 'rechazado' => 'rejected',
             ],
-            'aprobacion_pendiente' => [
+            'en_validacion' => [
+                'validado' => 'validated',
+                'rechazado' => 'rejected',
+            ],
+            'validado' => [
+                'en_aprobacion' => 'send_approval',
+                'rechazado' => 'rejected',
+            ],
+            'en_aprobacion' => [
                 'aprobado' => 'approved',
                 'rechazado' => 'rejected',
             ],
@@ -1251,7 +1268,7 @@ class ProjectsController extends Controller
             if (!$canManage) {
                 throw new \InvalidArgumentException('No tienes permisos para enviar a revisión.');
             }
-            if ($currentStatus !== 'pendiente_revision') {
+            if ($currentStatus !== 'borrador') {
                 throw new \InvalidArgumentException('El documento no está disponible para enviar a revisión.');
             }
             if ($reviewerId === 0) {
@@ -1267,15 +1284,41 @@ class ProjectsController extends Controller
             return;
         }
 
+        if ($action === 'send_validation') {
+            if (!$canManage) {
+                throw new \InvalidArgumentException('No tienes permisos para enviar a validación.');
+            }
+            if ($currentStatus !== 'revisado') {
+                throw new \InvalidArgumentException('El documento no está listo para validación.');
+            }
+            if ($validatorId === 0) {
+                throw new \InvalidArgumentException('Debes asignar un validador antes de enviar.');
+            }
+            return;
+        }
+
         if ($action === 'validated') {
-            if ($currentStatus !== 'validacion_pendiente' || $validatorId !== $currentUserId) {
+            if ($currentStatus !== 'en_validacion' || $validatorId !== $currentUserId) {
                 throw new \InvalidArgumentException('Solo el validador asignado puede validar este documento.');
             }
             return;
         }
 
+        if ($action === 'send_approval') {
+            if (!$canManage) {
+                throw new \InvalidArgumentException('No tienes permisos para enviar a aprobación.');
+            }
+            if ($currentStatus !== 'validado') {
+                throw new \InvalidArgumentException('El documento no está listo para aprobación.');
+            }
+            if ($approverId === 0) {
+                throw new \InvalidArgumentException('Debes asignar un aprobador antes de enviar.');
+            }
+            return;
+        }
+
         if ($action === 'approved') {
-            if ($currentStatus !== 'aprobacion_pendiente' || $approverId !== $currentUserId) {
+            if ($currentStatus !== 'en_aprobacion' || $approverId !== $currentUserId) {
                 throw new \InvalidArgumentException('Solo el aprobador asignado puede aprobar este documento.');
             }
             return;
@@ -1283,8 +1326,10 @@ class ProjectsController extends Controller
 
         if ($action === 'rejected') {
             $allowed = ($currentStatus === 'en_revision' && $reviewerId === $currentUserId)
-                || ($currentStatus === 'validacion_pendiente' && $validatorId === $currentUserId)
-                || ($currentStatus === 'aprobacion_pendiente' && $approverId === $currentUserId);
+                || ($currentStatus === 'revisado' && $reviewerId === $currentUserId)
+                || ($currentStatus === 'en_validacion' && $validatorId === $currentUserId)
+                || ($currentStatus === 'validado' && $validatorId === $currentUserId)
+                || ($currentStatus === 'en_aprobacion' && $approverId === $currentUserId);
 
             if (!$allowed) {
                 throw new \InvalidArgumentException('No tienes permisos para rechazar en este estado.');
@@ -1312,7 +1357,7 @@ class ProjectsController extends Controller
         $currentUserId = (int) ($this->auth->user()['id'] ?? 0);
 
         $nodeFlow = $repo->documentFlowForNode($projectId, $nodeId);
-        $currentStatus = $nodeFlow['document_status'] ?? 'pendiente_revision';
+        $currentStatus = $nodeFlow['document_status'] ?? 'borrador';
 
         if ($action !== '' && $documentStatus !== '') {
             $expectedStatus = $this->statusFromDocumentAction($action);
@@ -1352,14 +1397,20 @@ class ProjectsController extends Controller
                 $payload['document_status'] = 'en_revision';
                 break;
             case 'reviewed':
-                $payload['document_status'] = 'validacion_pendiente';
+                $payload['document_status'] = 'revisado';
                 $payload['reviewed_by'] = $currentUserId;
                 $payload['reviewed_at'] = $now;
                 break;
+            case 'send_validation':
+                $payload['document_status'] = 'en_validacion';
+                break;
             case 'validated':
-                $payload['document_status'] = 'aprobacion_pendiente';
+                $payload['document_status'] = 'validado';
                 $payload['validated_by'] = $currentUserId;
                 $payload['validated_at'] = $now;
+                break;
+            case 'send_approval':
+                $payload['document_status'] = 'en_aprobacion';
                 break;
             case 'approved':
                 $payload['document_status'] = 'aprobado';
@@ -1368,15 +1419,15 @@ class ProjectsController extends Controller
                 break;
             case 'rejected':
                 $payload['document_status'] = 'rechazado';
-                if ($currentStatus === 'en_revision') {
+                if ($currentStatus === 'en_revision' || $currentStatus === 'revisado') {
                     $payload['reviewed_by'] = $currentUserId;
                     $payload['reviewed_at'] = $now;
                 }
-                if ($currentStatus === 'validacion_pendiente') {
+                if ($currentStatus === 'en_validacion' || $currentStatus === 'validado') {
                     $payload['validated_by'] = $currentUserId;
                     $payload['validated_at'] = $now;
                 }
-                if ($currentStatus === 'aprobacion_pendiente') {
+                if ($currentStatus === 'en_aprobacion') {
                     $payload['approved_by'] = $currentUserId;
                     $payload['approved_at'] = $now;
                 }

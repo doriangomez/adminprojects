@@ -8,8 +8,6 @@ class ProjectNodesRepository
     private const TREE_VERSION = '2025.02';
     private const STANDARD_SUBPHASE_SUFFIXES = [
         '01-ENTRADAS',
-        '02-PLANIFICACION',
-        '03-CONTROLES',
         '04-EVIDENCIAS',
         '05-CAMBIOS',
     ];
@@ -248,7 +246,7 @@ class ProjectNodesRepository
             $reviewerId = isset($meta['reviewer_id']) && $meta['reviewer_id'] !== '' ? (int) $meta['reviewer_id'] : null;
             $validatorId = isset($meta['validator_id']) && $meta['validator_id'] !== '' ? (int) $meta['validator_id'] : null;
             $approverId = isset($meta['approver_id']) && $meta['approver_id'] !== '' ? (int) $meta['approver_id'] : null;
-            $documentStatus = $meta['document_status'] ?? 'pendiente_revision';
+            $documentStatus = $meta['document_status'] ?? 'borrador';
             $documentTags = $this->normalizeDocumentTags($meta['document_tags'] ?? $meta['tags'] ?? null);
             $documentVersion = trim((string) ($meta['document_version'] ?? $meta['version'] ?? ''));
             $documentVersion = $documentVersion !== '' ? $documentVersion : null;
@@ -476,7 +474,7 @@ class ProjectNodesRepository
                     'validated_at' => $node['validated_at'] ?? null,
                     'approved_by' => $node['approved_by'] !== null ? (int) $node['approved_by'] : null,
                     'approved_at' => $node['approved_at'] ?? null,
-                    'document_status' => $node['document_status'] ?? 'pendiente_revision',
+                    'document_status' => $node['document_status'] ?? 'borrador',
                     'tags' => $this->normalizeDocumentTags($node['document_tags'] ?? null),
                     'version' => $node['document_version'] ?? null,
                     'document_type' => $node['document_type'] ?? null,
@@ -551,7 +549,7 @@ class ProjectNodesRepository
                 ':reviewer_id' => $reviewerId,
                 ':validator_id' => $validatorId,
                 ':approver_id' => $approverId,
-                ':document_status' => $payload['document_status'] ?? 'pendiente_revision',
+                ':document_status' => $payload['document_status'] ?? ($node['document_status'] ?? 'borrador'),
                 ':id' => $fileNodeId,
                 ':project_id' => $projectId,
             ]
@@ -569,7 +567,7 @@ class ProjectNodesRepository
         }
 
         $fields = [
-            'document_status' => $payload['document_status'] ?? 'pendiente_revision',
+            'document_status' => $payload['document_status'] ?? 'borrador',
             'reviewed_by' => $payload['reviewed_by'] ?? null,
             'reviewed_at' => $payload['reviewed_at'] ?? null,
             'validated_by' => $payload['validated_by'] ?? null,
@@ -657,8 +655,123 @@ class ProjectNodesRepository
             'validated_at' => $row['validated_at'] ?? null,
             'approved_by' => $row['approved_by'] !== null ? (int) $row['approved_by'] : null,
             'approved_at' => $row['approved_at'] ?? null,
-            'document_status' => $row['document_status'] ?? 'pendiente_revision',
+            'document_status' => $row['document_status'] ?? 'borrador',
         ];
+    }
+
+    public function inboxDocumentsForUser(string $status, string $roleColumn, int $userId): array
+    {
+        $allowedColumns = ['reviewer_id', 'validator_id', 'approver_id'];
+        if (!in_array($roleColumn, $allowedColumns, true)) {
+            throw new \InvalidArgumentException('Rol documental inválido.');
+        }
+
+        return $this->fetchInboxDocuments([
+            'pn.document_status = :status',
+            "pn.{$roleColumn} = :user_id",
+        ], [
+            ':status' => $status,
+            ':user_id' => $userId,
+        ]);
+    }
+
+    public function inboxDocumentsByStatus(string $status): array
+    {
+        return $this->fetchInboxDocuments(
+            ['pn.document_status = :status'],
+            [':status' => $status]
+        );
+    }
+
+    private function fetchInboxDocuments(array $conditions, array $params): array
+    {
+        $this->assertTable();
+
+        $whereClause = 'WHERE pn.node_type = "file"';
+        if (!empty($conditions)) {
+            $whereClause .= ' AND ' . implode(' AND ', $conditions);
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT pn.id,
+                    pn.project_id,
+                    pn.parent_id,
+                    pn.title AS file_name,
+                    pn.file_path,
+                    pn.created_at,
+                    pn.document_status,
+                    pn.document_tags,
+                    pn.document_version,
+                    pn.document_type,
+                    pn.reviewer_id,
+                    pn.validator_id,
+                    pn.approver_id,
+                    pn.reviewed_by,
+                    pn.reviewed_at,
+                    pn.validated_by,
+                    pn.validated_at,
+                    pn.approved_by,
+                    pn.approved_at,
+                    p.name AS project_name,
+                    parent.title AS subphase_name,
+                    parent.code AS subphase_code,
+                    phase.title AS phase_name,
+                    phase.code AS phase_code,
+                    reviewer.name AS reviewer_name,
+                    validator.name AS validator_name,
+                    approver.name AS approver_name,
+                    reviewed_user.name AS reviewed_name,
+                    validated_user.name AS validated_name,
+                    approved_user.name AS approved_name
+             FROM project_nodes pn
+             JOIN projects p ON p.id = pn.project_id
+             LEFT JOIN project_nodes parent ON parent.id = pn.parent_id
+             LEFT JOIN project_nodes phase ON phase.id = parent.parent_id
+             LEFT JOIN users reviewer ON reviewer.id = pn.reviewer_id
+             LEFT JOIN users validator ON validator.id = pn.validator_id
+             LEFT JOIN users approver ON approver.id = pn.approver_id
+             LEFT JOIN users reviewed_user ON reviewed_user.id = pn.reviewed_by
+             LEFT JOIN users validated_user ON validated_user.id = pn.validated_by
+             LEFT JOIN users approved_user ON approved_user.id = pn.approved_by
+             ' . $whereClause . '
+             ORDER BY pn.created_at DESC, pn.id DESC',
+            $params
+        );
+
+        return array_map(function (array $row) {
+            return [
+                'id' => (int) ($row['id'] ?? 0),
+                'project_id' => (int) ($row['project_id'] ?? 0),
+                'parent_id' => $row['parent_id'] !== null ? (int) $row['parent_id'] : null,
+                'file_name' => $row['file_name'] ?? '',
+                'file_path' => $row['file_path'] ?? null,
+                'created_at' => $row['created_at'] ?? null,
+                'document_status' => $row['document_status'] ?? 'borrador',
+                'document_tags' => $this->normalizeDocumentTags($row['document_tags'] ?? null),
+                'document_version' => $row['document_version'] ?? null,
+                'document_type' => $row['document_type'] ?? null,
+                'reviewer_id' => $row['reviewer_id'] !== null ? (int) $row['reviewer_id'] : null,
+                'validator_id' => $row['validator_id'] !== null ? (int) $row['validator_id'] : null,
+                'approver_id' => $row['approver_id'] !== null ? (int) $row['approver_id'] : null,
+                'reviewed_by' => $row['reviewed_by'] !== null ? (int) $row['reviewed_by'] : null,
+                'reviewed_at' => $row['reviewed_at'] ?? null,
+                'validated_by' => $row['validated_by'] !== null ? (int) $row['validated_by'] : null,
+                'validated_at' => $row['validated_at'] ?? null,
+                'approved_by' => $row['approved_by'] !== null ? (int) $row['approved_by'] : null,
+                'approved_at' => $row['approved_at'] ?? null,
+                'project_name' => $row['project_name'] ?? '',
+                'subphase_name' => $row['subphase_name'] ?? null,
+                'subphase_code' => $row['subphase_code'] ?? null,
+                'phase_name' => $row['phase_name'] ?? null,
+                'phase_code' => $row['phase_code'] ?? null,
+                'reviewer_name' => $row['reviewer_name'] ?? null,
+                'validator_name' => $row['validator_name'] ?? null,
+                'approver_name' => $row['approver_name'] ?? null,
+                'reviewed_name' => $row['reviewed_name'] ?? null,
+                'validated_name' => $row['validated_name'] ?? null,
+                'approved_name' => $row['approved_name'] ?? null,
+            ];
+        }, $rows);
     }
 
     public function updateNodeStatus(int $projectId, int $nodeId, string $status): void
@@ -979,30 +1092,12 @@ class ProjectNodesRepository
                 'children' => [],
             ],
             [
-                'code' => '02-PLANIFICACION',
-                'title' => '02-Planificación',
-                'node_type' => 'folder',
-                'iso_clause' => '8.3.2',
-                'description' => null,
-                'sort_order' => 20,
-                'children' => [],
-            ],
-            [
-                'code' => '03-CONTROLES',
-                'title' => '03-Controles',
-                'node_type' => 'folder',
-                'iso_clause' => '8.3.4',
-                'description' => 'Controles ISO 9001',
-                'sort_order' => 30,
-                'children' => [],
-            ],
-            [
                 'code' => '04-EVIDENCIAS',
                 'title' => '04-Evidencias',
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.5',
                 'description' => null,
-                'sort_order' => 40,
+                'sort_order' => 20,
                 'children' => [],
             ],
             [
@@ -1011,7 +1106,7 @@ class ProjectNodesRepository
                 'node_type' => 'folder',
                 'iso_clause' => '8.3.6',
                 'description' => null,
-                'sort_order' => 50,
+                'sort_order' => 30,
                 'children' => [],
             ],
         ];
@@ -1123,9 +1218,8 @@ class ProjectNodesRepository
     {
         return [
             $this->isoChildDefinition($phaseCode, '01-ENTRADAS', 'Entradas', '8.3.3', $startSort),
-            $this->isoChildDefinition($phaseCode, '02-CONTROLES', 'Controles', '8.3.4', $startSort + 10),
-            $this->isoChildDefinition($phaseCode, '03-EVIDENCIAS', 'Evidencias', '8.3.5', $startSort + 20),
-            $this->isoChildDefinition($phaseCode, '04-CAMBIOS', 'Cambios', '8.3.6', $startSort + 30),
+            $this->isoChildDefinition($phaseCode, '04-EVIDENCIAS', 'Evidencias', '8.3.5', $startSort + 10),
+            $this->isoChildDefinition($phaseCode, '05-CAMBIOS', 'Cambios', '8.3.6', $startSort + 20),
         ];
     }
 

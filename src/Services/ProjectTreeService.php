@@ -112,7 +112,7 @@ class ProjectTreeService
         return $nodesRepo->findNodeByCode($projectId, $code) ?? [];
     }
 
-    public function summarizeProgress(int $projectId): array
+    public function summarizeProgress(int $projectId, string $methodology, array $expectedDocsConfig): array
     {
         $nodesRepo = new ProjectNodesRepository($this->db);
         $tree = $nodesRepo->treeWithFiles($projectId);
@@ -121,11 +121,13 @@ class ProjectTreeService
             return ['project_progress' => 0.0, 'phases' => []];
         }
 
+        $normalizedMethodology = $this->normalizeMethodology($methodology);
+        $methodDocs = $expectedDocsConfig[$normalizedMethodology] ?? [];
         $phaseProgress = [];
         $projectAccum = 0.0;
 
         foreach ($tree[0]['children'] ?? [] as $phase) {
-            $metrics = $this->computeNodeProgress($phase);
+            $metrics = $this->computePhaseProgress($phase, $methodDocs);
             $phaseProgress[] = [
                 'code' => $phase['code'] ?? '',
                 'title' => $phase['name'] ?? $phase['title'] ?? $phase['code'] ?? 'Fase',
@@ -134,6 +136,8 @@ class ProjectTreeService
                 'pending' => $metrics['pending'],
                 'completed' => $metrics['completed'],
                 'total' => $metrics['total'],
+                'approved_required' => $metrics['approved_required'],
+                'total_required' => $metrics['total_required'],
             ];
             $projectAccum += $metrics['percent'];
         }
@@ -146,7 +150,7 @@ class ProjectTreeService
         ];
     }
 
-    private function computeNodeProgress(array $node): array
+    private function computePhaseProgress(array $node, array $methodDocs): array
     {
         $standardSubfolders = $this->standardSubfolderSuffixes();
         $children = $node['children'] ?? [];
@@ -154,31 +158,61 @@ class ProjectTreeService
 
         foreach ($children as $child) {
             $suffix = $this->extractStandardSuffix((string) ($child['code'] ?? ''));
-            if ($suffix !== null && in_array($suffix, $standardSubfolders, true)) {
+            if ($suffix !== null) {
                 $childrenBySuffix[$suffix] = $child;
             }
         }
 
         $completed = 0;
+        $approvedRequired = 0;
+        $totalRequired = 0;
         $pending = [];
+        $phaseCode = (string) ($node['code'] ?? '');
+        $phaseExpectedDocs = $this->expectedDocsForPhase($methodDocs, $phaseCode);
+        $subphaseKeys = array_keys($phaseExpectedDocs);
+        $availableSubphases = array_keys($childrenBySuffix);
+        if (!empty($availableSubphases)) {
+            $subphaseKeys = !empty($subphaseKeys)
+                ? array_values(array_intersect($subphaseKeys, $availableSubphases))
+                : $availableSubphases;
+        }
+        if (empty($subphaseKeys)) {
+            $subphaseKeys = $standardSubfolders;
+        }
 
-        foreach ($standardSubfolders as $suffix) {
-            if (!isset($childrenBySuffix[$suffix])) {
+        foreach ($subphaseKeys as $suffix) {
+            $expectedDocs = $this->normalizeExpectedDocsList($phaseExpectedDocs[$suffix] ?? []);
+            $requiredDocs = array_values(array_filter($expectedDocs, static fn (array $doc): bool => (bool) ($doc['requires_approval'] ?? false)));
+            $requiredTotal = count($requiredDocs);
+            $subphase = $childrenBySuffix[$suffix] ?? null;
+
+            $subphaseApproved = 0;
+            if ($requiredTotal > 0 && $subphase) {
+                foreach ($requiredDocs as $doc) {
+                    if ($this->hasApprovedDocument($subphase['files'] ?? [], $doc)) {
+                        $subphaseApproved++;
+                    }
+                }
+            }
+
+            $approvedRequired += $subphaseApproved;
+            $totalRequired += $requiredTotal;
+
+            if ($requiredTotal === 0) {
                 $pending[] = $suffix;
                 continue;
             }
 
-            $child = $childrenBySuffix[$suffix];
-            if ($this->childHasEvidence($child)) {
+            if ($subphaseApproved >= $requiredTotal && $requiredTotal > 0) {
                 $completed++;
             } else {
-                $pending[] = $child['name'] ?? $child['title'] ?? $suffix;
+                $pending[] = $subphase['name'] ?? $subphase['title'] ?? $suffix;
             }
         }
 
-        $total = count($standardSubfolders);
-        $percent = $total > 0 ? round(($completed / $total) * 100, 1) : 0.0;
-        $status = $completed >= $total && $total > 0 ? 'completado' : ($completed > 0 ? 'en_progreso' : 'pendiente');
+        $total = count($subphaseKeys);
+        $percent = $totalRequired > 0 ? round(($approvedRequired / $totalRequired) * 100, 1) : 0.0;
+        $status = $totalRequired > 0 && $approvedRequired >= $totalRequired ? 'completado' : ($approvedRequired > 0 ? 'en_progreso' : 'pendiente');
 
         return [
             'percent' => $percent,
@@ -186,6 +220,8 @@ class ProjectTreeService
             'pending' => $pending,
             'completed' => $completed,
             'total' => $total,
+            'approved_required' => $approvedRequired,
+            'total_required' => $totalRequired,
         ];
     }
 
@@ -193,8 +229,6 @@ class ProjectTreeService
     {
         return [
             '01-ENTRADAS',
-            '02-PLANIFICACION',
-            '03-CONTROLES',
             '04-EVIDENCIAS',
             '05-CAMBIOS',
         ];
@@ -214,16 +248,60 @@ class ProjectTreeService
         return implode('-', array_slice($parts, -2));
     }
 
-    private function childHasEvidence(array $child): bool
+    private function expectedDocsForPhase(array $methodDocs, string $phaseCode): array
     {
-        foreach (($child['files'] ?? []) as $file) {
-            if (($file['document_status'] ?? '') === 'aprobado') {
-                return true;
-            }
+        $phaseDocs = $methodDocs[$phaseCode] ?? [];
+        if (!empty($phaseDocs)) {
+            return $phaseDocs;
         }
 
-        foreach (($child['children'] ?? []) as $nested) {
-            if (($nested['node_type'] ?? '') === self::NODE_TYPE_ISO_CONTROL && ($nested['status'] ?? '') === 'completado') {
+        return $methodDocs['default'] ?? [];
+    }
+
+    private function normalizeExpectedDocsList(array $docs): array
+    {
+        $normalized = [];
+        foreach ($docs as $doc) {
+            if (is_string($doc)) {
+                $normalized[] = [
+                    'name' => $doc,
+                    'document_type' => $doc,
+                    'requires_approval' => true,
+                ];
+                continue;
+            }
+            if (!is_array($doc)) {
+                continue;
+            }
+            $name = trim((string) ($doc['name'] ?? $doc['label'] ?? $doc['document_type'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $normalized[] = [
+                'name' => $name,
+                'document_type' => trim((string) ($doc['document_type'] ?? $name)) ?: $name,
+                'requires_approval' => array_key_exists('requires_approval', $doc) ? (bool) $doc['requires_approval'] : true,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function hasApprovedDocument(array $files, array $expectedDoc): bool
+    {
+        $expectedType = strtolower(trim((string) ($expectedDoc['document_type'] ?? $expectedDoc['name'] ?? '')));
+        if ($expectedType === '') {
+            return false;
+        }
+
+        foreach ($files as $file) {
+            $status = (string) ($file['document_status'] ?? '');
+            if ($status !== 'aprobado') {
+                continue;
+            }
+            $type = strtolower(trim((string) ($file['document_type'] ?? '')));
+            $tags = array_map(static fn ($tag) => strtolower(trim((string) $tag)), $file['tags'] ?? []);
+            if ($type === $expectedType || in_array($expectedType, $tags, true)) {
                 return true;
             }
         }
@@ -256,8 +334,6 @@ class ProjectTreeService
     {
         $base = [
             ['code' => '01-ENTRADAS', 'title' => '01-Entradas', 'iso_clause' => '8.3.3', 'description' => null],
-            ['code' => '02-PLANIFICACION', 'title' => '02-Planificación', 'iso_clause' => '8.3.2', 'description' => null],
-            ['code' => '03-CONTROLES', 'title' => '03-Controles', 'iso_clause' => '8.3.4', 'description' => 'Controles ISO 9001'],
             ['code' => '04-EVIDENCIAS', 'title' => '04-Evidencias', 'iso_clause' => '8.3.5', 'description' => null],
             ['code' => '05-CAMBIOS', 'title' => '05-Cambios', 'iso_clause' => '8.3.6', 'description' => null],
         ];

@@ -122,8 +122,6 @@ $isSprint = $activePhaseNode && $sprintGroupNode && (int) ($activePhaseNode['par
 
 $subphaseLabelMap = [
     '01-ENTRADAS' => 'Entradas',
-    '02-PLANIFICACION' => 'Plan de trabajo',
-    '03-CONTROLES' => 'Controles',
     '04-EVIDENCIAS' => 'Evidencias',
     '05-CAMBIOS' => 'Cambios',
 ];
@@ -159,7 +157,7 @@ $documentFlowTagOptions = is_array($documentFlowConfig['tag_options'] ?? null) ?
 $expectedDocsForSubphase = [];
 if ($isSubphase && $activeSubphaseSuffix) {
     $methodDocs = is_array($documentFlowExpectedDocs[$methodology] ?? null) ? $documentFlowExpectedDocs[$methodology] : [];
-    $phaseDocs = is_array($methodDocs[$phaseCodeForFlow] ?? null) ? $methodDocs[$phaseCodeForFlow] : [];
+    $phaseDocs = is_array($methodDocs[$phaseCodeForFlow] ?? null) ? $methodDocs[$phaseCodeForFlow] : ($methodDocs['default'] ?? []);
     $expectedDocsForSubphase = is_array($phaseDocs[$activeSubphaseSuffix] ?? null) ? $phaseDocs[$activeSubphaseSuffix] : [];
 }
 
@@ -177,76 +175,96 @@ $statusBadgeClass = static function (string $status): string {
     };
 };
 
-$folderMetrics = static function (array $node): array {
-    $files = $node['files'] ?? [];
-    $children = $node['children'] ?? [];
-    $controls = array_filter($children, static fn (array $child): bool => ($child['node_type'] ?? '') === 'iso_control');
-    $controlTotal = count($controls);
-    $controlComplete = count(array_filter($controls, static fn (array $child): bool => ($child['status'] ?? '') === 'completado'));
-    $fileTotal = count($files);
-    $approvedFiles = count(array_filter($files, static fn (array $file): bool => ($file['document_status'] ?? '') === 'aprobado'));
-
-    $evidenceTotal = $controlTotal > 0 ? $controlTotal : $fileTotal;
-    $evidenceComplete = $controlTotal > 0 ? $controlComplete : $approvedFiles;
-
-    $status = 'pendiente';
-    if ($evidenceTotal > 0) {
-        if ($evidenceComplete >= $evidenceTotal) {
-            $status = 'completado';
-        } elseif ($evidenceComplete > 0) {
-            $status = 'en_progreso';
-        }
+$normalizeExpectedDoc = static function (mixed $doc): ?array {
+    if (is_string($doc)) {
+        return [
+            'name' => $doc,
+            'document_type' => $doc,
+            'requires_approval' => true,
+        ];
     }
-
+    if (!is_array($doc)) {
+        return null;
+    }
+    $name = trim((string) ($doc['name'] ?? $doc['label'] ?? $doc['document_type'] ?? ''));
+    if ($name === '') {
+        return null;
+    }
     return [
-        'status' => $status,
-        'complete' => $evidenceComplete,
-        'total' => $evidenceTotal,
-        'files' => $fileTotal,
-        'approved_files' => $approvedFiles,
-        'controls' => $controlTotal,
+        'name' => $name,
+        'document_type' => trim((string) ($doc['document_type'] ?? $name)) ?: $name,
+        'requires_approval' => array_key_exists('requires_approval', $doc) ? (bool) $doc['requires_approval'] : true,
     ];
 };
 
-$phaseSummary = static function (array $phaseNode) use ($folderMetrics, $standardSubphaseSuffixes): array {
-    $children = $phaseNode['children'] ?? [];
-    $subphases = [];
-    foreach ($children as $child) {
+$phaseProgressByCode = [];
+foreach ($progressPhases as $phaseProgress) {
+    if (isset($phaseProgress['code'])) {
+        $phaseProgressByCode[$phaseProgress['code']] = $phaseProgress;
+    }
+}
+
+$computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpectedDocs, $methodology, $standardSubphaseSuffixes, $normalizeExpectedDoc): array {
+    $methodDocs = is_array($documentFlowExpectedDocs[$methodology] ?? null) ? $documentFlowExpectedDocs[$methodology] : [];
+    $phaseCode = (string) ($phaseNode['code'] ?? '');
+    $phaseDocs = is_array($methodDocs[$phaseCode] ?? null) ? $methodDocs[$phaseCode] : ($methodDocs['default'] ?? []);
+
+    $childrenBySuffix = [];
+    foreach ($phaseNode['children'] ?? [] as $child) {
         $parts = explode('-', (string) ($child['code'] ?? ''));
         if (count($parts) >= 2) {
             $suffix = implode('-', array_slice($parts, -2));
-            if (in_array($suffix, $standardSubphaseSuffixes, true)) {
-                $subphases[] = $child;
+            $childrenBySuffix[$suffix] = $child;
+        }
+    }
+
+    $subphaseKeys = array_keys($phaseDocs);
+    $availableSubphases = array_keys($childrenBySuffix);
+    if (!empty($availableSubphases)) {
+        $subphaseKeys = !empty($subphaseKeys)
+            ? array_values(array_intersect($subphaseKeys, $availableSubphases))
+            : $availableSubphases;
+    }
+    if (empty($subphaseKeys)) {
+        $subphaseKeys = $standardSubphaseSuffixes;
+    }
+
+    $approvedRequired = 0;
+    $totalRequired = 0;
+
+    foreach ($subphaseKeys as $suffix) {
+        $docs = is_array($phaseDocs[$suffix] ?? null) ? $phaseDocs[$suffix] : [];
+        $expectedDocs = array_values(array_filter(array_map($normalizeExpectedDoc, $docs)));
+        $requiredDocs = array_values(array_filter($expectedDocs, static fn (array $doc): bool => (bool) ($doc['requires_approval'] ?? false)));
+        $totalRequired += count($requiredDocs);
+        $files = $childrenBySuffix[$suffix]['files'] ?? [];
+        foreach ($requiredDocs as $doc) {
+            $expectedType = strtolower(trim((string) ($doc['document_type'] ?? $doc['name'] ?? '')));
+            if ($expectedType === '') {
+                continue;
+            }
+            foreach ($files as $file) {
+                if (($file['document_status'] ?? '') !== 'aprobado') {
+                    continue;
+                }
+                $type = strtolower(trim((string) ($file['document_type'] ?? '')));
+                $tags = array_map(static fn (string $tag) => strtolower(trim($tag)), $file['tags'] ?? []);
+                if ($type === $expectedType || in_array($expectedType, $tags, true)) {
+                    $approvedRequired++;
+                    break;
+                }
             }
         }
     }
 
-    if (empty($subphases)) {
-        $metrics = $folderMetrics($phaseNode);
-        $progress = $metrics['total'] > 0 ? round(($metrics['complete'] / max($metrics['total'], 1)) * 100, 1) : 0;
-        return [
-            'status' => $metrics['status'],
-            'progress' => $progress,
-            'completed' => $metrics['complete'],
-            'total' => $metrics['total'],
-        ];
-    }
+    $progress = $totalRequired > 0 ? round(($approvedRequired / $totalRequired) * 100, 1) : 0;
+    $status = $totalRequired > 0 && $approvedRequired >= $totalRequired ? 'completado' : ($approvedRequired > 0 ? 'en_progreso' : 'pendiente');
 
-    $completed = 0;
-    foreach ($subphases as $subphase) {
-        $metrics = $folderMetrics($subphase);
-        if ($metrics['status'] === 'completado') {
-            $completed++;
-        }
-    }
-    $total = count($subphases);
-    $progress = $total > 0 ? round(($completed / $total) * 100, 1) : 0;
-    $status = $completed === 0 ? 'pendiente' : ($completed >= $total ? 'completado' : 'en_progreso');
     return [
         'status' => $status,
         'progress' => $progress,
-        'completed' => $completed,
-        'total' => $total,
+        'approved_required' => $approvedRequired,
+        'total_required' => $totalRequired,
     ];
 };
 
@@ -255,15 +273,17 @@ $projectStatusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado 
 $projectClient = $project['client_name'] ?? $project['client'] ?? '';
 $projectMethodLabel = $badge['label'];
 $activePhaseName = $activePhaseNode['name'] ?? $activePhaseNode['title'] ?? $activePhaseNode['code'] ?? 'Fase';
-$activePhaseMetrics = $activePhaseNode ? $phaseSummary($activePhaseNode) : ['status' => 'pendiente', 'progress' => 0, 'completed' => 0, 'total' => 0];
+$activePhaseMetrics = ['status' => 'pendiente', 'progress' => 0, 'approved_required' => 0, 'total_required' => 0];
+if ($activePhaseNode) {
+    $phaseCode = (string) ($activePhaseNode['code'] ?? '');
+    $activePhaseMetrics = $phaseProgressByCode[$phaseCode] ?? $computePhaseMetrics($activePhaseNode);
+}
 $activePhaseStatusLabel = $statusLabels[$activePhaseMetrics['status']] ?? $activePhaseMetrics['status'];
 $activeSubphaseIso = $activeSubphaseNode['iso_code'] ?? $activePhaseNode['iso_code'] ?? null;
 $activeSubphaseName = $activeSubphaseNode['name'] ?? $activeSubphaseNode['title'] ?? '';
 $activeTabLabel = $activeSubphaseSuffix ? ($subphaseLabelMap[$activeSubphaseSuffix] ?? 'Subfase') : 'Subfase';
 $tabDescriptions = [
     '01-ENTRADAS' => 'Documentos base para iniciar la fase: propuestas, acuerdos y requisitos.',
-    '02-PLANIFICACION' => 'Planes de trabajo, cronogramas y lineamientos de ejecución.',
-    '03-CONTROLES' => 'Documentos sujetos a flujo ISO con trazabilidad y aprobaciones.',
     '04-EVIDENCIAS' => 'Entregables, actas e informes que evidencian la ejecución.',
     '05-CAMBIOS' => 'Registros de cambios, impacto y aprobaciones asociadas.',
 ];
@@ -322,13 +342,14 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
                 <ul class="phase-list">
                     <?php foreach ($phaseNodes as $phase): ?>
                         <?php
-                        $phaseMetrics = $phaseSummary($phase);
+                        $phaseCode = (string) ($phase['code'] ?? '');
+                        $phaseMetrics = $phaseProgressByCode[$phaseCode] ?? $computePhaseMetrics($phase);
                         $phaseStatusLabel = $statusLabels[$phaseMetrics['status']] ?? $phaseMetrics['status'];
                         $phaseProgressLabel = ($methodology === 'scrum' && ($phase['code'] ?? '') === '03-SPRINTS')
                             ? count($sprintNodes) . ' sprints activos'
-                            : ($phaseMetrics['total'] > 0
-                                ? $phaseMetrics['completed'] . ' de ' . $phaseMetrics['total'] . ' subfases'
-                                : 'Sin subfases registradas');
+                            : ($phaseMetrics['total_required'] > 0
+                                ? $phaseMetrics['approved_required'] . ' de ' . $phaseMetrics['total_required'] . ' documentos clave'
+                                : 'Sin documentos clave configurados');
                         $isPhaseActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($phase['id'] ?? 0);
                         $phaseLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?node=' . (int) ($phase['id'] ?? 0);
                         ?>
@@ -348,11 +369,11 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
                                     <ul class="phase-sublist">
                                         <?php foreach ($sprintNodes as $sprint): ?>
                                             <?php
-                                            $sprintMetrics = $phaseSummary($sprint);
+                                            $sprintMetrics = $computePhaseMetrics($sprint);
                                             $sprintStatusLabel = $statusLabels[$sprintMetrics['status']] ?? $sprintMetrics['status'];
-                                            $sprintProgressLabel = $sprintMetrics['total'] > 0
-                                                ? $sprintMetrics['completed'] . ' de ' . $sprintMetrics['total'] . ' subfases'
-                                                : 'Sin subfases registradas';
+                                            $sprintProgressLabel = $sprintMetrics['total_required'] > 0
+                                                ? $sprintMetrics['approved_required'] . ' de ' . $sprintMetrics['total_required'] . ' documentos clave'
+                                                : 'Sin documentos clave configurados';
                                             $isSprintActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($sprint['id'] ?? 0);
                                             $sprintLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?node=' . (int) ($sprint['id'] ?? 0);
                                             ?>
