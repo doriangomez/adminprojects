@@ -584,7 +584,7 @@ class DatabaseMigrator
                 validated_at DATETIME NULL,
                 approved_by INT NULL,
                 approved_at DATETIME NULL,
-                document_status VARCHAR(40) NOT NULL DEFAULT 'pendiente_revision',
+                document_status VARCHAR(40) NOT NULL DEFAULT 'borrador',
                 document_tags TEXT NULL,
                 document_version VARCHAR(40) NULL,
                 status VARCHAR(40) NOT NULL DEFAULT 'pendiente',
@@ -764,7 +764,7 @@ class DatabaseMigrator
         }
 
         if (!$this->db->columnExists('project_nodes', 'document_status')) {
-            $this->db->execute("ALTER TABLE project_nodes ADD COLUMN document_status VARCHAR(40) NOT NULL DEFAULT 'pendiente_revision' AFTER approved_at");
+            $this->db->execute("ALTER TABLE project_nodes ADD COLUMN document_status VARCHAR(40) NOT NULL DEFAULT 'borrador' AFTER approved_at");
             $this->db->clearColumnCache();
         }
         if (!$this->db->columnExists('project_nodes', 'document_tags')) {

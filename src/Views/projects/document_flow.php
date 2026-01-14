@@ -14,18 +14,47 @@ if ($documentMode === '03-CONTROLES') {
     $documentFiles = array_values(array_filter($documentFiles, static function (array $file): bool {
         $status = (string) ($file['document_status'] ?? '');
         $hasFlow = !empty($file['reviewer_id']) || !empty($file['validator_id']) || !empty($file['approver_id']);
-        return $hasFlow || in_array($status, ['en_revision', 'validacion_pendiente', 'aprobacion_pendiente', 'aprobado', 'rechazado'], true);
+        return $hasFlow || in_array($status, ['en_revision', 'revisado', 'en_validacion', 'validado', 'en_aprobacion', 'aprobado', 'rechazado'], true);
     }));
 }
 $documentNodeName = (string) ($documentNode['name'] ?? $documentNode['title'] ?? $documentNode['code'] ?? 'Subfase');
 $documentNodeCode = (string) ($documentNode['code'] ?? '');
-$documentTypeOptions = array_values(array_unique(array_merge($documentExpectedDocs, $documentTagOptions)));
 $normalizeDoc = static function (string $value): string {
     return strtolower(trim($value));
 };
+$normalizeExpectedDoc = static function (mixed $doc) use ($normalizeDoc): ?array {
+    if (is_string($doc)) {
+        return [
+            'name' => $doc,
+            'document_type' => $doc,
+            'requires_approval' => true,
+        ];
+    }
+    if (!is_array($doc)) {
+        return null;
+    }
+    $name = trim((string) ($doc['name'] ?? $doc['label'] ?? $doc['document_type'] ?? ''));
+    if ($name === '') {
+        return null;
+    }
+    return [
+        'name' => $name,
+        'document_type' => trim((string) ($doc['document_type'] ?? $name)) ?: $name,
+        'requires_approval' => array_key_exists('requires_approval', $doc) ? (bool) $doc['requires_approval'] : true,
+    ];
+};
+$documentExpectedItems = array_values(array_filter(array_map($normalizeExpectedDoc, $documentExpectedDocs)));
+$documentKeyTags = array_values(array_map(
+    static fn (array $doc): string => $doc['document_type'] ?? $doc['name'],
+    array_filter($documentExpectedItems, static fn (array $doc): bool => (bool) ($doc['requires_approval'] ?? false))
+));
+$documentTypeOptions = array_values(array_unique(array_merge(
+    array_map(static fn (array $doc): string => $doc['document_type'] ?? $doc['name'], $documentExpectedItems),
+    $documentTagOptions
+)));
 $expectedSummary = [];
-foreach ($documentExpectedDocs as $doc) {
-    $normalized = $normalizeDoc($doc);
+foreach ($documentExpectedItems as $doc) {
+    $normalized = $normalizeDoc((string) ($doc['document_type'] ?? $doc['name']));
     $matches = array_filter($documentFiles, static function (array $file) use ($normalized, $normalizeDoc): bool {
         $tags = array_map($normalizeDoc, $file['tags'] ?? []);
         $type = $normalizeDoc((string) ($file['document_type'] ?? ''));
@@ -34,7 +63,8 @@ foreach ($documentExpectedDocs as $doc) {
     $loaded = !empty($matches);
     $approved = (bool) array_filter($matches, static fn (array $file): bool => ($file['document_status'] ?? '') === 'aprobado');
     $expectedSummary[] = [
-        'name' => $doc,
+        'name' => $doc['name'],
+        'requires_approval' => (bool) ($doc['requires_approval'] ?? false),
         'loaded' => $loaded,
         'approved' => $approved,
     ];
@@ -70,7 +100,11 @@ foreach ($documentExpectedDocs as $doc) {
                         <?php else: ?>
                             <span class="expected-pill expected-pending">Pendiente</span>
                         <?php endif; ?>
-                        <span class="expected-pill expected-review">Requiere aprobación</span>
+                        <?php if (!empty($summary['requires_approval'])): ?>
+                            <span class="expected-pill expected-review">Requiere aprobación</span>
+                        <?php else: ?>
+                            <span class="expected-pill expected-optional">Opcional</span>
+                        <?php endif; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -210,7 +244,7 @@ foreach ($documentExpectedDocs as $doc) {
                          data-reviewer-id="<?= htmlspecialchars((string) ($file['reviewer_id'] ?? '')) ?>"
                          data-validator-id="<?= htmlspecialchars((string) ($file['validator_id'] ?? '')) ?>"
                          data-approver-id="<?= htmlspecialchars((string) ($file['approver_id'] ?? '')) ?>"
-                         data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'pendiente_revision')) ?>"
+                         data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'borrador')) ?>"
                          data-tags="<?= htmlspecialchars(implode('|', array_map('strval', $file['tags'] ?? []))) ?>"
                          data-document-version="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>"
                          data-document-type="<?= htmlspecialchars((string) ($file['document_type'] ?? '')) ?>"
@@ -248,7 +282,7 @@ foreach ($documentExpectedDocs as $doc) {
                             <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input value="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>">
                         </div>
                         <div>
-                            <span class="status-pill status-pending" data-status-label>Pendiente revisión</span>
+                            <span class="status-pill status-pending" data-status-label>Borrador</span>
                             <?php if ($documentCanManage): ?>
                                 <button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>
                             <?php endif; ?>
@@ -257,13 +291,6 @@ foreach ($documentExpectedDocs as $doc) {
                                 Validador: <?= $file['validator_id'] ? 'Usuario #' . (int) $file['validator_id'] : 'No asignado' ?><br>
                                 Aprobador: <?= $file['approver_id'] ? 'Usuario #' . (int) $file['approver_id'] : 'No asignado' ?>
                             </small>
-                            <div class="review-actions" data-review-actions hidden>
-                                <textarea rows="2" placeholder="Comentario opcional" data-comment-input></textarea>
-                                <button type="button" class="action-btn small" data-action="reviewed">Revisar</button>
-                                <button type="button" class="action-btn small" data-action="validated">Validar</button>
-                                <button type="button" class="action-btn small primary" data-action="approved">Aprobar</button>
-                                <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
-                            </div>
                             <button type="button" class="action-btn small" data-toggle-history>Historial</button>
                         </div>
                         <div class="file-actions">
@@ -336,6 +363,7 @@ foreach ($documentExpectedDocs as $doc) {
     .expected-approved { background:#dcfce7; color:#166534; }
     .expected-pending { background:#fef3c7; color:#92400e; }
     .expected-review { background:#ede9fe; color:#5b21b6; }
+    .expected-optional { background:#e2e8f0; color:#475569; }
     .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .document-search input { border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:220px; }
     .upload-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -366,9 +394,6 @@ foreach ($documentExpectedDocs as $doc) {
     .flow-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:6px; }
     .flow-grid label { display:flex; flex-direction:column; gap:4px; font-size:13px; color: var(--text-strong); }
     .flow-grid select { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
-    .review-actions { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
-    .review-actions textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; }
-    .review-actions .danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
     .document-alert { background:#fef3c7; color:#92400e; padding:8px 10px; border-radius:10px; font-size:13px; display:flex; flex-direction:column; gap:4px; min-width:200px; }
     .file-trace { margin-top:6px; font-size:12px; color: var(--muted); }
     .flow-actions { display:flex; justify-content:flex-end; margin-bottom:6px; }
@@ -406,7 +431,6 @@ foreach ($documentExpectedDocs as $doc) {
         const root = document.querySelector('[data-document-flow="<?= htmlspecialchars($documentFlowId) ?>"]');
         if (!root) return;
 
-        const currentUserId = <?= (int) ($documentCurrentUser['id'] ?? 0) ?>;
         const currentUserName = <?= json_encode((string) ($documentCurrentUser['name'] ?? 'Usuario')) ?>;
         const keyTags = <?= json_encode(array_values($documentKeyTags)) ?>;
         const basePath = <?= json_encode((string) $documentBasePath) ?>;
@@ -417,10 +441,12 @@ foreach ($documentExpectedDocs as $doc) {
         const documentTagOptions = <?= json_encode(array_values($documentTagOptions)) ?>;
 
         const statusConfig = {
-            pendiente_revision: { label: 'Pendiente revisión', className: 'status-pending' },
+            borrador: { label: 'Borrador', className: 'status-pending' },
             en_revision: { label: 'En revisión', className: 'status-review' },
-            validacion_pendiente: { label: 'Pendiente validación', className: 'status-review' },
-            aprobacion_pendiente: { label: 'Validado', className: 'status-validated' },
+            revisado: { label: 'Revisado', className: 'status-review' },
+            en_validacion: { label: 'En validación', className: 'status-review' },
+            validado: { label: 'Validado', className: 'status-validated' },
+            en_aprobacion: { label: 'En aprobación', className: 'status-validated' },
             aprobado: { label: 'Aprobado', className: 'status-approved' },
             rechazado: { label: 'Rechazado', className: 'status-rejected' }
         };
@@ -431,7 +457,9 @@ foreach ($documentExpectedDocs as $doc) {
             document_flow_assigned: 'Flujo asignado',
             document_sent_review: 'Enviado a revisión',
             document_reviewed: 'Revisado',
+            document_sent_validation: 'Enviado a validación',
             document_validated: 'Validado',
+            document_sent_approval: 'Enviado a aprobación',
             document_approved: 'Aprobado',
             document_rejected: 'Rechazado',
             document_status_updated: 'Estado actualizado',
@@ -477,7 +505,7 @@ foreach ($documentExpectedDocs as $doc) {
             root.querySelectorAll('[data-file-row]').forEach(row => {
                 const tags = row.dataset.tags ? row.dataset.tags.split('|').filter(Boolean) : [];
                 const type = row.dataset.documentType ? [row.dataset.documentType] : [];
-                const status = row.dataset.documentStatus || 'pendiente_revision';
+                const status = row.dataset.documentStatus || 'borrador';
                 [...tags, ...type].forEach(tag => {
                     if (summary[tag]) {
                         if (status === 'aprobado') {
@@ -518,7 +546,16 @@ foreach ($documentExpectedDocs as $doc) {
             const reviewer = row.dataset.reviewerId ? `Usuario #${row.dataset.reviewerId}` : 'No asignado';
             const validator = row.dataset.validatorId ? `Usuario #${row.dataset.validatorId}` : 'No asignado';
             const approver = row.dataset.approverId ? `Usuario #${row.dataset.approverId}` : 'No asignado';
-            summary.innerHTML = `Revisor: ${reviewer}<br>Validador: ${validator}<br>Aprobador: ${approver}`;
+            const reviewedBy = row.dataset.reviewedBy ? `Usuario #${row.dataset.reviewedBy}` : null;
+            const validatedBy = row.dataset.validatedBy ? `Usuario #${row.dataset.validatedBy}` : null;
+            const approvedBy = row.dataset.approvedBy ? `Usuario #${row.dataset.approvedBy}` : null;
+            const reviewedAt = row.dataset.reviewedAt || null;
+            const validatedAt = row.dataset.validatedAt || null;
+            const approvedAt = row.dataset.approvedAt || null;
+            const reviewTrace = reviewedBy && reviewedAt ? `Revisado por ${reviewedBy} · ${reviewedAt}` : 'Revisión pendiente';
+            const validationTrace = validatedBy && validatedAt ? `Validado por ${validatedBy} · ${validatedAt}` : 'Validación pendiente';
+            const approvalTrace = approvedBy && approvedAt ? `Aprobado por ${approvedBy} · ${approvedAt}` : 'Aprobación pendiente';
+            summary.innerHTML = `Revisor: ${reviewer}<br>Validador: ${validator}<br>Aprobador: ${approver}<br>${reviewTrace}<br>${validationTrace}<br>${approvalTrace}`;
         };
 
         const escapeHtml = (value) => {
@@ -548,7 +585,7 @@ foreach ($documentExpectedDocs as $doc) {
             row.dataset.reviewerId = data.reviewer_id ?? '';
             row.dataset.validatorId = data.validator_id ?? '';
             row.dataset.approverId = data.approver_id ?? '';
-            row.dataset.documentStatus = data.document_status ?? 'pendiente_revision';
+            row.dataset.documentStatus = data.document_status ?? 'borrador';
             row.dataset.tags = Array.isArray(data.tags) ? data.tags.join('|') : '';
             row.dataset.documentVersion = data.version ?? '';
             row.dataset.documentType = data.document_type ?? '';
@@ -582,16 +619,9 @@ foreach ($documentExpectedDocs as $doc) {
                     <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input value="${escapeHtml(data.version ?? '')}">
                 </div>
                 <div>
-                    <span class="status-pill status-pending" data-status-label>Pendiente revisión</span>
+                    <span class="status-pill status-pending" data-status-label>Borrador</span>
                     ${documentCanManage ? '<button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>' : ''}
                     <small class="flow-summary" data-flow-summary></small>
-                    <div class="review-actions" data-review-actions hidden>
-                        <textarea rows="2" placeholder="Comentario opcional" data-comment-input></textarea>
-                        <button type="button" class="action-btn small" data-action="reviewed">Revisar</button>
-                        <button type="button" class="action-btn small" data-action="validated">Validar</button>
-                        <button type="button" class="action-btn small primary" data-action="approved">Aprobar</button>
-                        <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
-                    </div>
                     <button type="button" class="action-btn small" data-toggle-history>Historial</button>
                 </div>
                 <div class="file-actions">
@@ -634,10 +664,9 @@ foreach ($documentExpectedDocs as $doc) {
             const existingTags = parseTagString(row.dataset.tags);
             updateTagsDisplay(row, existingTags);
             applyTagSelection(row, existingTags);
-            const status = row.dataset.documentStatus || 'pendiente_revision';
+            const status = row.dataset.documentStatus || 'borrador';
             updateStatus(row, status);
             updateTraceFromData(row);
-            updateRoleActions(row);
             updateFlowSummary(row);
             toggleSendReview(row);
             const versionInput = row.querySelector('[data-version-input]');
@@ -716,7 +745,7 @@ foreach ($documentExpectedDocs as $doc) {
         };
 
         const updateStatus = (row, statusKey, traceNote) => {
-            const config = statusConfig[statusKey] || statusConfig.pendiente_revision;
+            const config = statusConfig[statusKey] || statusConfig.borrador;
             const label = row.querySelector('[data-status-label]');
             if (label) {
                 label.textContent = config.label;
@@ -734,11 +763,13 @@ foreach ($documentExpectedDocs as $doc) {
         const updateTraceFromData = (row) => {
             const trace = row.querySelector('[data-file-trace]');
             if (!trace) return;
-            const status = row.dataset.documentStatus || 'pendiente_revision';
+            const status = row.dataset.documentStatus || 'borrador';
             const traceMap = [
                 { status: 'aprobado', by: row.dataset.approvedBy, at: row.dataset.approvedAt, label: 'Aprobado' },
-                { status: 'aprobacion_pendiente', by: row.dataset.validatedBy, at: row.dataset.validatedAt, label: 'Validado' },
-                { status: 'validacion_pendiente', by: row.dataset.reviewedBy, at: row.dataset.reviewedAt, label: 'Revisado' },
+                { status: 'en_aprobacion', by: row.dataset.validatedBy, at: row.dataset.validatedAt, label: 'En aprobación' },
+                { status: 'validado', by: row.dataset.validatedBy, at: row.dataset.validatedAt, label: 'Validado' },
+                { status: 'en_validacion', by: row.dataset.reviewedBy, at: row.dataset.reviewedAt, label: 'En validación' },
+                { status: 'revisado', by: row.dataset.reviewedBy, at: row.dataset.reviewedAt, label: 'Revisado' },
                 { status: 'en_revision', by: row.dataset.reviewedBy, at: row.dataset.reviewedAt, label: 'En revisión' },
                 { status: 'rechazado', by: row.dataset.approvedBy || row.dataset.validatedBy || row.dataset.reviewedBy, at: row.dataset.approvedAt || row.dataset.validatedAt || row.dataset.reviewedAt, label: 'Rechazado' },
             ];
@@ -751,36 +782,11 @@ foreach ($documentExpectedDocs as $doc) {
             trace.textContent = `${entry.label} · Usuario #${entry.by} · ${entry.at}`;
         };
 
-        const updateRoleActions = (row) => {
-            const actions = row.querySelector('[data-review-actions]');
-            if (!actions) return;
-            const reviewer = row.dataset.reviewerId;
-            const validator = row.dataset.validatorId;
-            const approver = row.dataset.approverId;
-            const status = row.dataset.documentStatus || 'pendiente_revision';
-            const reviewerReady = status === 'en_revision' && Number(reviewer) === currentUserId;
-            const validatorReady = status === 'validacion_pendiente' && Number(validator) === currentUserId;
-            const approverReady = status === 'aprobacion_pendiente' && Number(approver) === currentUserId;
-            const shouldShow = reviewerReady || validatorReady || approverReady;
-            actions.hidden = !shouldShow;
-            if (!shouldShow) return;
-
-            const reviewButton = actions.querySelector('[data-action="reviewed"]');
-            const validateButton = actions.querySelector('[data-action="validated"]');
-            const approveButton = actions.querySelector('[data-action="approved"]');
-            const rejectButton = actions.querySelector('[data-action="rejected"]');
-
-            if (reviewButton) reviewButton.hidden = !reviewerReady;
-            if (validateButton) validateButton.hidden = !validatorReady;
-            if (approveButton) approveButton.hidden = !approverReady;
-            if (rejectButton) rejectButton.hidden = !approverReady;
-        };
-
         const toggleSendReview = (row) => {
             const button = row.querySelector('[data-send-review]');
             if (!button) return;
-            const status = row.dataset.documentStatus || 'pendiente_revision';
-            button.hidden = status !== 'pendiente_revision';
+            const status = row.dataset.documentStatus || 'borrador';
+            button.hidden = status !== 'borrador';
         };
 
         const setRoleSelectLoading = (select) => {
@@ -906,7 +912,6 @@ foreach ($documentExpectedDocs as $doc) {
                 const row = roleSelect.closest('[data-file-row]');
                 const role = roleSelect.dataset.roleSelect;
                 row.dataset[`${role}Id`] = roleSelect.value;
-                updateRoleActions(row);
                 updateFlowSummary(row);
             }
 
@@ -948,8 +953,6 @@ foreach ($documentExpectedDocs as $doc) {
             if (sendReview) {
                 const row = sendReview.closest('[data-file-row]');
                 const fileId = row.dataset.fileId;
-                const commentInput = row.querySelector('[data-comment-input]');
-                const comment = commentInput ? commentInput.value.trim() : '';
                 sendReview.disabled = true;
                 fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-status`, {
                     method: 'POST',
@@ -957,7 +960,7 @@ foreach ($documentExpectedDocs as $doc) {
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: new URLSearchParams({ action: 'send_review', comment }),
+                    body: new URLSearchParams({ action: 'send_review' }),
                 })
                     .then(response => response.json())
                     .then(payload => {
@@ -972,38 +975,6 @@ foreach ($documentExpectedDocs as $doc) {
                     })
                     .finally(() => {
                         sendReview.disabled = false;
-                    });
-            }
-
-            const actionBtn = event.target.closest('[data-action]');
-            if (actionBtn) {
-                const row = actionBtn.closest('[data-file-row]');
-                const action = actionBtn.dataset.action;
-                const fileId = row.dataset.fileId;
-                const commentInput = row.querySelector('[data-comment-input]');
-                const comment = commentInput ? commentInput.value.trim() : '';
-                actionBtn.disabled = true;
-                fetch(`${basePath}/projects/${documentProjectId}/nodes/${fileId}/document-status`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: new URLSearchParams({ action, comment }),
-                })
-                    .then(response => response.json())
-                    .then(payload => {
-                        if (payload.status !== 'ok') {
-                            throw new Error(payload.message || 'No se pudo actualizar el estado.');
-                        }
-                        updateFlowRow(row, payload.data, 'Estado actualizado');
-                        showToast('Estado documental actualizado.', 'success');
-                    })
-                    .catch(error => {
-                        alert(error.message);
-                    })
-                    .finally(() => {
-                        actionBtn.disabled = false;
                     });
             }
 
@@ -1091,7 +1062,7 @@ foreach ($documentExpectedDocs as $doc) {
             row.dataset.reviewerId = data.reviewer_id ?? '';
             row.dataset.validatorId = data.validator_id ?? '';
             row.dataset.approverId = data.approver_id ?? '';
-            row.dataset.documentStatus = data.document_status ?? 'pendiente_revision';
+            row.dataset.documentStatus = data.document_status ?? 'borrador';
             row.dataset.reviewedBy = data.reviewed_by ?? '';
             row.dataset.reviewedAt = data.reviewed_at ?? '';
             row.dataset.validatedBy = data.validated_by ?? '';
@@ -1102,7 +1073,6 @@ foreach ($documentExpectedDocs as $doc) {
             if (!traceNote) {
                 updateTraceFromData(row);
             }
-            updateRoleActions(row);
             updateFlowSummary(row);
             toggleSendReview(row);
         };
