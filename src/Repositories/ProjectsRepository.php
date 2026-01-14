@@ -452,6 +452,7 @@ class ProjectsRepository
         $tasks = 0;
         $timesheets = 0;
         $assignments = 0;
+        $outsourcingFollowups = 0;
         $designInputs = 0;
         $designControls = 0;
         $designChanges = 0;
@@ -472,6 +473,13 @@ class ProjectsRepository
             $assignments = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_talent_assignments WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
         }
 
+        if ($this->db->tableExists('project_outsourcing_followups')) {
+            $outsourcingFollowups = (int) ($this->db->fetchOne(
+                'SELECT COUNT(*) AS total FROM project_outsourcing_followups WHERE project_id = :id',
+                [':id' => $projectId]
+            )['total'] ?? 0);
+        }
+
         if ($this->db->tableExists('project_design_inputs')) {
             $designInputs = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_design_inputs WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
         }
@@ -488,12 +496,13 @@ class ProjectsRepository
             $nodes = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM project_nodes WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
         }
 
-        $hasDependencies = ($tasks + $timesheets + $assignments + $designInputs + $designControls + $designChanges + $nodes) > 0;
+        $hasDependencies = ($tasks + $timesheets + $assignments + $outsourcingFollowups + $designInputs + $designControls + $designChanges + $nodes) > 0;
 
         return [
             'tasks' => $tasks,
             'timesheets' => $timesheets,
             'assignments' => $assignments,
+            'outsourcing_followups' => $outsourcingFollowups,
             'design_inputs' => $designInputs,
             'design_controls' => $designControls,
             'design_changes' => $designChanges,
@@ -597,6 +606,25 @@ class ProjectsRepository
 
     public function assignTalent(array $payload): void
     {
+        $assignmentStatus = strtolower(trim((string) ($payload['assignment_status'] ?? 'active')));
+        $allowedStatuses = ['active', 'paused', 'removed'];
+        if (!in_array($assignmentStatus, $allowedStatuses, true)) {
+            $assignmentStatus = 'active';
+        }
+        $activeFlag = $assignmentStatus === 'active' ? 1 : 0;
+
+        $userId = (int) ($payload['user_id'] ?? 0);
+        if ($userId <= 0 && $this->db->tableExists('talents') && $this->db->columnExists('talents', 'user_id')) {
+            $talentUser = $this->db->fetchOne(
+                'SELECT user_id FROM talents WHERE id = :id',
+                [':id' => (int) $payload['talent_id']]
+            );
+            $userId = (int) ($talentUser['user_id'] ?? 0);
+        }
+        if ($userId <= 0) {
+            $userId = (int) ($payload['created_by'] ?? 0);
+        }
+
         $totalPercent = $this->db->fetchOne(
             'SELECT SUM(allocation_percent) AS total_percent FROM project_talent_assignments WHERE talent_id = :talent',
             [':talent' => $payload['talent_id']]
@@ -621,10 +649,11 @@ class ProjectsRepository
         }
 
         $this->db->insert(
-            'INSERT INTO project_talent_assignments (project_id, talent_id, role, start_date, end_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_approval, created_at, updated_at)
-             VALUES (:project_id, :talent_id, :role, :start_date, :end_date, :allocation_percent, :weekly_hours, :cost_type, :cost_value, :is_external, :requires_timesheet, :requires_approval, NOW(), NOW())',
+            'INSERT INTO project_talent_assignments (project_id, user_id, talent_id, role, start_date, end_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_approval, assignment_status, active, created_at, updated_at)
+             VALUES (:project_id, :user_id, :talent_id, :role, :start_date, :end_date, :allocation_percent, :weekly_hours, :cost_type, :cost_value, :is_external, :requires_timesheet, :requires_approval, :assignment_status, :active, NOW(), NOW())',
             [
                 ':project_id' => (int) $payload['project_id'],
+                ':user_id' => $userId,
                 ':talent_id' => (int) $payload['talent_id'],
                 ':role' => $payload['role'],
                 ':start_date' => $payload['start_date'] ?: null,
@@ -636,6 +665,35 @@ class ProjectsRepository
                 ':is_external' => (int) $payload['is_external'],
                 ':requires_timesheet' => (int) $payload['requires_timesheet'],
                 ':requires_approval' => (int) $payload['requires_approval'],
+                ':assignment_status' => $assignmentStatus,
+                ':active' => $activeFlag,
+            ]
+        );
+    }
+
+    public function updateAssignmentStatus(int $projectId, int $assignmentId, string $status): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return;
+        }
+
+        $normalized = strtolower(trim($status));
+        $allowed = ['active', 'paused', 'removed'];
+        if (!in_array($normalized, $allowed, true)) {
+            throw new \InvalidArgumentException('Estado de asignación no válido.');
+        }
+
+        $activeFlag = $normalized === 'active' ? 1 : 0;
+
+        $this->db->execute(
+            'UPDATE project_talent_assignments
+             SET assignment_status = :status, active = :active, updated_at = NOW()
+             WHERE id = :id AND project_id = :project',
+            [
+                ':status' => $normalized,
+                ':active' => $activeFlag,
+                ':id' => $assignmentId,
+                ':project' => $projectId,
             ]
         );
     }

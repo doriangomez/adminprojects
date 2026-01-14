@@ -362,6 +362,11 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
         </div>
     </header>
 
+    <?php
+    $activeTab = 'documents';
+    require __DIR__ . '/_tabs.php';
+    ?>
+
     <section class="progress-context">
         <div class="context-card">
             <div>
