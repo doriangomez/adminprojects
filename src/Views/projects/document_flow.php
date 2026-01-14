@@ -183,19 +183,19 @@ foreach ($documentExpectedItems as $doc) {
                     <div class="flow-grid" data-upload-flow>
                         <label>
                             <span>Revisor</span>
-                            <select data-role-select="reviewer">
+                            <select name="reviewer_id" data-role-select="reviewer">
                                 <option value="">Seleccionar</option>
                             </select>
                         </label>
                         <label>
                             <span>Validador</span>
-                            <select data-role-select="validator">
+                            <select name="validator_id" data-role-select="validator">
                                 <option value="">Seleccionar</option>
                             </select>
                         </label>
                         <label>
                             <span>Aprobador</span>
-                            <select data-role-select="approver">
+                            <select name="approver_id" data-role-select="approver">
                                 <option value="">Seleccionar</option>
                             </select>
                         </label>

@@ -541,6 +541,16 @@ class ProjectsController extends Controller
             $payloadFiles = $_FILES['node_files'] ?? null;
             $meta = $this->collectDocumentUploadMeta();
             $results = [];
+            $startFlow = isset($_POST['start_flow']) && $_POST['start_flow'] !== '';
+
+            if ($startFlow) {
+                error_log(sprintf(
+                    'Document upload start_flow request: reviewer_id=%s validator_id=%s approver_id=%s',
+                    $meta['reviewer_id'] ?? 'null',
+                    $meta['validator_id'] ?? 'null',
+                    $meta['approver_id'] ?? 'null'
+                ));
+            }
 
             if (is_array($payloadFiles) && isset($payloadFiles['name']) && is_array($payloadFiles['name'])) {
                 $total = count($payloadFiles['name']);
@@ -561,6 +571,13 @@ class ProjectsController extends Controller
 
             $auditRepo = new AuditLogRepository($this->db);
             foreach ($results as $result) {
+                if ($startFlow) {
+                    error_log(sprintf(
+                        'Document upload persisted flow: node_id=%s reviewer_id=%s',
+                        $result['id'] ?? 'null',
+                        $result['reviewer_id'] ?? 'null'
+                    ));
+                }
                 $auditRepo->log(
                     $userId,
                     'project_node_file',
