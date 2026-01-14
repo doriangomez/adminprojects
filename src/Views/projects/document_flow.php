@@ -5,10 +5,18 @@ $documentExpectedDocs = is_array($documentExpectedDocs ?? null) ? $documentExpec
 $documentTagOptions = is_array($documentTagOptions ?? null) ? $documentTagOptions : [];
 $documentKeyTags = is_array($documentKeyTags ?? null) ? $documentKeyTags : $documentExpectedDocs;
 $documentCanManage = !empty($documentCanManage);
+$documentMode = $documentMode ?? null;
 $documentProjectId = (int) ($documentProjectId ?? 0);
 $documentBasePath = $documentBasePath ?? '/project/public';
 $documentCurrentUser = is_array($documentCurrentUser ?? null) ? $documentCurrentUser : [];
 $documentFiles = is_array($documentNode['files'] ?? null) ? $documentNode['files'] : [];
+if ($documentMode === '03-CONTROLES') {
+    $documentFiles = array_values(array_filter($documentFiles, static function (array $file): bool {
+        $status = (string) ($file['document_status'] ?? '');
+        $hasFlow = !empty($file['reviewer_id']) || !empty($file['validator_id']) || !empty($file['approver_id']);
+        return $hasFlow || in_array($status, ['en_revision', 'validacion_pendiente', 'aprobacion_pendiente', 'aprobado', 'rechazado'], true);
+    }));
+}
 $documentNodeName = (string) ($documentNode['name'] ?? $documentNode['title'] ?? $documentNode['code'] ?? 'Subfase');
 $documentNodeCode = (string) ($documentNode['code'] ?? '');
 $documentTypeOptions = array_values(array_unique(array_merge($documentExpectedDocs, $documentTagOptions)));
@@ -1205,6 +1213,8 @@ foreach ($documentExpectedDocs as $doc) {
                 }
                 const submitButton = uploadForm.querySelector('button[type="submit"]');
                 if (submitButton) {
+                    submitButton.dataset.originalLabel = submitButton.textContent || 'Guardar documento';
+                    submitButton.textContent = 'Guardando…';
                     submitButton.disabled = true;
                 }
 
@@ -1271,6 +1281,7 @@ foreach ($documentExpectedDocs as $doc) {
                         }
                         const submitButton = uploadForm.querySelector('button[type="submit"]');
                         if (submitButton) {
+                            submitButton.textContent = submitButton.dataset.originalLabel || 'Guardar documento';
                             submitButton.disabled = false;
                         }
                     });
