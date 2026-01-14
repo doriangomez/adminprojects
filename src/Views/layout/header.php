@@ -374,7 +374,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
                 <span>Proyectos</span>
             </a>
-            <?php if ($auth->can('can_access_outsourcing')): ?>
+            <?php if ($auth->canAccessOutsourcing()): ?>
                 <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
                     <span>Outsourcing</span>

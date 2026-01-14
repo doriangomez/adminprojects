@@ -12,11 +12,30 @@ class OutsourcingServicesRepository
     {
     }
 
-    public function listServices(array $user): array
+    public function listServices(array $user, array $filters = []): array
     {
         if (!$this->db->tableExists('outsourcing_services')) {
             return [];
         }
+
+        $conditions = [];
+        $params = [];
+        $clientId = (int) ($filters['client_id'] ?? 0);
+        if ($clientId > 0) {
+            $conditions[] = 's.client_id = :client_id';
+            $params[':client_id'] = $clientId;
+        }
+        $talentId = (int) ($filters['talent_id'] ?? 0);
+        if ($talentId > 0) {
+            $conditions[] = 's.talent_id = :talent_id';
+            $params[':talent_id'] = $talentId;
+        }
+        $projectId = (int) ($filters['project_id'] ?? 0);
+        if ($projectId > 0) {
+            $conditions[] = 's.project_id = :project_id';
+            $params[':project_id'] = $projectId;
+        }
+        $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
 
         $services = $this->db->fetchAll(
             'SELECT s.id, s.talent_id, s.client_id, s.project_id, s.start_date, s.end_date, s.followup_frequency,
@@ -28,38 +47,47 @@ class OutsourcingServicesRepository
              JOIN users u ON u.id = s.talent_id
              JOIN clients c ON c.id = s.client_id
              LEFT JOIN projects p ON p.id = s.project_id
-             ORDER BY s.created_at DESC'
-        );
-
-        if (!$this->db->tableExists('outsourcing_followups')) {
-            return $services;
-        }
-
-        $healthRows = $this->db->fetchAll(
-            'SELECT f.service_id, f.service_health, f.period_end, f.created_at
-             FROM outsourcing_followups f
-             JOIN (
-                SELECT service_id, MAX(created_at) AS max_created
-                FROM outsourcing_followups
-                GROUP BY service_id
-             ) latest ON latest.service_id = f.service_id AND latest.max_created = f.created_at'
+             ' . $where . '
+             ORDER BY s.created_at DESC',
+            $params
         );
 
         $healthMap = [];
-        foreach ($healthRows as $row) {
-            $healthMap[(int) $row['service_id']] = [
-                'service_health' => $row['service_health'] ?? null,
-                'period_end' => $row['period_end'] ?? null,
-                'created_at' => $row['created_at'] ?? null,
-            ];
+        if ($this->db->tableExists('outsourcing_followups')) {
+            $healthRows = $this->db->fetchAll(
+                'SELECT f.service_id, f.service_health, f.period_end, f.created_at
+                 FROM outsourcing_followups f
+                 JOIN (
+                    SELECT service_id, MAX(created_at) AS max_created
+                    FROM outsourcing_followups
+                    GROUP BY service_id
+                 ) latest ON latest.service_id = f.service_id AND latest.max_created = f.created_at'
+            );
+
+            foreach ($healthRows as $row) {
+                $healthMap[(int) $row['service_id']] = [
+                    'service_health' => $row['service_health'] ?? null,
+                    'period_end' => $row['period_end'] ?? null,
+                    'created_at' => $row['created_at'] ?? null,
+                ];
+            }
         }
 
         foreach ($services as &$service) {
             $health = $healthMap[(int) $service['id']] ?? [];
             $service['current_health'] = $health['service_health'] ?? null;
             $service['health_updated_at'] = $health['created_at'] ?? null;
+            $service['last_followup_end'] = $health['period_end'] ?? null;
         }
         unset($service);
+
+        $serviceHealth = strtolower(trim((string) ($filters['service_health'] ?? '')));
+        if (in_array($serviceHealth, self::HEALTH_STATUSES, true)) {
+            $services = array_values(array_filter(
+                $services,
+                static fn (array $service): bool => ($service['current_health'] ?? null) === $serviceHealth
+            ));
+        }
 
         return $services;
     }
@@ -75,7 +103,8 @@ class OutsourcingServicesRepository
                     s.service_status, s.created_at, s.updated_at,
                     u.name AS talent_name, u.email AS talent_email,
                     c.name AS client_name,
-                    p.name AS project_name
+                    p.name AS project_name,
+                    p.progress AS project_progress
              FROM outsourcing_services s
              JOIN users u ON u.id = s.talent_id
              JOIN clients c ON c.id = s.client_id
@@ -180,7 +209,7 @@ class OutsourcingServicesRepository
 
         return $this->db->fetchAll(
             'SELECT f.id, f.service_id, f.document_node_id, f.period_start, f.period_end, f.followup_frequency,
-                    f.service_health, f.observations, f.responsible_user_id, f.created_by, f.created_at,
+                    f.service_health, f.observations, f.responsible_user_id, f.followup_status, f.closed_at, f.created_by, f.created_at,
                     ru.name AS responsible_name, cu.name AS created_by_name
              FROM outsourcing_followups f
              LEFT JOIN users ru ON ru.id = f.responsible_user_id
@@ -221,11 +250,16 @@ class OutsourcingServicesRepository
             throw new \InvalidArgumentException('La frecuencia de seguimiento no es válida.');
         }
 
+        $followupStatus = strtolower(trim((string) ($payload['followup_status'] ?? 'open')));
+        if (!in_array($followupStatus, ['open', 'observed'], true)) {
+            throw new \InvalidArgumentException('El estado del seguimiento no es válido.');
+        }
+
         return $this->db->insert(
             'INSERT INTO outsourcing_followups
-                (service_id, document_node_id, period_start, period_end, followup_frequency, service_health, observations, responsible_user_id, created_by, created_at)
+                (service_id, document_node_id, period_start, period_end, followup_frequency, service_health, observations, responsible_user_id, followup_status, created_by, created_at)
              VALUES
-                (:service_id, :document_node_id, :period_start, :period_end, :followup_frequency, :service_health, :observations, :responsible_user_id, :created_by, NOW())',
+                (:service_id, :document_node_id, :period_start, :period_end, :followup_frequency, :service_health, :observations, :responsible_user_id, :followup_status, :created_by, NOW())',
             [
                 ':service_id' => (int) $payload['service_id'],
                 ':document_node_id' => $payload['document_node_id'] ? (int) $payload['document_node_id'] : null,
@@ -235,7 +269,45 @@ class OutsourcingServicesRepository
                 ':service_health' => $serviceHealth,
                 ':observations' => $observations,
                 ':responsible_user_id' => (int) ($payload['responsible_user_id'] ?? 0),
+                ':followup_status' => $followupStatus,
                 ':created_by' => (int) ($payload['created_by'] ?? 0),
+            ]
+        );
+    }
+
+    public function findFollowup(int $followupId, int $serviceId): ?array
+    {
+        if (!$this->db->tableExists('outsourcing_followups')) {
+            return null;
+        }
+
+        $followup = $this->db->fetchOne(
+            'SELECT id, service_id, followup_status, closed_at
+             FROM outsourcing_followups
+             WHERE id = :id AND service_id = :service_id
+             LIMIT 1',
+            [
+                ':id' => $followupId,
+                ':service_id' => $serviceId,
+            ]
+        );
+
+        return $followup ?: null;
+    }
+
+    public function closeFollowup(int $followupId): void
+    {
+        if (!$this->db->tableExists('outsourcing_followups')) {
+            throw new \RuntimeException('La tabla de seguimientos outsourcing no está disponible.');
+        }
+
+        $this->db->execute(
+            'UPDATE outsourcing_followups
+             SET followup_status = :status, closed_at = NOW()
+             WHERE id = :id',
+            [
+                ':status' => 'closed',
+                ':id' => $followupId,
             ]
         );
     }

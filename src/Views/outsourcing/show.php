@@ -17,6 +17,11 @@ $healthLabels = [
     'yellow' => 'YELLOW (En riesgo)',
     'red' => 'RED (Crítico)',
 ];
+$followupStatusLabels = [
+    'open' => 'Abierto',
+    'closed' => 'Cerrado',
+    'observed' => 'Observado',
+];
 $healthBadge = static function (?string $status): string {
     return match ($status) {
         'green' => 'status-success',
@@ -38,6 +43,7 @@ $formatTimestamp = static function (?string $value): string {
     return date('d/m/Y H:i', $timestamp);
 };
 $latestHealth = $followups[0]['service_health'] ?? null;
+$projectProgress = isset($service['project_progress']) ? (float) $service['project_progress'] : null;
 ?>
 
 <section class="outsourcing-shell">
@@ -50,12 +56,46 @@ $latestHealth = $followups[0]['service_health'] ?? null;
         <a class="action-btn" href="<?= $basePath ?>/outsourcing">Volver al listado</a>
     </header>
 
-    <section class="outsourcing-overview">
+    <nav class="outsourcing-tabs">
+        <a href="#resumen" class="tab-link">Resumen</a>
+        <a href="#seguimientos" class="tab-link">Seguimientos</a>
+        <a href="#evidencias" class="tab-link">Evidencias</a>
+    </nav>
+
+    <section class="outsourcing-overview" id="resumen">
+        <div class="overview-card">
+            <h4>Resumen</h4>
+            <div class="summary-grid">
+                <div>
+                    <span class="section-muted">Talento</span>
+                    <strong><?= htmlspecialchars($service['talent_name'] ?? 'Talento') ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Cliente</span>
+                    <strong><?= htmlspecialchars($service['client_name'] ?? '') ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Proyecto</span>
+                    <strong><?= htmlspecialchars($service['project_name'] ?? 'Sin proyecto') ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Periodo del servicio</span>
+                    <strong><?= htmlspecialchars($service['start_date'] ?? '') ?> → <?= htmlspecialchars($service['end_date'] ?? 'Actual') ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Estado actual</span>
+                    <strong><?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? 'active'] ?? 'Activo') ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Avance del proyecto (manual)</span>
+                    <strong><?= $projectProgress !== null ? htmlspecialchars((string) $projectProgress) . '%' : 'Sin proyecto' ?></strong>
+                </div>
+            </div>
+        </div>
         <div class="overview-card">
             <h4>Estado del servicio</h4>
-            <p class="section-muted">Periodo <?= htmlspecialchars($service['start_date'] ?? '') ?> → <?= htmlspecialchars($service['end_date'] ?? 'Actual') ?></p>
+            <p class="section-muted">Salud actual según último seguimiento.</p>
             <div class="status-row">
-                <span class="status-pill"><?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? 'active'] ?? 'Activo') ?></span>
                 <span class="status-badge <?= $healthBadge($latestHealth) ?>">
                     <?= htmlspecialchars($healthLabels[$latestHealth ?? ''] ?? 'Sin seguimiento') ?>
                 </span>
@@ -90,7 +130,7 @@ $latestHealth = $followups[0]['service_health'] ?? null;
         </div>
     </section>
 
-    <section class="outsourcing-followups">
+    <section class="outsourcing-followups" id="seguimientos">
         <div>
             <p class="eyebrow">Seguimientos periódicos</p>
             <h3>Bitácora inmutable del servicio</h3>
@@ -125,6 +165,12 @@ $latestHealth = $followups[0]['service_health'] ?? null;
                         <option value="red">RED (Crítico)</option>
                     </select>
                 </label>
+                <label>Estado del seguimiento
+                    <select name="followup_status" required>
+                        <option value="open" selected>Abierto</option>
+                        <option value="observed">Observado</option>
+                    </select>
+                </label>
                 <label>Observaciones / análisis
                     <textarea name="observations" rows="4" required></textarea>
                 </label>
@@ -135,6 +181,7 @@ $latestHealth = $followups[0]['service_health'] ?? null;
         <?php if (empty($followups)): ?>
             <p class="section-muted">Aún no hay seguimientos registrados.</p>
         <?php else: ?>
+            <h4 class="section-title" id="evidencias">Evidencias</h4>
             <div class="followup-list">
                 <?php foreach ($followups as $followup): ?>
                     <article class="followup-card">
@@ -143,10 +190,21 @@ $latestHealth = $followups[0]['service_health'] ?? null;
                                 <h5>Periodo <?= htmlspecialchars((string) ($followup['period_start'] ?? '')) ?> → <?= htmlspecialchars((string) ($followup['period_end'] ?? '')) ?></h5>
                                 <p class="section-muted">Responsable: <?= htmlspecialchars($followup['responsible_name'] ?? 'Sin asignar') ?></p>
                                 <p class="section-muted">Registrado por <?= htmlspecialchars($followup['created_by_name'] ?? 'Sistema') ?> · <?= htmlspecialchars($formatTimestamp($followup['created_at'] ?? null)) ?></p>
+                                <p class="section-muted">Estado del seguimiento: <?= htmlspecialchars($followupStatusLabels[$followup['followup_status'] ?? 'open'] ?? 'Abierto') ?></p>
+                                <?php if (!empty($followup['closed_at'])): ?>
+                                    <p class="section-muted">Cerrado el <?= htmlspecialchars($formatTimestamp($followup['closed_at'] ?? null)) ?></p>
+                                <?php endif; ?>
                             </div>
-                            <span class="status-badge <?= $healthBadge((string) ($followup['service_health'] ?? '')) ?>">
-                                <?= htmlspecialchars($healthLabels[(string) ($followup['service_health'] ?? '')] ?? 'Sin estado') ?>
-                            </span>
+                            <div class="followup-actions">
+                                <span class="status-badge <?= $healthBadge((string) ($followup['service_health'] ?? '')) ?>">
+                                    <?= htmlspecialchars($healthLabels[(string) ($followup['service_health'] ?? '')] ?? 'Sin estado') ?>
+                                </span>
+                                <?php if ($canManage && ($followup['followup_status'] ?? '') !== 'closed'): ?>
+                                    <form method="POST" action="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>/followups/<?= (int) ($followup['id'] ?? 0) ?>/close" onsubmit="return confirm('¿Cerrar este seguimiento?');">
+                                        <button type="submit" class="action-btn small">Cerrar seguimiento</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
                         </header>
                         <div class="followup-body">
                             <div>
@@ -189,10 +247,15 @@ $latestHealth = $followups[0]['service_health'] ?? null;
 <style>
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
     .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
+    .outsourcing-tabs { display:flex; gap:12px; flex-wrap:wrap; }
+    .tab-link { text-decoration:none; padding:6px 12px; border-radius:999px; background:#e0f2fe; color:#0369a1; font-weight:700; font-size:13px; }
     .outsourcing-overview { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
     .overview-card { border:1px solid var(--border); border-radius:16px; padding:14px; background:#fff; display:flex; flex-direction:column; gap:8px; }
+    .summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+    .summary-grid strong { font-size:14px; color: var(--text-strong); }
     .status-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .outsourcing-followups { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
+    .section-title { margin:0; font-size:16px; color: var(--text-strong); }
     .followup-form { border:1px dashed var(--border); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; background:#fff; }
     .followup-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
     .followup-form input,
@@ -201,6 +264,7 @@ $latestHealth = $followups[0]['service_health'] ?? null;
     .followup-list { display:flex; flex-direction:column; gap:16px; }
     .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; }
     .followup-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .followup-actions { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
     .followup-body { display:grid; gap:12px; }
     .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
     .status-muted { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }

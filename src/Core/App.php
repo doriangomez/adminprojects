@@ -18,13 +18,13 @@ class App
         $migrator->ensureProjectDeliverySchema();
         $migrator->ensureProjectActiveColumn();
         $migrator->ensureUserProgressPermissionColumn();
+        $migrator->ensureUserOutsourcingPermissionColumn();
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureSystemSettings();
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
         $migrator->ensureOutsourcingModule();
-        $migrator->ensureOutsourcingAccessPermission();
         $this->auth = new Auth($this->db);
     }
 
@@ -313,6 +313,10 @@ class App
             }
             if (preg_match('#^/outsourcing/(\\d+)/followups$#', $path, $matches) && $method === 'POST') {
                 $controller->createFollowup((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\\d+)/followups/(\\d+)/close$#', $path, $matches) && $method === 'POST') {
+                $controller->closeFollowup((int) $matches[1], (int) $matches[2]);
                 return;
             }
 

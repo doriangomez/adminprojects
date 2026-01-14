@@ -141,6 +141,7 @@ class ConfigController extends Controller
         $isAdmin = $this->auth->hasRole('Administrador');
         $documentRoles = $this->documentRolePayload($isAdmin);
         $progressPermission = $this->progressPermissionPayload($isAdmin);
+        $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin);
         $repo->create([
             'name' => $_POST['name'],
             'email' => $_POST['email'],
@@ -151,6 +152,7 @@ class ConfigController extends Controller
             'can_validate_documents' => $documentRoles['can_validate_documents'],
             'can_approve_documents' => $documentRoles['can_approve_documents'],
             'can_update_project_progress' => $progressPermission,
+            'can_access_outsourcing' => $outsourcingPermission,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -167,6 +169,7 @@ class ConfigController extends Controller
         $current = $repo->find($userId) ?? [];
         $documentRoles = $this->documentRolePayload($isAdmin, $current);
         $progressPermission = $this->progressPermissionPayload($isAdmin, $current);
+        $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin, $current);
         $repo->update($userId, [
             'name' => $_POST['name'],
             'email' => $_POST['email'],
@@ -177,6 +180,7 @@ class ConfigController extends Controller
             'can_validate_documents' => $documentRoles['can_validate_documents'],
             'can_approve_documents' => $documentRoles['can_approve_documents'],
             'can_update_project_progress' => $progressPermission,
+            'can_access_outsourcing' => $outsourcingPermission,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -342,6 +346,15 @@ class ConfigController extends Controller
         }
 
         return $this->checkboxValue(['can_update_project_progress']) ? 1 : 0;
+    }
+
+    private function outsourcingPermissionPayload(bool $isAdmin, array $existing = []): int
+    {
+        if (!$isAdmin) {
+            return (int) ($existing['can_access_outsourcing'] ?? 0);
+        }
+
+        return $this->checkboxValue(['can_access_outsourcing']) ? 1 : 0;
     }
 
     private function checkboxValue(array $keys): bool
