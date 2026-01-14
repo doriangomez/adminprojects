@@ -65,6 +65,21 @@ class Auth
         return $result !== null;
     }
 
+    public function canAccessOutsourcing(): bool
+    {
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_access_outsourcing FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_access_outsourcing'] ?? 0)) === 1;
+    }
+
     public function hasRole(string $role): bool
     {
         $user = $this->user();

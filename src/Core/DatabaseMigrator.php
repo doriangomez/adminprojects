@@ -114,6 +114,21 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureUserOutsourcingPermissionColumn(): void
+    {
+        if (!$this->db->tableExists('users') || $this->db->columnExists('users', 'can_access_outsourcing')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'ALTER TABLE users ADD COLUMN can_access_outsourcing TINYINT(1) DEFAULT 0 AFTER can_update_project_progress'
+            );
+        } catch (\PDOException $e) {
+            error_log('Error agregando columna can_access_outsourcing a users: ' . $e->getMessage());
+        }
+    }
+
     public function ensureAssignmentsTable(): void
     {
         try {
@@ -131,50 +146,9 @@ class DatabaseMigrator
             $this->createOutsourcingFollowupsTable();
             $this->createOutsourcingServicesTable();
             $this->createOutsourcingServiceFollowupsTable();
+            $this->ensureOutsourcingFollowupStatusColumns();
         } catch (\PDOException $e) {
             error_log('Error asegurando tablas de outsourcing: ' . $e->getMessage());
-        }
-    }
-
-    public function ensureOutsourcingAccessPermission(): void
-    {
-        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
-            return;
-        }
-
-        try {
-            $this->db->execute(
-                'INSERT INTO permissions (code, name)
-                 SELECT :code, :name
-                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
-                [
-                    ':code' => 'can_access_outsourcing',
-                    ':name' => 'Acceder a outsourcing',
-                ]
-            );
-
-            $roles = $this->db->fetchAll(
-                "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')"
-            );
-
-            foreach ($roles as $role) {
-                $this->db->execute(
-                    'INSERT INTO role_permissions (role_id, permission_id)
-                     SELECT :roleId, p.id
-                     FROM permissions p
-                     WHERE p.code = :code
-                     AND NOT EXISTS (
-                        SELECT 1 FROM role_permissions rp
-                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
-                    )',
-                    [
-                        ':roleId' => (int) $role['id'],
-                        ':code' => 'can_access_outsourcing',
-                    ]
-                );
-            }
-        } catch (\PDOException $e) {
-            error_log('Error asegurando permisos de outsourcing: ' . $e->getMessage());
         }
     }
 
@@ -1127,6 +1101,8 @@ class DatabaseMigrator
                 service_health ENUM("green", "yellow", "red") NOT NULL,
                 observations TEXT NOT NULL,
                 responsible_user_id INT NOT NULL,
+                followup_status ENUM("open", "closed", "observed") NOT NULL DEFAULT "open",
+                closed_at TIMESTAMP NULL,
                 created_by INT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (service_id) REFERENCES outsourcing_services(id) ON DELETE CASCADE,
@@ -1135,6 +1111,29 @@ class DatabaseMigrator
                 FOREIGN KEY (created_by) REFERENCES users(id)
             ) ENGINE=InnoDB'
         );
+    }
+
+    private function ensureOutsourcingFollowupStatusColumns(): void
+    {
+        if (!$this->db->tableExists('outsourcing_followups')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->columnExists('outsourcing_followups', 'followup_status')) {
+                $this->db->execute(
+                    'ALTER TABLE outsourcing_followups ADD COLUMN followup_status ENUM("open", "closed", "observed") NOT NULL DEFAULT "open" AFTER responsible_user_id'
+                );
+            }
+
+            if (!$this->db->columnExists('outsourcing_followups', 'closed_at')) {
+                $this->db->execute(
+                    'ALTER TABLE outsourcing_followups ADD COLUMN closed_at TIMESTAMP NULL AFTER followup_status'
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando columnas de estado de seguimiento outsourcing: ' . $e->getMessage());
+        }
     }
 
     private function ensureProjectRiskEvaluationsTable(): void

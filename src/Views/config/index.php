@@ -410,6 +410,16 @@
                         <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
                     <?php endif; ?>
                 </div>
+                <div class="config-flow-roles full-span">
+                    <strong>Permisos de outsourcing</strong>
+                    <label class="option compact">
+                        <input type="checkbox" name="can_access_outsourcing" <?= !$isAdmin ? 'disabled' : '' ?>>
+                        Acceder a Outsourcing
+                    </label>
+                    <?php if (!$isAdmin): ?>
+                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                    <?php endif; ?>
+                </div>
                 <div class="form-footer">
                     <div></div>
                     <button class="btn primary" type="submit">Crear usuario</button>
@@ -469,6 +479,13 @@
                                                 <label class="option compact">
                                                     <input type="checkbox" name="can_update_project_progress" <?= ((int) ($user['can_update_project_progress'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
                                                     Actualizar avance
+                                                </label>
+                                            </div>
+                                            <div class="config-flow-roles">
+                                                <strong>Permisos de outsourcing</strong>
+                                                <label class="option compact">
+                                                    <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    Acceder a Outsourcing
                                                 </label>
                                             </div>
                                             <button class="btn secondary" type="submit">Guardar</button>

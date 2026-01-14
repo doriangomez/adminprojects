@@ -6,13 +6,19 @@ class OutsourcingServicesController extends Controller
 {
     public function index(): void
     {
-        $this->requirePermission('can_access_outsourcing');
+        $this->requireOutsourcingAccess();
         $user = $this->auth->user() ?? [];
 
         $servicesRepo = new OutsourcingServicesRepository($this->db);
         $clientsRepo = new ClientsRepository($this->db);
         $projectsRepo = new ProjectsRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
+        $filters = [
+            'client_id' => (int) ($_GET['client_id'] ?? 0),
+            'talent_id' => (int) ($_GET['talent_id'] ?? 0),
+            'project_id' => (int) ($_GET['project_id'] ?? 0),
+            'service_health' => (string) ($_GET['service_health'] ?? ''),
+        ];
 
         $users = array_values(array_filter(
             $usersRepo->all(),
@@ -26,18 +32,19 @@ class OutsourcingServicesController extends Controller
 
         $this->render('outsourcing/index', [
             'title' => 'Outsourcing',
-            'services' => $servicesRepo->listServices($user),
+            'services' => $servicesRepo->listServices($user, $filters),
             'clients' => $clientsRepo->listForUser($user),
             'projects' => $projectsRepo->summary($user),
             'talents' => $talents,
             'users' => $users,
-            'canManage' => $this->auth->can('can_access_outsourcing'),
+            'canManage' => $this->auth->canAccessOutsourcing(),
+            'filters' => $filters,
         ]);
     }
 
     public function show(int $serviceId): void
     {
-        $this->requirePermission('can_access_outsourcing');
+        $this->requireOutsourcingAccess();
         $user = $this->auth->user() ?? [];
 
         $servicesRepo = new OutsourcingServicesRepository($this->db);
@@ -74,13 +81,13 @@ class OutsourcingServicesController extends Controller
             'users' => $users,
             'documentFlowConfig' => (new ConfigService($this->db))->getConfig()['document_flow'] ?? [],
             'currentUser' => $user,
-            'canManage' => $this->auth->can('can_access_outsourcing'),
+            'canManage' => $this->auth->canAccessOutsourcing(),
         ]);
     }
 
     public function store(): void
     {
-        $this->requirePermission('can_access_outsourcing');
+        $this->requireOutsourcingAccess();
         $user = $this->auth->user() ?? [];
 
         $payload = [
@@ -126,7 +133,7 @@ class OutsourcingServicesController extends Controller
 
     public function updateStatus(int $serviceId): void
     {
-        $this->requirePermission('can_access_outsourcing');
+        $this->requireOutsourcingAccess();
         $user = $this->auth->user() ?? [];
 
         try {
@@ -150,7 +157,7 @@ class OutsourcingServicesController extends Controller
 
     public function updateFrequency(int $serviceId): void
     {
-        $this->requirePermission('can_access_outsourcing');
+        $this->requireOutsourcingAccess();
         $user = $this->auth->user() ?? [];
 
         try {
@@ -174,7 +181,7 @@ class OutsourcingServicesController extends Controller
 
     public function createFollowup(int $serviceId): void
     {
-        $this->requirePermission('can_access_outsourcing');
+        $this->requireOutsourcingAccess();
         $user = $this->auth->user() ?? [];
 
         $servicesRepo = new OutsourcingServicesRepository($this->db);
@@ -255,6 +262,7 @@ class OutsourcingServicesController extends Controller
                 'service_health' => $_POST['service_health'] ?? '',
                 'observations' => $_POST['observations'] ?? '',
                 'responsible_user_id' => $responsibleId,
+                'followup_status' => $_POST['followup_status'] ?? 'open',
                 'created_by' => (int) ($user['id'] ?? 0),
             ]);
 
@@ -269,6 +277,7 @@ class OutsourcingServicesController extends Controller
                     'period_end' => $periodEnd,
                     'service_health' => $_POST['service_health'] ?? '',
                     'responsible_user_id' => $responsibleId,
+                    'followup_status' => $_POST['followup_status'] ?? 'open',
                 ]
             );
 
@@ -280,6 +289,45 @@ class OutsourcingServicesController extends Controller
             error_log('Error al crear seguimiento outsourcing: ' . $e->getMessage());
             http_response_code(500);
             exit('No se pudo crear el seguimiento.');
+        }
+    }
+
+    public function closeFollowup(int $serviceId, int $followupId): void
+    {
+        $this->requireOutsourcingAccess();
+        $user = $this->auth->user() ?? [];
+
+        $servicesRepo = new OutsourcingServicesRepository($this->db);
+        $followup = $servicesRepo->findFollowup($followupId, $serviceId);
+
+        if (!$followup) {
+            http_response_code(404);
+            exit('Seguimiento de outsourcing no encontrado.');
+        }
+
+        if (($followup['followup_status'] ?? '') !== 'closed') {
+            $servicesRepo->closeFollowup($followupId);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'outsourcing_followup',
+                $followupId,
+                'closed',
+                [
+                    'service_id' => $serviceId,
+                    'previous_status' => $followup['followup_status'] ?? null,
+                ]
+            );
+        }
+
+        header('Location: /project/public/outsourcing/' . $serviceId);
+    }
+
+    private function requireOutsourcingAccess(): void
+    {
+        if (!$this->auth->canAccessOutsourcing()) {
+            http_response_code(403);
+            exit('Acceso denegado');
         }
     }
 

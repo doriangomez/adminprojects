@@ -5,16 +5,12 @@ $clients = is_array($clients ?? null) ? $clients : [];
 $projects = is_array($projects ?? null) ? $projects : [];
 $talents = is_array($talents ?? null) ? $talents : [];
 $canManage = !empty($canManage);
+$filters = is_array($filters ?? null) ? $filters : [];
 
-$serviceStatusLabels = [
-    'active' => 'Activo',
-    'paused' => 'En pausa',
-    'ended' => 'Finalizado',
-];
 $healthLabels = [
-    'green' => 'GREEN',
-    'yellow' => 'YELLOW',
-    'red' => 'RED',
+    'green' => 'Verde',
+    'yellow' => 'Amarillo',
+    'red' => 'Rojo',
 ];
 $healthBadge = static function (?string $status): string {
     return match ($status) {
@@ -24,10 +20,15 @@ $healthBadge = static function (?string $status): string {
         default => 'status-muted',
     };
 };
-$formatPeriod = static function (?string $start, ?string $end): string {
-    $startLabel = $start ?: 'Sin inicio';
-    $endLabel = $end ?: 'Sin fin';
-    return sprintf('%s → %s', $startLabel, $endLabel);
+$formatDate = static function (?string $value): string {
+    if (!$value) {
+        return 'Sin registro';
+    }
+    $timestamp = strtotime($value);
+    if (!$timestamp) {
+        return 'Sin registro';
+    }
+    return date('d/m/Y', $timestamp);
 };
 ?>
 
@@ -48,6 +49,52 @@ $formatPeriod = static function (?string $start, ?string $end): string {
                 <small class="section-muted">Consulta el estado actual de cada asignación de outsourcing.</small>
             </div>
         </div>
+        <form method="GET" action="<?= $basePath ?>/outsourcing" class="outsourcing-filters">
+            <label>Cliente
+                <select name="client_id">
+                    <option value="">Todos</option>
+                    <?php foreach ($clients as $client): ?>
+                        <option value="<?= (int) $client['id'] ?>" <?= ((int) ($filters['client_id'] ?? 0) === (int) $client['id']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($client['name'] ?? '') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Talento
+                <select name="talent_id">
+                    <option value="">Todos</option>
+                    <?php foreach ($talents as $talent): ?>
+                        <option value="<?= (int) $talent['id'] ?>" <?= ((int) ($filters['talent_id'] ?? 0) === (int) $talent['id']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($talent['name'] ?? '') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Proyecto
+                <select name="project_id">
+                    <option value="">Todos</option>
+                    <?php foreach ($projects as $project): ?>
+                        <option value="<?= (int) $project['id'] ?>" <?= ((int) ($filters['project_id'] ?? 0) === (int) $project['id']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($project['name'] ?? '') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label>Estado del servicio
+                <select name="service_health">
+                    <option value="">Todos</option>
+                    <?php foreach ($healthLabels as $healthKey => $healthLabel): ?>
+                        <option value="<?= htmlspecialchars($healthKey) ?>" <?= (($filters['service_health'] ?? '') === $healthKey) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($healthLabel) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <div class="filter-actions">
+                <button type="submit" class="action-btn">Filtrar</button>
+                <a class="action-btn" href="<?= $basePath ?>/outsourcing">Limpiar</a>
+            </div>
+        </form>
         <?php if (empty($services)): ?>
             <p class="section-muted">Aún no hay servicios de outsourcing registrados.</p>
         <?php else: ?>
@@ -58,9 +105,10 @@ $formatPeriod = static function (?string $start, ?string $end): string {
                             <th>Talento</th>
                             <th>Cliente</th>
                             <th>Proyecto</th>
-                            <th>Periodo de servicio</th>
-                            <th>Salud actual</th>
-                            <th>Estado</th>
+                            <th>Inicio</th>
+                            <th>Fin</th>
+                            <th>Estado del servicio</th>
+                            <th>Último seguimiento</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -74,16 +122,15 @@ $formatPeriod = static function (?string $start, ?string $end): string {
                                 </td>
                                 <td><?= htmlspecialchars($service['client_name'] ?? 'Cliente') ?></td>
                                 <td><?= htmlspecialchars($service['project_name'] ?? 'Sin proyecto') ?></td>
-                                <td><?= htmlspecialchars($formatPeriod($service['start_date'] ?? null, $service['end_date'] ?? null)) ?></td>
+                                <td><?= htmlspecialchars($formatDate($service['start_date'] ?? null)) ?></td>
+                                <td><?= htmlspecialchars($formatDate($service['end_date'] ?? null)) ?></td>
                                 <td>
                                     <span class="status-badge <?= $healthBadge($service['current_health'] ?? null) ?>">
                                         <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="status-pill">
-                                        <?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? 'active'] ?? 'Activo') ?>
-                                    </span>
+                                    <?= htmlspecialchars($formatDate($service['last_followup_end'] ?? $service['health_updated_at'] ?? null)) ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -165,6 +212,10 @@ $formatPeriod = static function (?string $start, ?string $end): string {
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
     .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .outsourcing-list, .outsourcing-form { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
+    .outsourcing-filters { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:12px; border-radius:12px; border:1px dashed var(--border); background:#f8fafc; }
+    .outsourcing-filters label { font-weight:600; display:flex; flex-direction:column; gap:6px; color: var(--text-strong); }
+    .outsourcing-filters select { padding:8px 10px; border-radius:10px; border:1px solid var(--border); }
+    .filter-actions { display:flex; gap:8px; align-items:flex-end; }
     .table-wrapper { overflow:auto; }
     table { width:100%; border-collapse:collapse; }
     th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px; }
