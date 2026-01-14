@@ -394,6 +394,42 @@ CREATE TABLE project_outsourcing_followups (
     FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE outsourcing_services (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    talent_id INT NOT NULL,
+    client_id INT NOT NULL,
+    project_id INT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NULL,
+    followup_frequency ENUM('weekly', 'monthly') NOT NULL DEFAULT 'monthly',
+    service_status ENUM('active', 'paused', 'ended') NOT NULL DEFAULT 'active',
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (talent_id) REFERENCES users(id),
+    FOREIGN KEY (client_id) REFERENCES clients(id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE outsourcing_followups (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    service_id INT NOT NULL,
+    document_node_id INT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    followup_frequency ENUM('weekly', 'monthly') NOT NULL DEFAULT 'monthly',
+    service_health ENUM('green', 'yellow', 'red') NOT NULL,
+    observations TEXT NOT NULL,
+    responsible_user_id INT NOT NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_id) REFERENCES outsourcing_services(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_node_id) REFERENCES project_nodes(id),
+    FOREIGN KEY (responsible_user_id) REFERENCES users(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
 CREATE TABLE costs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
@@ -435,6 +471,7 @@ INSERT INTO permissions (code, name) VALUES
     ('clients.delete', 'Eliminar clientes'),
     ('projects.view', 'Ver proyectos'),
     ('projects.manage', 'Gestionar proyectos'),
+    ('can_access_outsourcing', 'Acceder a outsourcing'),
     ('tasks.view', 'Ver tareas'),
     ('talents.view', 'Ver talento'),
     ('timesheets.view', 'Ver timesheets'),
