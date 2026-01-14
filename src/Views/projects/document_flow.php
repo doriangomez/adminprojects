@@ -4,6 +4,7 @@ $documentNode = is_array($documentNode ?? null) ? $documentNode : [];
 $documentExpectedDocs = is_array($documentExpectedDocs ?? null) ? $documentExpectedDocs : [];
 $documentTagOptions = is_array($documentTagOptions ?? null) ? $documentTagOptions : [];
 $documentKeyTags = is_array($documentKeyTags ?? null) ? $documentKeyTags : $documentExpectedDocs;
+$documentDefaultTags = is_array($documentDefaultTags ?? null) ? $documentDefaultTags : [];
 $documentCanManage = !empty($documentCanManage);
 $documentMode = $documentMode ?? null;
 $documentProjectId = (int) ($documentProjectId ?? 0);
@@ -56,6 +57,10 @@ $documentTypeOptions = array_values(array_unique(array_merge(
     array_map(static fn (array $doc): string => $doc['document_type'] ?? $doc['name'], $documentExpectedItems),
     $documentTagOptions
 )));
+$normalizedDefaultTags = array_values(array_unique(array_filter(array_map(
+    static fn (string $tag): string => trim($tag),
+    $documentDefaultTags
+))));
 $expectedSummary = [];
 foreach ($documentExpectedItems as $doc) {
     $normalized = $normalizeDoc((string) ($doc['document_type'] ?? $doc['name']));
@@ -172,7 +177,9 @@ foreach ($documentExpectedItems as $doc) {
                         <span>Tags *</span>
                         <select multiple data-upload-tag-select>
                             <?php foreach ($documentTagOptions as $tag): ?>
-                                <option value="<?= htmlspecialchars($tag) ?>"><?= htmlspecialchars($tag) ?></option>
+                                <option value="<?= htmlspecialchars($tag) ?>" <?= in_array($tag, $normalizedDefaultTags, true) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tag) ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                         <input type="text" placeholder="Otros tags (separados por coma)" data-upload-tag-custom>
@@ -447,6 +454,7 @@ foreach ($documentExpectedItems as $doc) {
         const roleCache = new Map();
         const saveTimers = new Map();
         const documentTagOptions = <?= json_encode(array_values($documentTagOptions)) ?>;
+        const documentDefaultTags = <?= json_encode($normalizedDefaultTags) ?>;
 
         const statusConfig = {
             borrador: { label: 'Borrador', className: 'status-pending' },
@@ -1127,7 +1135,7 @@ foreach ($documentExpectedItems as $doc) {
             const customTags = customInput && customInput.value.trim()
                 ? customInput.value.split(',').map(tag => tag.trim()).filter(Boolean)
                 : [];
-            return sanitizeTags([...selectedTags, ...customTags]);
+            return sanitizeTags([...documentDefaultTags, ...selectedTags, ...customTags]);
         };
 
         const collectUploadType = () => {

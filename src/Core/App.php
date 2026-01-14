@@ -24,6 +24,7 @@ class App
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
         $migrator->ensureOutsourcingModule();
+        $migrator->ensureOutsourcingAccessPermission();
         $this->auth = new Auth($this->db);
     }
 
@@ -289,6 +290,33 @@ class App
 
         if (str_starts_with($path, '/tasks')) {
             (new TasksController($this->db, $this->auth))->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/outsourcing')) {
+            $controller = new OutsourcingServicesController($this->db, $this->auth);
+            if ($path === '/outsourcing' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\\d+)$#', $path, $matches) && $method === 'GET') {
+                $controller->show((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateStatus((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\\d+)/frequency$#', $path, $matches) && $method === 'POST') {
+                $controller->updateFrequency((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\\d+)/followups$#', $path, $matches) && $method === 'POST') {
+                $controller->createFollowup((int) $matches[1]);
+                return;
+            }
+
+            $controller->index();
             return;
         }
 

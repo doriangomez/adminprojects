@@ -129,8 +129,52 @@ class DatabaseMigrator
         try {
             $this->createOutsourcingSettingsTable();
             $this->createOutsourcingFollowupsTable();
+            $this->createOutsourcingServicesTable();
+            $this->createOutsourcingServiceFollowupsTable();
         } catch (\PDOException $e) {
             error_log('Error asegurando tablas de outsourcing: ' . $e->getMessage());
+        }
+    }
+
+    public function ensureOutsourcingAccessPermission(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                [
+                    ':code' => 'can_access_outsourcing',
+                    ':name' => 'Acceder a outsourcing',
+                ]
+            );
+
+            $roles = $this->db->fetchAll(
+                "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')"
+            );
+
+            foreach ($roles as $role) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :roleId, p.id
+                     FROM permissions p
+                     WHERE p.code = :code
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':roleId' => (int) $role['id'],
+                        ':code' => 'can_access_outsourcing',
+                    ]
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos de outsourcing: ' . $e->getMessage());
         }
     }
 
@@ -1032,6 +1076,60 @@ class DatabaseMigrator
                 created_by INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                FOREIGN KEY (document_node_id) REFERENCES project_nodes(id),
+                FOREIGN KEY (responsible_user_id) REFERENCES users(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            ) ENGINE=InnoDB'
+        );
+    }
+
+    private function createOutsourcingServicesTable(): void
+    {
+        if ($this->db->tableExists('outsourcing_services')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE outsourcing_services (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                talent_id INT NOT NULL,
+                client_id INT NOT NULL,
+                project_id INT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NULL,
+                followup_frequency ENUM("weekly", "monthly") NOT NULL DEFAULT "monthly",
+                service_status ENUM("active", "paused", "ended") NOT NULL DEFAULT "active",
+                created_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (talent_id) REFERENCES users(id),
+                FOREIGN KEY (client_id) REFERENCES clients(id),
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            ) ENGINE=InnoDB'
+        );
+    }
+
+    private function createOutsourcingServiceFollowupsTable(): void
+    {
+        if ($this->db->tableExists('outsourcing_followups')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE outsourcing_followups (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                service_id INT NOT NULL,
+                document_node_id INT NULL,
+                period_start DATE NOT NULL,
+                period_end DATE NOT NULL,
+                followup_frequency ENUM("weekly", "monthly") NOT NULL DEFAULT "monthly",
+                service_health ENUM("green", "yellow", "red") NOT NULL,
+                observations TEXT NOT NULL,
+                responsible_user_id INT NOT NULL,
+                created_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (service_id) REFERENCES outsourcing_services(id) ON DELETE CASCADE,
                 FOREIGN KEY (document_node_id) REFERENCES project_nodes(id),
                 FOREIGN KEY (responsible_user_id) REFERENCES users(id),
                 FOREIGN KEY (created_by) REFERENCES users(id)
