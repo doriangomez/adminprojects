@@ -216,12 +216,14 @@ class ProjectTreeService
 
     private function childHasEvidence(array $child): bool
     {
-        if (!empty($child['files'])) {
-            return true;
+        foreach (($child['files'] ?? []) as $file) {
+            if (($file['document_status'] ?? '') === 'aprobado') {
+                return true;
+            }
         }
 
         foreach (($child['children'] ?? []) as $nested) {
-            if (($nested['node_type'] ?? '') === self::NODE_TYPE_ISO_CONTROL) {
+            if (($nested['node_type'] ?? '') === self::NODE_TYPE_ISO_CONTROL && ($nested['status'] ?? '') === 'completado') {
                 return true;
             }
         }
