@@ -170,11 +170,10 @@ foreach ($documentExpectedDocs as $doc) {
                     <input type="hidden" name="document_tags" value="" data-document-tags-hidden>
                     <div class="modal-actions">
                         <button type="button" class="action-btn" data-close-upload>Cancelar</button>
-                        <button type="submit" class="action-btn primary">Guardar documento</button>
-                    </div>
-                    <div class="upload-loader" data-upload-loader hidden>
-                        <span class="upload-loader__spinner" aria-hidden="true"></span>
-                        <span>Guardando documento...</span>
+                        <button type="submit" class="action-btn primary" data-upload-submit>
+                            <span class="button-label">Guardar documento</span>
+                            <span class="button-spinner" aria-hidden="true"></span>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -389,8 +388,10 @@ foreach ($documentExpectedDocs as $doc) {
     .switch input:checked + .slider { background:#22c55e; }
     .switch input:checked + .slider::after { transform: translateX(18px); }
     .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
-    .upload-loader { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color: var(--text-strong); background:#f1f5f9; border-radius:10px; padding:8px 10px; border:1px solid var(--border); }
-    .upload-loader__spinner { width:18px; height:18px; border-radius:50%; border:2px solid #cbd5f5; border-top-color: var(--primary); animation: spin 1s linear infinite; }
+    .action-btn { display:inline-flex; align-items:center; gap:8px; }
+    .button-spinner { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.5); border-top-color:#fff; animation: spin 1s linear infinite; display:none; }
+    .action-btn.is-loading .button-spinner { display:inline-block; }
+    .action-btn.is-loading .button-label { opacity:0.8; }
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
@@ -409,6 +410,7 @@ foreach ($documentExpectedDocs as $doc) {
         const currentUserName = <?= json_encode((string) ($documentCurrentUser['name'] ?? 'Usuario')) ?>;
         const keyTags = <?= json_encode(array_values($documentKeyTags)) ?>;
         const basePath = <?= json_encode((string) $documentBasePath) ?>;
+        const documentProjectId = <?= json_encode($documentProjectId) ?>;
         const documentCanManage = <?= json_encode($documentCanManage) ?>;
         const roleCache = new Map();
         const saveTimers = new Map();
@@ -1110,7 +1112,7 @@ foreach ($documentExpectedDocs as $doc) {
         const closeUploadButtons = root.querySelectorAll('[data-close-upload]');
         const uploadPreview = root.querySelector('[data-upload-preview]');
         const uploadForm = uploadModal ? uploadModal.querySelector('.upload-form') : null;
-        const uploadLoader = uploadModal ? uploadModal.querySelector('[data-upload-loader]') : null;
+        const uploadSubmitButton = uploadModal ? uploadModal.querySelector('[data-upload-submit]') : null;
         const uploadValidation = uploadModal ? uploadModal.querySelector('[data-upload-validation]') : null;
 
         const closeModal = () => {
@@ -1208,14 +1210,18 @@ foreach ($documentExpectedDocs as $doc) {
                     return;
                 }
                 setUploadValidation('');
-                if (uploadLoader) {
-                    uploadLoader.hidden = false;
+                if (uploadSubmitButton && uploadSubmitButton.dataset.loading === 'true') {
+                    return;
                 }
-                const submitButton = uploadForm.querySelector('button[type="submit"]');
-                if (submitButton) {
-                    submitButton.dataset.originalLabel = submitButton.textContent || 'Guardar documento';
-                    submitButton.textContent = 'Guardando…';
-                    submitButton.disabled = true;
+                if (uploadSubmitButton) {
+                    const label = uploadSubmitButton.querySelector('.button-label');
+                    uploadSubmitButton.dataset.originalLabel = label?.textContent || 'Guardar documento';
+                    if (label) {
+                        label.textContent = 'Guardando documento...';
+                    }
+                    uploadSubmitButton.dataset.loading = 'true';
+                    uploadSubmitButton.disabled = true;
+                    uploadSubmitButton.classList.add('is-loading');
                 }
 
                 const formData = new FormData(uploadForm);
@@ -1228,7 +1234,7 @@ foreach ($documentExpectedDocs as $doc) {
                 })
                     .then(response => response.json())
                     .then(payload => {
-                        if (payload.status !== 'ok') {
+                        if (!payload.success) {
                             throw new Error(payload.message || 'No se pudo subir el documento.');
                         }
                         let table = root.querySelector('.document-file-table');
@@ -1276,13 +1282,14 @@ foreach ($documentExpectedDocs as $doc) {
                         setUploadValidation(error.message);
                     })
                     .finally(() => {
-                        if (uploadLoader) {
-                            uploadLoader.hidden = true;
-                        }
-                        const submitButton = uploadForm.querySelector('button[type="submit"]');
-                        if (submitButton) {
-                            submitButton.textContent = submitButton.dataset.originalLabel || 'Guardar documento';
-                            submitButton.disabled = false;
+                        if (uploadSubmitButton) {
+                            const label = uploadSubmitButton.querySelector('.button-label');
+                            if (label) {
+                                label.textContent = uploadSubmitButton.dataset.originalLabel || 'Guardar documento';
+                            }
+                            uploadSubmitButton.disabled = false;
+                            uploadSubmitButton.classList.remove('is-loading');
+                            uploadSubmitButton.dataset.loading = 'false';
                         }
                     });
             });
