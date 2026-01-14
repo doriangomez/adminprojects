@@ -39,14 +39,18 @@ foreach ($documentExpectedDocs as $doc) {
         <div>
             <p class="eyebrow" style="margin:0; color: var(--muted);">SUBFASE · <?= htmlspecialchars($documentNodeCode) ?></p>
             <h4 style="margin:4px 0 0;">Gestión documental de <?= htmlspecialchars($documentNodeName) ?></h4>
-            <small style="color: var(--muted);">Carga libre, tagueo manual y flujo de revisión por documento.</small>
+            <small style="color: var(--muted);">Documentos guiados por metodología, fase y subfase con trazabilidad ISO 9001.</small>
         </div>
     </header>
 
+    <div class="document-toast" data-document-toast hidden>
+        <span data-document-toast-message></span>
+    </div>
+
     <div class="document-grid">
         <section class="document-section">
-            <h5>Documentos esperados en esta subfase</h5>
-            <p class="section-muted">Referencia informativa con estado de carga y aprobación.</p>
+            <h5>Documentos sugeridos por subfase</h5>
+            <p class="section-muted">Guía basada en metodología, fase y subfase. Puedes adjuntar documentos adicionales.</p>
             <ul class="expected-list">
                 <?php foreach ($expectedSummary as $summary): ?>
                     <li>
@@ -68,7 +72,7 @@ foreach ($documentExpectedDocs as $doc) {
             <div class="section-header">
                 <div>
                     <h5>Carga libre de documentos</h5>
-                    <p class="section-muted">PDF, Word, Excel o imágenes. Se almacenan en esta subfase.</p>
+                    <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
                 </div>
                 <?php if ($documentCanManage): ?>
                     <button type="button" class="action-btn primary" data-open-upload>Subir documento</button>
@@ -93,6 +97,7 @@ foreach ($documentExpectedDocs as $doc) {
                     <button type="button" class="action-btn small" data-close-upload>✕</button>
                 </header>
                 <form class="upload-form" method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($documentNode['id'] ?? 0) ?>/files" enctype="multipart/form-data">
+                    <div class="form-validation" data-upload-validation hidden>Revisa los campos obligatorios.</div>
                     <label class="field">
                         <span>Archivo *</span>
                         <input type="file" name="node_files[]" required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
@@ -159,6 +164,10 @@ foreach ($documentExpectedDocs as $doc) {
                         <button type="button" class="action-btn" data-close-upload>Cancelar</button>
                         <button type="submit" class="action-btn primary">Guardar documento</button>
                     </div>
+                    <div class="upload-loader" data-upload-loader hidden>
+                        <span class="upload-loader__spinner" aria-hidden="true"></span>
+                        <span>Guardando documento...</span>
+                    </div>
                 </form>
             </div>
         </div>
@@ -207,7 +216,7 @@ foreach ($documentExpectedDocs as $doc) {
                          data-approved-by="<?= htmlspecialchars((string) ($file['approved_by'] ?? '')) ?>"
                          data-approved-at="<?= htmlspecialchars((string) ($file['approved_at'] ?? '')) ?>">
                         <div>
-                            <strong><?= htmlspecialchars($file['file_name'] ?? $file['title'] ?? '') ?></strong>
+                            <strong>📄 <?= htmlspecialchars($file['file_name'] ?? $file['title'] ?? '') ?></strong>
                             <small class="section-muted">Subido: <?= htmlspecialchars((string) ($file['created_at'] ?? '')) ?></small>
                             <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
                         </div>
@@ -232,7 +241,7 @@ foreach ($documentExpectedDocs as $doc) {
                             <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input value="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>">
                         </div>
                         <div>
-                            <span class="status-pill status-pending" data-status-label>Pendiente</span>
+                            <span class="status-pill status-pending" data-status-label>Pendiente revisión</span>
                             <?php if ($documentCanManage): ?>
                                 <button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>
                             <?php endif; ?>
@@ -243,9 +252,9 @@ foreach ($documentExpectedDocs as $doc) {
                             </small>
                             <div class="review-actions" data-review-actions hidden>
                                 <textarea rows="2" placeholder="Comentario opcional" data-comment-input></textarea>
-                                <button type="button" class="action-btn small" data-action="reviewed">Aprobar revisión</button>
-                                <button type="button" class="action-btn small" data-action="validated">Validar documento</button>
-                                <button type="button" class="action-btn small primary" data-action="approved">Aprobar documento</button>
+                                <button type="button" class="action-btn small" data-action="reviewed">Revisar</button>
+                                <button type="button" class="action-btn small" data-action="validated">Validar</button>
+                                <button type="button" class="action-btn small primary" data-action="approved">Aprobar</button>
                                 <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
                             </div>
                             <button type="button" class="action-btn small" data-toggle-history>Historial</button>
@@ -305,6 +314,10 @@ foreach ($documentExpectedDocs as $doc) {
 <style>
     .document-flow { display:flex; flex-direction:column; gap:16px; }
     .document-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .document-toast { border-radius:10px; padding:10px 12px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
+    .document-toast.success { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+    .document-toast.warning { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+    .document-toast.error { background:#fee2e2; color:#991b1b; border:1px solid #fecdd3; }
     .document-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
     .document-section { border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:8px; }
     .document-section h5 { margin:0; }
@@ -336,6 +349,7 @@ foreach ($documentExpectedDocs as $doc) {
     .status-review { background:#e0f2fe; color:#075985; }
     .status-validated { background:#dcfce7; color:#166534; }
     .status-approved { background:#ede9fe; color:#5b21b6; }
+    .status-rejected { background:#fee2e2; color:#991b1b; }
     .file-actions { display:flex; flex-wrap:wrap; gap:6px; }
     .file-meta { display:flex; flex-direction:column; gap:4px; }
     .flow-summary { display:block; margin:6px 0; font-size:12px; color: var(--muted); }
@@ -359,6 +373,7 @@ foreach ($documentExpectedDocs as $doc) {
     .field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--text-strong); }
     .field input, .field select, .field textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .field-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
+    .form-validation { background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:8px; padding:8px 10px; font-size:12px; font-weight:600; }
     .switch { display:flex; align-items:center; gap:10px; font-size:13px; }
     .switch input { display:none; }
     .switch .slider { width:40px; height:22px; background:#e5e7eb; border-radius:999px; position:relative; }
@@ -366,6 +381,11 @@ foreach ($documentExpectedDocs as $doc) {
     .switch input:checked + .slider { background:#22c55e; }
     .switch input:checked + .slider::after { transform: translateX(18px); }
     .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+    .upload-loader { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; color: var(--text-strong); background:#f1f5f9; border-radius:10px; padding:8px 10px; border:1px solid var(--border); }
+    .upload-loader__spinner { width:18px; height:18px; border-radius:50%; border:2px solid #cbd5f5; border-top-color: var(--primary); animation: spin 1s linear infinite; }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
     @media (max-width: 900px) {
         .document-file-row { grid-template-columns: 1fr; }
         .document-file-head { display:none; }
@@ -387,12 +407,12 @@ foreach ($documentExpectedDocs as $doc) {
         const documentTagOptions = <?= json_encode(array_values($documentTagOptions)) ?>;
 
         const statusConfig = {
-            pendiente_revision: { label: 'Pendiente de revisión', className: 'status-pending' },
+            pendiente_revision: { label: 'Pendiente revisión', className: 'status-pending' },
             en_revision: { label: 'En revisión', className: 'status-review' },
-            validacion_pendiente: { label: 'Validación pendiente', className: 'status-review' },
-            aprobacion_pendiente: { label: 'Aprobación pendiente', className: 'status-review' },
+            validacion_pendiente: { label: 'Pendiente validación', className: 'status-review' },
+            aprobacion_pendiente: { label: 'Validado', className: 'status-validated' },
             aprobado: { label: 'Aprobado', className: 'status-approved' },
-            rechazado: { label: 'Rechazado', className: 'status-pending' }
+            rechazado: { label: 'Rechazado', className: 'status-rejected' }
         };
         const historyLabels = {
             file_created: 'Subido',
@@ -411,6 +431,22 @@ foreach ($documentExpectedDocs as $doc) {
         const parseTagString = (value) => {
             if (!value) return [];
             return value.split('|').map(tag => tag.trim()).filter(Boolean);
+        };
+
+        const toast = root.querySelector('[data-document-toast]');
+        const toastMessage = root.querySelector('[data-document-toast-message]');
+        let toastTimer;
+        const showToast = (message, tone = 'success') => {
+            if (!toast || !toastMessage) return;
+            toastMessage.textContent = message;
+            toast.className = `document-toast ${tone}`;
+            toast.hidden = false;
+            if (toastTimer) {
+                clearTimeout(toastTimer);
+            }
+            toastTimer = setTimeout(() => {
+                toast.hidden = true;
+            }, 4000);
         };
 
         const sanitizeTags = (tags) => {
@@ -517,7 +553,7 @@ foreach ($documentExpectedDocs as $doc) {
 
             row.innerHTML = `
                 <div>
-                    <strong>${escapeHtml(data.file_name ?? '')}</strong>
+                    <strong>📄 ${escapeHtml(data.file_name ?? '')}</strong>
                     <small class="section-muted">Subido: ${escapeHtml(data.created_at ?? '')}</small>
                     <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
                 </div>
@@ -536,14 +572,14 @@ foreach ($documentExpectedDocs as $doc) {
                     <input type="text" class="version-input" placeholder="v1, v2, final" data-version-input value="${escapeHtml(data.version ?? '')}">
                 </div>
                 <div>
-                    <span class="status-pill status-pending" data-status-label>Pendiente</span>
+                    <span class="status-pill status-pending" data-status-label>Pendiente revisión</span>
                     ${documentCanManage ? '<button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>' : ''}
                     <small class="flow-summary" data-flow-summary></small>
                     <div class="review-actions" data-review-actions hidden>
                         <textarea rows="2" placeholder="Comentario opcional" data-comment-input></textarea>
-                        <button type="button" class="action-btn small" data-action="reviewed">Aprobar revisión</button>
-                        <button type="button" class="action-btn small" data-action="validated">Validar documento</button>
-                        <button type="button" class="action-btn small primary" data-action="approved">Aprobar documento</button>
+                        <button type="button" class="action-btn small" data-action="reviewed">Revisar</button>
+                        <button type="button" class="action-btn small" data-action="validated">Validar</button>
+                        <button type="button" class="action-btn small primary" data-action="approved">Aprobar</button>
                         <button type="button" class="action-btn small danger" data-action="rejected">Rechazar</button>
                     </div>
                     <button type="button" class="action-btn small" data-toggle-history>Historial</button>
@@ -662,6 +698,7 @@ foreach ($documentExpectedDocs as $doc) {
                     row.dataset.tags = tags.join('|');
                     row.dataset.documentVersion = payload.data.document_version ?? '';
                     updateTagsDisplay(row, tags);
+                    showToast('Metadatos actualizados.', 'success');
                 })
                 .catch(error => {
                     alert(error.message);
@@ -711,10 +748,22 @@ foreach ($documentExpectedDocs as $doc) {
             const validator = row.dataset.validatorId;
             const approver = row.dataset.approverId;
             const status = row.dataset.documentStatus || 'pendiente_revision';
-            const shouldShow = (status === 'en_revision' && Number(reviewer) === currentUserId)
-                || (status === 'validacion_pendiente' && Number(validator) === currentUserId)
-                || (status === 'aprobacion_pendiente' && Number(approver) === currentUserId);
+            const reviewerReady = status === 'en_revision' && Number(reviewer) === currentUserId;
+            const validatorReady = status === 'validacion_pendiente' && Number(validator) === currentUserId;
+            const approverReady = status === 'aprobacion_pendiente' && Number(approver) === currentUserId;
+            const shouldShow = reviewerReady || validatorReady || approverReady;
             actions.hidden = !shouldShow;
+            if (!shouldShow) return;
+
+            const reviewButton = actions.querySelector('[data-action="reviewed"]');
+            const validateButton = actions.querySelector('[data-action="validated"]');
+            const approveButton = actions.querySelector('[data-action="approved"]');
+            const rejectButton = actions.querySelector('[data-action="rejected"]');
+
+            if (reviewButton) reviewButton.hidden = !reviewerReady;
+            if (validateButton) validateButton.hidden = !validatorReady;
+            if (approveButton) approveButton.hidden = !approverReady;
+            if (rejectButton) rejectButton.hidden = !approverReady;
         };
 
         const toggleSendReview = (row) => {
@@ -906,6 +955,7 @@ foreach ($documentExpectedDocs as $doc) {
                             throw new Error(payload.message || 'No se pudo enviar a revisión.');
                         }
                         updateFlowRow(row, payload.data, 'Enviado a revisión');
+                        showToast('Documento enviado a revisión.', 'success');
                     })
                     .catch(error => {
                         alert(error.message);
@@ -937,6 +987,7 @@ foreach ($documentExpectedDocs as $doc) {
                             throw new Error(payload.message || 'No se pudo actualizar el estado.');
                         }
                         updateFlowRow(row, payload.data, 'Estado actualizado');
+                        showToast('Estado documental actualizado.', 'success');
                     })
                     .catch(error => {
                         alert(error.message);
@@ -972,6 +1023,7 @@ foreach ($documentExpectedDocs as $doc) {
                             throw new Error(payload.message || 'No se pudo guardar el flujo.');
                         }
                         updateFlowRow(row, payload.data, 'Flujo guardado');
+                        showToast('Flujo documental guardado.', 'success');
                     })
                     .catch(error => {
                         alert(error.message);
@@ -1050,6 +1102,8 @@ foreach ($documentExpectedDocs as $doc) {
         const closeUploadButtons = root.querySelectorAll('[data-close-upload]');
         const uploadPreview = root.querySelector('[data-upload-preview]');
         const uploadForm = uploadModal ? uploadModal.querySelector('.upload-form') : null;
+        const uploadLoader = uploadModal ? uploadModal.querySelector('[data-upload-loader]') : null;
+        const uploadValidation = uploadModal ? uploadModal.querySelector('[data-upload-validation]') : null;
 
         const closeModal = () => {
             if (uploadModal) {
@@ -1057,8 +1111,19 @@ foreach ($documentExpectedDocs as $doc) {
             }
         };
 
+        const setUploadValidation = (message) => {
+            if (!uploadValidation) return;
+            if (!message) {
+                uploadValidation.hidden = true;
+                return;
+            }
+            uploadValidation.textContent = message;
+            uploadValidation.hidden = false;
+        };
+
         if (openUpload && uploadModal) {
             openUpload.addEventListener('click', () => {
+                setUploadValidation('');
                 uploadModal.hidden = false;
             });
         }
@@ -1106,18 +1171,41 @@ foreach ($documentExpectedDocs as $doc) {
                 event.preventDefault();
                 const documentType = collectUploadType();
                 const tags = collectUploadTags();
+                const versionValue = (uploadForm.querySelector('input[name="document_version"]')?.value ?? '').trim();
+                const descriptionValue = (uploadForm.querySelector('textarea[name="document_description"]')?.value ?? '').trim();
+                const fileInput = uploadForm.querySelector('input[type="file"]');
                 const hiddenType = uploadForm.querySelector('[data-document-type-hidden]');
                 const hiddenTags = uploadForm.querySelector('[data-document-tags-hidden]');
                 if (hiddenType) hiddenType.value = documentType;
                 if (hiddenTags) hiddenTags.value = JSON.stringify(tags);
 
+                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                    setUploadValidation('Selecciona un archivo para continuar.');
+                    return;
+                }
                 if (!documentType) {
-                    alert('Selecciona el tipo documental.');
+                    setUploadValidation('Selecciona el tipo documental.');
                     return;
                 }
                 if (tags.length === 0) {
-                    alert('Selecciona al menos un tag.');
+                    setUploadValidation('Selecciona al menos un tag.');
                     return;
+                }
+                if (!versionValue) {
+                    setUploadValidation('Ingresa la versión del documento.');
+                    return;
+                }
+                if (!descriptionValue) {
+                    setUploadValidation('Ingresa una descripción corta.');
+                    return;
+                }
+                setUploadValidation('');
+                if (uploadLoader) {
+                    uploadLoader.hidden = false;
+                }
+                const submitButton = uploadForm.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
                 }
 
                 const formData = new FormData(uploadForm);
@@ -1172,9 +1260,19 @@ foreach ($documentExpectedDocs as $doc) {
                         }
                         closeModal();
                         updateAlert();
+                        showToast('Documento guardado en la subfase.', 'success');
                     })
                     .catch(error => {
-                        alert(error.message);
+                        setUploadValidation(error.message);
+                    })
+                    .finally(() => {
+                        if (uploadLoader) {
+                            uploadLoader.hidden = true;
+                        }
+                        const submitButton = uploadForm.querySelector('button[type="submit"]');
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                        }
                     });
             });
         }
