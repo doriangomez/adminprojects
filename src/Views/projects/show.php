@@ -6,6 +6,9 @@ $progressPhases = is_array($progressPhases ?? null) ? $progressPhases : [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $currentUser = is_array($currentUser ?? null) ? $currentUser : [];
 $canManage = !empty($canManage);
+$canUpdateProgress = !empty($canUpdateProgress);
+$progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
+$progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -288,6 +291,26 @@ $tabDescriptions = [
     '05-CAMBIOS' => 'Registros de cambios, impacto y aprobaciones asociadas.',
 ];
 $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphaseSuffix] ?? '') : '';
+$approvedDocuments = (int) ($progressIndicators['approved_documents'] ?? 0);
+$pendingControls = (int) ($progressIndicators['pending_controls'] ?? 0);
+$loggedHours = $progressIndicators['logged_hours'] ?? null;
+$lastProgressEntry = $progressHistory[0] ?? null;
+$lastProgressUser = $lastProgressEntry['user_name'] ?? 'Sistema';
+$lastProgressPayload = is_array($lastProgressEntry['payload'] ?? null) ? $lastProgressEntry['payload'] : [];
+$lastProgressJustification = trim((string) ($lastProgressPayload['justification'] ?? ''));
+$formatTimestamp = static function (?string $value): string {
+    if (!$value) {
+        return 'Sin registro';
+    }
+
+    $timestamp = strtotime($value);
+    if (!$timestamp) {
+        return 'Sin registro';
+    }
+
+    return date('d/m/Y H:i', $timestamp);
+};
+$lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['created_at'] ?? null) : 'Sin registro';
 ?>
 
 <section class="project-shell">
@@ -313,14 +336,101 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
         <div class="project-progress-card">
             <span class="pill" style="background: <?= $badge['bg'] ?>; color: <?= $badge['color'] ?>;"><?= htmlspecialchars($badge['label']) ?></span>
             <div class="project-progress">
-                <span class="project-progress__label">Avance global automático</span>
+                <span class="project-progress__label">Avance global manual</span>
                 <div class="project-progress__bar" role="progressbar" aria-valuenow="<?= $projectProgress ?>" aria-valuemin="0" aria-valuemax="100">
                     <div style="width: <?= $projectProgress ?>%;"></div>
                 </div>
                 <span class="project-progress__value"><?= $projectProgress ?>% completado</span>
             </div>
+            <div class="progress-meta">
+                <div class="progress-meta__item">
+                    <span>Última actualización</span>
+                    <strong><?= htmlspecialchars($lastProgressDate) ?></strong>
+                </div>
+                <div class="progress-meta__item">
+                    <span>Actualizado por</span>
+                    <strong><?= htmlspecialchars($lastProgressUser ?: 'Sistema') ?></strong>
+                </div>
+                <div class="progress-meta__item full">
+                    <span>Justificación</span>
+                    <p><?= $lastProgressJustification !== '' ? htmlspecialchars($lastProgressJustification) : 'Sin registro' ?></p>
+                </div>
+            </div>
+            <?php if ($canUpdateProgress): ?>
+                <button class="action-btn primary" type="button" data-open-modal="progress-modal">Actualizar avance</button>
+            <?php endif; ?>
         </div>
     </header>
+
+    <section class="progress-context">
+        <div class="context-card">
+            <div>
+                <p class="eyebrow">Indicadores de contexto</p>
+                <h4>Apoyo a la decisión del avance</h4>
+                <small class="section-muted">Informativos, no calculan el porcentaje de avance.</small>
+            </div>
+            <div class="context-grid">
+                <div class="context-item">
+                    <span>Documentos aprobados</span>
+                    <strong><?= $approvedDocuments ?></strong>
+                </div>
+                <div class="context-item">
+                    <span>Controles pendientes</span>
+                    <strong><?= $pendingControls ?></strong>
+                </div>
+                <div class="context-item">
+                    <span>Horas registradas</span>
+                    <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
+                    <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="progress-history">
+        <div class="history-card">
+            <div class="history-header">
+                <div>
+                    <p class="eyebrow">Historial de avance</p>
+                    <h4>Bitácora de decisiones</h4>
+                </div>
+            </div>
+            <?php if (empty($progressHistory)): ?>
+                <p class="section-muted">Aún no hay actualizaciones registradas.</p>
+            <?php else: ?>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
+                                <th>Anterior</th>
+                                <th>Nuevo</th>
+                                <th>Justificación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($progressHistory as $entry): ?>
+                                <?php
+                                $payload = is_array($entry['payload'] ?? null) ? $entry['payload'] : [];
+                                $previous = $payload['previous_progress'] ?? null;
+                                $next = $payload['new_progress'] ?? null;
+                                $justification = trim((string) ($payload['justification'] ?? ''));
+                                ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($formatTimestamp($entry['created_at'] ?? null)) ?></td>
+                                    <td><?= htmlspecialchars($entry['user_name'] ?? 'Sistema') ?></td>
+                                    <td><?= $previous !== null ? number_format((float) $previous, 1) . '%' : '-' ?></td>
+                                    <td><?= $next !== null ? number_format((float) $next, 1) . '%' : '-' ?></td>
+                                    <td><?= $justification !== '' ? htmlspecialchars($justification) : 'Sin registro' ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
 
     <div class="project-layout">
         <aside class="phase-sidebar">
@@ -506,6 +616,60 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
     </div>
 </section>
 
+<?php if ($canUpdateProgress): ?>
+    <div class="modal" id="progress-modal" aria-hidden="true">
+        <div class="modal__backdrop" data-close-modal></div>
+        <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="progress-modal-title">
+            <div class="modal__header">
+                <h3 id="progress-modal-title">Actualizar avance</h3>
+                <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">✕</button>
+            </div>
+            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/progress" class="modal__body">
+                <label class="modal__field">
+                    <span>Nuevo porcentaje (0–100)</span>
+                    <input type="number" name="progress" min="0" max="100" step="0.1" required>
+                </label>
+                <label class="modal__field">
+                    <span>Justificación</span>
+                    <textarea name="justification" rows="4" required></textarea>
+                </label>
+                <div class="modal__actions">
+                    <button type="button" class="action-btn" data-close-modal>Cancelar</button>
+                    <button type="submit" class="action-btn primary">Guardar avance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
+
+<script>
+    const progressModal = document.getElementById('progress-modal');
+    const openProgressButtons = document.querySelectorAll('[data-open-modal="progress-modal"]');
+    const closeProgressButtons = progressModal ? progressModal.querySelectorAll('[data-close-modal]') : [];
+
+    const toggleProgressModal = (open) => {
+        if (!progressModal) return;
+        progressModal.classList.toggle('is-visible', open);
+        progressModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    };
+
+    openProgressButtons.forEach((button) => {
+        button.addEventListener('click', () => toggleProgressModal(true));
+    });
+
+    closeProgressButtons.forEach((button) => {
+        button.addEventListener('click', () => toggleProgressModal(false));
+    });
+
+    if (progressModal) {
+        progressModal.addEventListener('click', (event) => {
+            if (event.target === progressModal) {
+                toggleProgressModal(false);
+            }
+        });
+    }
+</script>
+
 <style>
     .project-shell { display:flex; flex-direction:column; gap:16px; }
     .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
@@ -535,6 +699,21 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
     .project-progress__bar { background:#e5e7eb; border-radius:999px; overflow:hidden; height:8px; }
     .project-progress__bar div { height:100%; background: var(--primary); border-radius:999px; }
     .project-progress__value { font-size:12px; color: var(--muted); }
+    .progress-meta { display:grid; gap:8px; width:100%; }
+    .progress-meta__item { display:flex; flex-direction:column; gap:2px; font-size:12px; color: var(--muted); }
+    .progress-meta__item.full { grid-column: 1 / -1; }
+    .progress-meta__item strong { font-size:13px; color: var(--text-strong); }
+    .progress-meta__item.full p { margin:0; font-size:13px; color: var(--text-strong); }
+    .progress-context { display:flex; }
+    .context-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
+    .context-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .context-item { border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:4px; }
+    .context-item span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
+    .context-item strong { font-size:16px; color: var(--text-strong); }
+    .context-item small { font-size:12px; color: var(--muted); }
+    .progress-history { display:flex; }
+    .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; width:100%; }
+    .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .project-layout { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
     .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; max-height:70vh; overflow:auto; }
     .phase-sidebar__header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -564,6 +743,18 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
     .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; }
     .phase-warning { color:#7f1d1d; margin:0; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
+    .modal.is-visible { display:flex; }
+    .modal__backdrop { position:absolute; inset:0; background:rgba(15, 23, 42, 0.45); }
+    .modal__panel { position:relative; background:#fff; border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px rgba(15, 23, 42, 0.25); display:flex; flex-direction:column; gap:12px; z-index:1; }
+    .modal__header { display:flex; justify-content:space-between; align-items:center; }
+    .modal__header h3 { margin:0; }
+    .modal__body { display:flex; flex-direction:column; gap:12px; }
+    .modal__field { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
+    .modal__field input,
+    .modal__field textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
+    .modal__actions { display:flex; justify-content:flex-end; gap:8px; }
+    .icon-btn { border:none; background:transparent; cursor:pointer; font-size:16px; }
     @media (max-width: 960px) {
         .project-layout { grid-template-columns: 1fr; }
         .phase-sidebar { max-height:none; }

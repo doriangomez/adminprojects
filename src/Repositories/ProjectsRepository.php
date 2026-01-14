@@ -502,6 +502,23 @@ class ProjectsRepository
         ];
     }
 
+    public function timesheetHoursForProject(int $projectId): ?float
+    {
+        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT SUM(ts.hours) AS total
+             FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             WHERE t.project_id = :project_id',
+            [':project_id' => $projectId]
+        );
+
+        return $row ? (float) ($row['total'] ?? 0) : 0.0;
+    }
+
     public function assignmentsForProject(int $projectId, array $user): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
@@ -952,7 +969,7 @@ class ProjectsRepository
 
         $clamped = max(0.0, min(100.0, $progress));
         $this->db->execute(
-            'UPDATE projects SET progress = :progress WHERE id = :id',
+            'UPDATE projects SET progress = :progress, updated_at = NOW() WHERE id = :id',
             [
                 ':progress' => $clamped,
                 ':id' => $projectId,
@@ -995,11 +1012,6 @@ class ProjectsRepository
         } elseif ($this->db->columnExists('projects', 'status')) {
             $fields[] = 'status = :status';
             $params[':status'] = 'closed';
-        }
-
-        if ($this->db->columnExists('projects', 'progress')) {
-            $fields[] = 'progress = :progress';
-            $params[':progress'] = 100.0;
         }
 
         if ($this->db->columnExists('projects', 'health_code')) {

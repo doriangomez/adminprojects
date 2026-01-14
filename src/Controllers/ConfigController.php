@@ -140,6 +140,7 @@ class ConfigController extends Controller
         $password = $_POST['password'] ?? '';
         $isAdmin = $this->auth->hasRole('Administrador');
         $documentRoles = $this->documentRolePayload($isAdmin);
+        $progressPermission = $this->progressPermissionPayload($isAdmin);
         $repo->create([
             'name' => $_POST['name'],
             'email' => $_POST['email'],
@@ -149,6 +150,7 @@ class ConfigController extends Controller
             'can_review_documents' => $documentRoles['can_review_documents'],
             'can_validate_documents' => $documentRoles['can_validate_documents'],
             'can_approve_documents' => $documentRoles['can_approve_documents'],
+            'can_update_project_progress' => $progressPermission,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -164,6 +166,7 @@ class ConfigController extends Controller
         $userId = (int) $_POST['id'];
         $current = $repo->find($userId) ?? [];
         $documentRoles = $this->documentRolePayload($isAdmin, $current);
+        $progressPermission = $this->progressPermissionPayload($isAdmin, $current);
         $repo->update($userId, [
             'name' => $_POST['name'],
             'email' => $_POST['email'],
@@ -173,6 +176,7 @@ class ConfigController extends Controller
             'can_review_documents' => $documentRoles['can_review_documents'],
             'can_validate_documents' => $documentRoles['can_validate_documents'],
             'can_approve_documents' => $documentRoles['can_approve_documents'],
+            'can_update_project_progress' => $progressPermission,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -329,6 +333,15 @@ class ConfigController extends Controller
             'can_validate_documents' => $this->checkboxValue(['can_validate_documents', 'can_validator']) ? 1 : 0,
             'can_approve_documents' => $this->checkboxValue(['can_approve_documents', 'can_approver']) ? 1 : 0,
         ];
+    }
+
+    private function progressPermissionPayload(bool $isAdmin, array $existing = []): int
+    {
+        if (!$isAdmin) {
+            return (int) ($existing['can_update_project_progress'] ?? 0);
+        }
+
+        return $this->checkboxValue(['can_update_project_progress']) ? 1 : 0;
     }
 
     private function checkboxValue(array $keys): bool

@@ -400,6 +400,16 @@
                         <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
                     <?php endif; ?>
                 </div>
+                <div class="config-flow-roles full-span">
+                    <strong>Permisos de avance</strong>
+                    <label class="option compact">
+                        <input type="checkbox" name="can_update_project_progress" <?= !$isAdmin ? 'disabled' : '' ?>>
+                        Puede actualizar avance del proyecto
+                    </label>
+                    <?php if (!$isAdmin): ?>
+                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                    <?php endif; ?>
+                </div>
                 <div class="form-footer">
                     <div></div>
                     <button class="btn primary" type="submit">Crear usuario</button>
@@ -452,6 +462,13 @@
                                                 <label class="option compact">
                                                     <input type="checkbox" name="can_approve_documents" <?= ((int) ($user['can_approve_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
                                                     Aprobador
+                                                </label>
+                                            </div>
+                                            <div class="config-flow-roles">
+                                                <strong>Permisos de avance</strong>
+                                                <label class="option compact">
+                                                    <input type="checkbox" name="can_update_project_progress" <?= ((int) ($user['can_update_project_progress'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    Actualizar avance
                                                 </label>
                                             </div>
                                             <button class="btn secondary" type="submit">Guardar</button>

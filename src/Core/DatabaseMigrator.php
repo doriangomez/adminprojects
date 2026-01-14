@@ -99,6 +99,21 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureUserProgressPermissionColumn(): void
+    {
+        if (!$this->db->tableExists('users') || $this->db->columnExists('users', 'can_update_project_progress')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'ALTER TABLE users ADD COLUMN can_update_project_progress TINYINT(1) DEFAULT 0 AFTER can_approve_documents'
+            );
+        } catch (\PDOException $e) {
+            error_log('Error agregando columna can_update_project_progress a users: ' . $e->getMessage());
+        }
+    }
+
     public function ensureAssignmentsTable(): void
     {
         try {
