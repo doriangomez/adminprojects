@@ -410,6 +410,7 @@ foreach ($documentExpectedDocs as $doc) {
         const currentUserName = <?= json_encode((string) ($documentCurrentUser['name'] ?? 'Usuario')) ?>;
         const keyTags = <?= json_encode(array_values($documentKeyTags)) ?>;
         const basePath = <?= json_encode((string) $documentBasePath) ?>;
+        const documentProjectId = <?= json_encode($documentProjectId) ?>;
         const documentCanManage = <?= json_encode($documentCanManage) ?>;
         const roleCache = new Map();
         const saveTimers = new Map();
