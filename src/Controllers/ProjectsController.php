@@ -574,41 +574,24 @@ class ProjectsController extends Controller
                 );
             }
 
-            if ($this->wantsJson()) {
-                $this->json(['status' => 'ok', 'data' => $results]);
-                return;
-            }
-
-            $redirectNode = isset($_POST['redirect_node']) && $_POST['redirect_node'] !== '' ? (int) $_POST['redirect_node'] : null;
-            $redirectAnchor = isset($_POST['redirect_anchor']) && $_POST['redirect_anchor'] !== '' ? (string) $_POST['redirect_anchor'] : '';
-            $location = '/project/public/projects/' . $projectId;
-            if ($redirectNode) {
-                $location .= '?node=' . $redirectNode;
-                if ($redirectAnchor !== '') {
-                    $location .= '#' . rawurlencode($redirectAnchor);
-                }
-            }
-            header('Location: ' . $location);
+            $firstId = $results[0]['id'] ?? null;
+            $message = count($results) > 1 ? 'Documentos guardados.' : 'Documento guardado.';
+            $this->json([
+                'success' => true,
+                'message' => $message,
+                'document_id' => $firstId !== null ? (int) $firstId : null,
+                'data' => $results,
+            ]);
             return;
         } catch (\Throwable $e) {
             error_log('Error al adjuntar archivo en nodo: ' . $e->getMessage());
 
-            if ($this->wantsJson()) {
-                $status = $e instanceof \InvalidArgumentException ? 400 : 500;
-                $this->json($this->nodeErrorResponse($e, 'No se pudo adjuntar el archivo al nodo.'), $status);
-                return;
-            }
-
-            $statusCode = $e instanceof \InvalidArgumentException ? 400 : 500;
-            http_response_code($statusCode);
-
-            $this->render('projects/show', array_merge(
-                $this->projectDetailData($projectId),
-                [
-                    'nodeFileError' => $e->getMessage(),
-                    'selectedNodeId' => isset($_POST['redirect_node']) && $_POST['redirect_node'] !== '' ? (int) $_POST['redirect_node'] : null,
-                ]
-            ));
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'No se pudo adjuntar el archivo al nodo.',
+                'document_id' => null,
+            ], $status);
             return;
         }
     }
