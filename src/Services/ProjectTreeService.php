@@ -118,13 +118,16 @@ class ProjectTreeService
         $tree = $nodesRepo->treeWithFiles($projectId);
 
         if (empty($tree)) {
-            return ['project_progress' => 0.0, 'phases' => []];
+            $project = (new ProjectsRepository($this->db))->find($projectId) ?? [];
+            return [
+                'project_progress' => (float) ($project['progress'] ?? 0),
+                'phases' => [],
+            ];
         }
 
         $normalizedMethodology = $this->normalizeMethodology($methodology);
         $methodDocs = $expectedDocsConfig[$normalizedMethodology] ?? [];
         $phaseProgress = [];
-        $projectAccum = 0.0;
 
         foreach ($tree[0]['children'] ?? [] as $phase) {
             $metrics = $this->computePhaseProgress($phase, $methodDocs);
@@ -139,13 +142,13 @@ class ProjectTreeService
                 'approved_required' => $metrics['approved_required'],
                 'total_required' => $metrics['total_required'],
             ];
-            $projectAccum += $metrics['percent'];
         }
 
-        $projectProgress = empty($phaseProgress) ? 0.0 : round($projectAccum / count($phaseProgress), 1);
+        $project = (new ProjectsRepository($this->db))->find($projectId) ?? [];
+        $projectProgress = (float) ($project['progress'] ?? 0);
 
         return [
-            'project_progress' => $projectProgress,
+            'project_progress' => round($projectProgress, 1),
             'phases' => $phaseProgress,
         ];
     }

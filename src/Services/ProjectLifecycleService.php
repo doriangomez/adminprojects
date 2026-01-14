@@ -211,11 +211,7 @@ class ProjectLifecycleService
             }
         }
 
-        $projectProgress = empty($phases)
-            ? 0.0
-            : array_sum(array_column($phases, 'progress')) / count($phases);
-
-        (new ProjectsRepository($this->db))->persistProgress($projectId, $projectProgress);
+        $projectProgress = (float) ($project['progress'] ?? 0);
 
         return [
             'project_progress' => round($projectProgress, 1),

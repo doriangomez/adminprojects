@@ -297,7 +297,7 @@ class ProjectsController extends Controller
         );
         $closingPayload = [
             'status' => 'closed',
-            'progress' => 100.0,
+            'progress' => (float) ($project['progress'] ?? 0),
             'actual_cost' => (float) ($project['actual_cost'] ?? 0),
             'budget' => (float) ($project['budget'] ?? 0),
             'actual_hours' => (float) ($project['actual_hours'] ?? 0),
@@ -320,6 +320,60 @@ class ProjectsController extends Controller
             http_response_code(400);
             exit($e->getMessage());
         }
+    }
+
+    public function updateProgress(int $id): void
+    {
+        if (!$this->userCanUpdateProjectProgress()) {
+            http_response_code(403);
+            exit('Acción no permitida por permisos');
+        }
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $progressInput = trim((string) ($_POST['progress'] ?? ''));
+        $justification = trim((string) ($_POST['justification'] ?? ''));
+
+        if ($progressInput === '' || !is_numeric($progressInput)) {
+            http_response_code(400);
+            exit('El avance debe ser un número entre 0 y 100.');
+        }
+
+        $progress = (float) $progressInput;
+        if ($progress < 0 || $progress > 100) {
+            http_response_code(400);
+            exit('El avance debe estar entre 0 y 100.');
+        }
+
+        if ($justification === '') {
+            http_response_code(400);
+            exit('La justificación es obligatoria.');
+        }
+
+        $previousProgress = (float) ($project['progress'] ?? 0);
+        $repo->persistProgress($id, $progress);
+
+        $auditRepo = new AuditLogRepository($this->db);
+        $auditRepo->log(
+            $user['id'] ?? null,
+            'project_progress',
+            $id,
+            'project_progress_updated',
+            [
+                'previous_progress' => $previousProgress,
+                'new_progress' => $progress,
+                'justification' => $justification,
+            ]
+        );
+
+        header('Location: /project/public/projects/' . $id . '?progress=updated');
     }
 
     public function destroy(): void
@@ -1025,7 +1079,10 @@ class ProjectsController extends Controller
             (string) ($project['methodology'] ?? 'cascada'),
             $config['document_flow']['expected_docs'] ?? []
         );
-        $project['progress'] = $progress['project_progress'] ?? ($project['progress'] ?? 0);
+        $progressHistory = (new AuditLogRepository($this->db))->listForEntity('project_progress', $id, 50);
+        $pendingControls = count($nodesRepo->pendingCriticalNodes($id));
+        $approvedDocuments = $this->countApprovedDocuments($projectNodes);
+        $loggedHours = $repo->timesheetHoursForProject($id);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
 
@@ -1039,7 +1096,49 @@ class ProjectsController extends Controller
             'progressPhases' => $progress['phases'] ?? [],
             'documentFlowConfig' => $config['document_flow'] ?? [],
             'accessRoles' => $config['access']['roles'] ?? [],
+            'canUpdateProgress' => $this->userCanUpdateProjectProgress(),
+            'progressHistory' => $progressHistory,
+            'progressIndicators' => [
+                'approved_documents' => $approvedDocuments,
+                'pending_controls' => $pendingControls,
+                'logged_hours' => $loggedHours,
+            ],
         ], $deleteContext);
+    }
+
+    private function userCanUpdateProjectProgress(): bool
+    {
+        $user = $this->auth->user();
+        if (!$user) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_update_project_progress FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_update_project_progress'] ?? 0)) === 1;
+    }
+
+    private function countApprovedDocuments(array $nodes): int
+    {
+        $count = 0;
+
+        foreach ($nodes as $node) {
+            $files = $node['files'] ?? [];
+            foreach ($files as $file) {
+                if (($file['document_status'] ?? '') === 'aprobado') {
+                    $count++;
+                }
+            }
+
+            if (!empty($node['children'])) {
+                $count += $this->countApprovedDocuments($node['children']);
+            }
+        }
+
+        return $count;
     }
 
     private function collectDocumentUploadMeta(): array
