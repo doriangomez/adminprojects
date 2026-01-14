@@ -17,6 +17,7 @@ class App
         $migrator->ensureProjectPmIntegrity();
         $migrator->ensureProjectDeliverySchema();
         $migrator->ensureProjectActiveColumn();
+        $migrator->ensureUserProgressPermissionColumn();
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureSystemSettings();
@@ -218,6 +219,10 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/nodes/children$#', $path, $matches) && $method === 'GET') {
                 $controller->listNodeChildren((int) $matches[1], null);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/progress$#', $path, $matches) && $method === 'POST') {
+                $controller->updateProgress((int) $matches[1]);
                 return;
             }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {

@@ -50,8 +50,8 @@ class UsersRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO users (name, email, password_hash, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, created_at, updated_at)
-             VALUES (:name, :email, :password_hash, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, NOW(), NOW())',
+            'INSERT INTO users (name, email, password_hash, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, can_update_project_progress, created_at, updated_at)
+             VALUES (:name, :email, :password_hash, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, :can_update_project_progress, NOW(), NOW())',
             [
                 ':name' => $payload['name'],
                 ':email' => $payload['email'],
@@ -61,6 +61,7 @@ class UsersRepository
                 ':can_review_documents' => $payload['can_review_documents'] ?? 0,
                 ':can_validate_documents' => $payload['can_validate_documents'] ?? 0,
                 ':can_approve_documents' => $payload['can_approve_documents'] ?? 0,
+                ':can_update_project_progress' => $payload['can_update_project_progress'] ?? 0,
             ]
         );
     }
@@ -75,6 +76,7 @@ class UsersRepository
             ':can_review_documents' => $payload['can_review_documents'] ?? 0,
             ':can_validate_documents' => $payload['can_validate_documents'] ?? 0,
             ':can_approve_documents' => $payload['can_approve_documents'] ?? 0,
+            ':can_update_project_progress' => $payload['can_update_project_progress'] ?? 0,
             ':id' => $id,
         ];
 
@@ -86,6 +88,7 @@ class UsersRepository
             'can_review_documents = :can_review_documents',
             'can_validate_documents = :can_validate_documents',
             'can_approve_documents = :can_approve_documents',
+            'can_update_project_progress = :can_update_project_progress',
         ];
 
         if (!empty($payload['password_hash'])) {
