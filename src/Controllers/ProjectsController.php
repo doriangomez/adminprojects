@@ -1141,9 +1141,15 @@ class ProjectsController extends Controller
             'reviewer_id',
             'validator_id',
             'approver_id',
+            'reviewed_by',
             'document_status',
+            'document_tags',
+            'document_version',
+            'document_type',
             'reviewed_at',
+            'validated_by',
             'validated_at',
+            'approved_by',
             'approved_at',
         ];
 
@@ -1156,7 +1162,7 @@ class ProjectsController extends Controller
 
         if ($missing !== []) {
             throw new \InvalidArgumentException(
-                'Debes aplicar la migración de project_nodes (reviewer_id, validator_id, approver_id, document_status, reviewed_at, validated_at, approved_at) antes de guardar documentos o flujos.'
+                'Debes aplicar la migración de project_nodes (reviewer_id, validator_id, approver_id, reviewed_by, validated_by, approved_by, reviewed_at, validated_at, approved_at, document_status, document_tags, document_version, document_type) antes de guardar documentos o flujos.'
             );
         }
     }
