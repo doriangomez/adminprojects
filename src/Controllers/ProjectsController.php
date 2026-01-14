@@ -1217,6 +1217,29 @@ class ProjectsController extends Controller
         };
     }
 
+    private function actionFromStatusTransition(string $currentStatus, string $nextStatus): string
+    {
+        $transitions = [
+            'pendiente_revision' => [
+                'en_revision' => 'send_review',
+            ],
+            'en_revision' => [
+                'validacion_pendiente' => 'reviewed',
+                'rechazado' => 'rejected',
+            ],
+            'validacion_pendiente' => [
+                'aprobacion_pendiente' => 'validated',
+                'rechazado' => 'rejected',
+            ],
+            'aprobacion_pendiente' => [
+                'aprobado' => 'approved',
+                'rechazado' => 'rejected',
+            ],
+        ];
+
+        return $transitions[$currentStatus][$nextStatus] ?? '';
+    }
+
     private function assertDocumentActionAllowed(string $action, string $currentStatus, array $nodeFlow, int $currentUserId): void
     {
         $canManage = $this->auth->can('projects.manage');
@@ -1287,13 +1310,30 @@ class ProjectsController extends Controller
         }
 
         $currentUserId = (int) ($this->auth->user()['id'] ?? 0);
+
+        $nodeFlow = $repo->documentFlowForNode($projectId, $nodeId);
+        $currentStatus = $nodeFlow['document_status'] ?? 'pendiente_revision';
+
+        if ($action !== '' && $documentStatus !== '') {
+            $expectedStatus = $this->statusFromDocumentAction($action);
+            if ($expectedStatus !== $documentStatus) {
+                throw new \InvalidArgumentException('La acción no coincide con el estado solicitado.');
+            }
+        }
+
+        if ($action === '' && $documentStatus !== '' && $documentStatus !== $currentStatus) {
+            $action = $this->actionFromStatusTransition($currentStatus, $documentStatus);
+            if ($action === '') {
+                throw new \InvalidArgumentException('No se permiten cambios de estado fuera del flujo documental.');
+            }
+        }
+
         $status = $documentStatus !== '' ? $documentStatus : $this->statusFromDocumentAction($action);
 
         if (!in_array($status, self::DOCUMENT_STATUSES, true)) {
             throw new \InvalidArgumentException('Estado documental inválido.');
         }
 
-        $nodeFlow = $repo->documentFlowForNode($projectId, $nodeId);
         $payload = [
             'document_status' => $status,
             'reviewed_by' => $nodeFlow['reviewed_by'],
@@ -1305,7 +1345,6 @@ class ProjectsController extends Controller
         ];
 
         $now = date('Y-m-d H:i:s');
-        $currentStatus = $nodeFlow['document_status'] ?? 'pendiente_revision';
         $this->assertDocumentActionAllowed($action, $currentStatus, $nodeFlow, $currentUserId);
 
         switch ($action) {
