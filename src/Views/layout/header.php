@@ -31,6 +31,7 @@ error_log(sprintf(
             --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
             --text-main: <?= htmlspecialchars($theme['text_main'] ?? '#0f172a') ?>;
             --text-muted: <?= htmlspecialchars($theme['text_muted'] ?? '#475569') ?>;
+            --text-disabled: <?= htmlspecialchars($theme['text_disabled'] ?? '#94a3b8') ?>;
             --border: <?= htmlspecialchars($theme['border'] ?? '#e5e7eb') ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
             --logo-url: <?= htmlspecialchars($logoCss) ?>;
@@ -43,6 +44,7 @@ error_log(sprintf(
             --text-strong: var(--text-main);
             --text: var(--text-muted);
             --muted: var(--text-muted);
+            --text-soft: var(--text-disabled);
             --on-primary: color-mix(in srgb, var(--bg-card) 94%, var(--text-main) 6%);
             --success: color-mix(in srgb, var(--accent) 28%, var(--primary) 72%);
             --warning: var(--accent);

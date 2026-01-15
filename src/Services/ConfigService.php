@@ -18,6 +18,7 @@ class ConfigService
             'surface' => '#ffffff',
             'text_main' => '#0f172a',
             'text_muted' => '#475569',
+            'text_disabled' => '#94a3b8',
             'border' => '#e5e7eb',
             'font_family' => "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             'login_hero' => 'Orquesta tus operaciones críticas',
