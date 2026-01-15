@@ -8,6 +8,7 @@ $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $normalizedPath = str_starts_with($requestPath, $basePath)
     ? (substr($requestPath, strlen($basePath)) ?: '/')
     : $requestPath;
+require_once __DIR__ . '/logo_helper.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -17,19 +18,23 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
     <style>
         :root {
-            --primary: rgb(37, 99, 235);
-            --primary-hover: rgb(59, 130, 246);
-            --primary-strong: rgb(30, 64, 175);
-            --secondary: rgb(17, 24, 39);
-            --accent: <?= htmlspecialchars($theme['accent']) ?>;
-            --background: rgb(243, 244, 246);
-            --surface: rgb(255, 255, 255);
-            --font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --primary: <?= htmlspecialchars($theme['primary'] ?? 'rgb(37, 99, 235)') ?>;
+            --primary-hover: <?= htmlspecialchars($theme['primary_hover'] ?? 'rgb(59, 130, 246)') ?>;
+            --primary-strong: <?= htmlspecialchars($theme['primary_strong'] ?? 'rgb(30, 64, 175)') ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary'] ?? 'rgb(17, 24, 39)') ?>;
+            --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? 'rgb(37, 99, 235)')) ?>;
+            --bg: <?= htmlspecialchars($theme['background'] ?? 'rgb(243, 244, 246)') ?>;
+            --card: <?= htmlspecialchars($theme['surface'] ?? 'rgb(255, 255, 255)') ?>;
+            --surface: var(--card);
             --text-strong: rgb(17, 24, 39);
             --text: rgb(55, 65, 81);
-            --muted: rgb(75, 85, 99);
-            --border: rgb(229, 231, 235);
+            --muted: rgb(100, 116, 139);
+            --border: rgb(226, 232, 240);
+            --success: rgb(34, 197, 94);
+            --warning: rgb(234, 179, 8);
+            --danger: rgb(239, 68, 68);
             --on-primary: #ffffff;
+            --font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         * {
             box-sizing: border-box;
@@ -38,14 +43,14 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         body {
             margin: 0;
             display: flex;
-            background: var(--background);
+            background: var(--bg);
             color: var(--text);
             min-height: 100vh;
             font-weight: 500;
         }
         .sidebar {
             width: 280px;
-            background: var(--surface);
+            background: var(--card);
             color: var(--text);
             min-height: 100vh;
             padding: 20px 18px;
@@ -67,7 +72,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .sidebar.collapsed .user-panel { justify-content: center; }
         .sidebar-toggle {
             border: 1px solid var(--border);
-            background: var(--surface);
+            background: var(--card);
             border-radius: 10px;
             padding: 6px;
             cursor: pointer;
@@ -76,11 +81,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             justify-content: center;
         }
         .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
-        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:10px; border:1px solid var(--border); background: rgb(249, 250, 251); }
+        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid var(--border); background: rgba(148, 163, 184, 0.08); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
         .brand-name { font-weight: 800; color: var(--text-strong); font-size: 15px; }
         .brand-fallback { font-weight: 800; color: var(--text-strong); font-size: 18px; letter-spacing: 0.02em; }
+        .brand-fallback.is-hidden { display: none; }
         .sidebar .user-panel {
             display: flex;
             align-items: center;
@@ -111,7 +117,8 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             padding-inline: 10px;
             font-weight: 600;
         }
-        .nav-section-label { font-size: 12px; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-inline: 10px; }
+        .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
+        .nav-divider { height: 1px; background: var(--border); margin: 4px 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             display: flex;
@@ -166,7 +173,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             position: sticky;
             top: 0;
             z-index: 10;
-            background: var(--surface);
+            background: var(--card);
             border-bottom: 1px solid var(--border);
         }
         .brand {
@@ -188,12 +195,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .user-identity { display:flex; flex-direction:column; gap:3px; }
         .user-identity strong { color: var(--text-strong); font-size: 14px; font-weight: 700; }
         .role-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: rgb(219, 234, 254); color: var(--secondary); font-size:12px; font-weight:600; }
-        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-strong); text-decoration:none; font-weight:600; }
+        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--card); color: var(--text-strong); text-decoration:none; font-weight:600; }
         .logout-btn:hover { background: rgb(219, 234, 254); border-color: rgb(191, 219, 254); color: var(--primary); }
         main {
             flex: 1;
             min-height: 100vh;
-            background: var(--background);
+            background: var(--bg);
         }
         .content {
             padding: 24px 32px 48px;
@@ -232,7 +239,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .preview-logo { height:42px; background:var(--panel); padding:8px; border-radius:10px; box-shadow:0 8px 20px var(--glow); }
         .preview-subtitle { color: color-mix(in srgb, white 80%, transparent); font-size:13px; }
         .card {
-            background: var(--surface);
+            background: var(--card);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 18px;
@@ -299,12 +306,12 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             border: 1px solid var(--border);
             cursor: pointer;
             font-weight: 600;
-            background: var(--surface);
+            background: var(--card);
             color: var(--text-strong);
             transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
         }
         .btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-        .btn.secondary { background: var(--surface); }
+        .btn.secondary { background: var(--card); }
         .btn.ghost { background: transparent; border-style: dashed; }
         .btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-primary); }
         .btn:active { background: var(--primary-strong); border-color: var(--primary-strong); color: var(--on-primary); }
@@ -314,7 +321,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             border: 1px solid var(--border);
             border-radius: 10px;
             width: 100%;
-            background: var(--surface);
+            background: var(--card);
             color: var(--text-strong);
             font-weight: 500;
         }
@@ -326,7 +333,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .muted { color: var(--muted); font-size: 13px; }
         .hint { color: var(--muted); font-size: 13px; }
         .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .column { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
+        .column { background: var(--card); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
         .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
         .card-task { background: rgb(249, 250, 251); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
         .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: rgb(243, 244, 246); color: var(--text-strong); border: 1px solid var(--border); }
@@ -336,13 +343,13 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
         .table-wrapper { overflow-x: auto; }
-        .config-flow-roles { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px dashed var(--border); border-radius:10px; background: var(--surface); }
+        .config-flow-roles { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px dashed var(--border); border-radius:10px; background: var(--card); }
         .config-flow-roles strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
         @media (max-width: 1180px) {
             .section-grid.twothirds, .section-grid.wide { grid-template-columns: 1fr; }
         }
         .menu-toggle { display: none; align-items: center; gap: 10px; font-weight: 700; color: var(--text-strong); }
-        .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
         .menu-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
         #menu-toggle { display: none; }
         @media (max-width: 1024px) {
@@ -371,11 +378,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
     <aside class="sidebar">
         <div class="brand-box" title="<?= htmlspecialchars($appDisplayName) ?>">
             <div class="brand-mark" aria-hidden="true">
-                <?php if (!empty($logoUrl)): ?>
-                    <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($appDisplayName) ?> logo" onerror="this.style.display='none'">
-                <?php else: ?>
-                    <span class="brand-fallback">PMO</span>
-                <?php endif; ?>
+                <?php render_brand_logo($logoUrl, $appDisplayName, 'brand-logo', 'brand-fallback'); ?>
             </div>
             <span class="brand-name"><?= htmlspecialchars($appDisplayName) ?></span>
         </div>
@@ -402,19 +405,22 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         <input type="checkbox" id="menu-toggle" hidden>
         <h3 class="nav-title">Navegación</h3>
         <nav>
+            <span class="nav-section-label">Operación</span>
             <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 13h5v7H4zM10 4h4v16h-4zM16 9h4v11h-4z"/></svg></span>
-                <span class="nav-label">Dashboard Ejecutivo</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
+                <span class="nav-label">Proyectos</span>
             </a>
             <a href="<?= $basePath ?>/clients" class="nav-link <?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M5 7a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm8 1h6l-1 12h-4zM3 21a4 4 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Clientes</span>
             </a>
-            <span class="nav-section-label">Gestión PMO</span>
-            <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
-                <span class="nav-label">Proyectos</span>
-            </a>
+
+            <div class="nav-divider" aria-hidden="true"></div>
+            <span class="nav-section-label">Gestión</span>
             <?php if ($auth->canAccessOutsourcing()): ?>
                 <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
@@ -437,12 +443,16 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 4h10v2H7zM5 7h14v13H5zM12 11v5m-3-3h6"/></svg></span>
                 <span class="nav-label">Timesheet</span>
             </a>
+
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
+                <div class="nav-divider" aria-hidden="true"></div>
+                <span class="nav-section-label">Admin</span>
                 <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm8-1-1.5-.5a2 2 0 0 1-1.3-1.3L17 4l-2-.5-1 1.8a2 2 0 0 1-1.7 1L10 6l-.5 2 1.8 1a2 2 0 0 1 1 1.7L12 14l2 .5 1-1.8a2 2 0 0 1 1.7-1l1.8-.2Z"/></svg></span>
                     <span class="nav-label">Configuración</span>
                 </a>
             <?php endif; ?>
+            <div class="nav-divider" aria-hidden="true"></div>
             <a href="<?= $basePath ?>/logout" class="nav-link">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M15 4h-5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m10 9 3 3-3 3"/><path d="M13 12H4"/></svg></span>
                 <span class="nav-label">Salir</span>
@@ -453,11 +463,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         <header class="topbar">
             <div class="brand">
                 <div class="brand-mark" aria-hidden="true">
-                    <?php if (!empty($logoUrl)): ?>
-                        <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($appDisplayName) ?> logo" class="brand-logo" onerror="this.style.display='none'">
-                    <?php else: ?>
-                        <span class="brand-fallback">PMO</span>
-                    <?php endif; ?>
+                    <?php render_brand_logo($logoUrl, $appDisplayName, 'brand-logo', 'brand-fallback'); ?>
                 </div>
                 <div class="brand-title"><?= htmlspecialchars($appDisplayName) ?></div>
             </div>

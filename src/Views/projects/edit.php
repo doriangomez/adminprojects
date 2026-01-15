@@ -35,10 +35,20 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         <button type="submit" class="action-btn primary">Guardar cambios</button>
     </header>
 
-    <details class="accordion" open>
+    <nav class="form-tabs">
+        <a href="#datos-basicos">Datos básicos</a>
+        <a href="#planificacion">Planificación</a>
+        <a href="#costos">Costos</a>
+        <a href="#riesgos">Riesgos</a>
+        <?php if ($canDelete || $canInactivate): ?>
+            <a href="#zona-critica" class="danger-tab">Zona crítica</a>
+        <?php endif; ?>
+    </nav>
+
+    <details class="accordion" open id="datos-basicos">
         <summary class="accordion-summary">
             <div>
-                <p class="section-label">Datos generales</p>
+                <p class="section-label">Datos básicos</p>
                 <strong>Información clave del proyecto</strong>
             </div>
         </summary>
@@ -60,11 +70,11 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         </div>
     </details>
 
-    <details class="accordion" open>
+    <details class="accordion" open id="planificacion">
         <summary class="accordion-summary">
             <div>
-                <p class="section-label">Metodología</p>
-                <strong>Tipo, enfoque y fase activa</strong>
+                <p class="section-label">Planificación</p>
+                <strong>Metodología, fase y calendario</strong>
             </div>
         </summary>
         <div class="accordion-body">
@@ -98,17 +108,25 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                     </select>
                 </label>
             </div>
+            <div class="grid">
+                <label>Inicio
+                    <input type="date" name="start_date" value="<?= htmlspecialchars((string) ($project['start_date'] ?? '')) ?>">
+                </label>
+                <label data-role="end-date">Fin
+                    <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) ($project['end_date'] ?? '')) ?>">
+                </label>
+            </div>
             <div id="scrumHint" class="hint-box" style="display: <?= $projectType === 'scrum' ? 'block' : 'none' ?>;">
                 Para proyectos Scrum, administra sprints y backlog sin fecha de cierre fija. El progreso refleja el avance del sprint actual.
             </div>
         </div>
     </details>
 
-    <details class="accordion" open>
+    <details class="accordion" open id="costos">
         <summary class="accordion-summary">
             <div>
-                <p class="section-label">Fechas y presupuesto</p>
-                <strong>Planificación financiera y tiempos</strong>
+                <p class="section-label">Costos</p>
+                <strong>Presupuesto, costos y horas</strong>
             </div>
         </summary>
         <div class="accordion-body">
@@ -125,48 +143,48 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 <label>Horas reales
                     <input type="number" step="0.01" name="actual_hours" value="<?= htmlspecialchars((string) ($project['actual_hours'] ?? 0)) ?>">
                 </label>
-                <label>Inicio
-                    <input type="date" name="start_date" value="<?= htmlspecialchars((string) ($project['start_date'] ?? '')) ?>">
-                </label>
-                <label data-role="end-date">Fin
-                    <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) ($project['end_date'] ?? '')) ?>">
-                </label>
             </div>
         </div>
     </details>
 
-    <details class="accordion" open>
+    <details class="accordion" open id="riesgos">
         <summary class="accordion-summary">
             <div>
                 <p class="section-label">Riesgos</p>
-                <strong>Catálogo y evaluación actual</strong>
+                <strong>Catálogo global por categoría</strong>
             </div>
         </summary>
         <div class="accordion-body">
             <div class="grid">
-                <label>Riesgo
+                <label>Riesgo consolidado
                     <input name="health" value="<?= htmlspecialchars($project['health'] ?? '') ?>" readonly aria-readonly="true">
                 </label>
             </div>
             <fieldset class="risk-fieldset">
                 <legend>Riesgos (catálogo global)</legend>
-                <div class="risk-stack">
+                <div class="risk-grid">
                     <?php foreach ($riskGroups as $category => $risks): ?>
-                        <div class="risk-group">
-                            <strong><?= htmlspecialchars($category) ?></strong>
-                            <div class="risk-chips">
+                        <?php $riskCount = count($risks); ?>
+                        <div class="risk-group" data-risk-group>
+                            <div class="risk-group__header">
+                                <strong><?= htmlspecialchars($category) ?></strong>
+                                <?php if ($riskCount > 6): ?>
+                                    <button type="button" class="link-button" data-risk-toggle>Ver más</button>
+                                <?php endif; ?>
+                            </div>
+                            <div class="risk-chips<?= $riskCount > 6 ? ' is-collapsed' : '' ?>" data-collapsible="<?= $riskCount > 6 ? 'true' : 'false' ?>">
                                 <?php foreach ($risks as $risk): ?>
                                     <?php $riskCode = $risk['code'] ?? ''; $riskLabel = $risk['label'] ?? $riskCode; ?>
                                     <label class="risk-chip">
                                         <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $selectedRisks, true) ? 'checked' : '' ?>>
-                                        <?= htmlspecialchars($riskLabel) ?>
+                                        <span><?= htmlspecialchars($riskLabel) ?></span>
                                     </label>
                                 <?php endforeach; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
                     <?php if (empty($riskCatalog)): ?>
-                        <small class="subtext">Configura riesgos desde el módulo de configuración.</small>
+                        <div class="empty-state">No hay riesgos seleccionados.</div>
                     <?php endif; ?>
                 </div>
             </fieldset>
@@ -175,7 +193,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
 </form>
 
 <?php if ($canDelete || $canInactivate): ?>
-    <details class="accordion danger-zone" open>
+    <details class="accordion danger-zone" open id="zona-critica">
         <summary class="accordion-summary">
             <div>
                 <p class="section-label">Zona crítica</p>
@@ -240,22 +258,35 @@ $formTitle = $formTitle ?? 'Editar proyecto';
 <?php endif; ?>
 
 <style>
-    .project-form { display:flex; flex-direction:column; gap:16px; background: var(--surface); border:1px solid var(--border); padding:16px; border-radius:16px; }
+    .project-form { display:flex; flex-direction:column; gap:16px; background: var(--card); border:1px solid var(--border); padding:16px; border-radius:16px; }
     .form-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; }
     .form-header h3 { margin:0; color: var(--text-strong); }
+    .form-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--border); padding-bottom:8px; }
+    .form-tabs a { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background: rgba(148, 163, 184, 0.12); }
+    .form-tabs a:hover { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+    .form-tabs a.danger-tab { border-color: rgba(239, 68, 68, 0.4); color: #b91c1c; }
+
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-    .accordion { border:1px solid var(--border); border-radius:14px; background:#fff; }
+    .accordion { border:1px solid var(--border); border-radius:14px; background: var(--card); }
     .accordion-summary { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px; cursor:pointer; list-style:none; }
     .accordion-summary::-webkit-details-marker { display:none; }
     .accordion-body { padding:0 14px 14px; display:flex; flex-direction:column; gap:12px; }
-    .hint-box { background:#ecfeff; border:1px solid #06b6d4; color:#0f172a; padding:10px; border-radius:10px; }
+    .hint-box { background: rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.4); color:#0f172a; padding:10px; border-radius:10px; }
+
     .risk-fieldset { border:1px solid var(--border); padding:12px; border-radius:12px; }
     .risk-fieldset legend { font-weight:700; color: var(--text-strong); padding:0 6px; }
-    .risk-stack { display:flex; flex-direction:column; gap:10px; }
-    .risk-group { border:1px solid var(--border); padding:10px; border-radius:10px; background:#f8fafc; display:flex; flex-direction:column; gap:6px; }
-    .risk-chips { display:flex; flex-wrap:wrap; gap:8px; }
-    .risk-chip { display:flex; gap:6px; align-items:center; background:#fff; padding:8px 10px; border-radius:10px; border:1px solid var(--border); }
-    .danger-zone { margin-top:16px; border-color:#fecaca; background:#fff7ed; }
+    .risk-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+    .risk-group { border:1px solid var(--border); padding:10px; border-radius:12px; background: rgba(148, 163, 184, 0.12); display:flex; flex-direction:column; gap:10px; }
+    .risk-group__header { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .risk-chips { display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:8px; }
+    .risk-chips.is-collapsed .risk-chip:nth-child(n+7) { display:none; }
+    .risk-chip { display:flex; gap:8px; align-items:flex-start; background: var(--card); padding:8px 10px; border-radius:10px; border:1px solid var(--border); }
+    .risk-chip input { margin-top:2px; }
+    .link-button { border:none; background: transparent; color: var(--primary); font-weight:700; cursor:pointer; font-size:12px; }
+
+    .empty-state { padding:10px 12px; border-radius:10px; background: rgba(148, 163, 184, 0.12); color: var(--muted); font-weight:600; }
+
+    .danger-zone { margin-top:16px; border-color:#fecaca; background: #fff7ed; }
     .danger-header { display:flex; gap:12px; align-items:flex-start; }
     .danger-icon { width:34px; height:34px; border-radius:10px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
     .danger-title { margin:0; font-weight:700; color:#b91c1c; }
@@ -265,11 +296,11 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .danger-grid { margin:0; padding-left:18px; color:#b45309; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:4px 12px; }
     .danger-note { margin:8px 0 0 0; color:#9a3412; font-size:14px; }
     .danger-math { display:flex; align-items:center; gap:10px; }
-    .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgb(249, 250, 251); font-weight:700; }
+    .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgba(148, 163, 184, 0.12); font-weight:700; }
     .danger-feedback { display:none; padding:10px 12px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; border-radius:10px; font-weight:600; }
     .danger-actions { display:flex; justify-content:flex-end; gap:8px; }
     .btn.danger { color:#b91c1c; border-color:#fecaca; background:#fef2f2; }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn { background: var(--card); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
 </style>
 
@@ -349,6 +380,17 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         projectTypeSelect.addEventListener('change', toggleByProjectType);
         toggleByProjectType();
     }
+
+    document.querySelectorAll('[data-risk-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const group = button.closest('[data-risk-group]');
+            const chips = group?.querySelector('.risk-chips');
+            if (!chips) return;
+            const isExpanded = chips.classList.toggle('is-expanded');
+            chips.classList.toggle('is-collapsed', !isExpanded);
+            button.textContent = isExpanded ? 'Ver menos' : 'Ver más';
+        });
+    });
 
     const deleteForm = document.getElementById('danger-delete-form');
     const deleteResult = document.getElementById('math_result');

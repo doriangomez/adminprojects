@@ -2,6 +2,7 @@
 $theme = $branding['theme'] ?? [];
 $loginHero = $theme['login_hero'] ?? 'Orquesta tus operaciones críticas';
 $loginSubtitle = $theme['login_subtitle'] ?? 'Controla proyectos, recursos y decisiones clave desde una sola plataforma.';
+require_once __DIR__ . '/../layout/logo_helper.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -12,16 +13,20 @@ $loginSubtitle = $theme['login_subtitle'] ?? 'Controla proyectos, recursos y dec
     <link rel="stylesheet" href="/project/public/assets/css/auth.css">
     <style>
         :root {
-            --primary: <?= htmlspecialchars($theme['primary']) ?>;
-            --secondary: <?= htmlspecialchars($theme['secondary']) ?>;
-            --accent: <?= htmlspecialchars($theme['accent'] ?? $theme['primary']) ?>;
-            --background: <?= htmlspecialchars($theme['background'] ?? '#f5f7fb') ?>;
-            --surface: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
+            --primary: <?= htmlspecialchars($theme['primary'] ?? '#2563eb') ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '#0f172a') ?>;
+            --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? '#2563eb')) ?>;
+            --bg: <?= htmlspecialchars($theme['background'] ?? '#f5f7fb') ?>;
+            --card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
+            --surface: var(--card);
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
             --text-strong: color-mix(in srgb, #1f2937 88%, var(--secondary) 12%);
             --text: color-mix(in srgb, #374151 82%, var(--secondary) 18%);
             --muted: color-mix(in srgb, #6b7280 82%, var(--secondary) 18%);
             --border: color-mix(in srgb, #e5e7eb 70%, var(--primary) 30%);
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
         }
     </style>
 </head>
@@ -30,11 +35,9 @@ $loginSubtitle = $theme['login_subtitle'] ?? 'Controla proyectos, recursos y dec
         <section class="branding">
             <div class="brand-card">
                 <div class="branding-content">
-                    <?php if(!empty($theme['logo'])): ?>
-                        <img class="logo" src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo AOS" onerror="this.style.display='none'">
-                    <?php else: ?>
-                        <div class="logo-fallback">PMO</div>
-                    <?php endif; ?>
+                    <div class="logo-wrapper" aria-hidden="true">
+                        <?php render_brand_logo((string) ($theme['logo'] ?? ''), $appName ?? 'PMO', 'logo', 'logo-fallback'); ?>
+                    </div>
                     <h1 class="claim"><?= htmlspecialchars($loginHero) ?></h1>
                     <p class="subtitle"><?= htmlspecialchars($loginSubtitle) ?></p>
                     <div class="bullets">

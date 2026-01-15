@@ -7,7 +7,7 @@ body {
     min-height: 100vh;
     font-family: var(--font-family);
     color: var(--text);
-    background: linear-gradient(135deg, #ffffff 0%, color-mix(in srgb, var(--primary) 6%, #f5f7fb 94%) 100%);
+    background: var(--bg);
 }
 
 .page {
@@ -30,9 +30,9 @@ body {
     max-width: 640px;
     padding: clamp(32px, 4vw, 48px);
     border-radius: 24px;
-    background: linear-gradient(160deg, #ffffff 0%, color-mix(in srgb, var(--primary) 8%, #f5f7fb 92%) 100%);
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
-    border: 1px solid color-mix(in srgb, var(--primary) 18%, #e5e7eb 82%);
+    background: color-mix(in srgb, var(--card) 94%, #f8fafc 6%);
+    box-shadow: 0 24px 52px rgba(15, 23, 42, 0.08);
+    border: 1px solid color-mix(in srgb, var(--primary) 12%, #e5e7eb 88%);
 }
 
 .branding-content {
@@ -41,12 +41,13 @@ body {
     gap: 16px;
 }
 
+.logo-wrapper { display: inline-flex; align-items: center; gap: 10px; }
 .logo {
-    height: 56px;
+    height: 52px;
     width: auto;
-    max-width: 240px;
+    max-width: 220px;
     object-fit: contain;
-    filter: drop-shadow(0 8px 24px rgba(15, 23, 42, 0.12));
+    filter: drop-shadow(0 6px 16px rgba(15, 23, 42, 0.1));
 }
 
 .logo-fallback {
@@ -55,6 +56,7 @@ body {
     letter-spacing: 0.06em;
     color: var(--text-strong);
 }
+.logo-fallback.is-hidden { display: none; }
 
 .claim {
     margin: 0;
@@ -84,9 +86,9 @@ body {
     gap: 12px;
     padding: 12px 14px;
     border-radius: 16px;
-    background: #ffffff;
-    border: 1px solid color-mix(in srgb, var(--primary) 14%, #e5e7eb 86%);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    background: var(--card);
+    border: 1px solid color-mix(in srgb, var(--primary) 12%, #e5e7eb 88%);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
     align-items: center;
 }
 
@@ -123,10 +125,10 @@ body {
 
 .card {
     width: min(460px, 100%);
-    background: var(--surface);
+    background: var(--card);
     border-radius: 22px;
     padding: clamp(28px, 3vw, 36px);
-    box-shadow: 0 22px 48px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 22px 44px rgba(15, 23, 42, 0.12);
     border: 1px solid var(--border);
 }
 
@@ -197,7 +199,7 @@ input {
     padding: 12px 14px 12px 44px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
+    background: color-mix(in srgb, var(--card) 96%, var(--bg) 4%);
     color: var(--text-strong);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     font-size: 15px;

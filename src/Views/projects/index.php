@@ -22,6 +22,7 @@ $hoursUsed = 0;
 $plannedHours = 0;
 $budgetTotal = 0;
 $actualCostTotal = 0;
+$outsourcingCount = 0;
 
 foreach ($projectsList as $project) {
     $status = strtolower((string) ($project['status'] ?? ''));
@@ -39,6 +40,10 @@ foreach ($projectsList as $project) {
         $riskProjects++;
     }
 
+    if (($project['project_type'] ?? '') === 'outsourcing') {
+        $outsourcingCount++;
+    }
+
     $hoursUsed += (float) ($project['actual_hours'] ?? 0);
     $plannedHours += (float) ($project['planned_hours'] ?? 0);
     $budgetTotal += (float) ($project['budget'] ?? 0);
@@ -52,26 +57,42 @@ $progressAverage = $projectsList
     ? round(array_sum(array_map(fn ($p) => (float) ($p['progress'] ?? 0), $projectsList)) / count($projectsList), 1)
     : 0;
 $availableStatuses = array_values(array_unique(array_filter(array_map(fn ($p) => (string) ($p['status'] ?? ''), $projectsList))));
+$viewMode = $_GET['view_mode'] ?? 'table';
+$viewMode = in_array($viewMode, ['table', 'cards'], true) ? $viewMode : 'table';
+$rawQuery = $_GET;
+$rawQuery['view_mode'] = $viewMode;
+$queryString = http_build_query(array_filter($rawQuery, static fn ($value) => $value !== null && $value !== ''));
+$returnUrl = $basePath . '/projects' . ($queryString ? ('?' . $queryString) : '');
 
 $healthBadgeClass = static function (string $health): string {
     return match ($health) {
-        'red', 'critical' => 'danger',
-        'yellow', 'warning', 'at_risk', 'risk', 'riesgo' => 'warning',
-        default => 'success',
+        'red', 'critical', 'alto' => 'risk-high',
+        'yellow', 'warning', 'at_risk', 'risk', 'riesgo', 'medio' => 'risk-medium',
+        default => 'risk-low',
     };
 };
 
 $statusPillClass = static function (string $status) use ($activeStatuses, $completedStatuses): string {
     $status = strtolower($status);
     if (in_array($status, $completedStatuses, true)) {
-        return 'soft-green';
+        return 'status-completed';
     }
 
     if (in_array($status, $activeStatuses, true)) {
-        return 'soft-blue';
+        return 'status-active';
     }
 
-    return 'soft-slate';
+    if (in_array($status, ['blocked', 'bloqueado'], true)) {
+        return 'status-blocked';
+    }
+
+    return 'status-planning';
+};
+
+$buildQuery = static function (array $overrides) use ($rawQuery): string {
+    $params = array_merge($rawQuery, $overrides);
+    $params = array_filter($params, static fn ($value) => $value !== null && $value !== '');
+    return http_build_query($params);
 };
 ?>
 
@@ -79,18 +100,18 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
     .projects-hero {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         gap: 16px;
-        padding: 20px;
-        background: var(--surface);
+        padding: 18px 20px;
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 16px;
         box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
     }
 
     .projects-hero h1 {
-        margin: 0 0 6px;
-        font-size: 28px;
+        margin: 0 0 4px;
+        font-size: 26px;
         color: var(--text-strong);
     }
 
@@ -106,87 +127,239 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
         flex-wrap: wrap;
     }
 
-    .ghost-button,
-    .primary-button,
-    .secondary-button {
+    .button {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 12px 14px;
-        border-radius: 12px;
+        padding: 10px 14px;
+        border-radius: 10px;
         text-decoration: none;
         font-weight: 700;
         transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-        border: 1px solid transparent;
+        border: 1px solid var(--border);
         font-size: 14px;
+        background: var(--card);
+        color: var(--text-strong);
     }
 
-    .primary-button {
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    .button.primary {
+        background: var(--primary);
         color: #fff;
-        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+        border-color: var(--primary);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
     }
 
-    .primary-button:hover { transform: translateY(-1px); }
-
-    .secondary-button {
-        background: #0f172a;
+    .button.secondary {
+        background: rgba(15, 23, 42, 0.92);
         color: #fff;
+        border-color: rgba(15, 23, 42, 0.92);
     }
 
-    .secondary-button:hover { transform: translateY(-1px); }
-
-    .ghost-button {
-        background: #eef2ff;
-        color: #312e81;
-        border-color: #c7d2fe;
+    .button.ghost {
+        background: rgba(148, 163, 184, 0.2);
+        color: var(--text-strong);
+        border-color: rgba(148, 163, 184, 0.35);
     }
 
-    .ghost-button:hover { transform: translateY(-1px); }
+    .button:hover { transform: translateY(-1px); }
 
-    .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 14px;
-    }
-
-    .kpi-card {
-        padding: 16px;
-        border-radius: 14px;
-        border: 1px solid var(--border);
-        background: var(--surface);
+    .hero-chips {
         display: flex;
-        flex-direction: column;
-        gap: 10px;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
     }
 
-    .kpi-card .label { color: var(--muted); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
-    .kpi-card .value { margin: 0; font-size: 26px; color: var(--text-strong); font-weight: 800; }
-    .kpi-trend { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
-    .kpi-icon { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
-
-    .soft-blue { background: #e0e7ff; color: #1d4ed8; }
-    .soft-green { background: #dcfce7; color: #15803d; }
-    .soft-amber { background: #fef3c7; color: #b45309; }
-    .soft-rose { background: #ffe4e6; color: #be123c; }
-    .soft-slate { background: #e5e7eb; color: #374151; }
-
-    .project-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 16px;
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.18);
+        color: var(--text-strong);
+        font-size: 12px;
+        font-weight: 700;
     }
 
-    .project-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 18px;
+    .filter-shell {
         display: flex;
         flex-direction: column;
         gap: 12px;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+        padding: 14px 16px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+    }
+
+    .filter-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .filter-toggle {
+        justify-self: start;
+    }
+
+    .filter-extra {
+        display: none;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+    }
+
+    .filter-shell.is-open .filter-extra { display: grid; }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+    }
+
+    .kpi-card {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .kpi-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--primary);
+    }
+
+    .kpi-card .label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+    .kpi-card .value { margin: 0; font-size: 22px; color: var(--text-strong); font-weight: 800; }
+
+    .view-toggle {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .view-toggle a {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--text-strong);
+        background: var(--card);
+    }
+
+    .view-toggle a.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+    }
+
+    .project-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--card);
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .project-table th,
+    .project-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: middle;
+        font-size: 14px;
+    }
+
+    .project-table th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        background: rgba(148, 163, 184, 0.12);
+        font-weight: 700;
+    }
+
+    .project-row { cursor: pointer; }
+    .project-row:hover { background: rgba(148, 163, 184, 0.12); }
+
+    .project-title { font-weight: 700; color: var(--text-strong); margin: 0; }
+    .project-client { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 12px;
+        border: 1px solid transparent;
+    }
+
+    .badge.neutral { background: rgba(148, 163, 184, 0.2); color: var(--text-strong); }
+    .badge.status-active { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.3); }
+    .badge.status-completed { background: rgba(34, 197, 94, 0.15); color: #15803d; border-color: rgba(34, 197, 94, 0.3); }
+    .badge.status-blocked { background: rgba(239, 68, 68, 0.15); color: #b91c1c; border-color: rgba(239, 68, 68, 0.3); }
+    .badge.status-planning { background: rgba(234, 179, 8, 0.15); color: #92400e; border-color: rgba(234, 179, 8, 0.3); }
+    .badge.risk-low { background: rgba(34, 197, 94, 0.14); color: #166534; border-color: rgba(34, 197, 94, 0.25); }
+    .badge.risk-medium { background: rgba(234, 179, 8, 0.16); color: #92400e; border-color: rgba(234, 179, 8, 0.3); }
+    .badge.risk-high { background: rgba(239, 68, 68, 0.16); color: #991b1b; border-color: rgba(239, 68, 68, 0.3); }
+
+    .progress-track { width: 120px; height: 8px; background: rgba(148, 163, 184, 0.25); border-radius: 999px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #22c55e); }
+
+    .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .icon-button {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text-strong);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+
+    .icon-button:hover { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+
+    .project-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 14px;
+    }
+
+    .project-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
     }
 
     .project-card header {
@@ -196,40 +369,91 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
         gap: 10px;
     }
 
-    .project-title { margin: 0 0 4px; color: var(--text-strong); font-size: 18px; }
-    .project-meta { margin: 0; color: var(--muted); font-weight: 600; font-size: 13px; }
-
-    .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-weight: 700;
-        font-size: 12px;
-        border: 1px solid transparent;
+    .card-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
     }
 
-    .badge { border-radius: 10px; padding: 4px 8px; font-weight: 700; font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
-    .badge.success { background: #ecfdf3; color: #166534; border: 1px solid #bbf7d0; }
-    .badge.warning { background: #fef9c3; color: #92400e; border: 1px solid #fde68a; }
-    .badge.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .metric {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: rgba(148, 163, 184, 0.12);
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        text-align: left;
+    }
 
-    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-    .info-item { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
-    .info-item .icon { width: 30px; height: 30px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: #e5e7eb; color: #111827; font-weight: 700; }
-    .info-item span { font-weight: 700; color: var(--text); }
-    .info-item small { display: block; color: var(--muted); font-weight: 600; }
+    .metric span { color: var(--muted); font-weight: 600; }
+    .metric strong { color: var(--text-strong); font-size: 14px; }
 
-    .progress-track { width: 100%; height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
-    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #22c55e); }
-    .progress-row { display: flex; align-items: center; justify-content: space-between; }
+    .card-actions {
+        position: relative;
+        align-self: flex-end;
+    }
 
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #f8fafc; color: var(--text-strong); font-weight: 700; text-decoration: none; font-size: 13px; }
-    .action-btn:hover { background: #eef2ff; color: #312e81; border-color: #c7d2fe; }
+    .menu-trigger {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
 
-    .empty-state { padding: 18px; border-radius: 14px; background: #f8fafc; border: 1px solid var(--border); color: var(--muted); font-weight: 600; }
+    .menu-list {
+        position: absolute;
+        right: 0;
+        top: 36px;
+        min-width: 180px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        z-index: 10;
+    }
+
+    .menu-list a,
+    .menu-list button {
+        text-decoration: none;
+        color: var(--text-strong);
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    .menu-list a:hover,
+    .menu-list button:hover { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+
+    .menu-list button { width: 100%; text-align: left; }
+
+    .menu-details[open] .menu-trigger { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+
+    .risk-summary { font-size: 12px; color: var(--muted); }
+
+    .empty-state { padding: 18px; border-radius: 14px; background: rgba(148, 163, 184, 0.12); border: 1px solid var(--border); color: var(--muted); font-weight: 600; }
+
+    @media (max-width: 960px) {
+        .projects-hero { flex-direction: column; align-items: flex-start; }
+        .project-table { font-size: 13px; }
+        .progress-track { width: 90px; }
+    }
 </style>
 
 <div class="projects-hero">
@@ -237,219 +461,315 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
         <p class="eyebrow" style="margin:0; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Panel</p>
         <h1>Proyectos</h1>
         <p>Ejecución y control operativo</p>
+        <div class="hero-chips">
+            <span class="chip">Total: <?= count($projectsList) ?></span>
+            <span class="chip">Activos: <?= $activeProjects ?></span>
+            <span class="chip">En riesgo: <?= $riskProjects ?></span>
+            <?php if ($outsourcingCount > 0): ?>
+                <span class="chip">Outsourcing: <?= $outsourcingCount ?></span>
+            <?php endif; ?>
+        </div>
     </div>
     <div class="hero-actions">
-        <a class="primary-button" href="<?= $basePath ?>/projects/create">
+        <a class="button primary" href="<?= $basePath ?>/projects/create">
             <span aria-hidden="true">＋</span>
             Nuevo proyecto
         </a>
-        <a class="secondary-button" href="<?= $basePath ?>/tasks">
+        <a class="button secondary" href="<?= $basePath ?>/tasks">
             <span aria-hidden="true">📊</span>
-            Ver tablero
+            Tablero
         </a>
     </div>
 </div>
 
-<form method="GET" action="<?= $basePath ?>/projects" class="filter-bar" style="margin:16px 0; display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; align-items:end;">
-    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
-        Cliente
-        <select name="client_id" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
-            <option value="">Todos</option>
-            <?php foreach ($clientsList as $client): ?>
-                <option value="<?= (int) $client['id'] ?>" <?= isset($filters['client_id']) && (int) $filters['client_id'] === (int) $client['id'] ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </label>
-    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
-        Estado
-        <select name="status" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
-            <option value="">Todos</option>
-            <?php foreach ($availableStatuses as $statusOption): ?>
-                <option value="<?= htmlspecialchars($statusOption) ?>" <?= ($filters['status'] ?? '') === $statusOption ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($statusOption) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </label>
-    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
-        Metodología
-        <select name="methodology" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
-            <option value="">Todas</option>
-            <?php foreach ($deliveryConfig['methodologies'] as $methodology): ?>
-                <option value="<?= htmlspecialchars($methodology) ?>" <?= ($filters['methodology'] ?? '') === $methodology ? 'selected' : '' ?>>
-                    <?= htmlspecialchars(ucfirst($methodology)) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </label>
-    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
-        Inicio desde
-        <input type="date" name="start_date" value="<?= htmlspecialchars($filters['start_date'] ?? '') ?>" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
-    </label>
-    <label style="display:flex; flex-direction:column; gap:6px; font-weight:700; color:var(--text);">
-        Fin hasta
-        <input type="date" name="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? '') ?>" style="padding:10px; border:1px solid var(--border); border-radius:10px;">
-    </label>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Aplicar filtros</button>
-        <a class="ghost-button" href="<?= $basePath ?>/projects">Limpiar</a>
+<form method="GET" action="<?= $basePath ?>/projects" class="filter-shell" data-filter-shell>
+    <input type="hidden" name="view_mode" value="<?= htmlspecialchars($viewMode) ?>">
+    <div class="filter-row">
+        <label>
+            Buscar
+            <input type="search" name="search" placeholder="Buscar proyecto o cliente" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>">
+        </label>
+        <label>
+            Cliente
+            <select name="client_id">
+                <option value="">Todos</option>
+                <?php foreach ($clientsList as $client): ?>
+                    <option value="<?= (int) $client['id'] ?>" <?= isset($filters['client_id']) && (int) $filters['client_id'] === (int) $client['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>
+            Estado
+            <select name="status">
+                <option value="">Todos</option>
+                <?php foreach ($availableStatuses as $statusOption): ?>
+                    <option value="<?= htmlspecialchars($statusOption) ?>" <?= ($filters['status'] ?? '') === $statusOption ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($statusOption) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <button type="button" class="button ghost filter-toggle" data-filter-toggle>
+            <span aria-hidden="true">⚙️</span>
+            Filtros
+        </button>
+        <div class="filter-actions">
+            <button type="submit" class="button primary" style="border:none;">Aplicar</button>
+            <a class="button ghost" href="<?= $basePath ?>/projects">Limpiar</a>
+        </div>
+    </div>
+    <div class="filter-extra">
+        <label>
+            Metodología
+            <select name="methodology">
+                <option value="">Todas</option>
+                <?php foreach ($deliveryConfig['methodologies'] as $methodology): ?>
+                    <option value="<?= htmlspecialchars($methodology) ?>" <?= ($filters['methodology'] ?? '') === $methodology ? 'selected' : '' ?>>
+                        <?= htmlspecialchars(ucfirst($methodology)) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>
+            Inicio desde
+            <input type="date" name="start_date" value="<?= htmlspecialchars($filters['start_date'] ?? '') ?>">
+        </label>
+        <label>
+            Fin hasta
+            <input type="date" name="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? '') ?>">
+        </label>
     </div>
 </form>
 
 <section class="kpi-grid">
-    <div class="kpi-card">
-        <div class="kpi-icon soft-blue" aria-hidden="true">🚀</div>
-        <p class="label">Proyectos activos</p>
-        <p class="value"><?= $activeProjects ?></p>
-        <div class="kpi-trend">Visión en ejecución • Promedio avance <?= $progressAverage ?>%</div>
+    <div class="kpi-card" title="Activos en ejecución · Promedio <?= $progressAverage ?>%">
+        <div class="kpi-icon" aria-hidden="true">🚀</div>
+        <div>
+            <p class="label">Activos</p>
+            <p class="value"><?= $activeProjects ?></p>
+        </div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-icon soft-amber" aria-hidden="true">⚠️</div>
-        <p class="label">Proyectos en riesgo</p>
-        <p class="value"><?= $riskProjects ?></p>
-        <div class="kpi-trend">Analiza señales • Salud expresada en texto y badge</div>
+    <div class="kpi-card" title="Monitorea señales tempranas">
+        <div class="kpi-icon" aria-hidden="true">⚠️</div>
+        <div>
+            <p class="label">En riesgo</p>
+            <p class="value"><?= $riskProjects ?></p>
+        </div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-icon soft-green" aria-hidden="true">✅</div>
-        <p class="label">Proyectos completados</p>
-        <p class="value"><?= $completedProjects ?></p>
-        <div class="kpi-trend">Incluye cierres y archivados recientes</div>
+    <div class="kpi-card" title="Proyectos cerrados y archivados">
+        <div class="kpi-icon" aria-hidden="true">✅</div>
+        <div>
+            <p class="label">Completados</p>
+            <p class="value"><?= $completedProjects ?></p>
+        </div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-icon soft-slate" aria-hidden="true">⏱️</div>
-        <p class="label">Horas consumidas</p>
-        <p class="value"><?= number_format($hoursUsed, 0, ',', '.') ?>h / <?= number_format($plannedHours, 0, ',', '.') ?>h</p>
-        <div class="kpi-trend">Seguimiento operativo sin perder detalle</div>
+    <div class="kpi-card" title="Horas reales vs planificadas">
+        <div class="kpi-icon" aria-hidden="true">⏱️</div>
+        <div>
+            <p class="label">Horas registradas</p>
+            <p class="value"><?= number_format($hoursUsed, 0, ',', '.') ?>h</p>
+        </div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-icon soft-rose" aria-hidden="true">💰</div>
-        <p class="label">Presupuesto vs costo real</p>
-        <p class="value">$<?= number_format($actualCostTotal, 0, ',', '.') ?> / $<?= number_format($budgetTotal, 0, ',', '.') ?></p>
-        <div class="kpi-trend">Cobertura <?= $budgetCoverage ?>% • Controla desviaciones</div>
+    <div class="kpi-card" title="Cobertura <?= $budgetCoverage ?>%">
+        <div class="kpi-icon" aria-hidden="true">💰</div>
+        <div>
+            <p class="label">Presupuesto vs real</p>
+            <p class="value">$<?= number_format($actualCostTotal, 0, ',', '.') ?></p>
+        </div>
     </div>
 </section>
 
-<?php if (empty($projectsList)): ?>
-    <div class="empty-state">Aún no hay proyectos registrados. Crea uno nuevo para comenzar a monitorear ejecución y riesgos.</div>
-<?php else: ?>
-    <div class="project-grid">
-        <?php foreach ($projectsList as $project): ?>
-            <?php
-                $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
-                $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Salud no registrada';
-                $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
-                $riskScore = (float) ($project['risk_score'] ?? 0);
-                $riskLevel = $project['risk_level'] ?? 'Sin dato';
-                $progress = (float) ($project['progress'] ?? 0);
-                $pmName = $project['pm_name'] ?? 'Sin PM asignado';
-                $methodology = $project['methodology'] ?? 'No definido';
-                $phase = $project['phase'] ?? 'Sin fase';
-                $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
-                $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
-            ?>
-            <article class="project-card">
-                <header>
-                    <div>
-                        <p class="eyebrow" style="margin:0; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Proyecto</p>
-                        <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
-                        <p class="project-meta"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
-                    </div>
-                    <span class="pill <?= $statusPillClass((string) $project['status']) ?>" aria-label="Estado: <?= htmlspecialchars($statusLabel) ?>">
-                        <span aria-hidden="true">●</span>
-                        <?= htmlspecialchars($statusLabel) ?>
-                    </span>
-                </header>
-
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">📐</div>
-                        <div>
-                            <span><?= htmlspecialchars(ucfirst($methodology)) ?></span>
-                            <small>Fase: <?= htmlspecialchars($phase ?: 'Sin fase') ?></small>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">🧭</div>
-                        <div>
-                            <span><?= htmlspecialchars($pmName) ?></span>
-                            <small>PM a cargo</small>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">💡</div>
-                        <div>
-                            <span><?= htmlspecialchars($project['priority_label'] ?? $project['priority'] ?? 'Prioridad no registrada') ?></span>
-                            <small>Prioridad</small>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">⚠️</div>
-                        <div>
-                            <span><?= htmlspecialchars($healthLabel) ?></span>
-                            <small>Salud reportada</small>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">📊</div>
-                        <div>
-                            <span><?= number_format($riskScore, 1) ?></span>
-                            <small>Score de riesgo</small>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">🛡️</div>
-                        <div>
-                            <span><?= htmlspecialchars(ucfirst((string) $riskLevel)) ?></span>
-                            <small>Nivel de riesgo</small>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="icon" aria-hidden="true">🧱</div>
-                        <div>
-                            <span><?= htmlspecialchars($riskSummary) ?></span>
-                            <small>Riesgos globales</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="progress-row">
-                    <div class="badge <?= $riskClass ?>">
-                        <span aria-hidden="true">◎</span>
-                        Riesgo: <?= htmlspecialchars($healthLabel) ?>
-                    </div>
-                    <strong><?= $progress ?>% avance</strong>
-                </div>
-                <div class="progress-track" role="progressbar" aria-valuenow="<?= $progress ?>" aria-valuemin="0" aria-valuemax="100" aria-label="Avance del proyecto">
-                    <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
-                </div>
-
-                <div class="actions">
-                    <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>">
-                        <span aria-hidden="true">👁️</span>
-                        Ver detalle
-                    </a>
-                    <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit">
-                        <span aria-hidden="true">✏️</span>
-                        Editar
-                    </a>
-                    <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent">
-                        <span aria-hidden="true">👤</span>
-                        Gestionar talento
-                    </a>
-                    <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs">
-                        <span aria-hidden="true">💵</span>
-                        Costos
-                    </a>
-                    <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET" style="margin:0">
-                        <button class="action-btn" type="submit">
-                            <span aria-hidden="true">🛑</span>
-                            Cerrar proyecto
-                        </button>
-                    </form>
-                </div>
-            </article>
-        <?php endforeach; ?>
+<div class="toolbar" style="margin-top: 6px;">
+    <div>
+        <strong style="color: var(--text-strong);">Listado general</strong>
+        <p class="muted" style="margin:4px 0 0;">Vista compacta para operación o lectura ejecutiva.</p>
     </div>
+    <div class="view-toggle">
+        <a href="<?= $basePath ?>/projects?<?= htmlspecialchars($buildQuery(['view_mode' => 'table'])) ?>" class="<?= $viewMode === 'table' ? 'active' : '' ?>">Tabla</a>
+        <a href="<?= $basePath ?>/projects?<?= htmlspecialchars($buildQuery(['view_mode' => 'cards'])) ?>" class="<?= $viewMode === 'cards' ? 'active' : '' ?>">Cards</a>
+    </div>
+</div>
+
+<?php if (empty($projectsList)): ?>
+    <div class="empty-state">No hay proyectos con estos filtros.</div>
+<?php else: ?>
+    <?php if ($viewMode === 'table'): ?>
+        <table class="project-table" aria-label="Listado de proyectos">
+            <thead>
+                <tr>
+                    <th>Proyecto</th>
+                    <th>Metodología</th>
+                    <th>Estado</th>
+                    <th>Riesgo</th>
+                    <th>Avance</th>
+                    <th>PM</th>
+                    <th>Fechas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($projectsList as $project): ?>
+                    <?php
+                        $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
+                        $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
+                        $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
+                        $progress = (float) ($project['progress'] ?? 0);
+                        $pmName = $project['pm_name'] ?? 'Sin PM asignado';
+                        $methodology = $project['methodology'] ?? 'No definido';
+                        $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+                        $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
+                        $riskCount = count($riskCodes);
+                        $rowLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?return=' . urlencode($returnUrl);
+                    ?>
+                    <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
+                        <td>
+                            <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                            <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
+                        </td>
+                        <td>
+                            <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
+                        </td>
+                        <td>
+                            <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
+                        </td>
+                        <td>
+                            <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
+                        </td>
+                        <td>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <div class="progress-track" aria-hidden="true">
+                                    <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
+                                </div>
+                                <span style="font-size:12px; color: var(--muted);"><?= $progress ?>%</span>
+                            </div>
+                        </td>
+                        <td><?= htmlspecialchars($pmName) ?></td>
+                        <td>
+                            <span><?= htmlspecialchars($project['start_date'] ?? 'Sin inicio') ?></span><br>
+                            <span class="text-muted">→ <?= htmlspecialchars($project['end_date'] ?? 'Sin fin') ?></span>
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>" title="Ver detalle" data-no-row>
+                                    👁️
+                                </a>
+                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>" title="Editar" data-no-row>
+                                    ✏️
+                                </a>
+                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" title="Documentos" data-no-row>
+                                    📂
+                                </a>
+                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>" title="Talento" data-no-row>
+                                    👥
+                                </a>
+                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>" title="Costos" data-no-row>
+                                    💵
+                                </a>
+                                <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET" style="margin:0" data-no-row>
+                                    <button class="icon-button" type="submit" title="Cerrar" data-no-row>🛑</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php else: ?>
+        <div class="project-grid">
+            <?php foreach ($projectsList as $project): ?>
+                <?php
+                    $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
+                    $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
+                    $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
+                    $progress = (float) ($project['progress'] ?? 0);
+                    $methodology = $project['methodology'] ?? 'No definido';
+                    $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+                    $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
+                    $riskCount = count($riskCodes);
+                    $approvedDocs = (int) ($project['approved_documents'] ?? 0);
+                    $hoursValue = number_format((float) ($project['actual_hours'] ?? 0), 0, ',', '.');
+                    $costValue = number_format((float) ($project['actual_cost'] ?? 0), 0, ',', '.');
+                ?>
+                <article class="project-card">
+                    <header>
+                        <div>
+                            <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
+                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                        </div>
+                        <div class="card-actions">
+                            <details class="menu-details">
+                                <summary class="menu-trigger" aria-label="Acciones">⋯</summary>
+                                <div class="menu-list">
+                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>">Ver detalle</a>
+                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>">Editar</a>
+                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>">Documentos</a>
+                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>">Talento</a>
+                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>">Costos</a>
+                                    <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET">
+                                        <button type="submit">Cerrar proyecto</button>
+                                    </form>
+                                </div>
+                            </details>
+                        </div>
+                    </header>
+
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
+                        <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
+                        <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
+                    </div>
+
+                    <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
+
+                    <div>
+                        <div class="progress-track" aria-hidden="true">
+                            <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
+                        </div>
+                        <span style="font-size:12px; color: var(--muted);">Avance <?= $progress ?>%</span>
+                    </div>
+
+                    <div class="card-metrics">
+                        <div class="metric">
+                            <span>Docs aprobados</span>
+                            <strong><?= $approvedDocs ?></strong>
+                        </div>
+                        <div class="metric">
+                            <span>Horas</span>
+                            <strong><?= $hoursValue ?>h</strong>
+                        </div>
+                        <div class="metric">
+                            <span>Costos</span>
+                            <strong>$<?= $costValue ?></strong>
+                        </div>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 <?php endif; ?>
+
+<script>
+    const filterShell = document.querySelector('[data-filter-shell]');
+    const filterToggle = document.querySelector('[data-filter-toggle]');
+
+    if (filterShell && filterToggle) {
+        filterToggle.addEventListener('click', () => {
+            filterShell.classList.toggle('is-open');
+        });
+    }
+
+    document.querySelectorAll('.project-row').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (event.target.closest('[data-no-row]')) {
+                return;
+            }
+            const href = row.getAttribute('data-href');
+            if (href) {
+                window.location.href = href;
+            }
+        });
+    });
+</script>

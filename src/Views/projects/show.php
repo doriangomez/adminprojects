@@ -10,6 +10,7 @@ $canUpdateProgress = !empty($canUpdateProgress);
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
 $progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
 $view = $_GET['view'] ?? 'documentos';
+$returnUrl = $_GET['return'] ?? ($basePath . '/projects');
 $view = in_array($view, ['resumen', 'documentos'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
@@ -336,9 +337,7 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
             </div>
         </div>
         <div class="project-actions">
-            <?php if ($canUpdateProgress): ?>
-                <button class="action-btn primary" type="button" data-open-modal="progress-modal">Actualizar avance</button>
-            <?php endif; ?>
+            <a class="action-btn" href="<?= htmlspecialchars($returnUrl) ?>">Volver al listado</a>
             <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit">Editar proyecto</a>
         </div>
     </header>
@@ -349,57 +348,52 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     ?>
 
     <?php if ($view === 'resumen'): ?>
-        <section class="summary-cards">
-            <article class="summary-card">
-                <span class="summary-icon">🏢</span>
-                <div>
-                    <p>Cliente</p>
-                    <strong><?= htmlspecialchars($projectClient) ?></strong>
+        <section class="summary-layout">
+            <article class="info-card">
+                <div class="info-card__header">
+                    <div>
+                        <p class="eyebrow">Información base</p>
+                        <h4>Ficha del proyecto</h4>
+                    </div>
+                </div>
+                <div class="info-list">
+                    <div>
+                        <span>Cliente</span>
+                        <strong><?= htmlspecialchars($projectClient ?: 'Sin cliente') ?></strong>
+                    </div>
+                    <div>
+                        <span>Metodología</span>
+                        <strong><?= htmlspecialchars($projectMethodLabel) ?></strong>
+                    </div>
+                    <div>
+                        <span>Estado</span>
+                        <strong><?= htmlspecialchars((string) $projectStatusLabel) ?></strong>
+                    </div>
+                    <div>
+                        <span>PM</span>
+                        <strong><?= htmlspecialchars($projectPmName) ?></strong>
+                    </div>
+                    <div>
+                        <span>Fechas</span>
+                        <strong><?= htmlspecialchars($project['start_date'] ?? 'Sin inicio') ?> → <?= htmlspecialchars($project['end_date'] ?? 'Sin fin') ?></strong>
+                    </div>
+                    <div>
+                        <span>Riesgo</span>
+                        <strong><?= htmlspecialchars($projectRiskLabel) ?></strong>
+                        <span class="badge status-badge <?= $riskClass ?>">Nivel <?= htmlspecialchars($projectRiskLevel ?: 'N/A') ?></span>
+                    </div>
                 </div>
             </article>
-            <article class="summary-card">
-                <span class="summary-icon">🧭</span>
-                <div>
-                    <p>Metodología</p>
-                    <strong><?= htmlspecialchars($projectMethodLabel) ?></strong>
-                </div>
-            </article>
-            <article class="summary-card">
-                <span class="summary-icon">📌</span>
-                <div>
-                    <p>Estado</p>
-                    <strong><?= htmlspecialchars((string) $projectStatusLabel) ?></strong>
-                </div>
-            </article>
-            <article class="summary-card">
-                <span class="summary-icon">📈</span>
-                <div>
-                    <p>Avance manual</p>
-                    <strong><?= $projectProgress ?>%</strong>
-                </div>
-            </article>
-            <article class="summary-card">
-                <span class="summary-icon">⚠️</span>
-                <div>
-                    <p>Riesgo</p>
-                    <strong><?= htmlspecialchars($projectRiskLabel) ?></strong>
-                    <span class="badge status-badge <?= $riskClass ?>">Nivel <?= htmlspecialchars($projectRiskLevel ?: 'N/A') ?></span>
-                </div>
-            </article>
-            <article class="summary-card">
-                <span class="summary-icon">🧑‍💼</span>
-                <div>
-                    <p>PM a cargo</p>
-                    <strong><?= htmlspecialchars($projectPmName) ?></strong>
-                </div>
-            </article>
-        </section>
 
-        <section class="summary-progress">
-            <div class="progress-card">
-                <div>
-                    <p class="eyebrow">Avance global manual</p>
-                    <h4>Visión ejecutiva del progreso</h4>
+            <article class="progress-card">
+                <div class="progress-card__header">
+                    <div>
+                        <p class="eyebrow">Avance global manual</p>
+                        <h4>Visión ejecutiva del progreso</h4>
+                    </div>
+                    <?php if ($canUpdateProgress): ?>
+                        <button class="action-btn primary" type="button" data-open-modal="progress-modal">Actualizar avance</button>
+                    <?php endif; ?>
                 </div>
                 <div class="project-progress">
                     <span class="project-progress__label">Avance global</span>
@@ -422,29 +416,32 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
                         <p><?= $lastProgressJustification !== '' ? htmlspecialchars($lastProgressJustification) : 'Sin registro' ?></p>
                     </div>
                 </div>
-            </div>
-            <div class="context-card">
+            </article>
+        </section>
+
+        <section class="indicator-grid">
+            <article class="indicator-card">
+                <span class="indicator-icon">📄</span>
                 <div>
-                    <p class="eyebrow">Indicadores de control</p>
-                    <h4>Apoyo a la decisión del avance</h4>
-                    <small class="section-muted">Informativos, no calculan el porcentaje de avance.</small>
+                    <span>Docs aprobados</span>
+                    <strong><?= $approvedDocuments ?></strong>
                 </div>
-                <div class="context-grid">
-                    <div class="context-item">
-                        <span>Documentos aprobados</span>
-                        <strong><?= $approvedDocuments ?></strong>
-                    </div>
-                    <div class="context-item">
-                        <span>Controles pendientes</span>
-                        <strong><?= $pendingControls ?></strong>
-                    </div>
-                    <div class="context-item">
-                        <span>Horas registradas</span>
-                        <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
-                        <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
-                    </div>
+            </article>
+            <article class="indicator-card">
+                <span class="indicator-icon">⏳</span>
+                <div>
+                    <span>Controles pendientes</span>
+                    <strong><?= $pendingControls ?></strong>
                 </div>
-            </div>
+            </article>
+            <article class="indicator-card">
+                <span class="indicator-icon">⏱️</span>
+                <div>
+                    <span>Horas registradas</span>
+                    <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
+                    <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
+                </div>
+            </article>
         </section>
 
         <section class="progress-history">
@@ -733,20 +730,20 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
 
 <style>
     .project-shell { display:flex; flex-direction:column; gap:16px; }
-    .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
+    .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
     .project-title-block h2 { margin:0; color: var(--text-strong); }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .project-badges { display:flex; gap:8px; flex-wrap:wrap; }
     .pill.neutral { background:#f8fafc; border-color: var(--border); color: var(--text-strong); }
-    .summary-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-    .summary-card { border:1px solid var(--border); border-radius:14px; padding:12px; background:#fff; display:flex; gap:12px; align-items:center; }
-    .summary-card p { margin:0; font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .summary-card strong { font-size:16px; color: var(--text-strong); }
-    .summary-icon { width:40px; height:40px; border-radius:12px; background:#eef2ff; color:#4338ca; display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
-    .summary-progress { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
-    .progress-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .summary-layout { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
+    .info-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:14px; }
+    .info-list { display:grid; gap:10px; }
+    .info-list span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
+    .info-list strong { font-size:15px; color: var(--text-strong); }
+    .progress-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:12px; }
+    .progress-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .action-btn { background: var(--card); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
     .action-btn.danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
     .action-btn.small { padding:6px 8px; font-size:13px; }
@@ -772,21 +769,21 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .progress-meta__item.full { grid-column: 1 / -1; }
     .progress-meta__item strong { font-size:13px; color: var(--text-strong); }
     .progress-meta__item.full p { margin:0; font-size:13px; color: var(--text-strong); }
-    .context-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
-    .context-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
-    .context-item { border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:4px; }
-    .context-item span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .context-item strong { font-size:16px; color: var(--text-strong); }
-    .context-item small { font-size:12px; color: var(--muted); }
+    .indicator-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+    .indicator-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--card); display:flex; align-items:center; gap:12px; }
+    .indicator-card span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
+    .indicator-card strong { font-size:18px; color: var(--text-strong); display:block; }
+    .indicator-card small { font-size:12px; color: var(--muted); }
+    .indicator-icon { width:36px; height:36px; border-radius:10px; background: rgba(59, 130, 246, 0.12); display:inline-flex; align-items:center; justify-content:center; }
     .progress-history { display:flex; }
-    .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; width:100%; }
+    .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:12px; width:100%; }
     .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .project-layout { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
-    .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; max-height:70vh; overflow:auto; }
+    .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: rgba(148, 163, 184, 0.08); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
     .phase-sidebar__header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
     .phase-list, .phase-sublist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
     .phase-item { display:flex; flex-direction:column; gap:6px; }
-    .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-strong); border:1px solid transparent; background:#fff; }
+    .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-strong); border:1px solid transparent; background: var(--card); }
     .phase-link:hover { border-color: var(--border); }
     .phase-link.active { background:#0f172a; color:#fff; border-color:#0f172a; }
     .phase-link.active .section-muted { color: rgba(255,255,255,0.75); }
@@ -794,11 +791,11 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .phase-icon { font-size:18px; }
     .phase-progress-bar { height:6px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
     .phase-progress-bar div { height:100%; background: var(--primary); }
-    .phase-group { border:1px solid var(--border); border-radius:12px; padding:8px; background:#fff; }
+    .phase-group { border:1px solid var(--border); border-radius:12px; padding:8px; background: var(--card); }
     .phase-group summary { list-style:none; cursor:pointer; }
     .phase-group summary::-webkit-details-marker { display:none; }
     .phase-sublist { margin-top:8px; padding-left:0; }
-    .phase-panel { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; min-height:70vh; display:flex; flex-direction:column; gap:16px; }
+    .phase-panel { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); min-height:70vh; display:flex; flex-direction:column; gap:16px; }
     .phase-panel__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border); padding-bottom:12px; }
     .phase-panel__header h3 { margin:0; }
     .phase-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
@@ -808,12 +805,12 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .phase-tab.active { background: var(--primary); color:#fff; border-color: var(--primary); }
     .phase-tab.disabled { opacity:0.5; cursor:not-allowed; }
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
-    .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; }
+    .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: rgba(148, 163, 184, 0.12); }
     .phase-warning { color:#7f1d1d; margin:0; }
     .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
     .modal.is-visible { display:flex; }
     .modal__backdrop { position:absolute; inset:0; background:rgba(15, 23, 42, 0.45); }
-    .modal__panel { position:relative; background:#fff; border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px rgba(15, 23, 42, 0.25); display:flex; flex-direction:column; gap:12px; z-index:1; }
+    .modal__panel { position:relative; background: var(--card); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px rgba(15, 23, 42, 0.25); display:flex; flex-direction:column; gap:12px; z-index:1; }
     .modal__header { display:flex; justify-content:space-between; align-items:center; }
     .modal__header h3 { margin:0; }
     .modal__body { display:flex; flex-direction:column; gap:12px; }

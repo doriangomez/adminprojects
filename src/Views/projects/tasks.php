@@ -53,15 +53,15 @@ foreach ($selectedRisks as $riskCode) {
 <section class="project-shell">
     <header class="project-header">
         <div class="project-title-block">
-            <p class="eyebrow">Riesgos y control</p>
+            <p class="eyebrow">Tareas y control</p>
             <h2><?= htmlspecialchars($project['name'] ?? '') ?></h2>
-            <small class="section-muted">Checklist ejecutivo para auditoría y seguimiento de riesgos.</small>
+            <small class="section-muted">Checklist ejecutivo para auditoría, tareas críticas y riesgos.</small>
         </div>
         <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=resumen">Volver al resumen</a>
     </header>
 
     <?php
-    $activeTab = 'riesgos';
+    $activeTab = 'tareas';
     require __DIR__ . '/_tabs.php';
     ?>
 
