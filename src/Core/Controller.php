@@ -13,7 +13,9 @@ abstract class Controller
         extract($data);
         $auth = $this->auth;
         $user = $this->auth->user();
+        $appName = $data['appName'] ?? $this->getAppName();
         $title = $data['title'] ?? $appName;
+        $theme = $data['theme'] ?? (new ThemeRepository($this->db))->getActiveTheme();
         include __DIR__ . '/../Views/layout/header.php';
         include __DIR__ . '/../Views/' . $view . '.php';
         include __DIR__ . '/../Views/layout/footer.php';

@@ -6,8 +6,8 @@ class AuthController extends Controller
 {
     public function showLogin(): void
     {
+        $theme = (new ThemeRepository($this->db))->getActiveTheme();
         $configService = new ConfigService($this->db);
-        $branding = $configService->getBranding();
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
 
@@ -21,8 +21,8 @@ class AuthController extends Controller
 
     public function login(): void
     {
+        $theme = (new ThemeRepository($this->db))->getActiveTheme();
         $configService = new ConfigService($this->db);
-        $branding = $configService->getBranding();
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
 

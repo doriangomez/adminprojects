@@ -1,14 +1,20 @@
 <?php
-$branding = $branding ?? (new ConfigService())->getBranding();
-$theme = $branding['theme'] ?? [];
+$theme = $theme ?? (new ThemeRepository())->getActiveTheme();
 $basePath = '/project/public';
 $appDisplayName = $appName ?? 'PMO';
-$logoUrl = !empty($theme['logo']) ? $theme['logo'] : '';
+$logoUrl = !empty($theme['logo_url']) ? $theme['logo_url'] : '';
+$logoCss = $logoUrl !== '' ? "url('{$logoUrl}')" : 'none';
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $normalizedPath = str_starts_with($requestPath, $basePath)
     ? (substr($requestPath, strlen($basePath)) ?: '/')
     : $requestPath;
 require_once __DIR__ . '/logo_helper.php';
+error_log(sprintf(
+    'Theme active: primary=%s secondary=%s logo_url=%s',
+    (string) ($theme['primary'] ?? ''),
+    (string) ($theme['secondary'] ?? ''),
+    (string) ($theme['logo_url'] ?? '')
+));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -18,33 +24,31 @@ require_once __DIR__ . '/logo_helper.php';
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
     <style>
         :root {
-            --bg-app: <?= htmlspecialchars($theme['background'] ?? 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)') ?>;
-            --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
-            --bg-sidebar: <?= htmlspecialchars($theme['secondary'] ?? '#0f172a') ?>;
-
-            --text-main: #0f172a;
-            --text-muted: #475569;
-            --text-inverse: #ffffff;
-            --text-sidebar: #cbd5f5;
-
             --primary: <?= htmlspecialchars($theme['primary'] ?? '#2563eb') ?>;
-            --primary-hover: <?= htmlspecialchars($theme['primary_hover'] ?? '#3b82f6') ?>;
-            --primary-strong: <?= htmlspecialchars($theme['primary_strong'] ?? '#1e40af') ?>;
             --secondary: <?= htmlspecialchars($theme['secondary'] ?? '#111827') ?>;
             --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? '#2563eb')) ?>;
-            --success: #16a34a;
-            --warning: #f59e0b;
-            --danger: #dc2626;
-            --border: #e5e7eb;
+            --bg-app: <?= htmlspecialchars($theme['background'] ?? '#f3f4f6') ?>;
+            --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
+            --text-main: <?= htmlspecialchars($theme['text_main'] ?? '#0f172a') ?>;
+            --text-muted: <?= htmlspecialchars($theme['text_muted'] ?? '#475569') ?>;
+            --text-disabled: <?= htmlspecialchars($theme['text_disabled'] ?? '#94a3b8') ?>;
+            --border: <?= htmlspecialchars($theme['border'] ?? '#e5e7eb') ?>;
+            --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
+            --logo-url: <?= htmlspecialchars($logoCss) ?>;
 
+            --primary-hover: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%);
+            --primary-strong: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%);
             --bg: var(--bg-app);
             --card: var(--bg-card);
             --surface: var(--bg-card);
             --text-strong: var(--text-main);
             --text: var(--text-muted);
             --muted: var(--text-muted);
-            --on-primary: var(--text-inverse);
-            --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
+            --text-soft: var(--text-disabled);
+            --on-primary: color-mix(in srgb, var(--bg-card) 94%, var(--text-main) 6%);
+            --success: color-mix(in srgb, var(--accent) 28%, var(--primary) 72%);
+            --warning: var(--accent);
+            --danger: color-mix(in srgb, var(--accent) 25%, var(--secondary) 75%);
         }
         * {
             box-sizing: border-box;
@@ -60,13 +64,13 @@ require_once __DIR__ . '/logo_helper.php';
         }
         .sidebar {
             width: 280px;
-            background: var(--bg-sidebar);
-            color: var(--text-sidebar);
+            background: var(--secondary);
+            color: color-mix(in srgb, var(--bg-card) 82%, var(--text-main) 18%);
             min-height: 100vh;
             padding: 20px 18px;
             position: sticky;
             top: 0;
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
             display: flex;
             flex-direction: column;
             gap: 18px;
@@ -81,9 +85,9 @@ require_once __DIR__ . '/logo_helper.php';
         .sidebar.collapsed .nav-link::before { display: none; }
         .sidebar.collapsed .user-panel { justify-content: center; }
         .sidebar-toggle {
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--text-inverse);
+            border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+            background: color-mix(in srgb, var(--bg-card) 12%, transparent);
+            color: color-mix(in srgb, var(--bg-card) 88%, var(--text-main) 12%);
             border-radius: 10px;
             padding: 6px;
             cursor: pointer;
@@ -92,11 +96,11 @@ require_once __DIR__ . '/logo_helper.php';
             justify-content: center;
         }
         .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
-        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); }
+        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg-card) 10%, transparent); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
-        .brand-name { font-weight: 800; color: var(--text-inverse); font-size: 15px; }
-        .brand-fallback { font-weight: 800; color: var(--text-inverse); font-size: 18px; letter-spacing: 0.02em; }
+        .brand-name { font-weight: 800; color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); font-size: 15px; }
+        .brand-fallback { font-weight: 800; color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); font-size: 18px; letter-spacing: 0.02em; }
         .brand-fallback.is-hidden { display: none; }
         .sidebar .user-panel {
             display: flex;
@@ -112,30 +116,30 @@ require_once __DIR__ . '/logo_helper.php';
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: rgba(255, 255, 255, 0.12);
-            color: var(--text-inverse);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: color-mix(in srgb, var(--bg-card) 12%, transparent);
+            color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%);
+            border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
         }
         .user-meta { display: flex; flex-direction: column; gap: 3px; }
-        .user-meta strong { color: var(--text-inverse); font-size: 15px; font-weight: 700; }
-        .user-meta small { color: var(--text-sidebar); font-size: 13px; font-weight: 500; }
+        .user-meta strong { color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); font-size: 15px; font-weight: 700; }
+        .user-meta small { color: color-mix(in srgb, var(--bg-card) 70%, var(--text-main) 30%); font-size: 13px; font-weight: 500; }
         .nav-title {
             margin: 0;
             font-size: 13px;
             letter-spacing: 0.02em;
             text-transform: uppercase;
-            color: var(--text-sidebar);
+            color: color-mix(in srgb, var(--bg-card) 70%, var(--text-main) 30%);
             padding-inline: 10px;
             font-weight: 600;
         }
-        .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--text-sidebar); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
-        .nav-divider { height: 1px; background: rgba(255, 255, 255, 0.12); margin: 4px 10px; }
+        .nav-section-label { font-size: 11px; text-transform: uppercase; color: color-mix(in srgb, var(--bg-card) 70%, var(--text-main) 30%); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
+        .nav-divider { height: 1px; background: color-mix(in srgb, var(--border) 65%, transparent); margin: 4px 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: var(--text-sidebar);
+            color: color-mix(in srgb, var(--bg-card) 80%, var(--text-main) 20%);
             text-decoration: none;
             padding: 14px 12px;
             border-radius: 12px;
@@ -155,17 +159,17 @@ require_once __DIR__ . '/logo_helper.php';
             background: transparent;
         }
         .nav-link:hover {
-            color: var(--text-inverse);
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.12);
+            color: color-mix(in srgb, var(--bg-card) 92%, var(--text-main) 8%);
+            background: color-mix(in srgb, var(--bg-card) 12%, transparent);
+            border-color: color-mix(in srgb, var(--border) 70%, transparent);
         }
         .nav-link.active {
-            color: var(--text-inverse);
+            color: color-mix(in srgb, var(--bg-card) 92%, var(--text-main) 8%);
             font-weight: 700;
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.16);
+            background: color-mix(in srgb, var(--bg-card) 12%, transparent);
+            border-color: color-mix(in srgb, var(--border) 80%, transparent);
         }
-        .nav-link.active::before { background: var(--text-inverse); }
+        .nav-link.active::before { background: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); }
         .nav-icon {
             width: 22px;
             height: 22px;
@@ -254,7 +258,7 @@ require_once __DIR__ . '/logo_helper.php';
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 18px;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-main) 12%, transparent);
         }
         .alert {
             padding: 12px 14px;
@@ -273,7 +277,7 @@ require_once __DIR__ . '/logo_helper.php';
         .kpi .label { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
         .kpi .value { font-weight: 700; font-size: 34px; color: var(--text-main); }
         .kpi .meta { color: var(--text-muted); font-size: 13px; font-weight: 500; }
-        .kpi-icon { width: 56px; height: 56px; border-radius: 12px; background: rgb(219, 234, 254); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
+        .kpi-icon { width: 56px; height: 56px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 16%, transparent); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
         .kpi-icon svg { width: 32px; height: 32px; stroke: currentColor; }
         .kpi-body { display: flex; flex-direction: column; gap: 4px; }
         .badge {
@@ -337,7 +341,7 @@ require_once __DIR__ . '/logo_helper.php';
             color: var(--text-main);
             font-weight: 500;
         }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-hover); box-shadow: 0 0 0 2px rgb(219, 234, 254); }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-hover); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent); }
         textarea { resize: vertical; }
         label { font-weight: 600; color: var(--text-main); display:block; margin-bottom:6px; }
         .input { display:flex; flex-direction:column; gap:6px; }
@@ -360,8 +364,8 @@ require_once __DIR__ . '/logo_helper.php';
         @media (max-width: 1180px) {
             .section-grid.twothirds, .section-grid.wide { grid-template-columns: 1fr; }
         }
-        .menu-toggle { display: none; align-items: center; gap: 10px; font-weight: 700; color: var(--text-inverse); }
-        .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.08); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text-inverse); }
+        .menu-toggle { display: none; align-items: center; gap: 10px; font-weight: 700; color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); }
+        .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg-card) 12%, transparent); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); }
         .menu-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
         #menu-toggle { display: none; }
         @media (max-width: 1024px) {

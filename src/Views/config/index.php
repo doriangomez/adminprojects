@@ -32,6 +32,9 @@
                         <label>Color acento<input type="color" name="accent" value="<?= htmlspecialchars($configData['theme']['accent']) ?>"></label>
                         <label>Color fondo<input type="color" name="background" value="<?= htmlspecialchars($configData['theme']['background']) ?>"></label>
                         <label>Color superficies<input type="color" name="surface" value="<?= htmlspecialchars($configData['theme']['surface']) ?>"></label>
+                        <label>Texto principal<input type="color" name="text_main" value="<?= htmlspecialchars($configData['theme']['text_main'] ?? '#0f172a') ?>"></label>
+                        <label>Texto secundario<input type="color" name="text_muted" value="<?= htmlspecialchars($configData['theme']['text_muted'] ?? '#475569') ?>"></label>
+                        <label>Texto deshabilitado<input type="color" name="text_disabled" value="<?= htmlspecialchars($configData['theme']['text_disabled'] ?? '#94a3b8') ?>"></label>
                     </div>
                 </div>
                 <div class="form-block">
@@ -179,25 +182,25 @@
             </div>
             <p class="text-muted" style="color: color-mix(in srgb, white 78%, transparent); margin:0;">Así se verá tu login y barra lateral.</p>
             <div class="preview-pane">
-                <?php if(!empty($configData['theme']['logo'])): ?>
+                <?php if(!empty($activeTheme['logo_url'])): ?>
                     <div class="preview-header">
-                        <img src="<?= htmlspecialchars($configData['theme']['logo']) ?>" alt="Logo" class="preview-logo">
+                        <img src="<?= htmlspecialchars($activeTheme['logo_url']) ?>" alt="Logo" class="preview-logo">
                         <div>
-                            <strong><?= htmlspecialchars($configData['theme']['login_hero']) ?></strong>
-                            <div class="preview-subtitle">"<?= htmlspecialchars($configData['theme']['login_message']) ?>"</div>
+                            <strong><?= htmlspecialchars($activeTheme['login_hero'] ?? '') ?></strong>
+                            <div class="preview-subtitle">"<?= htmlspecialchars($activeTheme['login_message'] ?? '') ?>"</div>
                         </div>
                     </div>
                 <?php endif; ?>
                 <div class="pillset">
-                    <span class="badge" style="background:var(--panel); color: var(--primary);">Primario <?= htmlspecialchars($configData['theme']['primary']) ?></span>
-                    <span class="badge" style="background:var(--panel); color: var(--secondary);">Secundario <?= htmlspecialchars($configData['theme']['secondary']) ?></span>
-                    <span class="badge" style="background:var(--panel); color: var(--accent);">Acento <?= htmlspecialchars($configData['theme']['accent']) ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--primary);">Primario <?= htmlspecialchars($activeTheme['primary'] ?? '') ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--secondary);">Secundario <?= htmlspecialchars($activeTheme['secondary'] ?? '') ?></span>
+                    <span class="badge" style="background:var(--panel); color: var(--accent);">Acento <?= htmlspecialchars($activeTheme['accent'] ?? '') ?></span>
                 </div>
                 <small style="color: color-mix(in srgb, white 75%, transparent);">Roles activos: <?= htmlspecialchars(implode('· ', $configData['access']['roles'])) ?></small>
             </div>
             <div class="pillset">
-                <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fuente: <?= htmlspecialchars($configData['theme']['font_family']) ?></span>
-                <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fondo: <?= htmlspecialchars($configData['theme']['background']) ?></span>
+                <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fuente: <?= htmlspecialchars($activeTheme['font_family'] ?? '') ?></span>
+                <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fondo: <?= htmlspecialchars($activeTheme['background'] ?? '') ?></span>
             </div>
         </div>
     </div>
