@@ -147,8 +147,8 @@
                 <div class="card kpi-card" data-tone="blue" style="margin:0;">
                     <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 5h14v14H5z"/><path d="M8 9h8"/><path d="M8 13h4"/></svg></span>
                     <div class="meta">
-                        <span class="label">Enviadas</span>
-                        <span class="value"><?= $timesheetKpis['submitted'] ?></span>
+                        <span class="label">Pendientes</span>
+                        <span class="value"><?= $timesheetKpis['pending'] ?? 0 ?></span>
                     </div>
                 </div>
                 <div class="card kpi-card" data-tone="green" style="margin:0;">

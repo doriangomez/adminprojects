@@ -327,20 +327,6 @@ CREATE TABLE talent_skills (
     FOREIGN KEY (skill_id) REFERENCES skills(id)
 );
 
-CREATE TABLE timesheets (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    task_id INT NOT NULL,
-    talent_id INT NOT NULL,
-    date DATE NOT NULL,
-    hours DECIMAL(8,2) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    billable TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (talent_id) REFERENCES talents(id)
-);
-
 CREATE TABLE project_talent_assignments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
@@ -358,7 +344,7 @@ CREATE TABLE project_talent_assignments (
     monthly_cost DECIMAL(12,2),
     is_external TINYINT(1) DEFAULT 0,
     requires_timesheet TINYINT(1) DEFAULT 0,
-    requires_approval TINYINT(1) DEFAULT 0,
+    requires_timesheet_approval TINYINT(1) DEFAULT 0,
     assignment_status VARCHAR(20) DEFAULT 'active',
     active TINYINT(1) DEFAULT 1,
     start_date DATE,
@@ -369,6 +355,28 @@ CREATE TABLE project_talent_assignments (
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (talent_id) REFERENCES talents(id)
 ) ENGINE=InnoDB;
+
+CREATE TABLE timesheets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    talent_id INT NOT NULL,
+    assignment_id INT,
+    date DATE NOT NULL,
+    hours DECIMAL(8,2) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    billable TINYINT(1) DEFAULT 0,
+    approved_by INT,
+    approved_at DATETIME,
+    rejected_by INT,
+    rejected_at DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (talent_id) REFERENCES talents(id),
+    FOREIGN KEY (assignment_id) REFERENCES project_talent_assignments(id),
+    FOREIGN KEY (approved_by) REFERENCES users(id),
+    FOREIGN KEY (rejected_by) REFERENCES users(id)
+);
 
 CREATE TABLE project_outsourcing_settings (
     project_id INT NOT NULL PRIMARY KEY,
@@ -479,6 +487,7 @@ INSERT INTO permissions (code, name) VALUES
     ('tasks.view', 'Ver tareas'),
     ('talents.view', 'Ver talento'),
     ('timesheets.view', 'Ver timesheets'),
+    ('timesheets.approve', 'Aprobar timesheets'),
     ('config.manage', 'Administrar configuración');
 
 INSERT INTO config_settings (config_key, config_value) VALUES
@@ -543,6 +552,11 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN ('dashboard.view', 'clients.view')
 WHERE r.nombre = 'Líder de Proyecto';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN ('timesheets.view')
+WHERE r.nombre = 'Talento';
 
 INSERT INTO risk_catalog (code, category, label, applies_to, impact_scope, impact_time, impact_cost, impact_quality, impact_legal, severity_base, active) VALUES
 ('alcance_incompleto', 'Alcance', 'Requerimientos incompletos o ambiguos', 'ambos', 1, 1, 1, 1, 0, 4, 1),

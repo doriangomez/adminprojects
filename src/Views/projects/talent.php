@@ -89,7 +89,7 @@ $talents = is_array($talents ?? null) ? $talents : [];
         <input type="checkbox" name="requires_timesheet" value="1"> Requiere timesheet
     </label>
     <label style="display:flex; gap:8px; align-items:center;">
-        <input type="checkbox" name="requires_approval" value="1"> Requiere aprobación
+        <input type="checkbox" name="requires_timesheet_approval" value="1"> Requiere aprobación de horas
     </label>
     <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Guardar asignación</button>
 </form>

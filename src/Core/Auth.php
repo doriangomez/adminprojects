@@ -103,4 +103,23 @@ class Auth
 
         return $this->hasRole('Administrador');
     }
+
+    public function hasTimesheetAssignments(): bool
+    {
+        $user = $this->user();
+        if (!$user || !$this->db->tableExists('project_talent_assignments')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            "SELECT 1 FROM project_talent_assignments
+             WHERE user_id = :user
+             AND requires_timesheet = 1
+             AND (assignment_status = 'active' OR (assignment_status IS NULL AND active = 1))
+             LIMIT 1",
+            [':user' => (int) $user['id']]
+        );
+
+        return $row !== null;
+    }
 }
