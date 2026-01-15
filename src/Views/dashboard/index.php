@@ -11,11 +11,11 @@
             gap: 14px;
         }
         .card {
-            background: #ffffff;
-            border: 1px solid rgba(15, 23, 42, 0.08);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 14px;
             padding: 16px 18px;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
         }
         .card.elevated { box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06); }
         .kpi-card {
@@ -23,8 +23,8 @@
             align-items: center;
             gap: 14px;
             padding: 14px 16px;
-            background: linear-gradient(135deg, rgba(226, 232, 240, 0.45), rgba(248, 250, 252, 0.9));
-            border: 1px solid rgba(148, 163, 184, 0.4);
+            background: linear-gradient(135deg, rgba(226, 232, 240, 0.4), rgba(248, 250, 252, 0.92));
+            border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
         }
         .kpi-icon {
             width: 46px;
@@ -33,24 +33,24 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: rgba(59, 130, 246, 0.12);
-            color: #1d4ed8;
-            border: 1px solid rgba(59, 130, 246, 0.18);
+            background: color-mix(in srgb, var(--primary) 14%, transparent);
+            color: var(--primary-strong);
+            border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
         }
         .kpi-icon svg { width: 26px; height: 26px; stroke: currentColor; }
         .kpi-card .meta { display: flex; flex-direction: column; gap: 6px; }
-        .kpi-card .label { font-size: 13px; color: #4b5563; letter-spacing: 0.01em; }
-        .kpi-card .value { font-size: 26px; font-weight: 800; color: #111827; }
+        .kpi-card .label { font-size: 13px; color: var(--text-muted); letter-spacing: 0.01em; }
+        .kpi-card .value { font-size: 26px; font-weight: 800; color: var(--text-main); }
         .kpi-card[data-tone="green"] .kpi-icon { background: rgba(52, 211, 153, 0.16); color: #0f766e; border-color: rgba(16, 185, 129, 0.24); }
         .kpi-card[data-tone="amber"] .kpi-icon { background: rgba(251, 191, 36, 0.18); color: #b45309; border-color: rgba(251, 191, 36, 0.24); }
-        .kpi-card[data-tone="slate"] .kpi-icon { background: rgba(148, 163, 184, 0.16); color: #0f172a; border-color: rgba(148, 163, 184, 0.24); }
+        .kpi-card[data-tone="slate"] .kpi-icon { background: rgba(148, 163, 184, 0.16); color: var(--text-main); border-color: rgba(148, 163, 184, 0.24); }
 
         .section-grid { display: grid; grid-template-columns: 2fr 1.1fr; gap: 14px; align-items: stretch; }
         .section-grid .card { height: 100%; }
         .toolbar { display:flex; align-items:center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-        .toolbar h3 { margin:0; color:#0f172a; font-size:17px; font-weight:800; }
-        .muted { color: #475569; font-size: 14px; margin: 0; }
-        .progress-track { width: 100%; background: rgba(148, 163, 184, 0.18); border-radius: 999px; height: 10px; overflow: hidden; margin: 10px 0 6px; }
+        .toolbar h3 { margin:0; color: var(--text-main); font-size:17px; font-weight:800; }
+        .muted { color: var(--text-muted); font-size: 14px; margin: 0; }
+        .progress-track { width: 100%; background: color-mix(in srgb, var(--border) 80%, transparent); border-radius: 999px; height: 10px; overflow: hidden; margin: 10px 0 6px; }
         .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, rgba(14, 165, 233, 0.8), rgba(16, 185, 129, 0.8)); }
         .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
         .pill { display: inline-flex; align-items:center; gap: 8px; padding: 8px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
@@ -59,14 +59,14 @@
         .pill.soft-blue { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.2); }
 
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-        .chart-card h4 { margin: 0 0 6px 0; font-size: 15px; color: #0f172a; font-weight: 800; }
-        .chart-legend { font-size: 13px; color: #475569; margin: 6px 0 0; }
+        .chart-card h4 { margin: 0 0 6px 0; font-size: 15px; color: var(--text-main); font-weight: 800; }
+        .chart-legend { font-size: 13px; color: var(--text-muted); margin: 6px 0 0; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; padding: 10px 8px; border-bottom: 1px solid rgba(148, 163, 184, 0.35); }
-        tbody td { padding: 12px 8px; border-bottom: 1px solid rgba(148, 163, 184, 0.16); font-weight: 600; color: #0f172a; }
+        thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent); }
+        tbody td { padding: 12px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); font-weight: 600; color: var(--text-main); }
         tbody tr:last-child td { border-bottom: none; }
-        tbody tr:hover td { background: rgba(226, 232, 240, 0.35); }
+        tbody tr:hover td { background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); }
         .text-right { text-align: right; }
         .badge { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; }
         .badge.success { background: rgba(16, 185, 129, 0.12); color: #0f766e; border: 1px solid rgba(16, 185, 129, 0.18); }
@@ -74,7 +74,7 @@
         .badge.soft { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.18); }
 
         .timesheet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
-        .tiny { font-size: 12px; color: #475569; letter-spacing: 0.02em; text-transform: uppercase; }
+        .tiny { font-size: 12px; color: var(--text-muted); letter-spacing: 0.02em; text-transform: uppercase; }
     </style>
     <?php
     $riskLevels = is_array($portfolio['risk_levels'] ?? null)
@@ -229,6 +229,32 @@
         amberBorder: 'rgba(217, 119, 6, 0.9)'
     };
 
+    const cssVars = getComputedStyle(document.documentElement);
+    const textMain = cssVars.getPropertyValue('--text-main').trim();
+    const textMuted = cssVars.getPropertyValue('--text-muted').trim();
+    const gridBorder = cssVars.getPropertyValue('--border').trim() || '#e5e7eb';
+    const toRgba = (color, alpha) => {
+        if (color.startsWith('#')) {
+            const hex = color.replace('#', '');
+            const value = hex.length === 3
+                ? hex.split('').map(char => char + char).join('')
+                : hex;
+            const intVal = parseInt(value, 16);
+            const r = (intVal >> 16) & 255;
+            const g = (intVal >> 8) & 255;
+            const b = intVal & 255;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        if (color.startsWith('rgb(')) {
+            return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+        }
+        if (color.startsWith('rgba(')) {
+            return color.replace(/rgba\(([^,]+,[^,]+,[^,]+),[^)]+\)/, `rgba($1, ${alpha})`);
+        }
+        return color;
+    };
+    const gridBorderSoft = toRgba(gridBorder, 0.6);
+
     const hoursCtx = document.getElementById('hoursChart').getContext('2d');
     new Chart(hoursCtx, {
         type: 'bar',
@@ -241,10 +267,10 @@
         },
         options: {
             responsive: true,
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 14, color: '#0f172a' } } },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 14, color: textMain } } },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.2)' }, ticks: { color: '#475569' } },
-                x: { grid: { display: false }, ticks: { color: '#475569' } }
+                y: { beginAtZero: true, grid: { color: gridBorderSoft }, ticks: { color: textMuted } },
+                x: { grid: { display: false }, ticks: { color: textMuted } }
             }
         }
     });
@@ -256,7 +282,7 @@
             labels: ['En ejecución', 'En riesgo'],
             datasets: [{ data: statusData, backgroundColor: [pastelPalette.blue, pastelPalette.amber], borderColor: ['rgba(59, 130, 246, 0.6)', 'rgba(217, 119, 6, 0.6)'], borderWidth: 1.4 }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#0f172a' } } }, cutout: '62%' }
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: textMain } } }, cutout: '62%' }
     });
 
     const progressCtx = document.getElementById('progressChart').getContext('2d');
@@ -270,8 +296,8 @@
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
-                y: { min: 0, max: 100, grid: { color: 'rgba(148, 163, 184, 0.18)' }, ticks: { color: '#475569', callback: value => value + '%' } },
-                x: { grid: { display: false }, ticks: { color: '#475569' } }
+                y: { min: 0, max: 100, grid: { color: gridBorderSoft }, ticks: { color: textMuted, callback: value => value + '%' } },
+                x: { grid: { display: false }, ticks: { color: textMuted } }
             }
         }
     });
