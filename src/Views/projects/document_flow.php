@@ -24,6 +24,33 @@ if ($documentMode === '03-CONTROLES') {
 }
 $documentNodeName = (string) ($documentNode['name'] ?? $documentNode['title'] ?? $documentNode['code'] ?? 'Subfase');
 $documentNodeCode = (string) ($documentNode['code'] ?? '');
+$fileIconMap = [
+    'pdf' => '📕',
+    'doc' => '📘',
+    'docx' => '📘',
+    'xls' => '📊',
+    'xlsx' => '📊',
+    'ppt' => '📽️',
+    'pptx' => '📽️',
+    'png' => '🖼️',
+    'jpg' => '🖼️',
+    'jpeg' => '🖼️',
+    'gif' => '🖼️',
+];
+$resolveFileIcon = static function (string $fileName, string $docType) use ($fileIconMap): string {
+    $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if ($extension && isset($fileIconMap[$extension])) {
+        return $fileIconMap[$extension];
+    }
+    $normalized = strtolower($docType);
+    if (str_contains($normalized, 'plan')) {
+        return '🗂️';
+    }
+    if (str_contains($normalized, 'acta')) {
+        return '📝';
+    }
+    return '📄';
+};
 $normalizeDoc = static function (string $value): string {
     return strtolower(trim($value));
 };
@@ -255,6 +282,11 @@ foreach ($documentExpectedItems as $doc) {
                     <span>Acciones</span>
                 </div>
                 <?php foreach ($documentFiles as $file): ?>
+                    <?php
+                    $fileName = (string) ($file['file_name'] ?? $file['title'] ?? '');
+                    $docType = (string) ($file['document_type'] ?? '');
+                    $fileIcon = $resolveFileIcon($fileName, $docType);
+                    ?>
                     <div class="document-file-row" data-file-row data-file-id="<?= (int) ($file['id'] ?? 0) ?>"
                          data-reviewer-id="<?= htmlspecialchars((string) ($file['reviewer_id'] ?? '')) ?>"
                          data-validator-id="<?= htmlspecialchars((string) ($file['validator_id'] ?? '')) ?>"
@@ -272,12 +304,12 @@ foreach ($documentExpectedItems as $doc) {
                          data-approved-by="<?= htmlspecialchars((string) ($file['approved_by'] ?? '')) ?>"
                          data-approved-at="<?= htmlspecialchars((string) ($file['approved_at'] ?? '')) ?>">
                         <div>
-                            <strong>📄 <?= htmlspecialchars($file['file_name'] ?? $file['title'] ?? '') ?></strong>
+                            <strong><span class="file-type-icon"><?= htmlspecialchars($fileIcon) ?></span><?= htmlspecialchars($fileName) ?></strong>
                             <small class="section-muted">Subido: <?= htmlspecialchars((string) ($file['created_at'] ?? '')) ?></small>
                             <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
                         </div>
                         <div class="file-meta">
-                            <div><strong><?= htmlspecialchars((string) ($file['document_type'] ?? '')) ?></strong></div>
+                            <div><strong><?= htmlspecialchars($docType) ?></strong></div>
                             <small class="section-muted"><?= htmlspecialchars((string) ($file['description'] ?? 'Sin descripción')) ?></small>
                         </div>
                         <div class="tag-editor" data-tag-editor>
@@ -299,7 +331,7 @@ foreach ($documentExpectedItems as $doc) {
                         <div>
                             <span class="status-pill status-pending" data-status-label>Borrador</span>
                             <?php if ($documentCanManage): ?>
-                                <button type="button" class="action-btn small" data-send-review>Enviar a revisión</button>
+                                <button type="button" class="action-btn small" data-send-review>🔍 Enviar a revisión</button>
                             <?php endif; ?>
                             <small class="flow-summary" data-flow-summary>
                                 Revisor: <?= $file['reviewer_id'] ? 'Usuario #' . (int) $file['reviewer_id'] : 'No asignado' ?><br>
@@ -309,14 +341,14 @@ foreach ($documentExpectedItems as $doc) {
                             <button type="button" class="action-btn small" data-toggle-history>Historial</button>
                         </div>
                         <div class="file-actions">
-                            <a class="action-btn small" href="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download">Ver</a>
+                            <a class="action-btn small" href="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download">👁️ Ver</a>
                             <?php if ($documentCanManage): ?>
                                 <form method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar archivo?');">
-                                    <button class="action-btn danger small" type="submit">Eliminar</button>
+                                    <button class="action-btn danger small" type="submit">🗑️ Eliminar</button>
                                 </form>
                             <?php endif; ?>
                             <?php if ($documentCanManage): ?>
-                                <button type="button" class="action-btn small" data-toggle-flow>Asignar flujo</button>
+                                <button type="button" class="action-btn small" data-toggle-flow>👤 Asignar flujo</button>
                             <?php endif; ?>
                         </div>
                         <div class="history-panel" data-history-panel hidden>
@@ -388,6 +420,7 @@ foreach ($documentExpectedItems as $doc) {
     .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; }
     .document-file-head { background:#f1f5f9; font-weight:700; }
     .document-file-head span { font-size:12px; text-transform:uppercase; color: var(--muted); }
+    .file-type-icon { margin-right:6px; }
     .tag-editor { display:flex; flex-direction:column; gap:6px; }
     .tag-pills { display:flex; flex-wrap:wrap; gap:6px; }
     .tag-pill { background:#e0f2fe; color:#075985; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; }

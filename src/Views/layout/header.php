@@ -56,6 +56,26 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             flex-direction: column;
             gap: 18px;
         }
+        .sidebar.collapsed { width: 88px; }
+        .sidebar.collapsed .brand-name,
+        .sidebar.collapsed .user-meta,
+        .sidebar.collapsed .nav-title,
+        .sidebar.collapsed .nav-label,
+        .sidebar.collapsed .nav-section-label { display: none; }
+        .sidebar.collapsed .nav-link { justify-content: center; }
+        .sidebar.collapsed .nav-link::before { display: none; }
+        .sidebar.collapsed .user-panel { justify-content: center; }
+        .sidebar-toggle {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 10px;
+            padding: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
         .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:10px; border:1px solid var(--border); background: rgb(249, 250, 251); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
@@ -91,6 +111,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             padding-inline: 10px;
             font-weight: 600;
         }
+        .nav-section-label { font-size: 12px; text-transform: uppercase; color: var(--muted); font-weight: 700; padding-inline: 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             display: flex;
@@ -135,6 +156,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             justify-content: center;
             color: inherit;
         }
+        .nav-label { white-space: nowrap; }
         .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; }
         .topbar {
             padding: 10px 22px;
@@ -357,6 +379,11 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             </div>
             <span class="brand-name"><?= htmlspecialchars($appDisplayName) ?></span>
         </div>
+        <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Colapsar menú">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                <path d="M8 4h12M8 12h12M8 20h12M4 4h.01M4 12h.01M4 20h.01" />
+            </svg>
+        </button>
         <div class="user-panel">
             <div class="avatar"><?= strtoupper(substr($user['name'] ?? 'U', 0, 1)) ?></div>
             <div class="user-meta">
@@ -377,47 +404,48 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         <nav>
             <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 13h5v7H4zM10 4h4v16h-4zM16 9h4v11h-4z"/></svg></span>
-                <span>Dashboard Ejecutivo</span>
+                <span class="nav-label">Dashboard Ejecutivo</span>
             </a>
             <a href="<?= $basePath ?>/clients" class="nav-link <?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M5 7a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm8 1h6l-1 12h-4zM3 21a4 4 0 0 1 8 0"/></svg></span>
-                <span>Clientes</span>
+                <span class="nav-label">Clientes</span>
             </a>
+            <span class="nav-section-label">Gestión PMO</span>
             <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
-                <span>Proyectos</span>
+                <span class="nav-label">Proyectos</span>
             </a>
             <?php if ($auth->canAccessOutsourcing()): ?>
                 <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
-                    <span>Outsourcing</span>
+                    <span class="nav-label">Outsourcing</span>
                 </a>
             <?php endif; ?>
             <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12h6l2 3 4-6h4"/><path d="M5 20h14"/><path d="M7 4h10v4H7z"/></svg></span>
-                <span>Bandeja de Aprobaciones</span>
+                <span class="nav-label">Aprobaciones</span>
             </a>
             <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
-                <span>Tareas / Kanban</span>
+                <span class="nav-label">Tareas / Kanban</span>
             </a>
             <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
-                <span>Talento</span>
+                <span class="nav-label">Talento</span>
             </a>
             <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 4h10v2H7zM5 7h14v13H5zM12 11v5m-3-3h6"/></svg></span>
-                <span>Timesheet</span>
+                <span class="nav-label">Timesheet</span>
             </a>
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm8-1-1.5-.5a2 2 0 0 1-1.3-1.3L17 4l-2-.5-1 1.8a2 2 0 0 1-1.7 1L10 6l-.5 2 1.8 1a2 2 0 0 1 1 1.7L12 14l2 .5 1-1.8a2 2 0 0 1 1.7-1l1.8-.2Z"/></svg></span>
-                    <span>Gestión de Configuración</span>
+                    <span class="nav-label">Configuración</span>
                 </a>
             <?php endif; ?>
             <a href="<?= $basePath ?>/logout" class="nav-link">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M15 4h-5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m10 9 3 3-3 3"/><path d="M13 12H4"/></svg></span>
-                <span>Salir</span>
+                <span class="nav-label">Salir</span>
             </a>
         </nav>
     </aside>
@@ -452,3 +480,18 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
                 <h2><?= htmlspecialchars($title ?? 'Panel') ?></h2>
                 <p>Operaciones críticas de proyectos</p>
             </div>
+            <script>
+                (() => {
+                    const sidebar = document.querySelector('.sidebar');
+                    const toggle = document.querySelector('[data-sidebar-toggle]');
+                    if (!sidebar || !toggle) return;
+                    const stored = localStorage.getItem('pmo.sidebar.collapsed');
+                    if (stored === '1') {
+                        sidebar.classList.add('collapsed');
+                    }
+                    toggle.addEventListener('click', () => {
+                        sidebar.classList.toggle('collapsed');
+                        localStorage.setItem('pmo.sidebar.collapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+                    });
+                })();
+            </script>

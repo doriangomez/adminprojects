@@ -275,9 +275,10 @@ $formatTimestamp = static function (?string $value): string {
         <?php if (empty($followups)): ?>
             <p class="section-muted">Aún no hay seguimientos registrados.</p>
         <?php else: ?>
-            <div class="followup-list">
+            <div class="followup-timeline">
                 <?php foreach ($followups as $followup): ?>
                     <article class="followup-card">
+                        <div class="followup-marker" aria-hidden="true"></div>
                         <header class="followup-header">
                             <div>
                                 <h5>Periodo <?= htmlspecialchars((string) ($followup['period_start'] ?? '')) ?> → <?= htmlspecialchars((string) ($followup['period_end'] ?? '')) ?></h5>
@@ -355,8 +356,10 @@ $formatTimestamp = static function (?string $value): string {
     .followup-form textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
     .checkbox-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px; }
-    .followup-list { display:flex; flex-direction:column; gap:16px; }
-    .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; }
+    .followup-timeline { display:flex; flex-direction:column; gap:16px; position:relative; padding-left:18px; }
+    .followup-timeline::before { content:""; position:absolute; left:7px; top:0; bottom:0; width:2px; background: color-mix(in srgb, var(--primary) 30%, transparent); }
+    .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; position:relative; }
+    .followup-marker { width:14px; height:14px; border-radius:50%; background: var(--primary); position:absolute; left:-26px; top:18px; }
     .followup-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .followup-body { display:grid; gap:12px; }
     .followup-body h6 { margin:0 0 6px 0; }
