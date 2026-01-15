@@ -39,7 +39,8 @@ $formatDate = static function (?string $value): string {
 };
 $flashMessageText = match ($flashMessage) {
     'created' => 'Talento registrado y listo para asignaciones de outsourcing.',
-    'updated' => 'Talento actualizado. Puedes registrar nuevas asignaciones.',
+    'created_outsourcing' => 'Talento registrado. Asígnalo a un servicio desde el módulo Outsourcing.',
+    'updated' => 'Talento actualizado. Gestiona sus asignaciones desde Outsourcing.',
     default => '',
 };
 ?>
@@ -49,7 +50,7 @@ $flashMessageText = match ($flashMessage) {
         <div>
             <p class="eyebrow">Gestión de talentos</p>
             <h2>Centro de recursos de outsourcing</h2>
-            <small class="section-muted">Registra talentos, asigna servicios y realiza seguimiento por cliente/proyecto.</small>
+            <small class="section-muted">Registra talentos y revisa el seguimiento por cliente/proyecto.</small>
         </div>
         <span class="badge neutral">PMO / Gestión de talento</span>
     </header>
@@ -58,7 +59,7 @@ $flashMessageText = match ($flashMessage) {
         <div class="section-head">
             <div>
                 <h3><?= $isEditing ? 'Editar talento' : 'Registrar talento' ?></h3>
-                <small class="section-muted">Completa la ficha del talento y, si aplica, asigna el servicio de outsourcing.</small>
+                <small class="section-muted">Completa la ficha del talento y define si es de outsourcing.</small>
             </div>
             <?php if ($isEditing): ?>
                 <a class="action-btn" href="<?= $basePath ?>/talents">Cancelar edición</a>
@@ -105,61 +106,13 @@ $flashMessageText = match ($flashMessage) {
             </div>
             <label class="checkbox">
                 <input type="checkbox" name="is_outsourcing" value="1" <?= !empty($editingTalent['is_outsourcing']) ? 'checked' : '' ?>>
-                Talento dedicado a outsourcing
+                Talento de outsourcing
             </label>
 
             <div class="divider"></div>
-
-            <div class="section-head">
-                <div>
-                    <h4>Asignación de outsourcing</h4>
-                    <small class="section-muted">Completa estos campos para asociar el talento a un cliente/proyecto.</small>
-                </div>
+            <div class="alert">
+                La asignación a servicios se gestiona desde el módulo Outsourcing.
             </div>
-            <div class="grid">
-                <label>Cliente
-                    <select name="client_id">
-                        <option value="">Selecciona cliente</option>
-                        <?php foreach ($clients as $client): ?>
-                            <option value="<?= (int) $client['id'] ?>"><?= htmlspecialchars($client['name'] ?? '') ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </label>
-                <label>Proyecto (opcional)
-                    <select name="project_id">
-                        <option value="">Sin proyecto</option>
-                        <?php foreach ($projects as $project): ?>
-                            <option value="<?= (int) $project['id'] ?>"><?= htmlspecialchars($project['name'] ?? '') ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </label>
-            </div>
-            <div class="grid">
-                <label>Inicio del servicio
-                    <input type="date" name="start_date">
-                </label>
-                <label>Fin del servicio
-                    <input type="date" name="end_date">
-                </label>
-            </div>
-            <div class="grid">
-                <label>Estado del servicio
-                    <select name="service_status">
-                        <option value="active">Activo</option>
-                        <option value="paused">Pausado</option>
-                        <option value="ended">Finalizado</option>
-                    </select>
-                </label>
-                <label>Frecuencia de seguimiento
-                    <select name="followup_frequency">
-                        <option value="weekly">Semanal</option>
-                        <option value="monthly" selected>Mensual</option>
-                    </select>
-                </label>
-            </div>
-            <label>Observaciones
-                <textarea name="observations" rows="3" placeholder="Detalles adicionales del servicio."></textarea>
-            </label>
             <button type="submit" class="action-btn primary"><?= $isEditing ? 'Actualizar talento' : 'Guardar talento' ?></button>
         </form>
     </section>

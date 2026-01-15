@@ -32,12 +32,6 @@ class TalentsController extends Controller
 
         $user = $this->auth->user() ?? [];
         $payload = $this->talentPayload($_POST);
-        $servicePayload = $this->servicePayload($_POST);
-
-        if (($servicePayload['client_id'] ?? 0) > 0 && $payload['email'] === '') {
-            http_response_code(400);
-            exit('El correo del talento es obligatorio para asignarlo a outsourcing.');
-        }
 
         try {
             $talentService = new TalentService($this->db);
@@ -53,9 +47,8 @@ class TalentsController extends Controller
                 ]
             );
 
-            $this->createOutsourcingService($created['user_id'] ?? null, $servicePayload, $user);
-
-            header('Location: /project/public/talents?saved=created');
+            $flashKey = !empty($payload['is_outsourcing']) ? 'created_outsourcing' : 'created';
+            header('Location: /project/public/talents?saved=' . $flashKey);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -72,16 +65,10 @@ class TalentsController extends Controller
 
         $user = $this->auth->user() ?? [];
         $payload = $this->talentPayload($_POST);
-        $servicePayload = $this->servicePayload($_POST);
         $talentId = (int) ($_POST['talent_id'] ?? 0);
         if ($talentId <= 0) {
             http_response_code(400);
             exit('Selecciona un talento válido.');
-        }
-
-        if (($servicePayload['client_id'] ?? 0) > 0 && $payload['email'] === '') {
-            http_response_code(400);
-            exit('El correo del talento es obligatorio para asignarlo a outsourcing.');
         }
 
         try {
@@ -97,8 +84,6 @@ class TalentsController extends Controller
                     'user_id' => $updated['user_id'] ?? null,
                 ]
             );
-
-            $this->createOutsourcingService($updated['user_id'] ?? null, $servicePayload, $user);
 
             header('Location: /project/public/talents?edit=' . $talentId . '&saved=updated');
         } catch (\InvalidArgumentException $e) {
@@ -124,49 +109,6 @@ class TalentsController extends Controller
             'hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),
             'is_outsourcing' => !empty($payload['is_outsourcing']) ? 1 : 0,
         ];
-    }
-
-    private function servicePayload(array $payload): array
-    {
-        return [
-            'client_id' => (int) ($payload['client_id'] ?? 0),
-            'project_id' => (int) ($payload['project_id'] ?? 0),
-            'start_date' => $payload['start_date'] ?? '',
-            'end_date' => $payload['end_date'] ?? '',
-            'followup_frequency' => $payload['followup_frequency'] ?? 'monthly',
-            'service_status' => $payload['service_status'] ?? 'active',
-            'observations' => $payload['observations'] ?? '',
-        ];
-    }
-
-    private function createOutsourcingService(?int $userId, array $servicePayload, array $currentUser): void
-    {
-        if (($servicePayload['client_id'] ?? 0) <= 0) {
-            return;
-        }
-
-        if (!$userId) {
-            throw new InvalidArgumentException('El talento requiere un correo válido para asignarse a outsourcing.');
-        }
-
-        $servicePayload['talent_id'] = $userId;
-        $servicePayload['created_by'] = (int) ($currentUser['id'] ?? 0);
-
-        $servicesRepo = new OutsourcingServicesRepository($this->db);
-        $serviceId = $servicesRepo->createService($servicePayload);
-
-        (new AuditLogRepository($this->db))->log(
-            (int) ($currentUser['id'] ?? 0),
-            'outsourcing_service',
-            $serviceId,
-            'created',
-            [
-                'talent_id' => $userId,
-                'client_id' => $servicePayload['client_id'],
-                'project_id' => $servicePayload['project_id'] ?: null,
-                'service_status' => $servicePayload['service_status'],
-            ]
-        );
     }
 
     private function serviceDocuments(array $services): array
