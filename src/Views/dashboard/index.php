@@ -220,20 +220,17 @@
     const statusData = [activeProjects, atRisk];
     const progressData = [avgProgress];
 
-    const pastelPalette = {
-        blue: 'rgba(99, 179, 237, 0.65)',
-        blueBorder: 'rgba(59, 130, 246, 0.9)',
-        green: 'rgba(134, 239, 172, 0.7)',
-        greenBorder: 'rgba(16, 185, 129, 0.9)',
-        amber: 'rgba(252, 211, 77, 0.7)',
-        amberBorder: 'rgba(217, 119, 6, 0.9)'
-    };
-
     const cssVars = getComputedStyle(document.documentElement);
+    const primary = cssVars.getPropertyValue('--primary').trim();
+    const secondary = cssVars.getPropertyValue('--secondary').trim();
+    const accent = cssVars.getPropertyValue('--accent').trim();
     const textMain = cssVars.getPropertyValue('--text-main').trim();
     const textMuted = cssVars.getPropertyValue('--text-muted').trim();
-    const gridBorder = cssVars.getPropertyValue('--border').trim() || '#e5e7eb';
+    const gridBorder = cssVars.getPropertyValue('--border').trim();
     const toRgba = (color, alpha) => {
+        if (!color) {
+            return '';
+        }
         if (color.startsWith('#')) {
             const hex = color.replace('#', '');
             const value = hex.length === 3
@@ -254,6 +251,12 @@
         return color;
     };
     const gridBorderSoft = toRgba(gridBorder, 0.6);
+    const primaryFill = toRgba(primary, 0.55);
+    const primaryBorder = toRgba(primary, 0.9);
+    const secondaryFill = toRgba(secondary, 0.55);
+    const secondaryBorder = toRgba(secondary, 0.9);
+    const accentFill = toRgba(accent, 0.55);
+    const accentBorder = toRgba(accent, 0.9);
 
     const hoursCtx = document.getElementById('hoursChart').getContext('2d');
     new Chart(hoursCtx, {
@@ -261,8 +264,8 @@
         data: {
             labels: ['Proyectos'],
             datasets: [
-                { label: 'Planificadas', data: [plannedHours], backgroundColor: pastelPalette.blue, borderColor: pastelPalette.blueBorder, borderWidth: 1.4, borderRadius: 10 },
-                { label: 'Reales', data: [actualHours], backgroundColor: pastelPalette.green, borderColor: pastelPalette.greenBorder, borderWidth: 1.4, borderRadius: 10 }
+                { label: 'Planificadas', data: [plannedHours], backgroundColor: primaryFill, borderColor: primaryBorder, borderWidth: 1.4, borderRadius: 10 },
+                { label: 'Reales', data: [actualHours], backgroundColor: secondaryFill, borderColor: secondaryBorder, borderWidth: 1.4, borderRadius: 10 }
             ]
         },
         options: {
@@ -280,7 +283,7 @@
         type: 'doughnut',
         data: {
             labels: ['En ejecución', 'En riesgo'],
-            datasets: [{ data: statusData, backgroundColor: [pastelPalette.blue, pastelPalette.amber], borderColor: ['rgba(59, 130, 246, 0.6)', 'rgba(217, 119, 6, 0.6)'], borderWidth: 1.4 }]
+            datasets: [{ data: statusData, backgroundColor: [primaryFill, accentFill], borderColor: [primaryBorder, accentBorder], borderWidth: 1.4 }]
         },
         options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: textMain } } }, cutout: '62%' }
     });
@@ -290,7 +293,7 @@
         type: 'line',
         data: {
             labels: ['Proyectos'],
-            datasets: [{ label: 'Avance promedio', data: progressData, borderColor: pastelPalette.blueBorder, backgroundColor: 'rgba(59, 130, 246, 0.18)', fill: true, tension: 0.35, borderWidth: 2 }]
+            datasets: [{ label: 'Avance promedio', data: progressData, borderColor: primaryBorder, backgroundColor: toRgba(primary, 0.18), fill: true, tension: 0.35, borderWidth: 2 }]
         },
         options: {
             responsive: true,

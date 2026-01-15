@@ -46,6 +46,7 @@ class ConfigController extends Controller
         $this->render('config/index', [
             'title' => 'Configuración',
             'configData' => $config,
+            'activeTheme' => (new ThemeRepository($this->db))->getActiveTheme(),
             'roles' => $rolesWithPermissions,
             'permissions' => $permissionsRepo->all(),
             'users' => $usersRepo->all(),
@@ -63,6 +64,7 @@ class ConfigController extends Controller
 
         $configService = new ConfigService($this->db);
         $current = $configService->getConfig();
+        $themeDefaults = $configService->getDefaults()['theme'] ?? [];
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
         $logoValue = $logoFromUpload ?: $logoUrl;
@@ -70,12 +72,12 @@ class ConfigController extends Controller
         $payload = [
             'theme' => [
                 'logo' => $logoValue,
-                'primary' => $_POST['primary'] ?? '#2563eb',
-                'secondary' => $_POST['secondary'] ?? '#0f172a',
-                'accent' => $_POST['accent'] ?? '#f97316',
-                'background' => $_POST['background'] ?? '#0b1224',
-                'surface' => $_POST['surface'] ?? '#0f172a',
-                'font_family' => trim($_POST['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"),
+                'primary' => $_POST['primary'] ?? ($themeDefaults['primary'] ?? '#2563eb'),
+                'secondary' => $_POST['secondary'] ?? ($themeDefaults['secondary'] ?? '#0f172a'),
+                'accent' => $_POST['accent'] ?? ($themeDefaults['accent'] ?? '#f97316'),
+                'background' => $_POST['background'] ?? ($themeDefaults['background'] ?? '#0b1224'),
+                'surface' => $_POST['surface'] ?? ($themeDefaults['surface'] ?? '#0f172a'),
+                'font_family' => trim($_POST['font_family'] ?? ($themeDefaults['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif")),
                 'login_hero' => trim($_POST['login_hero'] ?? ''),
                 'login_message' => trim($_POST['login_message'] ?? ''),
             ],

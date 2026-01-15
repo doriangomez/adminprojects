@@ -16,6 +16,9 @@ class ConfigService
             'accent' => '#f59e0b',
             'background' => '#f3f4f6',
             'surface' => '#ffffff',
+            'text_main' => '#0f172a',
+            'text_muted' => '#475569',
+            'border' => '#e5e7eb',
             'font_family' => "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             'login_hero' => 'Orquesta tus operaciones críticas',
             'login_message' => 'Diseña flujos, controla riesgos y haz visible el valor de tu PMO.',
@@ -312,26 +315,9 @@ class ConfigService
 
     public function getBranding(): array
     {
-        $config = $this->getConfig();
-        $theme = $config['theme'] ?? [];
+        $theme = (new ThemeRepository($this->db))->getActiveTheme();
 
-        $basePublicPath = '/project/public';
-        $uploadsPrefix = $basePublicPath . '/uploads/logos/';
-        $defaultLogo = $this->defaults['theme']['logo'];
-
-        $logoUrl = is_string($theme['logo'] ?? null) ? trim((string) $theme['logo']) : '';
-        if (!str_starts_with($logoUrl, $uploadsPrefix)) {
-            $logoUrl = $defaultLogo;
-        }
-
-        $logoPath = $this->publicPathFromUrl($logoUrl, $basePublicPath);
-        if (!$logoPath || !is_file($logoPath)) {
-            $logoUrl = $defaultLogo;
-        }
-
-        return [
-            'theme' => array_merge($this->defaults['theme'], $theme, ['logo' => $logoUrl]),
-        ];
+        return ['theme' => $theme];
     }
 
     public function storeLogo(?array $file): ?string
