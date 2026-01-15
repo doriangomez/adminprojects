@@ -68,6 +68,9 @@ class ConfigController extends Controller
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
         $logoValue = $logoFromUpload ?: $logoUrl;
+        $textSoft = $_POST['text_soft']
+            ?? $_POST['text_disabled']
+            ?? ($themeDefaults['text_soft'] ?? $themeDefaults['text_disabled'] ?? '#94a3b8');
 
         $payload = [
             'theme' => [
@@ -79,7 +82,8 @@ class ConfigController extends Controller
                 'surface' => $_POST['surface'] ?? ($themeDefaults['surface'] ?? '#0f172a'),
                 'text_main' => $_POST['text_main'] ?? ($themeDefaults['text_main'] ?? '#0f172a'),
                 'text_muted' => $_POST['text_muted'] ?? ($themeDefaults['text_muted'] ?? '#475569'),
-                'text_disabled' => $_POST['text_disabled'] ?? ($themeDefaults['text_disabled'] ?? '#94a3b8'),
+                'text_soft' => $textSoft,
+                'text_disabled' => $textSoft,
                 'font_family' => trim($_POST['font_family'] ?? ($themeDefaults['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif")),
                 'login_hero' => trim($_POST['login_hero'] ?? ''),
                 'login_message' => trim($_POST['login_message'] ?? ''),

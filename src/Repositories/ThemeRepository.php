@@ -17,6 +17,11 @@ class ThemeRepository
         $defaults = $this->configService->getDefaults();
         $defaultTheme = $defaults['theme'] ?? [];
         $theme = array_merge($defaultTheme, $config['theme'] ?? []);
+        $textSoft = $theme['text_soft'] ?? $theme['text_disabled'] ?? ($defaultTheme['text_soft'] ?? $defaultTheme['text_disabled'] ?? null);
+        if ($textSoft !== null) {
+            $theme['text_soft'] = $textSoft;
+            $theme['text_disabled'] = $textSoft;
+        }
 
         $logoUrl = $this->normalizeLogoUrl((string) ($theme['logo'] ?? ''), (string) ($defaultTheme['logo'] ?? ''));
         $theme['logo_url'] = $logoUrl;
