@@ -9,6 +9,8 @@ $canManage = !empty($canManage);
 $canUpdateProgress = !empty($canUpdateProgress);
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
 $progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
+$view = $_GET['view'] ?? 'documentos';
+$view = in_array($view, ['resumen', 'documentos'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -275,6 +277,15 @@ $projectProgress = (float) ($project['progress'] ?? 0);
 $projectStatusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
 $projectClient = $project['client_name'] ?? $project['client'] ?? '';
 $projectMethodLabel = $badge['label'];
+$projectPmName = $project['pm_name'] ?? 'Sin PM asignado';
+$projectRiskLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
+$projectRiskLevel = strtolower((string) ($project['risk_level'] ?? ''));
+$riskClass = match ($projectRiskLevel) {
+    'alto' => 'status-danger',
+    'medio' => 'status-warning',
+    'bajo' => 'status-success',
+    default => 'status-muted',
+};
 $activePhaseName = $activePhaseNode['name'] ?? $activePhaseNode['title'] ?? $activePhaseNode['code'] ?? 'Fase';
 $activePhaseMetrics = ['status' => 'pendiente', 'progress' => 0, 'approved_required' => 0, 'total_required' => 0];
 if ($activePhaseNode) {
@@ -316,309 +327,354 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
 <section class="project-shell">
     <header class="project-header">
         <div class="project-title-block">
-            <p class="eyebrow">Expediente vivo del proyecto</p>
+            <p class="eyebrow">Detalle de proyecto</p>
             <h2><?= htmlspecialchars($project['name'] ?? '') ?></h2>
-            <div class="project-meta-grid">
-                <div class="meta-card">
-                    <span>Cliente</span>
-                    <strong><?= htmlspecialchars($projectClient) ?></strong>
-                </div>
-                <div class="meta-card">
-                    <span>Metodología</span>
-                    <strong><?= htmlspecialchars($projectMethodLabel) ?></strong>
-                </div>
-                <div class="meta-card">
-                    <span>Estado general</span>
-                    <strong><?= htmlspecialchars((string) $projectStatusLabel) ?></strong>
-                </div>
+            <div class="project-badges">
+                <span class="pill" style="background: <?= $badge['bg'] ?>; color: <?= $badge['color'] ?>;"><?= htmlspecialchars($badge['label']) ?></span>
+                <span class="pill neutral">Cliente: <?= htmlspecialchars($projectClient) ?></span>
+                <span class="pill neutral">Estado: <?= htmlspecialchars((string) $projectStatusLabel) ?></span>
             </div>
         </div>
-        <div class="project-progress-card">
-            <span class="pill" style="background: <?= $badge['bg'] ?>; color: <?= $badge['color'] ?>;"><?= htmlspecialchars($badge['label']) ?></span>
-            <div class="project-progress">
-                <span class="project-progress__label">Avance global manual</span>
-                <div class="project-progress__bar" role="progressbar" aria-valuenow="<?= $projectProgress ?>" aria-valuemin="0" aria-valuemax="100">
-                    <div style="width: <?= $projectProgress ?>%;"></div>
-                </div>
-                <span class="project-progress__value"><?= $projectProgress ?>% completado</span>
-            </div>
-            <div class="progress-meta">
-                <div class="progress-meta__item">
-                    <span>Última actualización</span>
-                    <strong><?= htmlspecialchars($lastProgressDate) ?></strong>
-                </div>
-                <div class="progress-meta__item">
-                    <span>Actualizado por</span>
-                    <strong><?= htmlspecialchars($lastProgressUser ?: 'Sistema') ?></strong>
-                </div>
-                <div class="progress-meta__item full">
-                    <span>Justificación</span>
-                    <p><?= $lastProgressJustification !== '' ? htmlspecialchars($lastProgressJustification) : 'Sin registro' ?></p>
-                </div>
-            </div>
+        <div class="project-actions">
             <?php if ($canUpdateProgress): ?>
                 <button class="action-btn primary" type="button" data-open-modal="progress-modal">Actualizar avance</button>
             <?php endif; ?>
+            <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit">Editar proyecto</a>
         </div>
     </header>
 
     <?php
-    $activeTab = 'documents';
+    $activeTab = $view === 'resumen' ? 'resumen' : 'documents';
     require __DIR__ . '/_tabs.php';
     ?>
 
-    <section class="progress-context">
-        <div class="context-card">
-            <div>
-                <p class="eyebrow">Indicadores de contexto</p>
-                <h4>Apoyo a la decisión del avance</h4>
-                <small class="section-muted">Informativos, no calculan el porcentaje de avance.</small>
-            </div>
-            <div class="context-grid">
-                <div class="context-item">
-                    <span>Documentos aprobados</span>
-                    <strong><?= $approvedDocuments ?></strong>
-                </div>
-                <div class="context-item">
-                    <span>Controles pendientes</span>
-                    <strong><?= $pendingControls ?></strong>
-                </div>
-                <div class="context-item">
-                    <span>Horas registradas</span>
-                    <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
-                    <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="progress-history">
-        <div class="history-card">
-            <div class="history-header">
+    <?php if ($view === 'resumen'): ?>
+        <section class="summary-cards">
+            <article class="summary-card">
+                <span class="summary-icon">🏢</span>
                 <div>
-                    <p class="eyebrow">Historial de avance</p>
-                    <h4>Bitácora de decisiones</h4>
+                    <p>Cliente</p>
+                    <strong><?= htmlspecialchars($projectClient) ?></strong>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-icon">🧭</span>
+                <div>
+                    <p>Metodología</p>
+                    <strong><?= htmlspecialchars($projectMethodLabel) ?></strong>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-icon">📌</span>
+                <div>
+                    <p>Estado</p>
+                    <strong><?= htmlspecialchars((string) $projectStatusLabel) ?></strong>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-icon">📈</span>
+                <div>
+                    <p>Avance manual</p>
+                    <strong><?= $projectProgress ?>%</strong>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-icon">⚠️</span>
+                <div>
+                    <p>Riesgo</p>
+                    <strong><?= htmlspecialchars($projectRiskLabel) ?></strong>
+                    <span class="badge status-badge <?= $riskClass ?>">Nivel <?= htmlspecialchars($projectRiskLevel ?: 'N/A') ?></span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-icon">🧑‍💼</span>
+                <div>
+                    <p>PM a cargo</p>
+                    <strong><?= htmlspecialchars($projectPmName) ?></strong>
+                </div>
+            </article>
+        </section>
+
+        <section class="summary-progress">
+            <div class="progress-card">
+                <div>
+                    <p class="eyebrow">Avance global manual</p>
+                    <h4>Visión ejecutiva del progreso</h4>
+                </div>
+                <div class="project-progress">
+                    <span class="project-progress__label">Avance global</span>
+                    <div class="project-progress__bar" role="progressbar" aria-valuenow="<?= $projectProgress ?>" aria-valuemin="0" aria-valuemax="100">
+                        <div style="width: <?= $projectProgress ?>%;"></div>
+                    </div>
+                    <span class="project-progress__value"><?= $projectProgress ?>% completado</span>
+                </div>
+                <div class="progress-meta">
+                    <div class="progress-meta__item">
+                        <span>Última actualización</span>
+                        <strong><?= htmlspecialchars($lastProgressDate) ?></strong>
+                    </div>
+                    <div class="progress-meta__item">
+                        <span>Actualizado por</span>
+                        <strong><?= htmlspecialchars($lastProgressUser ?: 'Sistema') ?></strong>
+                    </div>
+                    <div class="progress-meta__item full">
+                        <span>Justificación</span>
+                        <p><?= $lastProgressJustification !== '' ? htmlspecialchars($lastProgressJustification) : 'Sin registro' ?></p>
+                    </div>
                 </div>
             </div>
-            <?php if (empty($progressHistory)): ?>
-                <p class="section-muted">Aún no hay actualizaciones registradas.</p>
-            <?php else: ?>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Usuario</th>
-                                <th>Anterior</th>
-                                <th>Nuevo</th>
-                                <th>Justificación</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($progressHistory as $entry): ?>
-                                <?php
-                                $payload = is_array($entry['payload'] ?? null) ? $entry['payload'] : [];
-                                $previous = $payload['previous_progress'] ?? null;
-                                $next = $payload['new_progress'] ?? null;
-                                $justification = trim((string) ($payload['justification'] ?? ''));
-                                ?>
+            <div class="context-card">
+                <div>
+                    <p class="eyebrow">Indicadores de control</p>
+                    <h4>Apoyo a la decisión del avance</h4>
+                    <small class="section-muted">Informativos, no calculan el porcentaje de avance.</small>
+                </div>
+                <div class="context-grid">
+                    <div class="context-item">
+                        <span>Documentos aprobados</span>
+                        <strong><?= $approvedDocuments ?></strong>
+                    </div>
+                    <div class="context-item">
+                        <span>Controles pendientes</span>
+                        <strong><?= $pendingControls ?></strong>
+                    </div>
+                    <div class="context-item">
+                        <span>Horas registradas</span>
+                        <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
+                        <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="progress-history">
+            <div class="history-card">
+                <div class="history-header">
+                    <div>
+                        <p class="eyebrow">Historial de avance</p>
+                        <h4>Bitácora de decisiones</h4>
+                    </div>
+                </div>
+                <?php if (empty($progressHistory)): ?>
+                    <p class="section-muted">Aún no hay actualizaciones registradas.</p>
+                <?php else: ?>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td><?= htmlspecialchars($formatTimestamp($entry['created_at'] ?? null)) ?></td>
-                                    <td><?= htmlspecialchars($entry['user_name'] ?? 'Sistema') ?></td>
-                                    <td><?= $previous !== null ? number_format((float) $previous, 1) . '%' : '-' ?></td>
-                                    <td><?= $next !== null ? number_format((float) $next, 1) . '%' : '-' ?></td>
-                                    <td><?= $justification !== '' ? htmlspecialchars($justification) : 'Sin registro' ?></td>
+                                    <th>Fecha</th>
+                                    <th>Usuario</th>
+                                    <th>Anterior</th>
+                                    <th>Nuevo</th>
+                                    <th>Justificación</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </div>
-    </section>
-
-    <div class="project-layout">
-        <aside class="phase-sidebar">
-            <div class="phase-sidebar__header">
-                <div>
-                    <strong>Explorador de fases</strong>
-                    <p class="section-muted">Accede a cada fase del expediente. Las subfases viven en los tabs centrales.</p>
-                </div>
-                <?php if ($canManage && $methodology === 'scrum'): ?>
-                    <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/sprints">
-                        <button class="action-btn small" type="submit">Nuevo sprint</button>
-                    </form>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($progressHistory as $entry): ?>
+                                    <?php
+                                    $payload = is_array($entry['payload'] ?? null) ? $entry['payload'] : [];
+                                    $previous = $payload['previous_progress'] ?? null;
+                                    $next = $payload['new_progress'] ?? null;
+                                    $justification = trim((string) ($payload['justification'] ?? ''));
+                                    ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($formatTimestamp($entry['created_at'] ?? null)) ?></td>
+                                        <td><?= htmlspecialchars($entry['user_name'] ?? 'Sistema') ?></td>
+                                        <td><?= $previous !== null ? number_format((float) $previous, 1) . '%' : '-' ?></td>
+                                        <td><?= $next !== null ? number_format((float) $next, 1) . '%' : '-' ?></td>
+                                        <td><?= $justification !== '' ? htmlspecialchars($justification) : 'Sin registro' ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             </div>
+        </section>
+    <?php else: ?>
+        <div class="project-layout">
+            <aside class="phase-sidebar">
+                <div class="phase-sidebar__header">
+                    <div>
+                        <strong>Explorador de fases</strong>
+                        <p class="section-muted">Accede a cada fase del expediente. Las subfases viven en los tabs centrales.</p>
+                    </div>
+                    <?php if ($canManage && $methodology === 'scrum'): ?>
+                        <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/sprints">
+                            <button class="action-btn small" type="submit">Nuevo sprint</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
 
-            <?php if (empty($phaseNodes)): ?>
-                <p class="section-muted">Sin fases disponibles.</p>
-            <?php else: ?>
-                <ul class="phase-list">
-                    <?php foreach ($phaseNodes as $phase): ?>
-                        <?php
-                        $phaseCode = (string) ($phase['code'] ?? '');
-                        $phaseMetrics = $phaseProgressByCode[$phaseCode] ?? $computePhaseMetrics($phase);
-                        $phaseStatusLabel = $statusLabels[$phaseMetrics['status']] ?? $phaseMetrics['status'];
-                        $phaseProgressLabel = ($methodology === 'scrum' && ($phase['code'] ?? '') === '03-SPRINTS')
-                            ? count($sprintNodes) . ' sprints activos'
-                            : ($phaseMetrics['total_required'] > 0
-                                ? $phaseMetrics['approved_required'] . ' de ' . $phaseMetrics['total_required'] . ' documentos clave'
-                                : 'Sin documentos clave configurados');
-                        $isPhaseActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($phase['id'] ?? 0);
-                        $phaseLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?node=' . (int) ($phase['id'] ?? 0);
-                        ?>
-                        <?php if ($methodology === 'scrum' && ($phase['code'] ?? '') === '03-SPRINTS'): ?>
-                            <li class="phase-item">
-                                <details class="phase-group" <?= $isSprint ? 'open' : '' ?>>
-                                    <summary class="phase-link">
+                <?php if (empty($phaseNodes)): ?>
+                    <p class="section-muted">Sin fases disponibles.</p>
+                <?php else: ?>
+                    <ul class="phase-list">
+                        <?php foreach ($phaseNodes as $phase): ?>
+                            <?php
+                            $phaseCode = (string) ($phase['code'] ?? '');
+                            $phaseMetrics = $phaseProgressByCode[$phaseCode] ?? $computePhaseMetrics($phase);
+                            $phaseStatusLabel = $statusLabels[$phaseMetrics['status']] ?? $phaseMetrics['status'];
+                            $phaseProgressLabel = ($methodology === 'scrum' && ($phase['code'] ?? '') === '03-SPRINTS')
+                                ? count($sprintNodes) . ' sprints activos'
+                                : ($phaseMetrics['total_required'] > 0
+                                    ? $phaseMetrics['approved_required'] . ' de ' . $phaseMetrics['total_required'] . ' documentos clave'
+                                    : 'Sin documentos clave configurados');
+                            $isPhaseActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($phase['id'] ?? 0);
+                            $phaseLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?view=documentos&node=' . (int) ($phase['id'] ?? 0);
+                            ?>
+                            <?php if ($methodology === 'scrum' && ($phase['code'] ?? '') === '03-SPRINTS'): ?>
+                                <li class="phase-item">
+                                    <details class="phase-group" <?= $isSprint ? 'open' : '' ?>>
+                                        <summary class="phase-link">
+                                            <div class="phase-link__title">
+                                                <span class="phase-icon">📁</span>
+                                                <div>
+                                                    <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? 'Sprints') ?></strong>
+                                                    <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
+                                                </div>
+                                            </div>
+                                            <span class="badge status-badge <?= $statusBadgeClass($phaseMetrics['status']) ?>"><?= htmlspecialchars($phaseStatusLabel) ?></span>
+                                        </summary>
+                                        <ul class="phase-sublist">
+                                            <?php foreach ($sprintNodes as $sprint): ?>
+                                                <?php
+                                                $sprintMetrics = $computePhaseMetrics($sprint);
+                                                $sprintStatusLabel = $statusLabels[$sprintMetrics['status']] ?? $sprintMetrics['status'];
+                                                $sprintProgressLabel = $sprintMetrics['total_required'] > 0
+                                                    ? $sprintMetrics['approved_required'] . ' de ' . $sprintMetrics['total_required'] . ' documentos clave'
+                                                    : 'Sin documentos clave configurados';
+                                                $isSprintActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($sprint['id'] ?? 0);
+                                                $sprintLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?view=documentos&node=' . (int) ($sprint['id'] ?? 0);
+                                                ?>
+                                                <li>
+                                                    <a class="phase-link <?= $isSprintActive ? 'active' : '' ?>" href="<?= htmlspecialchars($sprintLink) ?>">
+                                                        <div class="phase-link__title">
+                                                            <span class="phase-icon">📁</span>
+                                                            <div>
+                                                                <strong><?= htmlspecialchars($sprint['name'] ?? $sprint['title'] ?? '') ?></strong>
+                                                                <small class="section-muted"><?= htmlspecialchars($sprintProgressLabel) ?></small>
+                                                            </div>
+                                                        </div>
+                                                        <span class="badge status-badge <?= $statusBadgeClass($sprintMetrics['status']) ?>"><?= htmlspecialchars($sprintStatusLabel) ?></span>
+                                                    </a>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </details>
+                                </li>
+                            <?php else: ?>
+                                <li class="phase-item">
+                                    <a class="phase-link <?= $isPhaseActive ? 'active' : '' ?>" href="<?= htmlspecialchars($phaseLink) ?>">
                                         <div class="phase-link__title">
                                             <span class="phase-icon">📁</span>
                                             <div>
-                                                <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? 'Sprints') ?></strong>
+                                                <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? $phase['code'] ?? '') ?></strong>
                                                 <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
                                             </div>
                                         </div>
                                         <span class="badge status-badge <?= $statusBadgeClass($phaseMetrics['status']) ?>"><?= htmlspecialchars($phaseStatusLabel) ?></span>
-                                    </summary>
-                                    <ul class="phase-sublist">
-                                        <?php foreach ($sprintNodes as $sprint): ?>
-                                            <?php
-                                            $sprintMetrics = $computePhaseMetrics($sprint);
-                                            $sprintStatusLabel = $statusLabels[$sprintMetrics['status']] ?? $sprintMetrics['status'];
-                                            $sprintProgressLabel = $sprintMetrics['total_required'] > 0
-                                                ? $sprintMetrics['approved_required'] . ' de ' . $sprintMetrics['total_required'] . ' documentos clave'
-                                                : 'Sin documentos clave configurados';
-                                            $isSprintActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($sprint['id'] ?? 0);
-                                            $sprintLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?node=' . (int) ($sprint['id'] ?? 0);
-                                            ?>
-                                            <li>
-                                                <a class="phase-link <?= $isSprintActive ? 'active' : '' ?>" href="<?= htmlspecialchars($sprintLink) ?>">
-                                                    <div class="phase-link__title">
-                                                        <span class="phase-icon">📁</span>
-                                                        <div>
-                                                            <strong><?= htmlspecialchars($sprint['name'] ?? $sprint['title'] ?? '') ?></strong>
-                                                            <small class="section-muted"><?= htmlspecialchars($sprintProgressLabel) ?></small>
-                                                        </div>
-                                                    </div>
-                                                    <span class="badge status-badge <?= $statusBadgeClass($sprintMetrics['status']) ?>"><?= htmlspecialchars($sprintStatusLabel) ?></span>
-                                                </a>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </details>
-                            </li>
-                        <?php else: ?>
-                            <li class="phase-item">
-                                <a class="phase-link <?= $isPhaseActive ? 'active' : '' ?>" href="<?= htmlspecialchars($phaseLink) ?>">
-                                    <div class="phase-link__title">
-                                        <span class="phase-icon">📁</span>
-                                        <div>
-                                            <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? $phase['code'] ?? '') ?></strong>
-                                            <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
-                                        </div>
+                                    </a>
+                                    <div class="phase-progress-bar" role="progressbar" aria-valuenow="<?= $phaseMetrics['progress'] ?>" aria-valuemin="0" aria-valuemax="100">
+                                        <div style="width: <?= $phaseMetrics['progress'] ?>%;"></div>
                                     </div>
-                                    <span class="badge status-badge <?= $statusBadgeClass($phaseMetrics['status']) ?>"><?= htmlspecialchars($phaseStatusLabel) ?></span>
-                                </a>
-                                <div class="phase-progress-bar" role="progressbar" aria-valuenow="<?= $phaseMetrics['progress'] ?>" aria-valuemin="0" aria-valuemax="100">
-                                    <div style="width: <?= $phaseMetrics['progress'] ?>%;"></div>
-                                </div>
-                            </li>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </aside>
+                                </li>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </aside>
 
-        <main class="phase-panel">
-            <?php if (!$activePhaseNode): ?>
-                <p class="section-muted">Selecciona una fase para comenzar.</p>
-            <?php else: ?>
-                <header class="phase-panel__header">
-                    <div>
-                        <nav class="breadcrumb">
-                            <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>">Proyecto</a>
-                            <span>›</span>
-                            <?php if ($isSprint && $sprintGroupNode): ?>
-                                <span><?= htmlspecialchars($sprintGroupNode['name'] ?? $sprintGroupNode['title'] ?? 'Sprints') ?></span>
+            <main class="phase-panel">
+                <?php if (!$activePhaseNode): ?>
+                    <p class="section-muted">Selecciona una fase para comenzar.</p>
+                <?php else: ?>
+                    <header class="phase-panel__header">
+                        <div>
+                            <nav class="breadcrumb">
+                                <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos">Proyecto</a>
                                 <span>›</span>
-                                <span><?= htmlspecialchars($activePhaseName) ?></span>
-                            <?php else: ?>
-                                <span><?= htmlspecialchars($activePhaseName) ?></span>
-                            <?php endif; ?>
-                        </nav>
-                        <h3><?= htmlspecialchars($activePhaseName) ?> <?= $isSprint ? '(Sprint)' : '' ?></h3>
-                        <div class="phase-meta">
-                            <span class="badge status-badge <?= $statusBadgeClass($activePhaseMetrics['status']) ?>"><?= htmlspecialchars($activePhaseStatusLabel) ?></span>
-                            <span class="count-pill">Avance <?= $activePhaseMetrics['progress'] ?>%</span>
-                            <?php if ($activeSubphaseIso): ?>
-                                <span class="count-pill">ISO <?= htmlspecialchars((string) $activeSubphaseIso) ?></span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php if ($canManage): ?>
-                        <div class="phase-actions">
-                            <?php if ($activePhaseNode): ?>
-                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($activePhaseNode['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar esta fase y su contenido?');">
-                                    <button type="submit" class="action-btn danger">Eliminar fase</button>
-                                </form>
-                            <?php endif; ?>
-                            <?php if ($activeSubphaseNode): ?>
-                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($activeSubphaseNode['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar esta subfase y su contenido?');">
-                                    <button type="submit" class="action-btn">Eliminar subfase</button>
-                                </form>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-                </header>
-
-                <div class="phase-tabs">
-                    <?php foreach ($subphaseLabelMap as $suffix => $label): ?>
-                        <?php if (isset($subphaseNodes[$suffix])): ?>
-                            <?php $tabLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?node=' . (int) ($subphaseNodes[$suffix]['id'] ?? 0); ?>
-                            <a class="phase-tab <?= $activeSubphaseSuffix === $suffix ? 'active' : '' ?>" href="<?= htmlspecialchars($tabLink) ?>">
-                                <?= htmlspecialchars($label) ?>
-                            </a>
-                        <?php else: ?>
-                            <span class="phase-tab disabled"><?= htmlspecialchars($label) ?></span>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </div>
-
-                <?php if ($isSubphase && $activeSubphaseNode): ?>
-                    <section class="phase-tab-panel">
-                        <div class="phase-tab-panel__header">
-                            <div>
-                                <p class="eyebrow">Subfase activa</p>
-                                <h4><?= htmlspecialchars($activeTabLabel) ?> · <?= htmlspecialchars($activeSubphaseName) ?></h4>
-                                <small class="section-muted"><?= htmlspecialchars($activeTabDescription ?: 'Documentación y control ISO 9001 para esta subfase.') ?></small>
+                                <?php if ($isSprint && $sprintGroupNode): ?>
+                                    <span><?= htmlspecialchars($sprintGroupNode['name'] ?? $sprintGroupNode['title'] ?? 'Sprints') ?></span>
+                                    <span>›</span>
+                                    <span><?= htmlspecialchars($activePhaseName) ?></span>
+                                <?php else: ?>
+                                    <span><?= htmlspecialchars($activePhaseName) ?></span>
+                                <?php endif; ?>
+                            </nav>
+                            <h3><?= htmlspecialchars($activePhaseName) ?> <?= $isSprint ? '(Sprint)' : '' ?></h3>
+                            <div class="phase-meta">
+                                <span class="badge status-badge <?= $statusBadgeClass($activePhaseMetrics['status']) ?>"><?= htmlspecialchars($activePhaseStatusLabel) ?></span>
+                                <span class="count-pill">Avance <?= $activePhaseMetrics['progress'] ?>%</span>
+                                <?php if ($activeSubphaseIso): ?>
+                                    <span class="count-pill">ISO <?= htmlspecialchars((string) $activeSubphaseIso) ?></span>
+                                <?php endif; ?>
                             </div>
                         </div>
-                        <?php
-                        $documentFlowId = 'document-flow-' . (int) ($activeSubphaseNode['id'] ?? 0);
-                        $documentNode = $activeSubphaseNode;
-                        $documentExpectedDocs = $expectedDocsForSubphase;
-                        $documentTagOptions = $documentFlowTagOptions;
-                        $documentKeyTags = $expectedDocsForSubphase;
-                        $documentCanManage = $canManage;
-                        $documentMode = $activeSubphaseSuffix;
-                        $documentProjectId = (int) ($project['id'] ?? 0);
-                        $documentBasePath = $basePath;
-                        $documentCurrentUser = $currentUser;
-                        require __DIR__ . '/document_flow.php';
-                        ?>
-                    </section>
-                <?php else: ?>
-                    <section class="phase-tab-panel">
-                        <h4>Gestión documental por subfase</h4>
-                        <p class="section-muted">Esta fase aún no tiene subfases configuradas. Selecciona otra fase para continuar.</p>
-                        <p class="phase-warning">No se permiten archivos sueltos fuera de subfases.</p>
-                        <button class="action-btn primary" type="button" disabled>Subir documento (deshabilitado)</button>
-                    </section>
+                        <?php if ($canManage): ?>
+                            <div class="phase-actions">
+                                <?php if ($activePhaseNode): ?>
+                                    <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($activePhaseNode['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar esta fase y su contenido?');">
+                                        <button type="submit" class="action-btn danger">Eliminar fase</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($activeSubphaseNode): ?>
+                                    <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/nodes/<?= (int) ($activeSubphaseNode['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar esta subfase y su contenido?');">
+                                        <button type="submit" class="action-btn">Eliminar subfase</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </header>
+
+                    <div class="phase-tabs">
+                        <?php foreach ($subphaseLabelMap as $suffix => $label): ?>
+                            <?php if (isset($subphaseNodes[$suffix])): ?>
+                                <?php $tabLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?view=documentos&node=' . (int) ($subphaseNodes[$suffix]['id'] ?? 0); ?>
+                                <a class="phase-tab <?= $activeSubphaseSuffix === $suffix ? 'active' : '' ?>" href="<?= htmlspecialchars($tabLink) ?>">
+                                    <?= htmlspecialchars($label) ?>
+                                </a>
+                            <?php else: ?>
+                                <span class="phase-tab disabled"><?= htmlspecialchars($label) ?></span>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <?php if ($isSubphase && $activeSubphaseNode): ?>
+                        <section class="phase-tab-panel">
+                            <div class="phase-tab-panel__header">
+                                <div>
+                                    <p class="eyebrow">Subfase activa</p>
+                                    <h4><?= htmlspecialchars($activeTabLabel) ?> · <?= htmlspecialchars($activeSubphaseName) ?></h4>
+                                    <small class="section-muted"><?= htmlspecialchars($activeTabDescription ?: 'Documentación y control ISO 9001 para esta subfase.') ?></small>
+                                </div>
+                            </div>
+                            <?php
+                            $documentFlowId = 'document-flow-' . (int) ($activeSubphaseNode['id'] ?? 0);
+                            $documentNode = $activeSubphaseNode;
+                            $documentExpectedDocs = $expectedDocsForSubphase;
+                            $documentTagOptions = $documentFlowTagOptions;
+                            $documentKeyTags = $expectedDocsForSubphase;
+                            $documentCanManage = $canManage;
+                            $documentMode = $activeSubphaseSuffix;
+                            $documentProjectId = (int) ($project['id'] ?? 0);
+                            $documentBasePath = $basePath;
+                            $documentCurrentUser = $currentUser;
+                            require __DIR__ . '/document_flow.php';
+                            ?>
+                        </section>
+                    <?php else: ?>
+                        <section class="phase-tab-panel">
+                            <h4>Gestión documental por subfase</h4>
+                            <p class="section-muted">Esta fase aún no tiene subfases configuradas. Selecciona otra fase para continuar.</p>
+                            <p class="phase-warning">No se permiten archivos sueltos fuera de subfases.</p>
+                            <button class="action-btn primary" type="button" disabled>Subir documento (deshabilitado)</button>
+                        </section>
+                    <?php endif; ?>
                 <?php endif; ?>
-            <?php endif; ?>
-        </main>
-    </div>
+            </main>
+        </div>
+    <?php endif; ?>
 </section>
 
 <?php if ($canUpdateProgress): ?>
@@ -680,11 +736,16 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
     .project-title-block h2 { margin:0; color: var(--text-strong); }
-    .project-meta-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
-    .meta-card { background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:4px; }
-    .meta-card span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .meta-card strong { font-size:15px; color: var(--text-strong); }
-    .project-progress-card { display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+    .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .project-badges { display:flex; gap:8px; flex-wrap:wrap; }
+    .pill.neutral { background:#f8fafc; border-color: var(--border); color: var(--text-strong); }
+    .summary-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+    .summary-card { border:1px solid var(--border); border-radius:14px; padding:12px; background:#fff; display:flex; gap:12px; align-items:center; }
+    .summary-card p { margin:0; font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
+    .summary-card strong { font-size:16px; color: var(--text-strong); }
+    .summary-icon { width:40px; height:40px; border-radius:12px; background:#eef2ff; color:#4338ca; display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
+    .summary-progress { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+    .progress-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
     .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
     .action-btn.danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
@@ -695,6 +756,8 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .status-muted { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
     .status-info { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
     .status-success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
+    .status-warning { background:#fef9c3; color:#854d0e; border-color:#fde047; }
+    .status-danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
     .count-pill { font-size:12px; font-weight:700; color: var(--text-strong); background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
     .breadcrumb { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; color: var(--muted); margin-bottom:8px; }
     .breadcrumb a { color: var(--text-strong); text-decoration:none; font-weight:600; }
@@ -709,7 +772,6 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .progress-meta__item.full { grid-column: 1 / -1; }
     .progress-meta__item strong { font-size:13px; color: var(--text-strong); }
     .progress-meta__item.full p { margin:0; font-size:13px; color: var(--text-strong); }
-    .progress-context { display:flex; }
     .context-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
     .context-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
     .context-item { border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:4px; }

@@ -163,16 +163,17 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             <div class="alert error wizard-validation" id="wizardValidationMessage" role="alert">
                 Faltan datos obligatorios para continuar
             </div>
-            <div class="step-block step-block--required">
-                <div class="step-block__header">
+            <details class="accordion step-block step-block--required" open>
+                <summary class="accordion-summary">
                     <div>
-                        <p class="step-block__eyebrow">Datos básicos</p>
+                        <p class="step-block__eyebrow">Datos generales</p>
                         <strong class="step-block__title">Obligatorios para crear el proyecto</strong>
                         <p class="step-block__help">Completa lo mínimo para habilitar el avance.</p>
                     </div>
                     <span class="pill soft-amber">Obligatorio</span>
-                </div>
-                <section class="grid step-block__grid">
+                </summary>
+                <div class="accordion-body">
+                    <section class="grid step-block__grid">
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📝</span>Nombre del proyecto</span>
@@ -256,19 +257,21 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                         </span>
                         <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
-                </section>
-            </div>
+                    </section>
+                </div>
+            </details>
 
-            <div class="step-block step-block--recommended">
-                <div class="step-block__header">
+            <details class="accordion step-block step-block--recommended" open>
+                <summary class="accordion-summary">
                     <div>
-                        <p class="step-block__eyebrow">Contexto de diseño</p>
-                        <strong class="step-block__title">Recomendado (ISO 9001 8.3)</strong>
+                        <p class="step-block__eyebrow">Metodología</p>
+                        <strong class="step-block__title">Contexto de diseño (ISO 9001 8.3)</strong>
                         <p class="step-block__help">Define alcance y entradas para evitar reprocesos.</p>
                     </div>
                     <span class="pill soft-blue">Recomendado</span>
-                </div>
-                <section class="grid step-block__grid">
+                </summary>
+                <div class="accordion-body">
+                    <section class="grid step-block__grid">
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
@@ -291,21 +294,23 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <option value="baja" <?= $clientParticipation === 'baja' ? 'selected' : '' ?>>Baja (solo aprobaciones clave)</option>
                         </select>
                     </label>
-                </section>
-            </div>
+                    </section>
+                </div>
+            </details>
 
-            <div class="step-block step-block--optional">
-                <div class="step-block__header">
+            <details class="accordion step-block step-block--optional" open>
+                <summary class="accordion-summary">
                     <div>
-                        <p class="step-block__eyebrow">Riesgos iniciales</p>
+                        <p class="step-block__eyebrow">Riesgos</p>
                         <strong class="step-block__title">Opcional</strong>
                         <p class="step-block__help">Selecciona riesgos relevantes para monitorear desde el inicio.</p>
                     </div>
                     <div class="risk-summary">
                         <span class="pill soft-slate" id="riskCount">0 seleccionados</span>
                     </div>
-                </div>
-                <div class="risk-grid" id="riskChecklist">
+                </summary>
+                <div class="accordion-body">
+                    <div class="risk-grid" id="riskChecklist">
                     <?php foreach ($orderedRiskGroups as $category => $risks): ?>
                         <?php $categoryIcon = $riskCategoryIcons[$category] ?? $riskCategoryIcons['Otros']; ?>
                         <div class="risk-group" data-limit="5">
@@ -332,8 +337,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <?php if (empty($riskCatalog)): ?>
                         <span class="muted">Configura el catálogo de riesgos en el módulo de configuración.</span>
                     <?php endif; ?>
+                    </div>
                 </div>
-            </div>
+            </details>
         </div>
     </div>
 
@@ -389,20 +395,43 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 Las evidencias, cotizaciones y planes se cargan después en el expediente del proyecto (carpeta principal &rarr; Evidencias).
             </div>
 
-            <section class="grid step-card__grid compact">
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">💰</span>Presupuesto plan</span>
-                    </span>
-                    <input type="number" step="0.01" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-                <label class="input">
-                    <span class="field-label">
-                        <span class="field-title"><span class="field-icon">⏱️</span>Horas planificadas</span>
-                    </span>
-                    <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
-                </label>
-            </section>
+            <details class="accordion" open>
+                <summary class="accordion-summary">
+                    <div>
+                        <p class="step-block__eyebrow">Fechas y presupuesto</p>
+                        <strong class="step-block__title">Planeación mínima</strong>
+                    </div>
+                </summary>
+                <div class="accordion-body">
+                    <section class="grid step-card__grid compact">
+                        <label class="input">
+                            <span class="field-label">
+                                <span class="field-title"><span class="field-icon">💰</span>Presupuesto plan</span>
+                            </span>
+                            <input type="number" step="0.01" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        </label>
+                        <label class="input">
+                            <span class="field-label">
+                                <span class="field-title"><span class="field-icon">⏱️</span>Horas planificadas</span>
+                            </span>
+                            <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        </label>
+                    </section>
+                </div>
+            </details>
+            <details class="accordion">
+                <summary class="accordion-summary">
+                    <div>
+                        <p class="step-block__eyebrow">Zona crítica</p>
+                        <strong class="step-block__title">Buenas prácticas de control</strong>
+                    </div>
+                </summary>
+                <div class="accordion-body">
+                    <div class="alert warning">
+                        Los ajustes críticos (eliminación, cambios masivos o cierres) se habilitan luego de crear el proyecto y validar dependencias.
+                    </div>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -456,7 +485,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .step-card__header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .step-card__grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     .step-card__grid.compact { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-    .step-block { padding:14px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); display:flex; flex-direction:column; gap:12px; }
+    .step-block { border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); display:flex; flex-direction:column; gap:12px; }
+    .accordion { border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 94%, transparent); padding:0; }
+    .accordion-summary { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; cursor:pointer; list-style:none; padding:12px; }
+    .accordion-summary::-webkit-details-marker { display:none; }
+    .accordion-body { padding:0 12px 12px; display:flex; flex-direction:column; gap:12px; }
     .step-block__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
     .step-block__eyebrow { margin:0; font-weight:800; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
     .step-block__title { display:block; font-size:16px; color: var(--text-strong); }

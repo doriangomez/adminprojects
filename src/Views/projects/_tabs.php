@@ -4,34 +4,52 @@ $project = $project ?? [];
 $activeTab = $activeTab ?? 'documents';
 $projectId = (int) ($project['id'] ?? 0);
 $projectType = (string) ($project['project_type'] ?? '');
+$viewParam = $_GET['view'] ?? null;
+$summaryHref = $basePath . '/projects/' . $projectId . '?view=resumen';
+$documentsHref = $basePath . '/projects/' . $projectId . ($viewParam === 'documentos' ? '?view=documentos' : '');
 $tabs = [
+    'resumen' => [
+        'label' => 'Resumen',
+        'href' => $summaryHref,
+        'icon' => '📊',
+    ],
     'documents' => [
         'label' => 'Documentos',
-        'href' => $basePath . '/projects/' . $projectId,
+        'href' => $documentsHref,
+        'icon' => '📂',
     ],
-    'tasks' => [
-        'label' => 'Tareas',
-        'href' => $basePath . '/projects/' . $projectId . '/tasks',
+    'talento' => [
+        'label' => 'Talento',
+        'href' => $basePath . '/projects/' . $projectId . '/talent',
+        'icon' => '👥',
     ],
 ];
 if ($projectType === 'outsourcing') {
     $tabs['outsourcing'] = [
         'label' => 'Outsourcing',
         'href' => $basePath . '/projects/' . $projectId . '/outsourcing',
+        'icon' => '🧩',
     ];
 }
+$tabs['riesgos'] = [
+    'label' => 'Riesgos y control',
+    'href' => $basePath . '/projects/' . $projectId . '/tasks',
+    'icon' => '🛡️',
+];
 ?>
 
 <nav class="project-tabs">
     <?php foreach ($tabs as $key => $tab): ?>
         <a class="project-tab <?= $activeTab === $key ? 'active' : '' ?>" href="<?= htmlspecialchars($tab['href']) ?>">
-            <?= htmlspecialchars($tab['label']) ?>
+            <span class="project-tab__icon" aria-hidden="true"><?= htmlspecialchars($tab['icon'] ?? '•') ?></span>
+            <span><?= htmlspecialchars($tab['label']) ?></span>
         </a>
     <?php endforeach; ?>
 </nav>
 
 <style>
-    .project-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
-    .project-tab { padding:8px 14px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background:#f8fafc; }
+    .project-tabs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px; }
+    .project-tab { padding:9px 14px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background:#f8fafc; display:inline-flex; align-items:center; gap:8px; }
+    .project-tab__icon { font-size:14px; }
     .project-tab.active { background: var(--primary); color:#fff; border-color: var(--primary); }
 </style>
