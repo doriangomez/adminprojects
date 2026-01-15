@@ -18,6 +18,11 @@ class RolesRepository
         return $this->db->fetchOne('SELECT * FROM roles WHERE id = :id', [':id' => $id]);
     }
 
+    public function findByName(string $name): ?array
+    {
+        return $this->db->fetchOne('SELECT * FROM roles WHERE nombre = :name LIMIT 1', [':name' => $name]) ?: null;
+    }
+
     public function create(array $payload): int
     {
         return $this->db->insert(

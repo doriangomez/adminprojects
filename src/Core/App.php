@@ -21,6 +21,7 @@ class App
         $migrator->ensureUserOutsourcingPermissionColumn();
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
+        $migrator->ensureTalentSchema();
         $migrator->ensureSystemSettings();
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
@@ -319,13 +320,27 @@ class App
                 $controller->closeFollowup((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if ($path === '/outsourcing/talents' && $method === 'POST') {
+                $controller->storeTalent();
+                return;
+            }
 
             $controller->index();
             return;
         }
 
         if (str_starts_with($path, '/talents')) {
-            (new TalentsController($this->db, $this->auth))->index();
+            $controller = new TalentsController($this->db, $this->auth);
+            if ($path === '/talents/create' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
+            if ($path === '/talents/update' && $method === 'POST') {
+                $controller->update();
+                return;
+            }
+
+            $controller->index();
             return;
         }
 

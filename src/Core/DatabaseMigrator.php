@@ -139,6 +139,19 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTalentSchema(): void
+    {
+        if (!$this->db->tableExists('talents')) {
+            return;
+        }
+
+        try {
+            $this->ensureTalentOutsourcingFlag();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando columnas de talentos: ' . $e->getMessage());
+        }
+    }
+
     public function ensureOutsourcingModule(): void
     {
         try {
@@ -147,6 +160,7 @@ class DatabaseMigrator
             $this->createOutsourcingServicesTable();
             $this->createOutsourcingServiceFollowupsTable();
             $this->ensureOutsourcingFollowupStatusColumns();
+            $this->ensureOutsourcingServiceObservationsColumn();
         } catch (\PDOException $e) {
             error_log('Error asegurando tablas de outsourcing: ' . $e->getMessage());
         }
@@ -1133,6 +1147,28 @@ class DatabaseMigrator
             }
         } catch (\PDOException $e) {
             error_log('Error asegurando columnas de estado de seguimiento outsourcing: ' . $e->getMessage());
+        }
+    }
+
+    private function ensureOutsourcingServiceObservationsColumn(): void
+    {
+        if (!$this->db->tableExists('outsourcing_services')) {
+            return;
+        }
+
+        if ($this->db->columnExists('outsourcing_services', 'observations')) {
+            return;
+        }
+
+        $this->db->execute('ALTER TABLE outsourcing_services ADD COLUMN observations TEXT NULL AFTER service_status');
+        $this->db->clearColumnCache();
+    }
+
+    private function ensureTalentOutsourcingFlag(): void
+    {
+        if (!$this->db->columnExists('talents', 'is_outsourcing')) {
+            $this->db->execute('ALTER TABLE talents ADD COLUMN is_outsourcing TINYINT(1) DEFAULT 0 AFTER availability');
+            $this->db->clearColumnCache();
         }
     }
 
