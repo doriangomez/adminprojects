@@ -34,7 +34,7 @@
                         <label>Color superficies<input type="color" name="surface" value="<?= htmlspecialchars($configData['theme']['surface']) ?>"></label>
                         <label>Texto principal<input type="color" name="text_main" value="<?= htmlspecialchars($configData['theme']['text_main'] ?? '#0f172a') ?>"></label>
                         <label>Texto secundario<input type="color" name="text_muted" value="<?= htmlspecialchars($configData['theme']['text_muted'] ?? '#475569') ?>"></label>
-                        <label>Texto deshabilitado<input type="color" name="text_disabled" value="<?= htmlspecialchars($configData['theme']['text_disabled'] ?? '#94a3b8') ?>"></label>
+                        <label>Texto deshabilitado<input type="color" name="text_soft" value="<?= htmlspecialchars($configData['theme']['text_soft'] ?? ($configData['theme']['text_disabled'] ?? '#94a3b8')) ?>"></label>
                     </div>
                 </div>
                 <div class="form-block">

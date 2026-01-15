@@ -31,7 +31,8 @@ error_log(sprintf(
             --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
             --text-main: <?= htmlspecialchars($theme['text_main'] ?? '#0f172a') ?>;
             --text-muted: <?= htmlspecialchars($theme['text_muted'] ?? '#475569') ?>;
-            --text-disabled: <?= htmlspecialchars($theme['text_disabled'] ?? '#94a3b8') ?>;
+            --text-soft: <?= htmlspecialchars($theme['text_soft'] ?? ($theme['text_disabled'] ?? '#94a3b8')) ?>;
+            --text-disabled: var(--text-soft);
             --border: <?= htmlspecialchars($theme['border'] ?? '#e5e7eb') ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
             --logo-url: <?= htmlspecialchars($logoCss) ?>;
@@ -44,7 +45,6 @@ error_log(sprintf(
             --text-strong: var(--text-main);
             --text: var(--text-muted);
             --muted: var(--text-muted);
-            --text-soft: var(--text-disabled);
             --on-primary: color-mix(in srgb, var(--bg-card) 94%, var(--text-main) 6%);
             --success: color-mix(in srgb, var(--accent) 28%, var(--primary) 72%);
             --warning: var(--accent);
@@ -65,7 +65,7 @@ error_log(sprintf(
         .sidebar {
             width: 280px;
             background: var(--secondary);
-            color: color-mix(in srgb, var(--bg-card) 82%, var(--text-main) 18%);
+            color: var(--text-main);
             min-height: 100vh;
             padding: 20px 18px;
             position: sticky;
@@ -87,7 +87,7 @@ error_log(sprintf(
         .sidebar-toggle {
             border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
             background: color-mix(in srgb, var(--bg-card) 12%, transparent);
-            color: color-mix(in srgb, var(--bg-card) 88%, var(--text-main) 12%);
+            color: var(--text-main);
             border-radius: 10px;
             padding: 6px;
             cursor: pointer;
@@ -99,8 +99,8 @@ error_log(sprintf(
         .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg-card) 10%, transparent); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
-        .brand-name { font-weight: 800; color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); font-size: 15px; }
-        .brand-fallback { font-weight: 800; color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); font-size: 18px; letter-spacing: 0.02em; }
+        .brand-name { font-weight: 800; color: var(--text-main); font-size: 15px; }
+        .brand-fallback { font-weight: 800; color: var(--text-main); font-size: 18px; letter-spacing: 0.02em; }
         .brand-fallback.is-hidden { display: none; }
         .sidebar .user-panel {
             display: flex;
@@ -117,29 +117,29 @@ error_log(sprintf(
             justify-content: center;
             font-weight: 700;
             background: color-mix(in srgb, var(--bg-card) 12%, transparent);
-            color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%);
+            color: var(--text-main);
             border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
         }
         .user-meta { display: flex; flex-direction: column; gap: 3px; }
-        .user-meta strong { color: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); font-size: 15px; font-weight: 700; }
-        .user-meta small { color: color-mix(in srgb, var(--bg-card) 70%, var(--text-main) 30%); font-size: 13px; font-weight: 500; }
+        .user-meta strong { color: var(--text-main); font-size: 15px; font-weight: 700; }
+        .user-meta small { color: var(--text-main); font-size: 13px; font-weight: 500; }
         .nav-title {
             margin: 0;
             font-size: 13px;
             letter-spacing: 0.02em;
             text-transform: uppercase;
-            color: color-mix(in srgb, var(--bg-card) 70%, var(--text-main) 30%);
+            color: var(--text-main);
             padding-inline: 10px;
             font-weight: 600;
         }
-        .nav-section-label { font-size: 11px; text-transform: uppercase; color: color-mix(in srgb, var(--bg-card) 70%, var(--text-main) 30%); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
+        .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--text-main); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
         .nav-divider { height: 1px; background: color-mix(in srgb, var(--border) 65%, transparent); margin: 4px 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: color-mix(in srgb, var(--bg-card) 80%, var(--text-main) 20%);
+            color: var(--text-muted);
             text-decoration: none;
             padding: 14px 12px;
             border-radius: 12px;
@@ -159,17 +159,17 @@ error_log(sprintf(
             background: transparent;
         }
         .nav-link:hover {
-            color: color-mix(in srgb, var(--bg-card) 92%, var(--text-main) 8%);
+            color: var(--text-muted);
             background: color-mix(in srgb, var(--bg-card) 12%, transparent);
             border-color: color-mix(in srgb, var(--border) 70%, transparent);
         }
         .nav-link.active {
-            color: color-mix(in srgb, var(--bg-card) 92%, var(--text-main) 8%);
+            color: var(--primary);
             font-weight: 700;
             background: color-mix(in srgb, var(--bg-card) 12%, transparent);
             border-color: color-mix(in srgb, var(--border) 80%, transparent);
         }
-        .nav-link.active::before { background: color-mix(in srgb, var(--bg-card) 90%, var(--text-main) 10%); }
+        .nav-link.active::before { background: var(--primary); }
         .nav-icon {
             width: 22px;
             height: 22px;

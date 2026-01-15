@@ -22,6 +22,8 @@ require_once __DIR__ . '/../layout/logo_helper.php';
             --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
             --text-main: <?= htmlspecialchars($theme['text_main'] ?? '#0f172a') ?>;
             --text-muted: <?= htmlspecialchars($theme['text_muted'] ?? '#475569') ?>;
+            --text-soft: <?= htmlspecialchars($theme['text_soft'] ?? ($theme['text_disabled'] ?? '#94a3b8')) ?>;
+            --text-disabled: var(--text-soft);
             --border: <?= htmlspecialchars($theme['border'] ?? '#e5e7eb') ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
             --logo-url: <?= htmlspecialchars($logoCss) ?>;
