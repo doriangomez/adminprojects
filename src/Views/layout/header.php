@@ -1,6 +1,9 @@
 <?php
+$branding = $branding ?? (new ConfigService())->getBranding();
 $theme = $branding['theme'] ?? [];
 $basePath = '/project/public';
+$appDisplayName = $appName ?? 'PMO';
+$logoUrl = !empty($theme['logo']) ? $theme['logo'] : '';
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $normalizedPath = str_starts_with($requestPath, $basePath)
     ? (substr($requestPath, strlen($basePath)) ?: '/')
@@ -54,8 +57,10 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             gap: 18px;
         }
         .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:10px; border:1px solid var(--border); background: rgb(249, 250, 251); }
-        .brand-box img { height: 30px; object-fit: contain; }
-        .brand-box span { font-weight: 800; color: var(--text-strong); font-size: 15px; }
+        .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
+        .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
+        .brand-name { font-weight: 800; color: var(--text-strong); font-size: 15px; }
+        .brand-fallback { font-weight: 800; color: var(--text-strong); font-size: 18px; letter-spacing: 0.02em; }
         .sidebar .user-panel {
             display: flex;
             align-items: center;
@@ -148,7 +153,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
             gap: 12px;
             min-width: 0;
         }
-        .brand-logo { height: 32px; width: auto; object-fit: contain; }
+        .brand-logo { height: 36px; max-height: 40px; width: auto; object-fit: contain; }
         .brand-title {
             font-weight: 800;
             color: var(--text-strong);
@@ -198,6 +203,10 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
         .cards-grid { align-items:stretch; }
         .preview-pane { background: color-mix(in srgb, white 12%, transparent); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:10px; }
         .preview-header { display:flex; align-items:center; gap:12px; }
+        .sidebar.collapsed .brand-name { display: none; }
+        .sidebar.collapsed .brand-box { justify-content: center; }
+        .sidebar.collapsed .brand-mark img { height: 32px; }
+        .sidebar.collapsed .brand-fallback { font-size: 16px; }
         .preview-logo { height:42px; background:var(--panel); padding:8px; border-radius:10px; box-shadow:0 8px 20px var(--glow); }
         .preview-subtitle { color: color-mix(in srgb, white 80%, transparent); font-size:13px; }
         .card {
@@ -338,11 +347,15 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
 </head>
 <body>
     <aside class="sidebar">
-        <div class="brand-box">
-            <?php if (!empty($theme['logo'])): ?>
-                <img src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo" onerror="this.style.display='none'">
-            <?php endif; ?>
-            <span><?= htmlspecialchars($appName ?? 'PMO') ?></span>
+        <div class="brand-box" title="<?= htmlspecialchars($appDisplayName) ?>">
+            <div class="brand-mark" aria-hidden="true">
+                <?php if (!empty($logoUrl)): ?>
+                    <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($appDisplayName) ?> logo" onerror="this.style.display='none'">
+                <?php else: ?>
+                    <span class="brand-fallback">PMO</span>
+                <?php endif; ?>
+            </div>
+            <span class="brand-name"><?= htmlspecialchars($appDisplayName) ?></span>
         </div>
         <div class="user-panel">
             <div class="avatar"><?= strtoupper(substr($user['name'] ?? 'U', 0, 1)) ?></div>
@@ -411,10 +424,14 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
     <main>
         <header class="topbar">
             <div class="brand">
-                <?php if(!empty($theme['logo'])): ?>
-                    <img src="<?= htmlspecialchars($theme['logo']) ?>" alt="Logo AOS" class="brand-logo" onerror="this.style.display='none'">
-                <?php endif; ?>
-                <div class="brand-title"><?= htmlspecialchars($appName ?? 'PMO') ?></div>
+                <div class="brand-mark" aria-hidden="true">
+                    <?php if (!empty($logoUrl)): ?>
+                        <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($appDisplayName) ?> logo" class="brand-logo" onerror="this.style.display='none'">
+                    <?php else: ?>
+                        <span class="brand-fallback">PMO</span>
+                    <?php endif; ?>
+                </div>
+                <div class="brand-title"><?= htmlspecialchars($appDisplayName) ?></div>
             </div>
             <div class="spacer"></div>
             <?php if(isset($user)): ?>
