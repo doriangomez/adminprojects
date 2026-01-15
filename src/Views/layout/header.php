@@ -18,23 +18,33 @@ require_once __DIR__ . '/logo_helper.php';
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
     <style>
         :root {
-            --primary: <?= htmlspecialchars($theme['primary'] ?? 'rgb(37, 99, 235)') ?>;
-            --primary-hover: <?= htmlspecialchars($theme['primary_hover'] ?? 'rgb(59, 130, 246)') ?>;
-            --primary-strong: <?= htmlspecialchars($theme['primary_strong'] ?? 'rgb(30, 64, 175)') ?>;
-            --secondary: <?= htmlspecialchars($theme['secondary'] ?? 'rgb(17, 24, 39)') ?>;
-            --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? 'rgb(37, 99, 235)')) ?>;
-            --bg: <?= htmlspecialchars($theme['background'] ?? 'rgb(243, 244, 246)') ?>;
-            --card: <?= htmlspecialchars($theme['surface'] ?? 'rgb(255, 255, 255)') ?>;
-            --surface: var(--card);
-            --text-strong: rgb(17, 24, 39);
-            --text: rgb(55, 65, 81);
-            --muted: rgb(100, 116, 139);
-            --border: rgb(226, 232, 240);
-            --success: rgb(34, 197, 94);
-            --warning: rgb(234, 179, 8);
-            --danger: rgb(239, 68, 68);
-            --on-primary: #ffffff;
-            --font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --bg-app: <?= htmlspecialchars($theme['background'] ?? 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)') ?>;
+            --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
+            --bg-sidebar: <?= htmlspecialchars($theme['secondary'] ?? '#0f172a') ?>;
+
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --text-inverse: #ffffff;
+            --text-sidebar: #cbd5f5;
+
+            --primary: <?= htmlspecialchars($theme['primary'] ?? '#2563eb') ?>;
+            --primary-hover: <?= htmlspecialchars($theme['primary_hover'] ?? '#3b82f6') ?>;
+            --primary-strong: <?= htmlspecialchars($theme['primary_strong'] ?? '#1e40af') ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '#111827') ?>;
+            --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? '#2563eb')) ?>;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --danger: #dc2626;
+            --border: #e5e7eb;
+
+            --bg: var(--bg-app);
+            --card: var(--bg-card);
+            --surface: var(--bg-card);
+            --text-strong: var(--text-main);
+            --text: var(--text-muted);
+            --muted: var(--text-muted);
+            --on-primary: var(--text-inverse);
+            --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
         }
         * {
             box-sizing: border-box;
@@ -43,20 +53,20 @@ require_once __DIR__ . '/logo_helper.php';
         body {
             margin: 0;
             display: flex;
-            background: var(--bg);
-            color: var(--text);
+            background: var(--bg-app);
+            color: var(--text-main);
             min-height: 100vh;
             font-weight: 500;
         }
         .sidebar {
             width: 280px;
-            background: var(--card);
-            color: var(--text);
+            background: var(--bg-sidebar);
+            color: var(--text-sidebar);
             min-height: 100vh;
             padding: 20px 18px;
             position: sticky;
             top: 0;
-            border-right: 1px solid var(--border);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
             flex-direction: column;
             gap: 18px;
@@ -71,8 +81,9 @@ require_once __DIR__ . '/logo_helper.php';
         .sidebar.collapsed .nav-link::before { display: none; }
         .sidebar.collapsed .user-panel { justify-content: center; }
         .sidebar-toggle {
-            border: 1px solid var(--border);
-            background: var(--card);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-inverse);
             border-radius: 10px;
             padding: 6px;
             cursor: pointer;
@@ -81,11 +92,11 @@ require_once __DIR__ . '/logo_helper.php';
             justify-content: center;
         }
         .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
-        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid var(--border); background: rgba(148, 163, 184, 0.08); }
+        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
-        .brand-name { font-weight: 800; color: var(--text-strong); font-size: 15px; }
-        .brand-fallback { font-weight: 800; color: var(--text-strong); font-size: 18px; letter-spacing: 0.02em; }
+        .brand-name { font-weight: 800; color: var(--text-inverse); font-size: 15px; }
+        .brand-fallback { font-weight: 800; color: var(--text-inverse); font-size: 18px; letter-spacing: 0.02em; }
         .brand-fallback.is-hidden { display: none; }
         .sidebar .user-panel {
             display: flex;
@@ -101,30 +112,30 @@ require_once __DIR__ . '/logo_helper.php';
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: rgb(219, 234, 254);
-            color: var(--text-strong);
-            border: 1px solid rgb(191, 219, 254);
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-inverse);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .user-meta { display: flex; flex-direction: column; gap: 3px; }
-        .user-meta strong { color: var(--text-strong); font-size: 15px; font-weight: 700; }
-        .user-meta small { color: var(--text); font-size: 13px; font-weight: 500; }
+        .user-meta strong { color: var(--text-inverse); font-size: 15px; font-weight: 700; }
+        .user-meta small { color: var(--text-sidebar); font-size: 13px; font-weight: 500; }
         .nav-title {
             margin: 0;
             font-size: 13px;
             letter-spacing: 0.02em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--text-sidebar);
             padding-inline: 10px;
             font-weight: 600;
         }
-        .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
-        .nav-divider { height: 1px; background: var(--border); margin: 4px 10px; }
+        .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--text-sidebar); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
+        .nav-divider { height: 1px; background: rgba(255, 255, 255, 0.12); margin: 4px 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             display: flex;
             align-items: center;
             gap: 12px;
-            color: var(--text);
+            color: var(--text-sidebar);
             text-decoration: none;
             padding: 14px 12px;
             border-radius: 12px;
@@ -144,17 +155,17 @@ require_once __DIR__ . '/logo_helper.php';
             background: transparent;
         }
         .nav-link:hover {
-            color: var(--primary);
-            background: rgb(219, 234, 254);
-            border-color: rgb(191, 219, 254);
+            color: var(--text-inverse);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.12);
         }
         .nav-link.active {
-            color: var(--on-primary);
+            color: var(--text-inverse);
             font-weight: 700;
-            background: var(--primary);
-            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.16);
         }
-        .nav-link.active::before { background: var(--primary-strong); }
+        .nav-link.active::before { background: var(--text-inverse); }
         .nav-icon {
             width: 22px;
             height: 22px;
@@ -173,7 +184,7 @@ require_once __DIR__ . '/logo_helper.php';
             position: sticky;
             top: 0;
             z-index: 10;
-            background: var(--card);
+            background: var(--bg-card);
             border-bottom: 1px solid var(--border);
         }
         .brand {
@@ -185,7 +196,7 @@ require_once __DIR__ . '/logo_helper.php';
         .brand-logo { height: 36px; max-height: 40px; width: auto; object-fit: contain; }
         .brand-title {
             font-weight: 800;
-            color: var(--text-strong);
+            color: var(--text-main);
             font-size: 20px;
             white-space: nowrap;
         }
@@ -193,14 +204,14 @@ require_once __DIR__ . '/logo_helper.php';
         .user-actions { display: flex; align-items: center; gap: 12px; }
         .user-summary { display:flex; align-items:center; gap:10px; padding:6px 0; }
         .user-identity { display:flex; flex-direction:column; gap:3px; }
-        .user-identity strong { color: var(--text-strong); font-size: 14px; font-weight: 700; }
-        .role-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: rgb(219, 234, 254); color: var(--secondary); font-size:12px; font-weight:600; }
-        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--card); color: var(--text-strong); text-decoration:none; font-weight:600; }
-        .logout-btn:hover { background: rgb(219, 234, 254); border-color: rgb(191, 219, 254); color: var(--primary); }
+        .user-identity strong { color: var(--text-main); font-size: 14px; font-weight: 700; }
+        .role-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); font-size:12px; font-weight:600; }
+        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); text-decoration:none; font-weight:600; }
+        .logout-btn:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: color-mix(in srgb, var(--primary) 24%, transparent); color: var(--primary); }
         main {
             flex: 1;
             min-height: 100vh;
-            background: var(--bg);
+            background: var(--bg-app);
         }
         .content {
             padding: 24px 32px 48px;
@@ -208,8 +219,8 @@ require_once __DIR__ . '/logo_helper.php';
             flex-direction: column;
             gap: 20px;
         }
-        .page-heading h2 { margin:0 0 6px 0; font-size: 25px; color: var(--text-strong); font-weight: 700; }
-        .page-heading p { margin:0; color: var(--text); font-weight: 500; }
+        .page-heading h2 { margin:0 0 6px 0; font-size: 25px; color: var(--text-main); font-weight: 700; }
+        .page-heading p { margin:0; color: var(--text-muted); font-weight: 500; }
         .section-grid { display:grid; gap:20px; align-items:start; }
         .section-grid.twothirds { grid-template-columns: 3fr 2fr; }
         .section-grid.wide { grid-template-columns: 2fr 3fr; }
@@ -220,7 +231,7 @@ require_once __DIR__ . '/logo_helper.php';
         .config-form-grid.tight { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
         .card.stretch { height:100%; display:flex; flex-direction:column; }
         .card .card-content { display:flex; flex-direction:column; gap:14px; flex:1; }
-        .form-block { display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px; background: rgb(249, 250, 251); }
+        .form-block { display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); }
         .section-label { font-size:12px; letter-spacing:0.05em; text-transform:uppercase; color: var(--muted); font-weight:700; }
         .input-stack { display:flex; flex-direction:column; gap:8px; }
         .palette-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; }
@@ -239,17 +250,18 @@ require_once __DIR__ . '/logo_helper.php';
         .preview-logo { height:42px; background:var(--panel); padding:8px; border-radius:10px; box-shadow:0 8px 20px var(--glow); }
         .preview-subtitle { color: color-mix(in srgb, white 80%, transparent); font-size:13px; }
         .card {
-            background: var(--card);
+            background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 18px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
         }
         .alert {
             padding: 12px 14px;
             border-radius: 10px;
             border: 1px solid var(--border);
-            background: rgb(249, 250, 251);
-            color: var(--text-strong);
+            background: color-mix(in srgb, var(--bg-card) 92%, var(--bg-app) 8%);
+            color: var(--text-main);
         }
         .alert.error {
             border-color: rgb(248, 113, 113);
@@ -258,9 +270,9 @@ require_once __DIR__ . '/logo_helper.php';
         }
         .card.ghosted { background: transparent; border-style: dashed; }
         .kpi { display: flex; align-items: center; gap: 14px; }
-        .kpi .label { color: var(--text); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-        .kpi .value { font-weight: 700; font-size: 34px; color: var(--text-strong); }
-        .kpi .meta { color: var(--text); font-size: 13px; font-weight: 500; }
+        .kpi .label { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .kpi .value { font-weight: 700; font-size: 34px; color: var(--text-main); }
+        .kpi .meta { color: var(--text-muted); font-size: 13px; font-weight: 500; }
         .kpi-icon { width: 56px; height: 56px; border-radius: 12px; background: rgb(219, 234, 254); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
         .kpi-icon svg { width: 32px; height: 32px; stroke: currentColor; }
         .kpi-body { display: flex; flex-direction: column; gap: 4px; }
@@ -272,12 +284,12 @@ require_once __DIR__ . '/logo_helper.php';
             border-radius: 8px;
             font-size: 12px;
             font-weight: 600;
-            background: rgb(243, 244, 246);
-            color: var(--text-strong);
+            background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-app) 12%);
+            color: var(--text-main);
             border: 1px solid var(--border);
         }
-        .badge.success { background: rgb(219, 234, 254); color: var(--primary); }
-        .badge.danger { background: rgb(254, 226, 226); color: rgb(185, 28, 28); }
+        .badge.success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+        .badge.danger { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -293,12 +305,12 @@ require_once __DIR__ . '/logo_helper.php';
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.03em;
-            color: var(--muted);
+            color: var(--text-muted);
             font-weight: 700;
-            background: rgb(249, 250, 251);
+            background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%);
         }
         tr:last-child td { border-bottom: none; }
-        tbody tr:hover { background: rgb(243, 244, 246); }
+        tbody tr:hover { background: color-mix(in srgb, var(--bg-card) 84%, var(--bg-app) 16%); }
         .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
         .btn {
             padding: 10px 14px;
@@ -306,8 +318,8 @@ require_once __DIR__ . '/logo_helper.php';
             border: 1px solid var(--border);
             cursor: pointer;
             font-weight: 600;
-            background: var(--card);
-            color: var(--text-strong);
+            background: var(--bg-card);
+            color: var(--text-main);
             transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
         }
         .btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
@@ -321,35 +333,35 @@ require_once __DIR__ . '/logo_helper.php';
             border: 1px solid var(--border);
             border-radius: 10px;
             width: 100%;
-            background: var(--card);
-            color: var(--text-strong);
+            background: var(--bg-card);
+            color: var(--text-main);
             font-weight: 500;
         }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-hover); box-shadow: 0 0 0 2px rgb(219, 234, 254); }
         textarea { resize: vertical; }
-        label { font-weight: 600; color: var(--text-strong); display:block; margin-bottom:6px; }
+        label { font-weight: 600; color: var(--text-main); display:block; margin-bottom:6px; }
         .input { display:flex; flex-direction:column; gap:6px; }
-        .input span { color: var(--text-strong); font-weight:700; font-size: 14px; }
-        .muted { color: var(--muted); font-size: 13px; }
-        .hint { color: var(--muted); font-size: 13px; }
+        .input span { color: var(--text-main); font-weight:700; font-size: 14px; }
+        .muted { color: var(--text-muted); font-size: 13px; }
+        .hint { color: var(--text-muted); font-size: 13px; }
         .kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-        .column { background: var(--card); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
-        .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
-        .card-task { background: rgb(249, 250, 251); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
-        .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: rgb(243, 244, 246); color: var(--text-strong); border: 1px solid var(--border); }
+        .column { background: var(--bg-card); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
+        .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+        .card-task { background: color-mix(in srgb, var(--bg-card) 92%, var(--bg-app) 8%); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
+        .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); color: var(--text-main); border: 1px solid var(--border); }
         .pillset { display:flex; gap:6px; flex-wrap:wrap; }
-        .text-muted { color: var(--muted); }
-        .alert { padding:12px; border-radius: 12px; border:1px solid var(--border); background: rgb(249, 250, 251); color: var(--text-strong); }
+        .text-muted { color: var(--text-muted); }
+        .alert { padding:12px; border-radius: 12px; border:1px solid var(--border); background: color-mix(in srgb, var(--bg-card) 92%, var(--bg-app) 8%); color: var(--text-main); }
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
         .table-wrapper { overflow-x: auto; }
-        .config-flow-roles { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px dashed var(--border); border-radius:10px; background: var(--card); }
-        .config-flow-roles strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+        .config-flow-roles { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px dashed var(--border); border-radius:10px; background: var(--bg-card); }
+        .config-flow-roles strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
         @media (max-width: 1180px) {
             .section-grid.twothirds, .section-grid.wide { grid-template-columns: 1fr; }
         }
-        .menu-toggle { display: none; align-items: center; gap: 10px; font-weight: 700; color: var(--text-strong); }
-        .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .menu-toggle { display: none; align-items: center; gap: 10px; font-weight: 700; color: var(--text-inverse); }
+        .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.08); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text-inverse); }
         .menu-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
         #menu-toggle { display: none; }
         @media (max-width: 1024px) {
