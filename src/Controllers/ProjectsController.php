@@ -1313,7 +1313,7 @@ class ProjectsController extends Controller
             'cost_value' => (float) ($_POST['cost_value'] ?? 0),
             'is_external' => isset($_POST['is_external']) ? 1 : 0,
             'requires_timesheet' => isset($_POST['requires_timesheet']) ? 1 : 0,
-            'requires_approval' => isset($_POST['requires_approval']) ? 1 : 0,
+            'requires_timesheet_approval' => isset($_POST['requires_timesheet_approval']) ? 1 : 0,
             'assignment_status' => $assignmentStatus,
             'created_by' => (int) ($this->auth->user()['id'] ?? 0),
         ];

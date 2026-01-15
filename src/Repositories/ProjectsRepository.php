@@ -649,8 +649,8 @@ class ProjectsRepository
         }
 
         $this->db->insert(
-            'INSERT INTO project_talent_assignments (project_id, user_id, talent_id, role, start_date, end_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_approval, assignment_status, active, created_at, updated_at)
-             VALUES (:project_id, :user_id, :talent_id, :role, :start_date, :end_date, :allocation_percent, :weekly_hours, :cost_type, :cost_value, :is_external, :requires_timesheet, :requires_approval, :assignment_status, :active, NOW(), NOW())',
+            'INSERT INTO project_talent_assignments (project_id, user_id, talent_id, role, start_date, end_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_timesheet_approval, assignment_status, active, created_at, updated_at)
+             VALUES (:project_id, :user_id, :talent_id, :role, :start_date, :end_date, :allocation_percent, :weekly_hours, :cost_type, :cost_value, :is_external, :requires_timesheet, :requires_timesheet_approval, :assignment_status, :active, NOW(), NOW())',
             [
                 ':project_id' => (int) $payload['project_id'],
                 ':user_id' => $userId,
@@ -664,7 +664,7 @@ class ProjectsRepository
                 ':cost_value' => $payload['cost_value'],
                 ':is_external' => (int) $payload['is_external'],
                 ':requires_timesheet' => (int) $payload['requires_timesheet'],
-                ':requires_approval' => (int) $payload['requires_approval'],
+                ':requires_timesheet_approval' => (int) $payload['requires_timesheet_approval'],
                 ':assignment_status' => $assignmentStatus,
                 ':active' => $activeFlag,
             ]

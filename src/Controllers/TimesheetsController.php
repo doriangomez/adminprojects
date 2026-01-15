@@ -8,10 +8,125 @@ class TimesheetsController extends Controller
     {
         $repo = new TimesheetsRepository($this->db);
         $this->requirePermission('timesheets.view');
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $canApprove = $this->auth->can('timesheets.approve');
+        $canReport = $repo->hasTimesheetAssignments($userId);
+
         $this->render('timesheets/index', [
             'title' => 'Timesheets',
-            'rows' => $repo->weekly($this->auth->user() ?? []),
-            'kpis' => $repo->kpis($this->auth->user() ?? []),
+            'rows' => $repo->weekly($user),
+            'kpis' => $repo->kpis($user),
+            'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
+            'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
+            'canApprove' => $canApprove,
+            'canReport' => $canReport,
         ]);
+    }
+
+    public function create(): void
+    {
+        $this->requirePermission('timesheets.view');
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+
+        $taskId = (int) ($_POST['task_id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $hours = (float) ($_POST['hours'] ?? 0);
+        $billable = isset($_POST['billable']) ? 1 : 0;
+
+        if ($taskId <= 0 || $date === '' || $hours <= 0) {
+            http_response_code(400);
+            exit('Completa los datos requeridos para registrar horas.');
+        }
+
+        $assignment = $repo->assignmentForTask($taskId, $userId);
+        if (!$assignment || (int) ($assignment['requires_timesheet'] ?? 0) !== 1) {
+            http_response_code(403);
+            exit('No tienes una asignación habilitada para reportar horas en esta tarea.');
+        }
+
+        $talentId = $repo->talentIdForUser($userId);
+        if ($talentId === null) {
+            http_response_code(400);
+            exit('Tu usuario no tiene un talento asociado.');
+        }
+
+        $requiresApproval = (int) ($assignment['requires_timesheet_approval'] ?? 0) === 1;
+        $status = $requiresApproval ? 'pending' : 'approved';
+        $approvedBy = $requiresApproval ? null : $userId;
+        $approvedAt = $requiresApproval ? null : date('Y-m-d H:i:s');
+
+        try {
+            $timesheetId = $repo->createTimesheet([
+                'task_id' => $taskId,
+                'talent_id' => $talentId,
+                'assignment_id' => (int) ($assignment['id'] ?? 0),
+                'date' => $date,
+                'hours' => $hours,
+                'status' => $status,
+                'billable' => $billable,
+                'approved_by' => $approvedBy,
+                'approved_at' => $approvedAt,
+            ]);
+
+            (new AuditLogRepository($this->db))->log(
+                $userId,
+                'timesheet',
+                $timesheetId,
+                $requiresApproval ? 'submitted' : 'auto_approved',
+                [
+                    'task_id' => $taskId,
+                    'hours' => $hours,
+                    'date' => $date,
+                ]
+            );
+
+            header('Location: /project/public/timesheets');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error al registrar horas: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo registrar el timesheet.');
+        }
+    }
+
+    public function updateStatus(int $timesheetId, string $action): void
+    {
+        $this->requirePermission('timesheets.approve');
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+
+        $status = $action === 'approve' ? 'approved' : 'rejected';
+
+        try {
+            $repo->updateApprovalStatus($timesheetId, $status, $userId);
+
+            (new AuditLogRepository($this->db))->log(
+                $userId,
+                'timesheet',
+                $timesheetId,
+                $status,
+                [
+                    'approved_by' => $status === 'approved' ? $userId : null,
+                    'rejected_by' => $status === 'rejected' ? $userId : null,
+                ]
+            );
+
+            header('Location: /project/public/timesheets');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error al actualizar estado de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo actualizar el estado del timesheet.');
+        }
     }
 }

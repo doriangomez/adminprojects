@@ -133,6 +133,7 @@ class DatabaseMigrator
     {
         try {
             $this->createAssignmentsTableIfMissing();
+            $this->ensureAssignmentTimesheetApprovalColumn();
             $this->ensureAssignmentStatusColumn();
         } catch (\PDOException $e) {
             error_log('Error asegurando tabla project_talent_assignments: ' . $e->getMessage());
@@ -215,6 +216,145 @@ class DatabaseMigrator
             }
         } catch (\PDOException $e) {
             error_log('Error asegurando permisos de gestión de proyectos: ' . $e->getMessage());
+        }
+    }
+
+    public function ensureTimesheetPermissions(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                [
+                    ':code' => 'timesheets.approve',
+                    ':name' => 'Aprobar timesheets',
+                ]
+            );
+
+            $roles = $this->db->fetchAll(
+                "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')"
+            );
+
+            foreach ($roles as $role) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :roleId, p.id
+                     FROM permissions p
+                     WHERE p.code = :code
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':roleId' => (int) $role['id'],
+                        ':code' => 'timesheets.approve',
+                    ]
+                );
+            }
+
+            $talentRoles = $this->db->fetchAll("SELECT id FROM roles WHERE nombre = 'Talento'");
+            foreach ($talentRoles as $role) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :roleId, p.id
+                     FROM permissions p
+                     WHERE p.code = :code
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':roleId' => (int) $role['id'],
+                        ':code' => 'timesheets.view',
+                    ]
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos de timesheets: ' . $e->getMessage());
+        }
+    }
+
+    public function ensureTimesheetSchema(): void
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->columnExists('timesheets', 'assignment_id')) {
+                $this->db->execute('ALTER TABLE timesheets ADD COLUMN assignment_id INT NULL AFTER talent_id');
+                $this->db->clearColumnCache();
+            }
+
+            foreach (['approved_by', 'approved_at', 'rejected_by', 'rejected_at'] as $column) {
+                if (!$this->db->columnExists('timesheets', $column)) {
+                    $this->db->execute(sprintf('ALTER TABLE timesheets ADD COLUMN %s %s NULL', $column, str_ends_with($column, '_at') ? 'DATETIME' : 'INT'));
+                    $this->db->clearColumnCache();
+                }
+            }
+
+            if ($this->db->columnExists('timesheets', 'assignment_id')
+                && !$this->db->foreignKeyExists('timesheets', 'assignment_id', 'project_talent_assignments')
+                && $this->db->tableExists('project_talent_assignments')
+            ) {
+                $this->db->execute(
+                    'ALTER TABLE timesheets ADD CONSTRAINT fk_timesheets_assignment_id
+                     FOREIGN KEY (assignment_id) REFERENCES project_talent_assignments(id)'
+                );
+            }
+
+            foreach (['approved_by', 'rejected_by'] as $column) {
+                if ($this->db->columnExists('timesheets', $column)
+                    && !$this->db->foreignKeyExists('timesheets', $column, 'users')
+                    && $this->db->tableExists('users')
+                ) {
+                    $this->db->execute(
+                        sprintf(
+                            'ALTER TABLE timesheets ADD CONSTRAINT fk_timesheets_%s_users FOREIGN KEY (%s) REFERENCES users(id)',
+                            $column,
+                            $column
+                        )
+                    );
+                }
+            }
+
+            if ($this->db->columnExists('timesheets', 'assignment_id') && $this->db->tableExists('tasks')) {
+                $rows = $this->db->fetchAll(
+                    'SELECT ts.id, ts.talent_id, t.project_id
+                     FROM timesheets ts
+                     JOIN tasks t ON t.id = ts.task_id
+                     WHERE ts.assignment_id IS NULL'
+                );
+
+                foreach ($rows as $row) {
+                    $assignment = $this->db->fetchOne(
+                        'SELECT id FROM project_talent_assignments
+                         WHERE project_id = :project AND talent_id = :talent
+                         ORDER BY id ASC LIMIT 1',
+                        [
+                            ':project' => (int) ($row['project_id'] ?? 0),
+                            ':talent' => (int) ($row['talent_id'] ?? 0),
+                        ]
+                    );
+
+                    if ($assignment) {
+                        $this->db->execute(
+                            'UPDATE timesheets SET assignment_id = :assignment WHERE id = :id',
+                            [
+                                ':assignment' => (int) $assignment['id'],
+                                ':id' => (int) $row['id'],
+                            ]
+                        );
+                    }
+                }
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando esquema de timesheets: ' . $e->getMessage());
         }
     }
 
@@ -991,7 +1131,7 @@ class DatabaseMigrator
                 monthly_cost DECIMAL(12,2),
                 is_external TINYINT(1) DEFAULT 0,
                 requires_timesheet TINYINT(1) DEFAULT 0,
-                requires_approval TINYINT(1) DEFAULT 0,
+                requires_timesheet_approval TINYINT(1) DEFAULT 0,
                 assignment_status VARCHAR(20) DEFAULT "active",
                 active TINYINT(1) DEFAULT 1,
                 start_date DATE,
@@ -1013,7 +1153,7 @@ class DatabaseMigrator
 
         if (!$this->db->columnExists('project_talent_assignments', 'assignment_status')) {
             $this->db->execute(
-                'ALTER TABLE project_talent_assignments ADD COLUMN assignment_status VARCHAR(20) DEFAULT "active" AFTER requires_approval'
+                'ALTER TABLE project_talent_assignments ADD COLUMN assignment_status VARCHAR(20) DEFAULT "active" AFTER requires_timesheet_approval'
             );
             $this->db->clearColumnCache();
         }
@@ -1025,6 +1165,26 @@ class DatabaseMigrator
                  ELSE assignment_status
              END"
         );
+    }
+
+    private function ensureAssignmentTimesheetApprovalColumn(): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('project_talent_assignments', 'requires_timesheet_approval')) {
+            $this->db->execute(
+                'ALTER TABLE project_talent_assignments ADD COLUMN requires_timesheet_approval TINYINT(1) DEFAULT 0 AFTER requires_timesheet'
+            );
+            $this->db->clearColumnCache();
+        }
+
+        if ($this->db->columnExists('project_talent_assignments', 'requires_approval')) {
+            $this->db->execute(
+                'UPDATE project_talent_assignments SET requires_timesheet_approval = requires_approval'
+            );
+        }
     }
 
     private function createOutsourcingSettingsTable(): void

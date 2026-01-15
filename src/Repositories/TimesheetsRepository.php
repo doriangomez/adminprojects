@@ -15,10 +15,16 @@ class TimesheetsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
 
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
+        if (!$this->isPrivileged($user)) {
+            if ($talentId !== null) {
+                $conditions[] = 'ts.talent_id = :talentId';
+                $params[':talentId'] = $talentId;
+            } elseif ($hasPmColumn) {
+                $conditions[] = 'p.pm_id = :pmId';
+                $params[':pmId'] = $user['id'];
+            }
         }
 
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -41,10 +47,16 @@ class TimesheetsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
 
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
+        if (!$this->isPrivileged($user)) {
+            if ($talentId !== null) {
+                $conditions[] = 'ts.talent_id = :talentId';
+                $params[':talentId'] = $talentId;
+            } elseif ($hasPmColumn) {
+                $conditions[] = 'p.pm_id = :pmId';
+                $params[':pmId'] = $user['id'];
+            }
         }
 
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -59,11 +71,186 @@ class TimesheetsRepository
              GROUP BY ts.status',
             $params
         );
-        $totals = ['draft' => 0, 'submitted' => 0, 'approved' => 0];
+        $totals = ['draft' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0];
         foreach ($data as $row) {
-            $totals[$row['status']] = (float) $row['hours'];
+            $status = $row['status'] ?? '';
+            if ($status === 'submitted') {
+                $status = 'pending';
+            }
+            if (!array_key_exists($status, $totals)) {
+                $totals[$status] = 0;
+            }
+            $totals[$status] = (float) $row['hours'];
         }
         return $totals;
+    }
+
+    public function hasTimesheetAssignments(int $userId): bool
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            "SELECT 1 FROM project_talent_assignments
+             WHERE user_id = :user
+             AND requires_timesheet = 1
+             AND (assignment_status = 'active' OR (assignment_status IS NULL AND active = 1))
+             LIMIT 1",
+            [':user' => $userId]
+        );
+
+        return $row !== null;
+    }
+
+    public function tasksForTimesheetEntry(int $userId): array
+    {
+        if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('tasks')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            "SELECT t.id, t.title, p.name AS project, a.id AS assignment_id
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             JOIN tasks t ON t.project_id = p.id
+             WHERE a.user_id = :user
+             AND a.requires_timesheet = 1
+             AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))
+             ORDER BY p.name ASC, t.title ASC",
+            [':user' => $userId]
+        );
+    }
+
+    public function assignmentForTask(int $taskId, int $userId): ?array
+    {
+        if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('tasks')) {
+            return null;
+        }
+
+        return $this->db->fetchOne(
+            'SELECT a.id, a.requires_timesheet, a.requires_timesheet_approval, a.assignment_status, a.active
+             FROM tasks t
+             JOIN project_talent_assignments a ON a.project_id = t.project_id
+             WHERE t.id = :task AND a.user_id = :user
+             AND (a.assignment_status = \'active\' OR (a.assignment_status IS NULL AND a.active = 1))
+             ORDER BY a.id ASC
+             LIMIT 1',
+            [
+                ':task' => $taskId,
+                ':user' => $userId,
+            ]
+        );
+    }
+
+    public function createTimesheet(array $payload): int
+    {
+        return $this->db->insert(
+            'INSERT INTO timesheets (task_id, talent_id, assignment_id, date, hours, status, billable, approved_by, approved_at, created_at, updated_at)
+             VALUES (:task_id, :talent_id, :assignment_id, :date, :hours, :status, :billable, :approved_by, :approved_at, NOW(), NOW())',
+            [
+                ':task_id' => (int) $payload['task_id'],
+                ':talent_id' => (int) $payload['talent_id'],
+                ':assignment_id' => $payload['assignment_id'] !== null ? (int) $payload['assignment_id'] : null,
+                ':date' => $payload['date'],
+                ':hours' => (float) $payload['hours'],
+                ':status' => $payload['status'],
+                ':billable' => (int) $payload['billable'],
+                ':approved_by' => $payload['approved_by'],
+                ':approved_at' => $payload['approved_at'],
+            ]
+        );
+    }
+
+    public function myTimesheets(int $talentId): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, p.name AS project, t.title AS task,
+                    ts.approved_at, ts.rejected_at, ua.name AS approved_by_name, ur.name AS rejected_by_name
+             FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             JOIN projects p ON p.id = t.project_id
+             LEFT JOIN users ua ON ua.id = ts.approved_by
+             LEFT JOIN users ur ON ur.id = ts.rejected_by
+             WHERE ts.talent_id = :talent
+             ORDER BY ts.date DESC, ts.id DESC',
+            [':talent' => $talentId]
+        );
+    }
+
+    public function pendingApprovals(array $user): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $conditions = ['ts.status IN ("pending", "submitted")'];
+        $params = [];
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
+            $conditions[] = 'p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
+        }
+
+        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        return $this->db->fetchAll(
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, p.name AS project, t.title AS task, ta.name AS talent
+             FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             JOIN projects p ON p.id = t.project_id
+             JOIN talents ta ON ta.id = ts.talent_id
+             ' . $where . '
+             ORDER BY ts.date DESC, ts.id DESC',
+            $params
+        );
+    }
+
+    public function updateApprovalStatus(int $timesheetId, string $status, int $userId): bool
+    {
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            throw new InvalidArgumentException('Estado de aprobación inválido.');
+        }
+
+        $column = $status === 'approved' ? 'approved_by' : 'rejected_by';
+        $columnDate = $status === 'approved' ? 'approved_at' : 'rejected_at';
+
+        return $this->db->execute(
+            "UPDATE timesheets
+             SET status = :status,
+                 {$column} = :user,
+                 {$columnDate} = NOW(),
+                 updated_at = NOW()
+             WHERE id = :id AND status IN ('pending', 'submitted')",
+            [
+                ':status' => $status,
+                ':user' => $userId,
+                ':id' => $timesheetId,
+            ]
+        );
+    }
+
+    public function talentIdForUser(int $userId): ?int
+    {
+        if ($userId <= 0 || !$this->db->tableExists('talents')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT id FROM talents WHERE user_id = :user LIMIT 1',
+            [':user' => $userId]
+        );
+
+        if (!$row) {
+            return null;
+        }
+
+        return (int) $row['id'];
     }
 
     private function isPrivileged(array $user): bool

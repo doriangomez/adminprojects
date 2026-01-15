@@ -25,7 +25,9 @@ class App
         $migrator->ensureSystemSettings();
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
+        $migrator->ensureTimesheetPermissions();
         $migrator->ensureOutsourcingModule();
+        $migrator->ensureTimesheetSchema();
         $this->auth = new Auth($this->db);
     }
 
@@ -345,7 +347,17 @@ class App
         }
 
         if (str_starts_with($path, '/timesheets')) {
-            (new TimesheetsController($this->db, $this->auth))->index();
+            $controller = new TimesheetsController($this->db, $this->auth);
+            if ($path === '/timesheets/create' && $method === 'POST') {
+                $controller->create();
+                return;
+            }
+            if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {
+                $controller->updateStatus((int) $matches[1], $matches[2]);
+                return;
+            }
+
+            $controller->index();
             return;
         }
 

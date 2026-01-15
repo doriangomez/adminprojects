@@ -220,7 +220,7 @@ $formatTimestamp = static function (?string $value): string {
                 <div class="checkbox-grid">
                     <label><input type="checkbox" name="is_external" value="1"> Es externo</label>
                     <label><input type="checkbox" name="requires_timesheet" value="1"> Requiere timesheet</label>
-                    <label><input type="checkbox" name="requires_approval" value="1"> Requiere aprobación</label>
+                    <label><input type="checkbox" name="requires_timesheet_approval" value="1"> Requiere aprobación de horas</label>
                 </div>
                 <button type="submit" class="action-btn primary">Guardar asignación</button>
             </form>
