@@ -39,7 +39,7 @@ class OutsourcingServicesRepository
 
         $services = $this->db->fetchAll(
             'SELECT s.id, s.talent_id, s.client_id, s.project_id, s.start_date, s.end_date, s.followup_frequency,
-                    s.service_status, s.created_at, s.updated_at,
+                    s.service_status, s.observations, s.created_at, s.updated_at,
                     u.name AS talent_name, u.email AS talent_email,
                     c.name AS client_name,
                     p.name AS project_name
@@ -55,7 +55,7 @@ class OutsourcingServicesRepository
         $healthMap = [];
         if ($this->db->tableExists('outsourcing_followups')) {
             $healthRows = $this->db->fetchAll(
-                'SELECT f.service_id, f.service_health, f.period_end, f.created_at
+                'SELECT f.id, f.service_id, f.service_health, f.period_end, f.document_node_id, f.observations, f.created_at
                  FROM outsourcing_followups f
                  JOIN (
                     SELECT service_id, MAX(created_at) AS max_created
@@ -66,8 +66,11 @@ class OutsourcingServicesRepository
 
             foreach ($healthRows as $row) {
                 $healthMap[(int) $row['service_id']] = [
+                    'followup_id' => $row['id'] ?? null,
                     'service_health' => $row['service_health'] ?? null,
                     'period_end' => $row['period_end'] ?? null,
+                    'document_node_id' => $row['document_node_id'] ?? null,
+                    'observations' => $row['observations'] ?? null,
                     'created_at' => $row['created_at'] ?? null,
                 ];
             }
@@ -75,9 +78,12 @@ class OutsourcingServicesRepository
 
         foreach ($services as &$service) {
             $health = $healthMap[(int) $service['id']] ?? [];
+            $service['last_followup_id'] = $health['followup_id'] ?? null;
             $service['current_health'] = $health['service_health'] ?? null;
             $service['health_updated_at'] = $health['created_at'] ?? null;
             $service['last_followup_end'] = $health['period_end'] ?? null;
+            $service['last_followup_document_node_id'] = $health['document_node_id'] ?? null;
+            $service['last_followup_observations'] = $health['observations'] ?? null;
         }
         unset($service);
 
@@ -100,7 +106,7 @@ class OutsourcingServicesRepository
 
         $service = $this->db->fetchOne(
             'SELECT s.id, s.talent_id, s.client_id, s.project_id, s.start_date, s.end_date, s.followup_frequency,
-                    s.service_status, s.created_at, s.updated_at,
+                    s.service_status, s.observations, s.created_at, s.updated_at,
                     u.name AS talent_name, u.email AS talent_email,
                     c.name AS client_name,
                     p.name AS project_name,
@@ -143,21 +149,39 @@ class OutsourcingServicesRepository
             throw new \InvalidArgumentException('La fecha de fin no puede ser anterior al inicio.');
         }
 
+        $columns = [
+            'talent_id',
+            'client_id',
+            'project_id',
+            'start_date',
+            'end_date',
+            'followup_frequency',
+            'service_status',
+            'created_by',
+        ];
+
+        $params = [
+            ':talent_id' => (int) $payload['talent_id'],
+            ':client_id' => (int) $payload['client_id'],
+            ':project_id' => $payload['project_id'] ? (int) $payload['project_id'] : null,
+            ':start_date' => $startDate,
+            ':end_date' => $endDate !== '' ? $endDate : null,
+            ':followup_frequency' => $frequency,
+            ':service_status' => $status,
+            ':created_by' => (int) ($payload['created_by'] ?? 0),
+        ];
+
+        if ($this->db->columnExists('outsourcing_services', 'observations')) {
+            $columns[] = 'observations';
+            $params[':observations'] = trim((string) ($payload['observations'] ?? '')) ?: null;
+        }
+
         return $this->db->insert(
             'INSERT INTO outsourcing_services
-                (talent_id, client_id, project_id, start_date, end_date, followup_frequency, service_status, created_by, created_at, updated_at)
+                (' . implode(', ', $columns) . ')
              VALUES
-                (:talent_id, :client_id, :project_id, :start_date, :end_date, :followup_frequency, :service_status, :created_by, NOW(), NOW())',
-            [
-                ':talent_id' => (int) $payload['talent_id'],
-                ':client_id' => (int) $payload['client_id'],
-                ':project_id' => $payload['project_id'] ? (int) $payload['project_id'] : null,
-                ':start_date' => $startDate,
-                ':end_date' => $endDate !== '' ? $endDate : null,
-                ':followup_frequency' => $frequency,
-                ':service_status' => $status,
-                ':created_by' => (int) ($payload['created_by'] ?? 0),
-            ]
+                (' . implode(', ', array_keys($params)) . ')',
+            $params
         );
     }
 

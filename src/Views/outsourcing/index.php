@@ -6,6 +6,8 @@ $projects = is_array($projects ?? null) ? $projects : [];
 $talents = is_array($talents ?? null) ? $talents : [];
 $canManage = !empty($canManage);
 $filters = is_array($filters ?? null) ? $filters : [];
+$preselectedTalentId = (int) ($preselectedTalentId ?? 0);
+$talentCreatedMessage = $talentCreatedMessage ?? null;
 
 $healthLabels = [
     'green' => 'Verde',
@@ -143,6 +145,54 @@ $formatDate = static function (?string $value): string {
     <?php if ($canManage): ?>
         <section class="outsourcing-form">
             <div>
+                <h3>Registrar nuevo talento</h3>
+                <small class="section-muted">Crea un talento sin salir del módulo para asignarlo al servicio.</small>
+            </div>
+            <?php if ($talentCreatedMessage): ?>
+                <div class="alert success"><?= htmlspecialchars($talentCreatedMessage) ?></div>
+            <?php endif; ?>
+            <form method="POST" action="<?= $basePath ?>/outsourcing/talents" class="talent-form">
+                <div class="grid">
+                    <label>Nombre
+                        <input name="name" required>
+                    </label>
+                    <label>Correo
+                        <input type="email" name="email" required>
+                    </label>
+                </div>
+                <div class="grid">
+                    <label>Rol
+                        <input name="role" required placeholder="Ej. Analista, DevOps">
+                    </label>
+                    <label>Seniority
+                        <input name="seniority" placeholder="Ej. Senior">
+                    </label>
+                </div>
+                <div class="grid">
+                    <label>Capacidad semanal (h)
+                        <input type="number" name="weekly_capacity" value="40">
+                    </label>
+                    <label>Disponibilidad (%)
+                        <input type="number" name="availability" value="100">
+                    </label>
+                </div>
+                <div class="grid">
+                    <label>Costo hora
+                        <input type="number" step="0.01" name="hourly_cost" value="0">
+                    </label>
+                    <label>Tarifa hora
+                        <input type="number" step="0.01" name="hourly_rate" value="0">
+                    </label>
+                </div>
+                <label class="checkbox">
+                    <input type="checkbox" name="is_outsourcing" value="1" checked>
+                    Talento de outsourcing
+                </label>
+                <button type="submit" class="action-btn primary">Guardar talento</button>
+            </form>
+        </section>
+        <section class="outsourcing-form">
+            <div>
                 <h3>Nuevo servicio de outsourcing</h3>
                 <small class="section-muted">Registra una asignación de talento con su cliente y periodo de servicio.</small>
             </div>
@@ -152,7 +202,7 @@ $formatDate = static function (?string $value): string {
                         <select name="talent_id" required>
                             <option value="">Selecciona un talento</option>
                             <?php foreach ($talents as $talent): ?>
-                                <option value="<?= (int) $talent['id'] ?>">
+                                <option value="<?= (int) $talent['id'] ?>" <?= $preselectedTalentId === (int) $talent['id'] ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($talent['name'] ?? '') ?> (<?= htmlspecialchars($talent['role_name'] ?? '') ?>)
                                 </option>
                             <?php endforeach; ?>
@@ -202,6 +252,9 @@ $formatDate = static function (?string $value): string {
                         </select>
                     </label>
                 </div>
+                <label>Observaciones
+                    <textarea name="observations" rows="3" placeholder="Notas del servicio, acuerdos o restricciones."></textarea>
+                </label>
                 <button type="submit" class="action-btn primary">Guardar servicio</button>
             </form>
         </section>
@@ -229,9 +282,13 @@ $formatDate = static function (?string $value): string {
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
+    textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; }
     .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; }
     .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
     .link { color: var(--primary); font-weight:600; text-decoration:none; }
     .link:hover { text-decoration:underline; }
     .badge.neutral { background:#f1f5f9; color:#475569; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
+    .talent-form { display:flex; flex-direction:column; gap:12px; }
+    .checkbox { flex-direction:row; align-items:center; gap:8px; font-weight:600; }
+    .alert.success { padding:10px 12px; border-radius:12px; background:#dcfce7; color:#166534; border:1px solid #bbf7d0; font-weight:600; }
 </style>

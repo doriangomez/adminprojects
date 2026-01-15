@@ -19,6 +19,8 @@ class OutsourcingServicesController extends Controller
             'project_id' => (int) ($_GET['project_id'] ?? 0),
             'service_health' => (string) ($_GET['service_health'] ?? ''),
         ];
+        $preselectedTalentId = (int) ($_GET['selected_talent_id'] ?? 0);
+        $talentCreatedMessage = !empty($_GET['talent_created']) ? 'Talento registrado y listo para asignar.' : null;
 
         $users = array_values(array_filter(
             $usersRepo->all(),
@@ -39,6 +41,8 @@ class OutsourcingServicesController extends Controller
             'users' => $users,
             'canManage' => $this->auth->canAccessOutsourcing(),
             'filters' => $filters,
+            'preselectedTalentId' => $preselectedTalentId,
+            'talentCreatedMessage' => $talentCreatedMessage,
         ]);
     }
 
@@ -98,6 +102,7 @@ class OutsourcingServicesController extends Controller
             'end_date' => $_POST['end_date'] ?? '',
             'followup_frequency' => $_POST['followup_frequency'] ?? 'monthly',
             'service_status' => $_POST['service_status'] ?? 'active',
+            'observations' => $_POST['observations'] ?? '',
             'created_by' => (int) ($user['id'] ?? 0),
         ];
 
@@ -152,6 +157,49 @@ class OutsourcingServicesController extends Controller
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
+        }
+    }
+
+    public function storeTalent(): void
+    {
+        $this->requireOutsourcingAccess();
+
+        try {
+            $email = trim((string) ($_POST['email'] ?? ''));
+            if ($email === '') {
+                http_response_code(400);
+                exit('El correo del talento es obligatorio para crear el usuario.');
+            }
+
+            $payload = $this->talentPayloadFromRequest($_POST);
+            $talentService = new TalentService($this->db);
+            $created = $talentService->createTalent($payload);
+            $userId = $created['user_id'] ?? null;
+
+            if (!$userId) {
+                http_response_code(400);
+                exit('El talento debe tener un correo válido para crear el usuario.');
+            }
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'talent',
+                (int) ($created['talent_id'] ?? 0),
+                'created',
+                [
+                    'user_id' => $userId,
+                    'source' => 'outsourcing',
+                ]
+            );
+
+            header('Location: /project/public/outsourcing?selected_talent_id=' . $userId . '&talent_created=1');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error al crear talento desde outsourcing: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo crear el talento.');
         }
     }
 
@@ -329,6 +377,21 @@ class OutsourcingServicesController extends Controller
             http_response_code(403);
             exit('Acceso denegado');
         }
+    }
+
+    private function talentPayloadFromRequest(array $payload): array
+    {
+        return [
+            'name' => trim((string) ($payload['name'] ?? '')),
+            'email' => trim((string) ($payload['email'] ?? '')),
+            'role' => trim((string) ($payload['role'] ?? '')),
+            'seniority' => trim((string) ($payload['seniority'] ?? '')),
+            'weekly_capacity' => (int) ($payload['weekly_capacity'] ?? 0),
+            'availability' => (int) ($payload['availability'] ?? 0),
+            'hourly_cost' => (float) ($payload['hourly_cost'] ?? 0),
+            'hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),
+            'is_outsourcing' => !empty($payload['is_outsourcing']) ? 1 : 0,
+        ];
     }
 
     private function flattenProjectNodes(array $nodes): array

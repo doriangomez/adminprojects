@@ -86,6 +86,10 @@ $projectProgress = isset($service['project_progress']) ? (float) $service['proje
                     <span class="section-muted">Estado actual</span>
                     <strong><?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? 'active'] ?? 'Activo') ?></strong>
                 </div>
+                <div class="summary-note">
+                    <span class="section-muted">Observaciones del servicio</span>
+                    <p><?= nl2br(htmlspecialchars((string) ($service['observations'] ?? 'Sin observaciones registradas.'))) ?></p>
+                </div>
                 <div>
                     <span class="section-muted">Avance del proyecto (manual)</span>
                     <strong><?= $projectProgress !== null ? htmlspecialchars((string) $projectProgress) . '%' : 'Sin proyecto' ?></strong>
@@ -253,6 +257,7 @@ $projectProgress = isset($service['project_progress']) ? (float) $service['proje
     .overview-card { border:1px solid var(--border); border-radius:16px; padding:14px; background:#fff; display:flex; flex-direction:column; gap:8px; }
     .summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
     .summary-grid strong { font-size:14px; color: var(--text-strong); }
+    .summary-note p { margin:4px 0 0; font-size:13px; color: var(--text-strong); }
     .status-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .outsourcing-followups { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
     .section-title { margin:0; font-size:16px; color: var(--text-strong); }
