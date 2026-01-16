@@ -151,110 +151,118 @@ foreach ($documentExpectedItems as $doc) {
         </section>
 
         <section class="document-section">
-            <div class="section-header">
-                <div>
-                    <h5>Carga libre de documentos</h5>
-                    <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
-                </div>
-                <?php if ($documentCanManage): ?>
-                    <button type="button" class="action-btn primary" data-open-upload>Subir documento</button>
-                <?php endif; ?>
-            </div>
-            <div class="upload-preview" data-upload-preview hidden>
-                <strong>Archivos listos para cargar:</strong>
-                <ul></ul>
-            </div>
-        </section>
-    </div>
+            <?php if ($documentCanManage): ?>
+                <form class="upload-form" method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($documentNode['id'] ?? 0) ?>/files" enctype="multipart/form-data" data-upload-form>
+                    <div class="section-header">
+                        <div>
+                            <h5>Carga libre de documentos</h5>
+                            <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
+                        </div>
+                        <button type="submit" class="action-btn primary" data-open-upload>Subir documento</button>
+                    </div>
+                    <div class="upload-preview" data-upload-preview hidden>
+                        <strong>Archivos listos para cargar:</strong>
+                        <ul></ul>
+                    </div>
+                    <input type="hidden" name="project_id" value="<?= $documentProjectId ?>">
+                    <input type="hidden" name="node_id" value="<?= (int) ($documentNode['id'] ?? 0) ?>">
+                    <input type="hidden" name="subfase_id" value="<?= (int) ($documentNode['id'] ?? 0) ?>">
 
-    <?php if ($documentCanManage): ?>
-        <div class="modal" data-upload-modal hidden>
-            <div class="modal-backdrop" data-close-upload></div>
-            <div class="modal-panel">
-                <header>
-                    <div>
-                        <h4>Subir documento</h4>
-                        <p class="section-muted">Completa los metadatos antes de guardar.</p>
-                    </div>
-                    <button type="button" class="action-btn small" data-close-upload>✕</button>
-                </header>
-                <form class="upload-form" method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($documentNode['id'] ?? 0) ?>/files" enctype="multipart/form-data">
-                    <div class="form-validation" data-upload-validation hidden>Revisa los campos obligatorios.</div>
-                    <label class="field">
-                        <span>Archivo *</span>
-                        <input type="file" name="node_files[]" required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
-                    </label>
-                    <div class="field-grid">
-                        <label class="field">
-                            <span>Tipo documental *</span>
-                            <select data-document-type-select>
-                                <option value="">Seleccionar</option>
-                                <?php foreach ($documentTypeOptions as $type): ?>
-                                    <option value="<?= htmlspecialchars($type) ?>"><?= htmlspecialchars($type) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <input type="text" placeholder="Otro tipo" data-document-type-custom>
-                        </label>
-                        <label class="field">
-                            <span>Versión *</span>
-                            <input type="text" name="document_version" placeholder="v1, v2, final" required>
-                        </label>
-                    </div>
-                    <label class="field">
-                        <span>Tags *</span>
-                        <select multiple data-upload-tag-select>
-                            <?php foreach ($documentTagOptions as $tag): ?>
-                                <option value="<?= htmlspecialchars($tag) ?>" <?= in_array($tag, $normalizedDefaultTags, true) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($tag) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <input type="text" placeholder="Otros tags (separados por coma)" data-upload-tag-custom>
-                    </label>
-                    <label class="field">
-                        <span>Descripción corta *</span>
-                        <textarea name="document_description" rows="3" placeholder="Describe el contenido del documento" required></textarea>
-                    </label>
-                    <div class="field">
-                        <label class="switch">
-                            <input type="checkbox" name="start_flow" value="1" data-start-flow>
-                            <span class="slider"></span>
-                            <span>Iniciar flujo de aprobación al guardar</span>
-                        </label>
-                    </div>
-                    <div class="flow-grid" data-upload-flow>
-                        <label>
-                            <span>Revisor</span>
-                            <select name="reviewer_id" data-role-select="reviewer">
-                                <option value="">Seleccionar</option>
-                            </select>
-                        </label>
-                        <label>
-                            <span>Validador</span>
-                            <select name="validator_id" data-role-select="validator">
-                                <option value="">Seleccionar</option>
-                            </select>
-                        </label>
-                        <label>
-                            <span>Aprobador</span>
-                            <select name="approver_id" data-role-select="approver">
-                                <option value="">Seleccionar</option>
-                            </select>
-                        </label>
-                    </div>
-                    <input type="hidden" name="document_type" value="" data-document-type-hidden>
-                    <input type="hidden" name="document_tags" value="" data-document-tags-hidden>
-                    <div class="modal-actions">
-                        <button type="button" class="action-btn" data-close-upload>Cancelar</button>
-                        <button type="submit" class="action-btn primary" data-upload-submit>
-                            <span class="button-label">Guardar documento</span>
-                            <span class="button-spinner" aria-hidden="true"></span>
-                        </button>
+                    <div class="modal" data-upload-modal hidden>
+                        <div class="modal-backdrop" data-close-upload></div>
+                        <div class="modal-panel">
+                            <header>
+                                <div>
+                                    <h4>Subir documento</h4>
+                                    <p class="section-muted">Completa los metadatos antes de guardar.</p>
+                                </div>
+                                <button type="button" class="action-btn small" data-close-upload>✕</button>
+                            </header>
+                            <div class="form-validation" data-upload-validation hidden>Revisa los campos obligatorios.</div>
+                            <label class="field">
+                                <span>Archivo *</span>
+                                <input type="file" name="document" required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
+                            </label>
+                            <div class="field-grid">
+                                <label class="field">
+                                    <span>Tipo documental *</span>
+                                    <select data-document-type-select>
+                                        <option value="">Seleccionar</option>
+                                        <?php foreach ($documentTypeOptions as $type): ?>
+                                            <option value="<?= htmlspecialchars($type) ?>"><?= htmlspecialchars($type) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <input type="text" placeholder="Otro tipo" data-document-type-custom>
+                                </label>
+                                <label class="field">
+                                    <span>Versión *</span>
+                                    <input type="text" name="document_version" placeholder="v1, v2, final" required>
+                                </label>
+                            </div>
+                            <label class="field">
+                                <span>Tags *</span>
+                                <select multiple data-upload-tag-select>
+                                    <?php foreach ($documentTagOptions as $tag): ?>
+                                        <option value="<?= htmlspecialchars($tag) ?>" <?= in_array($tag, $normalizedDefaultTags, true) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($tag) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <input type="text" placeholder="Otros tags (separados por coma)" data-upload-tag-custom>
+                            </label>
+                            <label class="field">
+                                <span>Descripción corta *</span>
+                                <textarea name="document_description" rows="3" placeholder="Describe el contenido del documento" required></textarea>
+                            </label>
+                            <div class="field">
+                                <label class="switch">
+                                    <input type="checkbox" name="start_flow" value="1" data-start-flow>
+                                    <span class="slider"></span>
+                                    <span>Iniciar flujo de aprobación al guardar</span>
+                                </label>
+                            </div>
+                            <div class="flow-grid" data-upload-flow>
+                                <label>
+                                    <span>Revisor</span>
+                                    <select name="reviewer_id" data-role-select="reviewer">
+                                        <option value="">Seleccionar</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>Validador</span>
+                                    <select name="validator_id" data-role-select="validator">
+                                        <option value="">Seleccionar</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>Aprobador</span>
+                                    <select name="approver_id" data-role-select="approver">
+                                        <option value="">Seleccionar</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <input type="hidden" name="document_type" value="" data-document-type-hidden>
+                            <input type="hidden" name="document_tags" value="" data-document-tags-hidden>
+                            <div class="modal-actions">
+                                <button type="button" class="action-btn" data-close-upload>Cancelar</button>
+                                <button type="submit" class="action-btn primary" data-upload-submit>
+                                    <span class="button-label">Guardar documento</span>
+                                    <span class="button-spinner" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </form>
-            </div>
-        </div>
-    <?php endif; ?>
+            <?php else: ?>
+                <div class="section-header">
+                    <div>
+                        <h5>Carga libre de documentos</h5>
+                        <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </section>
+    </div>
 
     <section class="document-files">
         <div class="section-header">
@@ -413,7 +421,7 @@ foreach ($documentExpectedItems as $doc) {
     .expected-optional { background:#e2e8f0; color:#475569; }
     .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .document-search input { border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:220px; }
-    .upload-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .upload-form { display:flex; flex-direction:column; gap:8px; }
     .upload-preview { margin-top:6px; background:#fff; border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
     .document-files { display:flex; flex-direction:column; gap:12px; }
     .document-file-table { display:grid; gap:8px; }
@@ -1130,9 +1138,9 @@ foreach ($documentExpectedItems as $doc) {
         const openUpload = root.querySelector('[data-open-upload]');
         const closeUploadButtons = root.querySelectorAll('[data-close-upload]');
         const uploadPreview = root.querySelector('[data-upload-preview]');
-        const uploadForm = uploadModal ? uploadModal.querySelector('.upload-form') : null;
-        const uploadSubmitButton = uploadModal ? uploadModal.querySelector('[data-upload-submit]') : null;
-        const uploadValidation = uploadModal ? uploadModal.querySelector('[data-upload-validation]') : null;
+        const uploadForm = root.querySelector('[data-upload-form]');
+        const uploadSubmitButton = uploadForm ? uploadForm.querySelector('[data-upload-submit]') : null;
+        const uploadValidation = uploadForm ? uploadForm.querySelector('[data-upload-validation]') : null;
 
         const closeModal = () => {
             if (uploadModal) {
@@ -1151,7 +1159,8 @@ foreach ($documentExpectedItems as $doc) {
         };
 
         if (openUpload && uploadModal) {
-            openUpload.addEventListener('click', () => {
+            openUpload.addEventListener('click', (event) => {
+                event.preventDefault();
                 setUploadValidation('');
                 uploadModal.hidden = false;
             });
@@ -1244,6 +1253,9 @@ foreach ($documentExpectedItems as $doc) {
                 }
 
                 const formData = new FormData(uploadForm);
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    Array.from(fileInput.files).forEach(file => formData.append('node_files[]', file));
+                }
                 fetch(uploadForm.action, {
                     method: 'POST',
                     headers: {
