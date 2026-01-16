@@ -158,7 +158,7 @@ foreach ($documentExpectedItems as $doc) {
                             <h5>Carga libre de documentos</h5>
                             <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
                         </div>
-                        <button type="button" class="action-btn primary" data-open-upload>Subir documento</button>
+                        <button type="button" class="action-btn primary" id="btnUploadDocument" data-open-upload>Subir documento</button>
                     </div>
                     <div class="upload-preview" data-upload-preview hidden>
                         <strong>Archivos listos para cargar:</strong>
@@ -1139,6 +1139,7 @@ foreach ($documentExpectedItems as $doc) {
         const closeUploadButtons = root.querySelectorAll('[data-close-upload]');
         const uploadPreview = root.querySelector('[data-upload-preview]');
         const uploadForm = root.querySelector('[data-upload-form]');
+        const uploadInput = uploadForm ? uploadForm.querySelector('input[type="file"]') : null;
         const uploadSubmitButton = uploadForm ? uploadForm.querySelector('[data-upload-submit]') : null;
         const uploadValidation = uploadForm ? uploadForm.querySelector('[data-upload-validation]') : null;
 
@@ -1158,17 +1159,31 @@ foreach ($documentExpectedItems as $doc) {
             uploadValidation.hidden = false;
         };
 
+        const openUploadModal = (event) => {
+            if (event) {
+                event.preventDefault();
+            }
+            setUploadValidation('');
+            if (uploadModal) {
+                uploadModal.hidden = false;
+                return;
+            }
+            if (uploadInput) {
+                uploadInput.click();
+            }
+        };
+
         closeUploadButtons.forEach(button => {
             button.addEventListener('click', closeModal);
         });
 
         if (openUpload) {
-            openUpload.addEventListener('click', (event) => {
-                event.preventDefault();
-                if (!uploadModal) return;
-                setUploadValidation('');
-                uploadModal.hidden = false;
-            });
+            openUpload.addEventListener('click', openUploadModal);
+        }
+
+        const uploadButtonById = document.getElementById('btnUploadDocument');
+        if (uploadButtonById && uploadButtonById !== openUpload) {
+            uploadButtonById.addEventListener('click', openUploadModal);
         }
 
         const collectUploadTags = () => {
@@ -1192,7 +1207,6 @@ foreach ($documentExpectedItems as $doc) {
         };
 
         if (uploadForm) {
-            const uploadInput = uploadForm.querySelector('input[type="file"]');
             if (uploadInput && uploadPreview) {
                 uploadInput.addEventListener('change', () => {
                     const list = uploadPreview.querySelector('ul');
