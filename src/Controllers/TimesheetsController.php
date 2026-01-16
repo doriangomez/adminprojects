@@ -7,16 +7,20 @@ class TimesheetsController extends Controller
     public function index(): void
     {
         $repo = new TimesheetsRepository($this->db);
-        $this->requirePermission('timesheets.view');
         $user = $this->auth->user() ?? [];
         $userId = (int) ($user['id'] ?? 0);
-        $canApprove = $this->auth->can('timesheets.approve');
-        $canReport = $repo->hasTimesheetAssignments($userId);
-        $isPrivileged = in_array($user['role'] ?? '', ['Administrador', 'PMO'], true);
+        $isTalent = $this->auth->isTalentUser();
+        $canReport = $isTalent && $this->auth->canAccessTimesheets();
+        $canApprove = $this->auth->canApproveTimesheets();
 
-        if (!$isPrivileged && !$canReport && $repo->talentIdForUser($userId) !== null) {
+        if ($isTalent && !$canReport) {
             http_response_code(403);
             exit('Tu perfil no requiere reporte de horas.');
+        }
+
+        if (!$isTalent && !$canApprove) {
+            http_response_code(403);
+            exit('Acceso denegado');
         }
 
         $this->render('timesheets/index', [
@@ -32,11 +36,14 @@ class TimesheetsController extends Controller
 
     public function create(): void
     {
-        $this->requirePermission('timesheets.view');
-
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $userId = (int) ($user['id'] ?? 0);
+
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
 
         $taskId = (int) ($_POST['task_id'] ?? 0);
         $date = trim((string) ($_POST['date'] ?? ''));
@@ -65,7 +72,7 @@ class TimesheetsController extends Controller
         }
 
         $requiresApproval = (int) ($assignment['requiere_aprobacion_horas'] ?? 0) === 1;
-        $status = $requiresApproval ? 'pending' : 'approved';
+        $status = $requiresApproval ? 'pending_approval' : 'approved';
         $approvedBy = $requiresApproval ? null : $userId;
         $approvedAt = $requiresApproval ? null : date('Y-m-d H:i:s');
 
@@ -107,7 +114,10 @@ class TimesheetsController extends Controller
 
     public function updateStatus(int $timesheetId, string $action): void
     {
-        $this->requirePermission('timesheets.approve');
+        if (!$this->auth->canApproveTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
 
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];

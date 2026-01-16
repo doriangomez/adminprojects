@@ -190,7 +190,7 @@ class DashboardService
                  JOIN projects p ON p.id = t.project_id
                  JOIN clients c ON c.id = p.client_id
                  {$projectsCondition}
-                 AND ts.status IN ('pending','submitted')",
+                 AND ts.status IN ('pending','submitted','pending_approval')",
                 $params
             );
             $pendingHours = (float) ($pendingRow['total'] ?? 0);

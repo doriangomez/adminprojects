@@ -110,7 +110,7 @@
         <tbody>
             <?php foreach($rows as $row): ?>
                 <?php
-                $status = $row['status'] === 'submitted' ? 'pending' : $row['status'];
+                $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
                 $badgeClass = $status === 'approved' ? 'success' : ($status === 'pending' ? 'warning' : ($status === 'rejected' ? 'danger' : ''));
                 ?>
                 <tr>
