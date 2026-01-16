@@ -197,22 +197,22 @@ class DashboardService
 
         $talentsWithoutReport = 0;
         if ($this->db->tableExists('project_talent_assignments')) {
-            $assignmentTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id')
-                ? 'talent_id'
-                : 'user_id';
-            $row = $this->db->fetchOne(
-                "SELECT COUNT(DISTINCT a.{$assignmentTalentColumn}) AS total
-                 FROM project_talent_assignments a
-                 JOIN projects p ON p.id = a.project_id
-                 JOIN clients c ON c.id = p.client_id
-                 LEFT JOIN timesheets ts ON ts.assignment_id = a.id AND ts.date BETWEEN :start AND :end
-                 {$projectsCondition}
-                 AND a.requires_timesheet = 1
-                 AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))
-                 AND ts.id IS NULL",
-                array_merge($params, [':start' => $period['start'], ':end' => $period['end']])
-            );
-            $talentsWithoutReport = (int) ($row['total'] ?? 0);
+            $assignmentTalentColumn = $this->assignmentTalentColumn();
+            if ($assignmentTalentColumn !== null) {
+                $row = $this->db->fetchOne(
+                    "SELECT COUNT(DISTINCT a.{$assignmentTalentColumn}) AS total
+                     FROM project_talent_assignments a
+                     JOIN projects p ON p.id = a.project_id
+                     JOIN clients c ON c.id = p.client_id
+                     LEFT JOIN timesheets ts ON ts.assignment_id = a.id AND ts.date BETWEEN :start AND :end
+                     {$projectsCondition}
+                     AND a.requires_timesheet = 1
+                     AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))
+                     AND ts.id IS NULL",
+                    array_merge($params, [':start' => $period['start'], ':end' => $period['end']])
+                );
+                $talentsWithoutReport = (int) ($row['total'] ?? 0);
+            }
         }
 
         $internalTalents = 0;
@@ -540,6 +540,15 @@ class DashboardService
         $projectsCondition = $where ?: 'WHERE 1=1';
         $period = $this->weeklyPeriod();
 
+        $assignmentTalentColumn = $this->assignmentTalentColumn();
+        if ($assignmentTalentColumn === null || !$this->db->tableExists('talents')) {
+            return [];
+        }
+
+        $talentJoin = $assignmentTalentColumn === 'talent_id'
+            ? 'JOIN talents t ON t.id = a.talent_id'
+            : 'JOIN talents t ON t.user_id = a.user_id';
+
         return $this->db->fetchAll(
             "SELECT DISTINCT t.name
              FROM project_talent_assignments a
@@ -627,6 +636,19 @@ class DashboardService
 
         if ($this->db->columnExists('projects', 'health')) {
             return 'health';
+        }
+
+        return null;
+    }
+
+    private function assignmentTalentColumn(): ?string
+    {
+        if ($this->db->columnExists('project_talent_assignments', 'talent_id')) {
+            return 'talent_id';
+        }
+
+        if ($this->db->columnExists('project_talent_assignments', 'user_id')) {
+            return 'user_id';
         }
 
         return null;
