@@ -194,8 +194,11 @@ class DashboardService
 
         $talentsWithoutReport = 0;
         if ($this->db->tableExists('project_talent_assignments')) {
+            $assignmentTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id')
+                ? 'talent_id'
+                : 'user_id';
             $row = $this->db->fetchOne(
-                "SELECT COUNT(DISTINCT a.talent_id) AS total
+                "SELECT COUNT(DISTINCT a.{$assignmentTalentColumn}) AS total
                  FROM project_talent_assignments a
                  JOIN projects p ON p.id = a.project_id
                  JOIN clients c ON c.id = p.client_id
@@ -217,7 +220,10 @@ class DashboardService
             $talentParams = [];
 
             if (!$this->isPrivileged($user) && $this->db->tableExists('project_talent_assignments')) {
-                $joins = 'JOIN project_talent_assignments a ON a.talent_id = t.id
+                $assignmentJoin = $this->db->columnExists('project_talent_assignments', 'talent_id')
+                    ? 'a.talent_id = t.id'
+                    : 'a.user_id = t.user_id';
+                $joins = 'JOIN project_talent_assignments a ON ' . $assignmentJoin . '
                           JOIN projects p ON p.id = a.project_id
                           JOIN clients c ON c.id = p.client_id';
                 if ($this->db->columnExists('projects', 'pm_id')) {
