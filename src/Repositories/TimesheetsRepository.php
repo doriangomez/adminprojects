@@ -74,7 +74,7 @@ class TimesheetsRepository
         $totals = ['draft' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0];
         foreach ($data as $row) {
             $status = $row['status'] ?? '';
-            if ($status === 'submitted') {
+            if ($status === 'submitted' || $status === 'pending_approval') {
                 $status = 'pending';
             }
             if (!array_key_exists($status, $totals)) {
@@ -196,14 +196,8 @@ class TimesheetsRepository
             return [];
         }
 
-        $conditions = ['ts.status IN ("pending", "submitted")'];
+        $conditions = ['ts.status IN ("pending", "submitted", "pending_approval")'];
         $params = [];
-        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
-        }
 
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
@@ -227,10 +221,18 @@ class TimesheetsRepository
 
         $column = $status === 'approved' ? 'approved_by' : 'rejected_by';
         $columnDate = $status === 'approved' ? 'approved_at' : 'rejected_at';
-        $taskRow = $this->db->fetchOne(
-            'SELECT task_id FROM timesheets WHERE id = :id',
+
+        $timesheet = $this->db->fetchOne(
+            'SELECT ts.task_id, ta.user_id
+             FROM timesheets ts
+             JOIN talents ta ON ta.id = ts.talent_id
+             WHERE ts.id = :id',
             [':id' => $timesheetId]
         );
+
+        if ($timesheet && (int) ($timesheet['user_id'] ?? 0) === $userId) {
+            throw new InvalidArgumentException('No puedes aprobar tus propias horas.');
+        }
 
         $updated = $this->db->execute(
             "UPDATE timesheets
@@ -238,7 +240,7 @@ class TimesheetsRepository
                  {$column} = :user,
                  {$columnDate} = NOW(),
                  updated_at = NOW()
-             WHERE id = :id AND status IN ('pending', 'submitted')",
+             WHERE id = :id AND status IN ('pending', 'submitted', 'pending_approval')",
             [
                 ':status' => $status,
                 ':user' => $userId,
@@ -246,8 +248,8 @@ class TimesheetsRepository
             ]
         );
 
-        if ($updated && $taskRow) {
-            $this->refreshTaskActualHours((int) $taskRow['task_id']);
+        if ($updated && $timesheet) {
+            $this->refreshTaskActualHours((int) $timesheet['task_id']);
         }
 
         return $updated;

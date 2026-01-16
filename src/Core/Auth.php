@@ -122,6 +122,11 @@ class Auth
         return ((int) ($row['requiere_reporte_horas'] ?? 0)) === 1;
     }
 
+    public function isTalentUser(): bool
+    {
+        return $this->hasRole('Talento');
+    }
+
     public function canAccessTimesheets(): bool
     {
         $user = $this->user();
@@ -129,10 +134,19 @@ class Auth
             return false;
         }
 
-        if (in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)) {
-            return true;
+        if (!$this->isTalentUser()) {
+            return false;
         }
 
         return $this->hasTimesheetAssignments();
+    }
+
+    public function canApproveTimesheets(): bool
+    {
+        if ($this->isTalentUser()) {
+            return false;
+        }
+
+        return $this->can('timesheets.approve');
     }
 }
