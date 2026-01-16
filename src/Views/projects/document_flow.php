@@ -158,7 +158,7 @@ foreach ($documentExpectedItems as $doc) {
                             <h5>Carga libre de documentos</h5>
                             <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
                         </div>
-                        <button type="submit" class="action-btn primary" data-open-upload>Subir documento</button>
+                        <button type="button" class="action-btn primary" data-open-upload>Subir documento</button>
                     </div>
                     <div class="upload-preview" data-upload-preview hidden>
                         <strong>Archivos listos para cargar:</strong>
@@ -1161,6 +1161,15 @@ foreach ($documentExpectedItems as $doc) {
         closeUploadButtons.forEach(button => {
             button.addEventListener('click', closeModal);
         });
+
+        if (openUpload) {
+            openUpload.addEventListener('click', (event) => {
+                event.preventDefault();
+                if (!uploadModal) return;
+                setUploadValidation('');
+                uploadModal.hidden = false;
+            });
+        }
 
         const collectUploadTags = () => {
             const select = uploadModal?.querySelector('[data-upload-tag-select]');
