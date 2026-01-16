@@ -521,7 +521,8 @@ class ProjectsRepository
             'SELECT SUM(ts.hours) AS total
              FROM timesheets ts
              JOIN tasks t ON t.id = ts.task_id
-             WHERE t.project_id = :project_id',
+             WHERE t.project_id = :project_id
+             AND ts.status = \'approved\'',
             [':project_id' => $projectId]
         );
 
@@ -552,11 +553,17 @@ class ProjectsRepository
 
         if ($hasTalentColumn) {
             $select[] = 't.name AS talent_name';
-            $select[] = 't.weekly_capacity';
+            $select[] = 't.capacidad_horaria';
+            $select[] = 't.requiere_reporte_horas';
+            $select[] = 't.requiere_aprobacion_horas';
+            $select[] = 't.tipo_talento';
             $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
         } else {
             $select[] = 'u.name AS talent_name';
-            $select[] = '0 AS weekly_capacity';
+            $select[] = '0 AS capacidad_horaria';
+            $select[] = '0 AS requiere_reporte_horas';
+            $select[] = '0 AS requiere_aprobacion_horas';
+            $select[] = '\'interno\' AS tipo_talento';
             $select[] = 'a.user_id AS talent_id';
         }
 
@@ -586,11 +593,17 @@ class ProjectsRepository
 
         if ($hasTalentColumn) {
             $select[] = 't.name AS talent_name';
-            $select[] = 't.weekly_capacity';
+            $select[] = 't.capacidad_horaria';
+            $select[] = 't.requiere_reporte_horas';
+            $select[] = 't.requiere_aprobacion_horas';
+            $select[] = 't.tipo_talento';
             $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
         } else {
             $select[] = 'u.name AS talent_name';
-            $select[] = '0 AS weekly_capacity';
+            $select[] = '0 AS capacidad_horaria';
+            $select[] = '0 AS requiere_reporte_horas';
+            $select[] = '0 AS requiere_aprobacion_horas';
+            $select[] = '\'interno\' AS tipo_talento';
             $select[] = 'a.user_id AS talent_id';
             $joins[] = 'LEFT JOIN users u ON u.id = a.user_id';
         }
@@ -634,8 +647,15 @@ class ProjectsRepository
             [':talent' => $payload['talent_id']]
         );
 
-        $talent = $this->db->fetchOne('SELECT weekly_capacity FROM talents WHERE id = :id', [':id' => $payload['talent_id']]);
+        $talent = $this->db->fetchOne(
+            'SELECT weekly_capacity, capacidad_horaria FROM talents WHERE id = :id',
+            [':id' => $payload['talent_id']]
+        );
         $weeklyCapacity = (float) ($talent['weekly_capacity'] ?? 0);
+        $talentCapacity = (float) ($talent['capacidad_horaria'] ?? 0);
+        if ($talentCapacity > 0) {
+            $weeklyCapacity = $talentCapacity;
+        }
 
         $newPercentTotal = (float) ($totalPercent['total_percent'] ?? 0) + (float) ($payload['allocation_percent'] ?? 0);
         $newHoursTotal = (float) ($totalHours['total_hours'] ?? 0) + (float) ($payload['weekly_hours'] ?? 0);
@@ -647,6 +667,14 @@ class ProjectsRepository
         if ($weeklyCapacity > 0 && $payload['weekly_hours'] !== null && $newHoursTotal > $weeklyCapacity) {
             throw new InvalidArgumentException('Las horas asignadas exceden la capacidad semanal del talento.');
         }
+
+        $talentTimesheetConfig = $this->db->fetchOne(
+            'SELECT requiere_reporte_horas, requiere_aprobacion_horas FROM talents WHERE id = :id',
+            [':id' => (int) $payload['talent_id']]
+        ) ?: [];
+
+        $requiresTimesheet = (int) ($talentTimesheetConfig['requiere_reporte_horas'] ?? 0);
+        $requiresApproval = (int) ($talentTimesheetConfig['requiere_aprobacion_horas'] ?? 0);
 
         $this->db->insert(
             'INSERT INTO project_talent_assignments (project_id, user_id, talent_id, role, start_date, end_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_timesheet_approval, assignment_status, active, created_at, updated_at)
@@ -663,8 +691,8 @@ class ProjectsRepository
                 ':cost_type' => $payload['cost_type'],
                 ':cost_value' => $payload['cost_value'],
                 ':is_external' => (int) $payload['is_external'],
-                ':requires_timesheet' => (int) $payload['requires_timesheet'],
-                ':requires_timesheet_approval' => (int) $payload['requires_timesheet_approval'],
+                ':requires_timesheet' => $requiresTimesheet,
+                ':requires_timesheet_approval' => $requiresApproval,
                 ':assignment_status' => $assignmentStatus,
                 ':active' => $activeFlag,
             ]
@@ -1411,7 +1439,7 @@ class ProjectsRepository
             $usedHours += (float) ($assignment['weekly_hours'] ?? 0);
             $talentId = (int) $assignment['talent_id'];
             if (!in_array($talentId, $seenTalents, true)) {
-                $availableHours += (float) ($assignment['weekly_capacity'] ?? 0);
+                $availableHours += (float) ($assignment['capacidad_horaria'] ?? 0);
                 $seenTalents[] = $talentId;
             }
         }

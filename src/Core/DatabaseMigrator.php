@@ -148,6 +148,9 @@ class DatabaseMigrator
 
         try {
             $this->ensureTalentOutsourcingFlag();
+            $this->ensureTalentTimesheetFlags();
+            $this->ensureTalentCapacityColumn();
+            $this->ensureTalentTypeColumn();
         } catch (\PDOException $e) {
             error_log('Error asegurando columnas de talentos: ' . $e->getMessage());
         }
@@ -1329,6 +1332,41 @@ class DatabaseMigrator
         if (!$this->db->columnExists('talents', 'is_outsourcing')) {
             $this->db->execute('ALTER TABLE talents ADD COLUMN is_outsourcing TINYINT(1) DEFAULT 0 AFTER availability');
             $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureTalentTimesheetFlags(): void
+    {
+        if (!$this->db->columnExists('talents', 'requiere_reporte_horas')) {
+            $this->db->execute('ALTER TABLE talents ADD COLUMN requiere_reporte_horas TINYINT(1) DEFAULT 0 AFTER availability');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('talents', 'requiere_aprobacion_horas')) {
+            $this->db->execute('ALTER TABLE talents ADD COLUMN requiere_aprobacion_horas TINYINT(1) DEFAULT 0 AFTER requiere_reporte_horas');
+            $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureTalentCapacityColumn(): void
+    {
+        if (!$this->db->columnExists('talents', 'capacidad_horaria')) {
+            $this->db->execute('ALTER TABLE talents ADD COLUMN capacidad_horaria DECIMAL(8,2) DEFAULT 0 AFTER requiere_aprobacion_horas');
+            $this->db->clearColumnCache();
+            if ($this->db->columnExists('talents', 'weekly_capacity')) {
+                $this->db->execute('UPDATE talents SET capacidad_horaria = weekly_capacity WHERE capacidad_horaria = 0');
+            }
+        }
+    }
+
+    private function ensureTalentTypeColumn(): void
+    {
+        if (!$this->db->columnExists('talents', 'tipo_talento')) {
+            $this->db->execute("ALTER TABLE talents ADD COLUMN tipo_talento ENUM('interno','externo','otro') NOT NULL DEFAULT 'interno' AFTER capacidad_horaria");
+            $this->db->clearColumnCache();
+            if ($this->db->columnExists('talents', 'is_outsourcing')) {
+                $this->db->execute("UPDATE talents SET tipo_talento = IF(is_outsourcing = 1, 'externo', 'interno') WHERE tipo_talento = 'interno'");
+            }
         }
     }
 

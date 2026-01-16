@@ -145,7 +145,9 @@ class OutsourcingRepository
                 'SELECT SUM(ts.hours) AS total
                  FROM timesheets ts
                  JOIN tasks t ON t.id = ts.task_id
-                 WHERE t.project_id = :project AND ts.date BETWEEN :start AND :end',
+                 WHERE t.project_id = :project
+                 AND ts.status = \'approved\'
+                 AND ts.date BETWEEN :start AND :end',
                 [
                     ':project' => $projectId,
                     ':start' => $periodStart,

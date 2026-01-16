@@ -87,61 +87,64 @@ class TimesheetsRepository
 
     public function hasTimesheetAssignments(int $userId): bool
     {
-        if (!$this->db->tableExists('project_talent_assignments')) {
+        if (!$this->db->tableExists('talents')) {
             return false;
         }
 
-        $row = $this->db->fetchOne(
-            "SELECT 1 FROM project_talent_assignments
-             WHERE user_id = :user
-             AND requires_timesheet = 1
-             AND (assignment_status = 'active' OR (assignment_status IS NULL AND active = 1))
-             LIMIT 1",
-            [':user' => $userId]
-        );
+        $talent = $this->talentProfileForUser($userId);
 
-        return $row !== null;
+        return $talent !== null && (int) ($talent['requiere_reporte_horas'] ?? 0) === 1;
     }
 
     public function tasksForTimesheetEntry(int $userId): array
     {
-        if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('tasks')) {
+        if (!$this->db->tableExists('tasks') || !$this->db->tableExists('talents')) {
+            return [];
+        }
+
+        $talent = $this->talentProfileForUser($userId);
+        if (!$talent || (int) ($talent['requiere_reporte_horas'] ?? 0) !== 1) {
             return [];
         }
 
         return $this->db->fetchAll(
-            "SELECT t.id, t.title, p.name AS project, a.id AS assignment_id
-             FROM project_talent_assignments a
-             JOIN projects p ON p.id = a.project_id
-             JOIN tasks t ON t.project_id = p.id
-             WHERE a.user_id = :user
-             AND a.requires_timesheet = 1
+            "SELECT t.id, t.title, p.name AS project
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             WHERE t.assignee_id = :talent
              AND t.status = 'in_progress'
-             AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))
              ORDER BY p.name ASC, t.title ASC",
-            [':user' => $userId]
+            [':talent' => (int) $talent['id']]
         );
     }
 
     public function assignmentForTask(int $taskId, int $userId): ?array
     {
-        if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('tasks')) {
+        if (!$this->db->tableExists('tasks') || !$this->db->tableExists('talents')) {
             return null;
         }
 
-        return $this->db->fetchOne(
-            'SELECT a.id, a.requires_timesheet, a.requires_timesheet_approval, a.assignment_status, a.active, t.status AS task_status
-             FROM tasks t
-             JOIN project_talent_assignments a ON a.project_id = t.project_id
-             WHERE t.id = :task AND a.user_id = :user
-             AND (a.assignment_status = \'active\' OR (a.assignment_status IS NULL AND a.active = 1))
-             ORDER BY a.id ASC
-             LIMIT 1',
-            [
-                ':task' => $taskId,
-                ':user' => $userId,
-            ]
+        $talent = $this->talentProfileForUser($userId);
+        if (!$talent) {
+            return null;
+        }
+
+        $task = $this->db->fetchOne(
+            'SELECT id, status, assignee_id FROM tasks WHERE id = :task LIMIT 1',
+            [':task' => $taskId]
         );
+
+        if (!$task || (int) ($task['assignee_id'] ?? 0) !== (int) $talent['id']) {
+            return null;
+        }
+
+        return [
+            'id' => null,
+            'task_status' => $task['status'] ?? '',
+            'requiere_reporte_horas' => $talent['requiere_reporte_horas'] ?? 0,
+            'requiere_aprobacion_horas' => $talent['requiere_aprobacion_horas'] ?? 0,
+            'talent_id' => $talent['id'],
+        ];
     }
 
     public function createTimesheet(array $payload): int
@@ -268,6 +271,23 @@ class TimesheetsRepository
         return (int) $row['id'];
     }
 
+    public function talentProfileForUser(int $userId): ?array
+    {
+        if ($userId <= 0 || !$this->db->tableExists('talents')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas
+             FROM talents
+             WHERE user_id = :user
+             LIMIT 1',
+            [':user' => $userId]
+        );
+
+        return $row ?: null;
+    }
+
     public function refreshTaskActualHours(int $taskId): void
     {
         if (!$this->db->tableExists('tasks') || !$this->db->tableExists('timesheets')) {
@@ -277,7 +297,7 @@ class TimesheetsRepository
         $row = $this->db->fetchOne(
             'SELECT COALESCE(SUM(hours), 0) AS total
              FROM timesheets
-             WHERE task_id = :task AND status <> \'rejected\'',
+             WHERE task_id = :task AND status = \'approved\'',
             [':task' => $taskId]
         );
 

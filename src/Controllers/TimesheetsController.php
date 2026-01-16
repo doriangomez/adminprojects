@@ -12,6 +12,12 @@ class TimesheetsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
         $canApprove = $this->auth->can('timesheets.approve');
         $canReport = $repo->hasTimesheetAssignments($userId);
+        $isPrivileged = in_array($user['role'] ?? '', ['Administrador', 'PMO'], true);
+
+        if (!$isPrivileged && !$canReport && $repo->talentIdForUser($userId) !== null) {
+            http_response_code(403);
+            exit('Tu perfil no requiere reporte de horas.');
+        }
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets',
@@ -43,7 +49,7 @@ class TimesheetsController extends Controller
         }
 
         $assignment = $repo->assignmentForTask($taskId, $userId);
-        if (!$assignment || (int) ($assignment['requires_timesheet'] ?? 0) !== 1) {
+        if (!$assignment || (int) ($assignment['requiere_reporte_horas'] ?? 0) !== 1) {
             http_response_code(403);
             exit('No tienes una asignación habilitada para reportar horas en esta tarea.');
         }
@@ -52,13 +58,13 @@ class TimesheetsController extends Controller
             exit('Solo puedes registrar horas en tareas en estado Doing (En curso).');
         }
 
-        $talentId = $repo->talentIdForUser($userId);
-        if ($talentId === null) {
+        $talentId = (int) ($assignment['talent_id'] ?? 0);
+        if ($talentId <= 0) {
             http_response_code(400);
             exit('Tu usuario no tiene un talento asociado.');
         }
 
-        $requiresApproval = (int) ($assignment['requires_timesheet_approval'] ?? 0) === 1;
+        $requiresApproval = (int) ($assignment['requiere_aprobacion_horas'] ?? 0) === 1;
         $status = $requiresApproval ? 'pending' : 'approved';
         $approvedBy = $requiresApproval ? null : $userId;
         $approvedAt = $requiresApproval ? null : date('Y-m-d H:i:s');
@@ -67,7 +73,7 @@ class TimesheetsController extends Controller
             $timesheetId = $repo->createTimesheet([
                 'task_id' => $taskId,
                 'talent_id' => $talentId,
-                'assignment_id' => (int) ($assignment['id'] ?? 0),
+                'assignment_id' => null,
                 'date' => $date,
                 'hours' => $hours,
                 'status' => $status,

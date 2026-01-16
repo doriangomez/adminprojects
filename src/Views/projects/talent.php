@@ -36,7 +36,7 @@ $talents = is_array($talents ?? null) ? $talents : [];
                     <span>Talento</span>
                     <span>Rol</span>
                     <span>Dedicación</span>
-                    <span>Timesheet</span>
+                    <span>Reporte</span>
                     <span>Aprobación</span>
                 </div>
                 <?php foreach ($assignments as $assignment): ?>
@@ -47,11 +47,11 @@ $talents = is_array($talents ?? null) ? $talents : [];
                         </div>
                         <span><?= htmlspecialchars($assignment['role'] ?? '') ?></span>
                         <span><?= htmlspecialchars((string) ($assignment['allocation_percent'] ?? 0)) ?>% · <?= htmlspecialchars((string) ($assignment['weekly_hours'] ?? 0)) ?>h/sem</span>
-                        <span class="badge <?= !empty($assignment['requires_timesheet']) ? 'status-success' : 'status-muted' ?>">
-                            <?= !empty($assignment['requires_timesheet']) ? 'Sí' : 'No' ?>
+                        <span class="badge <?= !empty($assignment['requiere_reporte_horas']) ? 'status-success' : 'status-muted' ?>">
+                            <?= !empty($assignment['requiere_reporte_horas']) ? 'Sí' : 'No' ?>
                         </span>
-                        <span class="badge <?= !empty($assignment['requires_timesheet_approval']) ? 'status-warning' : 'status-muted' ?>">
-                            <?= !empty($assignment['requires_timesheet_approval']) ? 'Sí' : 'No' ?>
+                        <span class="badge <?= !empty($assignment['requiere_aprobacion_horas']) ? 'status-warning' : 'status-muted' ?>">
+                            <?= !empty($assignment['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?>
                         </span>
                     </div>
                 <?php endforeach; ?>
@@ -113,8 +113,7 @@ $talents = is_array($talents ?? null) ? $talents : [];
         </div>
         <div class="checkbox-grid">
             <label><input type="checkbox" name="is_external" value="1"> Es externo</label>
-            <label><input type="checkbox" name="requires_timesheet" value="1"> Requiere timesheet</label>
-            <label><input type="checkbox" name="requires_timesheet_approval" value="1"> Requiere aprobación de horas</label>
+            <span class="section-muted">El reporte y la aprobación de horas se definen en la ficha del talento.</span>
         </div>
         <button type="submit" class="action-btn primary">Guardar asignación</button>
     </form>

@@ -103,11 +103,13 @@ class TalentsController extends Controller
             'email' => trim((string) ($payload['email'] ?? '')),
             'role' => trim((string) ($payload['role'] ?? '')),
             'seniority' => trim((string) ($payload['seniority'] ?? '')),
-            'weekly_capacity' => (int) ($payload['weekly_capacity'] ?? 0),
+            'capacidad_horaria' => (float) ($payload['capacidad_horaria'] ?? 0),
             'availability' => (int) ($payload['availability'] ?? 0),
             'hourly_cost' => (float) ($payload['hourly_cost'] ?? 0),
             'hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),
-            'is_outsourcing' => !empty($payload['is_outsourcing']) ? 1 : 0,
+            'requiere_reporte_horas' => !empty($payload['requiere_reporte_horas']) ? 1 : 0,
+            'requiere_aprobacion_horas' => !empty($payload['requiere_aprobacion_horas']) ? 1 : 0,
+            'tipo_talento' => strtolower(trim((string) ($payload['tipo_talento'] ?? 'interno'))),
         ];
     }
 

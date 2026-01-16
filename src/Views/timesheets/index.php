@@ -32,7 +32,7 @@
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <small style="color: var(--muted);">Solo se muestran tareas en estado Doing (En curso).</small>
+                <small style="color: var(--muted);">Solo se muestran tareas asignadas al talento y en estado Doing (En curso).</small>
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px;">
                     <label>Fecha
                         <input type="date" name="date" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
