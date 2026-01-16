@@ -54,18 +54,18 @@ class DashboardService
             if ($this->isPrivileged($user)) {
                 $talentTotals = $this->db->fetchOne('SELECT COUNT(*) AS total FROM talents');
             } elseif ($this->db->tableExists('project_talent_assignments')) {
-                $assignmentTalentColumn = $this->assignmentTalentColumn();
-                if ($assignmentTalentColumn !== null) {
-                    $talentTotals = $this->db->fetchOne(
-                        "SELECT COUNT(DISTINCT a.{$assignmentTalentColumn}) AS total
-                         FROM project_talent_assignments a
-                         JOIN projects p ON p.id = a.project_id
-                         JOIN clients c ON c.id = p.client_id
-                         {$projectsCondition}
-                         AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))",
-                        $params
-                    );
-                }
+                $assignmentTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id')
+                    ? 'talent_id'
+                    : 'user_id';
+                $talentTotals = $this->db->fetchOne(
+                    "SELECT COUNT(DISTINCT a.{$assignmentTalentColumn}) AS total
+                     FROM project_talent_assignments a
+                     JOIN projects p ON p.id = a.project_id
+                     JOIN clients c ON c.id = p.client_id
+                     {$projectsCondition}
+                     AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))",
+                    $params
+                );
             }
         }
 
@@ -531,6 +531,11 @@ class DashboardService
             return [];
         }
 
+        $hasTalentId = $this->db->columnExists('project_talent_assignments', 'talent_id')
+            && $this->db->tableExists('talents');
+        $talentJoinTable = $hasTalentId ? 'talents t' : 'users t';
+        $talentJoinColumn = $hasTalentId ? 'a.talent_id' : 'a.user_id';
+
         [$where, $params] = $this->visibilityForUser($user);
         $projectsCondition = $where ?: 'WHERE 1=1';
         $period = $this->weeklyPeriod();
@@ -547,7 +552,7 @@ class DashboardService
         return $this->db->fetchAll(
             "SELECT DISTINCT t.name
              FROM project_talent_assignments a
-             {$talentJoin}
+             JOIN {$talentJoinTable} ON t.id = {$talentJoinColumn}
              JOIN projects p ON p.id = a.project_id
              JOIN clients c ON c.id = p.client_id
              LEFT JOIN timesheets ts ON ts.assignment_id = a.id AND ts.date BETWEEN :start AND :end
