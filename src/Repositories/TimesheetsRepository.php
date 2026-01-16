@@ -116,6 +116,7 @@ class TimesheetsRepository
              JOIN tasks t ON t.project_id = p.id
              WHERE a.user_id = :user
              AND a.requires_timesheet = 1
+             AND t.status = 'in_progress'
              AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))
              ORDER BY p.name ASC, t.title ASC",
             [':user' => $userId]
@@ -129,7 +130,7 @@ class TimesheetsRepository
         }
 
         return $this->db->fetchOne(
-            'SELECT a.id, a.requires_timesheet, a.requires_timesheet_approval, a.assignment_status, a.active
+            'SELECT a.id, a.requires_timesheet, a.requires_timesheet_approval, a.assignment_status, a.active, t.status AS task_status
              FROM tasks t
              JOIN project_talent_assignments a ON a.project_id = t.project_id
              WHERE t.id = :task AND a.user_id = :user
@@ -145,7 +146,7 @@ class TimesheetsRepository
 
     public function createTimesheet(array $payload): int
     {
-        return $this->db->insert(
+        $timesheetId = $this->db->insert(
             'INSERT INTO timesheets (task_id, talent_id, assignment_id, date, hours, status, billable, approved_by, approved_at, created_at, updated_at)
              VALUES (:task_id, :talent_id, :assignment_id, :date, :hours, :status, :billable, :approved_by, :approved_at, NOW(), NOW())',
             [
@@ -160,6 +161,10 @@ class TimesheetsRepository
                 ':approved_at' => $payload['approved_at'],
             ]
         );
+
+        $this->refreshTaskActualHours((int) $payload['task_id']);
+
+        return $timesheetId;
     }
 
     public function myTimesheets(int $talentId): array
@@ -219,8 +224,12 @@ class TimesheetsRepository
 
         $column = $status === 'approved' ? 'approved_by' : 'rejected_by';
         $columnDate = $status === 'approved' ? 'approved_at' : 'rejected_at';
+        $taskRow = $this->db->fetchOne(
+            'SELECT task_id FROM timesheets WHERE id = :id',
+            [':id' => $timesheetId]
+        );
 
-        return $this->db->execute(
+        $updated = $this->db->execute(
             "UPDATE timesheets
              SET status = :status,
                  {$column} = :user,
@@ -233,6 +242,12 @@ class TimesheetsRepository
                 ':id' => $timesheetId,
             ]
         );
+
+        if ($updated && $taskRow) {
+            $this->refreshTaskActualHours((int) $taskRow['task_id']);
+        }
+
+        return $updated;
     }
 
     public function talentIdForUser(int $userId): ?int
@@ -251,6 +266,28 @@ class TimesheetsRepository
         }
 
         return (int) $row['id'];
+    }
+
+    public function refreshTaskActualHours(int $taskId): void
+    {
+        if (!$this->db->tableExists('tasks') || !$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE task_id = :task AND status <> \'rejected\'',
+            [':task' => $taskId]
+        );
+
+        $this->db->execute(
+            'UPDATE tasks SET actual_hours = :hours, updated_at = NOW() WHERE id = :task',
+            [
+                ':hours' => (float) ($row['total'] ?? 0),
+                ':task' => $taskId,
+            ]
+        );
     }
 
     private function isPrivileged(array $user): bool
