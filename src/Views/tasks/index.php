@@ -10,9 +10,16 @@
                     </div>
                     <p style="margin:4px 0; color: var(--muted);">Proyecto: <?= htmlspecialchars($task['project']) ?></p>
                     <p style="margin:4px 0; color: var(--muted);">Responsable: <?= htmlspecialchars($task['assignee'] ?? 'Sin asignar') ?></p>
-                    <div style="display:flex; gap: 8px; align-items:center;">
-                        <span class="badge">Estimado: <?= $task['estimated_hours'] ?>h</span>
-                        <span class="badge <?= ($task['actual_hours'] ?? 0) > ($task['estimated_hours'] ?? 0) ? 'danger' : 'success' ?>">Registradas: <?= $task['actual_hours'] ?>h</span>
+                    <?php
+                    $estimated = (float) ($task['estimated_hours'] ?? 0);
+                    $actual = (float) ($task['actual_hours'] ?? 0);
+                    $deviation = $actual - $estimated;
+                    $deviationText = $deviation === 0.0 ? 'En línea' : (($deviation > 0) ? '+' . $deviation . 'h' : $deviation . 'h');
+                    ?>
+                    <div style="display:flex; gap: 8px; align-items:center; flex-wrap:wrap;">
+                        <span class="badge">Estimado: <?= $estimated ?>h</span>
+                        <span class="badge <?= $actual > $estimated ? 'danger' : 'success' ?>">Registradas: <?= $actual ?>h</span>
+                        <span class="badge <?= $deviation > 0 ? 'danger' : ($deviation < 0 ? 'success' : '') ?>">Desvío: <?= $deviationText ?></span>
                     </div>
                     <small style="color: var(--muted);">Vence: <?= htmlspecialchars($task['due_date']) ?></small>
                 </div>

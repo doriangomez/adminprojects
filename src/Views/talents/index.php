@@ -59,7 +59,7 @@ $flashMessageText = match ($flashMessage) {
         <div class="section-head">
             <div>
                 <h3><?= $isEditing ? 'Editar talento' : 'Registrar talento' ?></h3>
-                <small class="section-muted">Completa la ficha del talento y define si es de outsourcing.</small>
+                <small class="section-muted">Completa la ficha del talento y define su flujo de reporte de horas.</small>
             </div>
             <?php if ($isEditing): ?>
                 <a class="action-btn" href="<?= $basePath ?>/talents">Cancelar edición</a>
@@ -89,8 +89,8 @@ $flashMessageText = match ($flashMessage) {
                 </label>
             </div>
             <div class="grid">
-                <label>Capacidad semanal (h)
-                    <input type="number" name="weekly_capacity" value="<?= htmlspecialchars((string) ($editingTalent['weekly_capacity'] ?? 40)) ?>">
+                <label>Capacidad horaria (h/semana)
+                    <input type="number" step="0.5" name="capacidad_horaria" value="<?= htmlspecialchars((string) ($editingTalent['capacidad_horaria'] ?? 40)) ?>">
                 </label>
                 <label>Disponibilidad (%)
                     <input type="number" name="availability" value="<?= htmlspecialchars((string) ($editingTalent['availability'] ?? 100)) ?>">
@@ -104,9 +104,26 @@ $flashMessageText = match ($flashMessage) {
                     <input type="number" step="0.01" name="hourly_rate" value="<?= htmlspecialchars((string) ($editingTalent['hourly_rate'] ?? 0)) ?>">
                 </label>
             </div>
+            <div class="grid">
+                <label>Tipo de talento
+                    <select name="tipo_talento">
+                        <?php $selectedTipo = $editingTalent['tipo_talento'] ?? 'interno'; ?>
+                        <option value="interno" <?= $selectedTipo === 'interno' ? 'selected' : '' ?>>Interno</option>
+                        <option value="externo" <?= $selectedTipo === 'externo' ? 'selected' : '' ?>>Externo</option>
+                        <option value="otro" <?= $selectedTipo === 'otro' ? 'selected' : '' ?>>Otro</option>
+                    </select>
+                </label>
+                <label>Reporte de horas
+                    <?php $requiresReport = $editingTalent['requiere_reporte_horas'] ?? 1; ?>
+                    <select name="requiere_reporte_horas">
+                        <option value="1" <?= !empty($requiresReport) ? 'selected' : '' ?>>Requiere reporte</option>
+                        <option value="0" <?= empty($requiresReport) ? 'selected' : '' ?>>No reporta</option>
+                    </select>
+                </label>
+            </div>
             <label class="checkbox">
-                <input type="checkbox" name="is_outsourcing" value="1" <?= !empty($editingTalent['is_outsourcing']) ? 'checked' : '' ?>>
-                Talento de outsourcing
+                <input type="checkbox" name="requiere_aprobacion_horas" value="1" <?= !empty($editingTalent['requiere_aprobacion_horas']) ? 'checked' : '' ?>>
+                Requiere aprobación de horas
             </label>
 
             <div class="divider"></div>
@@ -132,12 +149,17 @@ $flashMessageText = match ($flashMessage) {
                     <div class="card">
                         <div class="toolbar">
                             <strong><?= htmlspecialchars($talent['name'] ?? '') ?></strong>
-                            <span class="status-badge <?= !empty($talent['is_outsourcing']) ? 'status-info' : 'status-muted' ?>">
-                                <?= !empty($talent['is_outsourcing']) ? 'Outsourcing' : 'Interno' ?>
+                            <?php
+                            $tipoTalento = $talent['tipo_talento'] ?? 'interno';
+                            $tipoClass = $tipoTalento === 'externo' ? 'status-info' : ($tipoTalento === 'otro' ? 'status-warning' : 'status-muted');
+                            ?>
+                            <span class="status-badge <?= $tipoClass ?>">
+                                <?= htmlspecialchars(ucfirst((string) $tipoTalento)) ?>
                             </span>
                         </div>
                         <p class="section-muted">Rol: <?= htmlspecialchars($talent['role'] ?? '') ?> · Seniority: <?= htmlspecialchars($talent['seniority'] ?? 'N/A') ?></p>
-                        <p class="section-muted">Capacidad semanal: <?= htmlspecialchars((string) ($talent['weekly_capacity'] ?? 0)) ?>h · Disponibilidad <?= htmlspecialchars((string) ($talent['availability'] ?? 0)) ?>%</p>
+                        <p class="section-muted">Tipo: <?= htmlspecialchars($talent['tipo_talento'] ?? 'interno') ?> · Capacidad: <?= htmlspecialchars((string) ($talent['capacidad_horaria'] ?? 0)) ?>h · Disponibilidad <?= htmlspecialchars((string) ($talent['availability'] ?? 0)) ?>%</p>
+                        <p class="section-muted">Reporte: <?= !empty($talent['requiere_reporte_horas']) ? 'Sí' : 'No' ?> · Aprobación: <?= !empty($talent['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?></p>
                         <p class="section-muted">Costo: $<?= number_format((float) ($talent['hourly_cost'] ?? 0), 0, ',', '.') ?> · Tarifa: $<?= number_format((float) ($talent['hourly_rate'] ?? 0), 0, ',', '.') ?></p>
                         <p class="section-muted">Skills: <?= htmlspecialchars($talent['skills'] ?? 'n/a') ?></p>
                         <p class="section-muted">Email: <?= htmlspecialchars($talent['user_email'] ?? 'Sin usuario') ?></p>

@@ -169,8 +169,8 @@ $formatDate = static function (?string $value): string {
                     </label>
                 </div>
                 <div class="grid">
-                    <label>Capacidad semanal (h)
-                        <input type="number" name="weekly_capacity" value="40">
+                    <label>Capacidad horaria (h/semana)
+                        <input type="number" step="0.5" name="capacidad_horaria" value="40">
                     </label>
                     <label>Disponibilidad (%)
                         <input type="number" name="availability" value="100">
@@ -184,9 +184,24 @@ $formatDate = static function (?string $value): string {
                         <input type="number" step="0.01" name="hourly_rate" value="0">
                     </label>
                 </div>
+                <div class="grid">
+                    <label>Tipo de talento
+                        <select name="tipo_talento">
+                            <option value="externo" selected>Externo</option>
+                            <option value="interno">Interno</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </label>
+                    <label>Reporte de horas
+                        <select name="requiere_reporte_horas">
+                            <option value="1" selected>Requiere reporte</option>
+                            <option value="0">No reporta</option>
+                        </select>
+                    </label>
+                </div>
                 <label class="checkbox">
-                    <input type="checkbox" name="is_outsourcing" value="1" checked>
-                    Talento de outsourcing
+                    <input type="checkbox" name="requiere_aprobacion_horas" value="1" checked>
+                    Requiere aprobación de horas
                 </label>
                 <button type="submit" class="action-btn primary">Guardar talento</button>
             </form>

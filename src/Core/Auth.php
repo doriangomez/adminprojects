@@ -107,19 +107,32 @@ class Auth
     public function hasTimesheetAssignments(): bool
     {
         $user = $this->user();
-        if (!$user || !$this->db->tableExists('project_talent_assignments')) {
+        if (!$user || !$this->db->tableExists('talents')) {
             return false;
         }
 
         $row = $this->db->fetchOne(
-            "SELECT 1 FROM project_talent_assignments
+            "SELECT requiere_reporte_horas
+             FROM talents
              WHERE user_id = :user
-             AND requires_timesheet = 1
-             AND (assignment_status = 'active' OR (assignment_status IS NULL AND active = 1))
              LIMIT 1",
             [':user' => (int) $user['id']]
         );
 
-        return $row !== null;
+        return ((int) ($row['requiere_reporte_horas'] ?? 0)) === 1;
+    }
+
+    public function canAccessTimesheets(): bool
+    {
+        $user = $this->user();
+        if (!$user || !$this->can('timesheets.view')) {
+            return false;
+        }
+
+        if (in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)) {
+            return true;
+        }
+
+        return $this->hasTimesheetAssignments();
     }
 }

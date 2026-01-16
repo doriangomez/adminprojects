@@ -111,16 +111,30 @@ class TalentService
 
     private function talentAttributes(array $payload, ?int $userId): array
     {
+        $tipoTalento = $payload['tipo_talento'] ?? 'interno';
+        if (!in_array($tipoTalento, ['interno', 'externo', 'otro'], true)) {
+            $tipoTalento = 'interno';
+        }
+
+        $requiresReport = !empty($payload['requiere_reporte_horas']) ? 1 : 0;
+        $requiresApproval = !empty($payload['requiere_aprobacion_horas']) ? 1 : 0;
+        if ($requiresReport === 0) {
+            $requiresApproval = 0;
+        }
+
         return [
             'user_id' => $userId,
             'name' => trim((string) ($payload['name'] ?? '')),
             'role' => trim((string) ($payload['role'] ?? '')),
             'seniority' => trim((string) ($payload['seniority'] ?? '')),
-            'weekly_capacity' => (int) ($payload['weekly_capacity'] ?? 0),
+            'capacidad_horaria' => (float) ($payload['capacidad_horaria'] ?? 0),
             'availability' => (int) ($payload['availability'] ?? 0),
+            'requiere_reporte_horas' => $requiresReport,
+            'requiere_aprobacion_horas' => $requiresApproval,
+            'tipo_talento' => $tipoTalento,
             'hourly_cost' => (float) ($payload['hourly_cost'] ?? 0),
             'hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),
-            'is_outsourcing' => !empty($payload['is_outsourcing']) ? 1 : 0,
+            'is_outsourcing' => $tipoTalento === 'externo' ? 1 : 0,
         ];
     }
 }

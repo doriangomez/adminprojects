@@ -306,6 +306,10 @@ CREATE TABLE talents (
     seniority VARCHAR(50),
     weekly_capacity INT DEFAULT 0,
     availability INT DEFAULT 0,
+    requiere_reporte_horas TINYINT(1) DEFAULT 0,
+    requiere_aprobacion_horas TINYINT(1) DEFAULT 0,
+    capacidad_horaria DECIMAL(8,2) DEFAULT 0,
+    tipo_talento ENUM('interno','externo','otro') NOT NULL DEFAULT 'interno',
     is_outsourcing TINYINT(1) DEFAULT 0,
     hourly_cost DECIMAL(10,2) DEFAULT 0,
     hourly_rate DECIMAL(10,2) DEFAULT 0,
@@ -630,8 +634,8 @@ VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'on_track', 'active', 1, 85, 
 INSERT INTO projects (client_id, pm_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
 VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());
 
-INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, hourly_cost, hourly_rate)
-VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 35, 70);
+INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, requiere_reporte_horas, requiere_aprobacion_horas, capacidad_horaria, tipo_talento, hourly_cost, hourly_rate)
+VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 1, 1, 40, 'interno', 35, 70);
 
 INSERT INTO skills (name) VALUES ('Agile'), ('Scrum'), ('PHP'), ('MySQL');
 INSERT INTO talent_skills (talent_id, skill_id) VALUES (1,1), (1,2);

@@ -455,10 +455,12 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
-            <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 4h10v2H7zM5 7h14v13H5zM12 11v5m-3-3h6"/></svg></span>
-                <span class="nav-label">Timesheet</span>
-            </a>
+            <?php if ($auth->canAccessTimesheets()): ?>
+                <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 4h10v2H7zM5 7h14v13H5zM12 11v5m-3-3h6"/></svg></span>
+                    <span class="nav-label">Timesheet</span>
+                </a>
+            <?php endif; ?>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
