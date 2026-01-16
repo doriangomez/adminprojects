@@ -47,6 +47,10 @@ class TimesheetsController extends Controller
             http_response_code(403);
             exit('No tienes una asignación habilitada para reportar horas en esta tarea.');
         }
+        if (($assignment['task_status'] ?? '') !== 'in_progress') {
+            http_response_code(400);
+            exit('Solo puedes registrar horas en tareas en estado Doing (En curso).');
+        }
 
         $talentId = $repo->talentIdForUser($userId);
         if ($talentId === null) {

@@ -12,7 +12,7 @@
                     <p style="margin:4px 0; color: var(--muted);">Responsable: <?= htmlspecialchars($task['assignee'] ?? 'Sin asignar') ?></p>
                     <div style="display:flex; gap: 8px; align-items:center;">
                         <span class="badge">Estimado: <?= $task['estimated_hours'] ?>h</span>
-                        <span class="badge <?= ($task['actual_hours'] ?? 0) > ($task['estimated_hours'] ?? 0) ? 'danger' : 'success' ?>">Usadas: <?= $task['actual_hours'] ?>h</span>
+                        <span class="badge <?= ($task['actual_hours'] ?? 0) > ($task['estimated_hours'] ?? 0) ? 'danger' : 'success' ?>">Registradas: <?= $task['actual_hours'] ?>h</span>
                     </div>
                     <small style="color: var(--muted);">Vence: <?= htmlspecialchars($task['due_date']) ?></small>
                 </div>
