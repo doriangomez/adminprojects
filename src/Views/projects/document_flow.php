@@ -1158,14 +1158,6 @@ foreach ($documentExpectedItems as $doc) {
             uploadValidation.hidden = false;
         };
 
-        if (openUpload && uploadModal) {
-            openUpload.addEventListener('click', (event) => {
-                event.preventDefault();
-                setUploadValidation('');
-                uploadModal.hidden = false;
-            });
-        }
-
         closeUploadButtons.forEach(button => {
             button.addEventListener('click', closeModal);
         });
@@ -1207,6 +1199,11 @@ foreach ($documentExpectedItems as $doc) {
 
             uploadForm.addEventListener('submit', (event) => {
                 event.preventDefault();
+                if (uploadModal && uploadModal.hidden) {
+                    setUploadValidation('');
+                    uploadModal.hidden = false;
+                    return;
+                }
                 const documentType = collectUploadType();
                 const tags = collectUploadTags();
                 const versionValue = (uploadForm.querySelector('input[name="document_version"]')?.value ?? '').trim();
