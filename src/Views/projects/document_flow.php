@@ -1163,13 +1163,18 @@ foreach ($documentExpectedItems as $doc) {
             if (event) {
                 event.preventDefault();
             }
+            const trigger = event?.currentTarget ?? event?.target ?? null;
+            const scopedForm = trigger?.closest('[data-upload-form]') || uploadForm;
+            const scopedModal = scopedForm?.querySelector('[data-upload-modal]') || uploadModal;
+            const scopedInput = scopedForm?.querySelector('input[type="file"]') || uploadInput;
             setUploadValidation('');
-            if (uploadModal) {
-                uploadModal.hidden = false;
+            console.log('Click en Subir documento: handler activo.');
+            if (scopedModal) {
+                scopedModal.hidden = false;
                 return;
             }
-            if (uploadInput) {
-                uploadInput.click();
+            if (scopedInput) {
+                scopedInput.click();
             }
         };
 
