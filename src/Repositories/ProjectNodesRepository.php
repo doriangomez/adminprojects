@@ -211,8 +211,8 @@ class ProjectNodesRepository
         if (!$parent || $parent['node_type'] !== 'folder') {
             throw new \InvalidArgumentException('Selecciona una carpeta válida para adjuntar.');
         }
-        if (!$this->isStandardSubphase($parent)) {
-            throw new \InvalidArgumentException('Sube archivos dentro de una subfase.');
+        if (!$this->isUploadableFolder($parent)) {
+            throw new \InvalidArgumentException('Sube archivos dentro de una fase o subfase.');
         }
 
         if (($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($uploadedFile['tmp_name']) || !is_file((string) $uploadedFile['tmp_name'])) {
@@ -2105,6 +2105,20 @@ class ProjectNodesRepository
         $suffix = implode('-', array_slice($parts, -2));
 
         return in_array($suffix, self::STANDARD_SUBPHASE_SUFFIXES, true);
+    }
+
+    private function isUploadableFolder(array $node): bool
+    {
+        if ($this->isStandardSubphase($node)) {
+            return true;
+        }
+
+        $code = (string) ($node['code'] ?? '');
+        if ($code === '' || strtoupper($code) === 'ROOT') {
+            return false;
+        }
+
+        return ($node['parent_id'] ?? null) !== null;
     }
 
     private function normalizeDocumentTags(mixed $value): array
