@@ -48,9 +48,10 @@ class TimesheetsController extends Controller
         $taskId = (int) ($_POST['task_id'] ?? 0);
         $date = trim((string) ($_POST['date'] ?? ''));
         $hours = (float) ($_POST['hours'] ?? 0);
+        $comment = trim((string) ($_POST['comment'] ?? ''));
         $billable = isset($_POST['billable']) ? 1 : 0;
 
-        if ($taskId <= 0 || $date === '' || $hours <= 0) {
+        if ($taskId <= 0 || $date === '' || $hours <= 0 || $comment === '') {
             http_response_code(400);
             exit('Completa los datos requeridos para registrar horas.');
         }
@@ -84,6 +85,7 @@ class TimesheetsController extends Controller
                 'date' => $date,
                 'hours' => $hours,
                 'status' => $status,
+                'comment' => $comment,
                 'billable' => $billable,
                 'approved_by' => $approvedBy,
                 'approved_at' => $approvedAt,
@@ -98,6 +100,7 @@ class TimesheetsController extends Controller
                     'task_id' => $taskId,
                     'hours' => $hours,
                     'date' => $date,
+                    'comment' => $comment,
                 ]
             );
 
@@ -124,9 +127,15 @@ class TimesheetsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
 
         $status = $action === 'approve' ? 'approved' : 'rejected';
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        if ($status === 'rejected' && $comment === '') {
+            http_response_code(400);
+            exit('Debes indicar un comentario para rechazar horas.');
+        }
 
         try {
-            $repo->updateApprovalStatus($timesheetId, $status, $userId);
+            $repo->updateApprovalStatus($timesheetId, $status, $userId, $comment !== '' ? $comment : null);
 
             (new AuditLogRepository($this->db))->log(
                 $userId,
@@ -136,6 +145,7 @@ class TimesheetsController extends Controller
                 [
                     'approved_by' => $status === 'approved' ? $userId : null,
                     'rejected_by' => $status === 'rejected' ? $userId : null,
+                    'comment' => $comment !== '' ? $comment : null,
                 ]
             );
 

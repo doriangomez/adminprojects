@@ -168,6 +168,9 @@ class DashboardService
         $period = $this->weeklyPeriod();
         $weeklyHours = 0.0;
         $pendingHours = 0.0;
+        $todayHours = 0.0;
+        $hoursByProject = [];
+        $hoursByTalent = [];
 
         if ($this->db->tableExists('timesheets') && $this->db->tableExists('tasks')) {
             $weeklyHoursRow = $this->db->fetchOne(
@@ -194,6 +197,49 @@ class DashboardService
                 $params
             );
             $pendingHours = (float) ($pendingRow['total'] ?? 0);
+
+            $todayRow = $this->db->fetchOne(
+                "SELECT SUM(ts.hours) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 JOIN projects p ON p.id = t.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND ts.date = :today",
+                array_merge($params, [':today' => date('Y-m-d')])
+            );
+            $todayHours = (float) ($todayRow['total'] ?? 0);
+
+            $hoursByProject = $this->db->fetchAll(
+                "SELECT p.name AS project, SUM(ts.hours) AS total_hours
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 JOIN projects p ON p.id = t.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND ts.status = 'approved'
+                 GROUP BY p.id
+                 ORDER BY total_hours DESC
+                 LIMIT 5",
+                $params
+            );
+
+            if ($this->db->tableExists('talents')) {
+                $hoursByTalent = $this->db->fetchAll(
+                    "SELECT ta.name AS talent, SUM(ts.hours) AS total_hours
+                     FROM timesheets ts
+                     JOIN tasks t ON t.id = ts.task_id
+                     JOIN projects p ON p.id = t.project_id
+                     JOIN clients c ON c.id = p.client_id
+                     JOIN talents ta ON ta.id = ts.talent_id
+                     {$projectsCondition}
+                     AND ts.status = 'approved'
+                     GROUP BY ta.id
+                     ORDER BY total_hours DESC
+                     LIMIT 5",
+                    $params
+                );
+            }
         }
 
         $talentsWithoutReport = 0;
@@ -260,6 +306,9 @@ class DashboardService
         return [
             'weekly_hours' => $weeklyHours,
             'pending_hours' => $pendingHours,
+            'today_hours' => $todayHours,
+            'hours_by_project' => $hoursByProject,
+            'hours_by_talent' => $hoursByTalent,
             'talents_without_report' => $talentsWithoutReport,
             'internal_talents' => $internalTalents,
             'external_talents' => $externalTalents,

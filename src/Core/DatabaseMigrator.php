@@ -301,6 +301,16 @@ class DatabaseMigrator
                 }
             }
 
+            if (!$this->db->columnExists('timesheets', 'comment')) {
+                $this->db->execute('ALTER TABLE timesheets ADD COLUMN comment TEXT NULL AFTER status');
+                $this->db->clearColumnCache();
+            }
+
+            if (!$this->db->columnExists('timesheets', 'approval_comment')) {
+                $this->db->execute('ALTER TABLE timesheets ADD COLUMN approval_comment TEXT NULL AFTER comment');
+                $this->db->clearColumnCache();
+            }
+
             if ($this->db->columnExists('timesheets', 'assignment_id')
                 && !$this->db->foreignKeyExists('timesheets', 'assignment_id', 'project_talent_assignments')
                 && $this->db->tableExists('project_talent_assignments')

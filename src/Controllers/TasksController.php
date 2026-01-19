@@ -9,8 +9,8 @@ class TasksController extends Controller
         $repo = new TasksRepository($this->db);
         $this->requirePermission('tasks.view');
         $this->render('tasks/index', [
-            'title' => 'Tareas / Kanban',
-            'columns' => $repo->kanban(),
+            'title' => 'Tareas',
+            'tasks' => $repo->listAll($this->auth->user() ?? []),
         ]);
     }
 }

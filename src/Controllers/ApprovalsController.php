@@ -33,6 +33,10 @@ class ApprovalsController extends Controller
             ];
         }
 
+        $timesheetApprovals = $this->auth->canApproveTimesheets()
+            ? (new TimesheetsRepository($this->db))->pendingApprovals($user)
+            : [];
+
         $this->render('approvals/index', [
             'title' => 'Bandeja de Aprobaciones',
             'reviewQueue' => $reviewQueue,
@@ -40,6 +44,7 @@ class ApprovalsController extends Controller
             'approvalQueue' => $approvalQueue,
             'dispatchQueue' => $dispatchQueue,
             'roleFlags' => $roleFlags,
+            'timesheetApprovals' => $timesheetApprovals,
         ]);
     }
 }

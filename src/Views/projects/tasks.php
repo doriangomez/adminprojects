@@ -28,6 +28,13 @@ $riskCategoryIcons = [
     'Dependencias' => '🔗',
     'Otros' => '⚠️',
 ];
+$taskStatusMeta = [
+    'todo' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-muted'],
+    'in_progress' => ['label' => 'En progreso', 'icon' => '🔄', 'class' => 'status-info'],
+    'review' => ['label' => 'En revisión', 'icon' => '📝', 'class' => 'status-warning'],
+    'blocked' => ['label' => 'Bloqueada', 'icon' => '⛔', 'class' => 'status-danger'],
+    'done' => ['label' => 'Completada', 'icon' => '✅', 'class' => 'status-success'],
+];
 $riskCategories = [];
 foreach ($selectedRisks as $riskCode) {
     $normalized = strtolower((string) $riskCode);
@@ -130,13 +137,16 @@ foreach ($selectedRisks as $riskCode) {
         <?php else: ?>
             <div class="task-list">
                 <?php foreach ($tasks as $task): ?>
+                    <?php $taskStatus = $taskStatusMeta[$task['status'] ?? ''] ?? ['label' => 'Pendiente', 'icon' => '📌', 'class' => 'status-muted']; ?>
                     <div class="task-card">
                         <div>
                             <strong><?= htmlspecialchars($task['title'] ?? '') ?></strong>
                             <small class="section-muted">Responsable: <?= htmlspecialchars($task['assignee'] ?? 'Sin asignar') ?></small>
                         </div>
                         <div class="task-meta">
-                            <span class="status-badge status-info"><?= htmlspecialchars($task['status'] ?? 'Pendiente') ?></span>
+                            <span class="status-badge <?= htmlspecialchars($taskStatus['class']) ?>">
+                                <?= htmlspecialchars($taskStatus['icon']) ?> <?= htmlspecialchars($taskStatus['label']) ?>
+                            </span>
                             <small class="section-muted">Prioridad <?= htmlspecialchars($task['priority'] ?? 'Media') ?></small>
                             <small class="section-muted">Horas <?= htmlspecialchars((string) ($task['actual_hours'] ?? 0)) ?>/<?= htmlspecialchars((string) ($task['estimated_hours'] ?? 0)) ?></small>
                             <small class="section-muted">Vence <?= htmlspecialchars((string) ($task['due_date'] ?? '')) ?></small>
@@ -155,26 +165,26 @@ foreach ($selectedRisks as $riskCode) {
     .project-title-block h2 { margin:0; color: var(--text-strong); }
     .risk-overview,
     .risk-section,
-    .task-section { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
+    .task-section { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
     .risk-summary { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    .risk-summary__item { border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:4px; }
+    .risk-summary__item { border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); display:flex; flex-direction:column; gap:4px; }
     .risk-summary__item span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
     .risk-summary__item strong { font-size:16px; color: var(--text-strong); }
     .risk-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    .risk-card { border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:10px; }
+    .risk-card { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); display:flex; flex-direction:column; gap:10px; }
     .risk-card__header { display:flex; align-items:center; gap:8px; }
-    .risk-card__icon { width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:#e0e7ff; }
+    .risk-card__icon { width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); }
     .risk-checklist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
     .risk-checklist li { display:flex; align-items:center; gap:8px; font-weight:600; }
-    .risk-check { width:22px; height:22px; border-radius:999px; background:#dcfce7; color:#166534; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+    .risk-check { width:22px; height:22px; border-radius:999px; background: color-mix(in srgb, var(--success) 22%, var(--surface) 78%); color: var(--text-strong); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
     .task-list { display:flex; flex-direction:column; gap:10px; }
-    .task-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; background:#f8fafc; }
+    .task-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); }
     .task-meta { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
-    .status-muted { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
-    .status-info { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
-    .status-success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
-    .status-warning { background:#fef9c3; color:#854d0e; border-color:#fde047; }
-    .status-danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; display:inline-flex; align-items:center; gap:6px; }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); border-color: var(--border); }
+    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--accent) 35%, var(--border) 65%); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); border-color: color-mix(in srgb, var(--success) 35%, var(--border) 65%); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
 </style>

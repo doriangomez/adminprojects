@@ -4,6 +4,7 @@ $reviewQueue = is_array($reviewQueue ?? null) ? $reviewQueue : [];
 $validationQueue = is_array($validationQueue ?? null) ? $validationQueue : [];
 $approvalQueue = is_array($approvalQueue ?? null) ? $approvalQueue : [];
 $dispatchQueue = is_array($dispatchQueue ?? null) ? $dispatchQueue : [];
+$timesheetApprovals = is_array($timesheetApprovals ?? null) ? $timesheetApprovals : [];
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
 
 $statusMeta = [
@@ -136,6 +137,65 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
             <?php endif; ?>
         </section>
 
+        <section class="approvals-section" data-queue="timesheets">
+            <header>
+                <h3>Timesheets por aprobar</h3>
+                <p class="section-muted">Horas reportadas pendientes de aprobación.</p>
+            </header>
+            <?php if (empty($timesheetApprovals)): ?>
+                <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
+            <?php else: ?>
+                <div class="timesheet-list">
+                    <?php foreach ($timesheetApprovals as $row): ?>
+                        <?php
+                        $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
+                        $statusLabel = $status === 'pending' ? 'Pendiente' : $status;
+                        ?>
+                        <article class="timesheet-card">
+                            <header>
+                                <div>
+                                    <strong>⏱️ <?= htmlspecialchars($row['talent'] ?? '') ?></strong>
+                                    <div class="meta-line">Proyecto: <?= htmlspecialchars($row['project'] ?? '') ?></div>
+                                    <div class="meta-line">Tarea: <?= htmlspecialchars($row['task'] ?? '') ?></div>
+                                </div>
+                                <span class="badge <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
+                                    <?= htmlspecialchars($statusLabel) ?>
+                                </span>
+                            </header>
+                            <div class="timesheet-info">
+                                <div>
+                                    <span class="meta-label">Fecha</span>
+                                    <div><?= htmlspecialchars($row['date'] ?? '') ?></div>
+                                </div>
+                                <div>
+                                    <span class="meta-label">Horas</span>
+                                    <div><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
+                                </div>
+                                <div>
+                                    <span class="meta-label">Comentario</span>
+                                    <div><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></div>
+                                </div>
+                            </div>
+                            <div class="timesheet-actions">
+                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
+                                    <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario de aprobación">
+                                    <button type="submit" class="action-btn small primary">
+                                        ✅ Aprobar
+                                    </button>
+                                </form>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
+                                    <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo de rechazo">
+                                    <button type="submit" class="action-btn small danger">
+                                        ❌ Rechazar
+                                    </button>
+                                </form>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
         <?php if (!empty($dispatchQueue) && ($roleFlags['can_manage'] ?? false)): ?>
             <section class="approvals-section" data-queue="dispatch-validation">
                 <header>
@@ -173,30 +233,37 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
     .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
     .approvals-section header h3 { margin:0; }
     .section-muted { color: var(--muted); margin:0; font-size:13px; }
-    .section-muted.empty { padding:10px; border:1px dashed var(--border); border-radius:10px; background:#f8fafc; }
-    .inbox-card { border:1px solid var(--border); border-radius:14px; padding:12px; background:#fff; display:flex; flex-direction:column; gap:10px; }
+    .section-muted.empty { padding:10px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); }
+    .inbox-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; flex-direction:column; gap:10px; }
     .inbox-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
-    .status-muted { background:#e2e8f0; color:#475569; }
-    .status-info { background:#e0f2fe; color:#075985; }
-    .status-warning { background:#fef3c7; color:#92400e; }
-    .status-success { background:#dcfce7; color:#166534; }
-    .status-danger { background:#fee2e2; color:#991b1b; }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); }
+    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); }
     .meta-line { font-size:12px; color: var(--muted); margin-top:4px; }
     .inbox-card__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
     .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--muted); display:block; margin-bottom:4px; font-weight:700; }
     .inbox-card__footer { display:flex; gap:8px; flex-wrap:wrap; }
     .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
-    .action-btn.danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
+    .action-btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .action-panel { display:flex; flex-direction:column; gap:8px; }
     .action-panel textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; width:100%; }
     .action-panel__buttons { display:flex; gap:8px; flex-wrap:wrap; }
-    .history-panel { background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:8px; }
+    .history-panel { background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); border:1px dashed var(--border); border-radius:10px; padding:8px; }
     .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-strong); font-size:12px; }
-    .toast { position:sticky; top:12px; align-self:flex-start; background:#dcfce7; color:#166534; padding:8px 12px; border-radius:10px; border:1px solid #bbf7d0; font-weight:600; font-size:13px; }
-    .toast.error { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
+    .toast { position:sticky; top:12px; align-self:flex-start; background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color: var(--text-strong); padding:8px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--success) 40%, var(--border) 60%); font-weight:600; font-size:13px; }
+    .toast.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
+    .timesheet-list { display:flex; flex-direction:column; gap:12px; }
+    .timesheet-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; flex-direction:column; gap:10px; }
+    .timesheet-card header { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .timesheet-info { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+    .timesheet-actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-strong); }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
     }
