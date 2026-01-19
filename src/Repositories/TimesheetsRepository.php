@@ -334,6 +334,11 @@ class TimesheetsRepository
             return;
         }
 
+        $taskRow = $this->db->fetchOne(
+            'SELECT project_id FROM tasks WHERE id = :task LIMIT 1',
+            [':task' => $taskId]
+        );
+
         $row = $this->db->fetchOne(
             'SELECT COALESCE(SUM(hours), 0) AS total
              FROM timesheets
@@ -348,6 +353,25 @@ class TimesheetsRepository
                 ':task' => $taskId,
             ]
         );
+
+        $projectId = (int) ($taskRow['project_id'] ?? 0);
+        if ($projectId > 0 && $this->db->tableExists('projects') && $this->db->columnExists('projects', 'actual_hours')) {
+            $projectHours = $this->db->fetchOne(
+                'SELECT COALESCE(SUM(ts.hours), 0) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :project AND ts.status = \'approved\'',
+                [':project' => $projectId]
+            );
+
+            $this->db->execute(
+                'UPDATE projects SET actual_hours = :hours, updated_at = NOW() WHERE id = :project',
+                [
+                    ':hours' => (float) ($projectHours['total'] ?? 0),
+                    ':project' => $projectId,
+                ]
+            );
+        }
     }
 
     private function isPrivileged(array $user): bool

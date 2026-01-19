@@ -130,11 +130,7 @@ class Auth
     public function canAccessTimesheets(): bool
     {
         $user = $this->user();
-        if (!$user || !$this->can('timesheets.view')) {
-            return false;
-        }
-
-        if (!$this->isTalentUser()) {
+        if (!$user) {
             return false;
         }
 

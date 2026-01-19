@@ -476,7 +476,7 @@ error_log(sprintf(
             </a>
             <?php if ($auth->canAccessTimesheets()): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
-                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 4h10v2H7zM5 7h14v13H5zM12 11v5m-3-3h6"/></svg></span>
+                    <span class="nav-icon" aria-hidden="true">⏱️</span>
                     <span class="nav-label">Timesheet</span>
                 </a>
             <?php endif; ?>
