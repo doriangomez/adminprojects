@@ -363,7 +363,9 @@ CREATE TABLE project_talent_assignments (
 CREATE TABLE timesheets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     task_id INT NOT NULL,
+    project_id INT NULL,
     talent_id INT NOT NULL,
+    user_id INT NULL,
     assignment_id INT,
     date DATE NOT NULL,
     hours DECIMAL(8,2) NOT NULL,
@@ -378,7 +380,9 @@ CREATE TABLE timesheets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (talent_id) REFERENCES talents(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (assignment_id) REFERENCES project_talent_assignments(id),
     FOREIGN KEY (approved_by) REFERENCES users(id),
     FOREIGN KEY (rejected_by) REFERENCES users(id)

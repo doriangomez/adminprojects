@@ -126,14 +126,70 @@ class OutsourcingServicesRepository
     public function timesheetSummary(array $service): array
     {
         if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks') || !$this->db->tableExists('talents')) {
-            return ['total_hours' => 0.0, 'approved_hours' => 0.0, 'pending_hours' => 0.0];
+            return [
+                'total_hours' => 0.0,
+                'approved_hours' => 0.0,
+                'pending_hours' => 0.0,
+                'hours_by_project' => [],
+                'hours_by_talent' => [],
+                'period_start' => null,
+                'period_end' => null,
+            ];
         }
 
         $projectId = (int) ($service['project_id'] ?? 0);
         $userId = (int) ($service['talent_id'] ?? 0);
-        if ($projectId <= 0 || $userId <= 0) {
-            return ['total_hours' => 0.0, 'approved_hours' => 0.0, 'pending_hours' => 0.0];
+        if ($userId <= 0) {
+            return [
+                'total_hours' => 0.0,
+                'approved_hours' => 0.0,
+                'pending_hours' => 0.0,
+                'hours_by_project' => [],
+                'hours_by_talent' => [],
+                'period_start' => null,
+                'period_end' => null,
+            ];
         }
+
+        $talent = $this->db->fetchOne(
+            'SELECT id, name FROM talents WHERE user_id = :user LIMIT 1',
+            [':user' => $userId]
+        );
+
+        if (!$talent) {
+            return [
+                'total_hours' => 0.0,
+                'approved_hours' => 0.0,
+                'pending_hours' => 0.0,
+                'hours_by_project' => [],
+                'hours_by_talent' => [],
+                'period_start' => null,
+                'period_end' => null,
+            ];
+        }
+
+        $periodStart = $service['start_date'] ?? null;
+        $periodEnd = $service['end_date'] ?? date('Y-m-d');
+        $conditions = ['ts.talent_id = :talent'];
+        $params = [':talent' => (int) $talent['id']];
+        $usesTimesheetProject = $this->db->columnExists('timesheets', 'project_id');
+        $needsTaskJoin = false;
+        if ($projectId > 0) {
+            if ($usesTimesheetProject) {
+                $conditions[] = 'ts.project_id = :project';
+            } else {
+                $conditions[] = 't.project_id = :project';
+                $needsTaskJoin = true;
+            }
+            $params[':project'] = $projectId;
+        }
+        if ($periodStart) {
+            $conditions[] = 'ts.date BETWEEN :start AND :end';
+            $params[':start'] = $periodStart;
+            $params[':end'] = $periodEnd;
+        }
+
+        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         $row = $this->db->fetchOne(
             "SELECT SUM(ts.hours) AS total_hours,
@@ -141,19 +197,40 @@ class OutsourcingServicesRepository
                     SUM(CASE WHEN ts.status IN ('pending','submitted','pending_approval') THEN ts.hours ELSE 0 END) AS pending_hours
              FROM timesheets ts
              JOIN tasks t ON t.id = ts.task_id
+             {$where}",
+            $params
+        );
+
+        $hoursByProject = $this->db->fetchAll(
+            "SELECT p.name AS project, SUM(ts.hours) AS total_hours
+             FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             JOIN projects p ON p.id = t.project_id
+             {$where}
+             GROUP BY p.id
+             ORDER BY total_hours DESC",
+            $params
+        );
+
+        $hoursByTalent = $this->db->fetchAll(
+            "SELECT ta.name AS talent, SUM(ts.hours) AS total_hours
+             FROM timesheets ts
+             " . ($needsTaskJoin ? 'JOIN tasks t ON t.id = ts.task_id' : '') . "
              JOIN talents ta ON ta.id = ts.talent_id
-             WHERE t.project_id = :project
-             AND ta.user_id = :user",
-            [
-                ':project' => $projectId,
-                ':user' => $userId,
-            ]
+             {$where}
+             GROUP BY ta.id
+             ORDER BY total_hours DESC",
+            $params
         );
 
         return [
             'total_hours' => (float) ($row['total_hours'] ?? 0),
             'approved_hours' => (float) ($row['approved_hours'] ?? 0),
             'pending_hours' => (float) ($row['pending_hours'] ?? 0),
+            'hours_by_project' => $hoursByProject,
+            'hours_by_talent' => $hoursByTalent,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
         ];
     }
 

@@ -6,6 +6,9 @@ $tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet :
 $pendingApprovals = is_array($pendingApprovals ?? null) ? $pendingApprovals : [];
 $canApprove = !empty($canApprove);
 $canReport = !empty($canReport);
+$weekStart = $weekStart ?? new DateTimeImmutable('monday this week');
+$weekEnd = $weekEnd ?? $weekStart->modify('+6 days');
+$weekValue = $weekValue ?? $weekStart->format('o-\\WW');
 
 $statusMeta = [
     'draft' => ['label' => 'Borrador', 'icon' => '📝', 'class' => 'status-muted'],
@@ -14,8 +17,19 @@ $statusMeta = [
     'rejected' => ['label' => 'Rechazado', 'icon' => '❌', 'class' => 'status-danger'],
 ];
 
-$weekStart = new DateTimeImmutable('monday this week');
-$weekEnd = $weekStart->modify('+6 days');
+$projectsForTimesheet = [];
+foreach ($tasksForTimesheet as $task) {
+    $projectId = (int) ($task['project_id'] ?? 0);
+    if ($projectId <= 0) {
+        continue;
+    }
+    if (!isset($projectsForTimesheet[$projectId])) {
+        $projectsForTimesheet[$projectId] = [
+            'id' => $projectId,
+            'name' => (string) ($task['project'] ?? ''),
+        ];
+    }
+}
 $weekRows = array_values(array_filter($rows, static function (array $row) use ($weekStart, $weekEnd): bool {
     $date = $row['date'] ?? null;
     if (!$date) {
@@ -35,8 +49,17 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
             <h2>Timesheets</h2>
             <p class="section-muted">Registro diario y semanal de horas por proyecto y tarea.</p>
         </div>
-        <div class="week-pill">
-            Semana <?= htmlspecialchars($weekStart->format('d/m')) ?> - <?= htmlspecialchars($weekEnd->format('d/m')) ?>
+        <div class="header-actions">
+            <form method="GET" class="week-selector">
+                <label>
+                    <span class="sr-only">Seleccionar semana</span>
+                    <input type="week" name="week" value="<?= htmlspecialchars($weekValue) ?>">
+                </label>
+                <button type="submit" class="secondary-button small">Ver semana</button>
+            </form>
+            <div class="week-pill">
+                Semana <?= htmlspecialchars($weekStart->format('d/m')) ?> - <?= htmlspecialchars($weekEnd->format('d/m')) ?>
+            </div>
         </div>
     </header>
 
@@ -68,12 +91,22 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
             <?php if (empty($tasksForTimesheet)): ?>
                 <p class="section-muted">No hay tareas disponibles para registrar horas.</p>
             <?php else: ?>
-                <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form">
+                <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form" data-timesheet-form>
+                    <label>Proyecto
+                        <select name="project_id" required data-project-select>
+                            <option value="">Selecciona un proyecto</option>
+                            <?php foreach ($projectsForTimesheet as $project): ?>
+                                <option value="<?= (int) ($project['id'] ?? 0) ?>"><?= htmlspecialchars($project['name'] ?? '') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
                     <label>Tarea
-                        <select name="task_id" required>
+                        <select name="task_id" required data-task-select>
                             <option value="">Selecciona una tarea</option>
                             <?php foreach ($tasksForTimesheet as $task): ?>
-                                <option value="<?= (int) $task['id'] ?>"><?= htmlspecialchars($task['project']) ?> · <?= htmlspecialchars($task['title']) ?></option>
+                                <option value="<?= (int) $task['id'] ?>" data-project-id="<?= (int) ($task['project_id'] ?? 0) ?>">
+                                    <?= htmlspecialchars($task['title']) ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </label>
@@ -113,6 +146,7 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
                         <th>Tarea</th>
                         <th>Horas</th>
                         <th>Estado</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,11 +156,30 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
                         $meta = $statusMeta[$statusKey] ?? ['label' => ucfirst((string) $statusKey), 'icon' => '📌', 'class' => 'status-muted'];
                         ?>
                         <tr>
-                            <td><?= htmlspecialchars($row['date'] ?? '') ?></td>
-                            <td><?= htmlspecialchars($row['project'] ?? '') ?></td>
-                            <td><?= htmlspecialchars($row['task'] ?? '') ?></td>
-                            <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
-                            <td><span class="badge <?= $meta['class'] ?>"><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span></td>
+                            <td class="cell-compact"><?= htmlspecialchars($row['date'] ?? '') ?></td>
+                            <td class="cell-compact truncate"><?= htmlspecialchars($row['project'] ?? '') ?></td>
+                            <td class="cell-compact truncate"><?= htmlspecialchars($row['task'] ?? '') ?></td>
+                            <td class="cell-compact"><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
+                            <td class="cell-compact"><span class="badge <?= $meta['class'] ?>"><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span></td>
+                            <td class="cell-compact">
+                                <button type="button" class="ghost-button small" data-toggle-detail>Ver</button>
+                            </td>
+                        </tr>
+                        <tr class="detail-row" hidden>
+                            <td colspan="6">
+                                <div class="detail-card">
+                                    <div>
+                                        <span class="meta-label">Comentario</span>
+                                        <p class="detail-text"><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></p>
+                                    </div>
+                                    <?php if (!empty($row['approval_comment'])): ?>
+                                        <div>
+                                            <span class="meta-label">Comentario aprobación</span>
+                                            <p class="detail-text"><?= htmlspecialchars((string) ($row['approval_comment'] ?? '')) ?></p>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -210,12 +263,12 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
                     ?>
                     <tr>
                         <td><?= htmlspecialchars($row['date'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['project'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['task'] ?? '') ?></td>
+                        <td class="wrap-anywhere"><?= htmlspecialchars($row['project'] ?? '') ?></td>
+                        <td class="wrap-anywhere"><?= htmlspecialchars($row['task'] ?? '') ?></td>
                         <td><?= htmlspecialchars($row['talent'] ?? '') ?></td>
                         <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
                         <td><span class="badge <?= $meta['class'] ?>"><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span></td>
-                        <td><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></td>
+                        <td class="wrap-anywhere"><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></td>
                         <td><?= !empty($row['billable']) ? 'Sí' : 'No' ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -229,7 +282,11 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     .timesheets-header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
     .timesheets-header h2 { margin:0; }
     .section-muted { color: var(--muted); margin:0; font-size:13px; }
+    .header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .week-selector { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .week-selector input { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-strong); font-size:13px; }
     .week-pill { padding:6px 12px; border-radius:999px; background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); color: var(--text-strong); font-weight:700; font-size:12px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     .kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; }
     .timesheet-entry header,
     .timesheet-week header,
@@ -244,9 +301,12 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     .checkbox { display:flex; gap:8px; align-items:center; }
     .clean-table { width:100%; border-collapse:collapse; }
     .clean-table th,
-    .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:14px; }
-    .clean-table th { font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:14px; line-height:1.4; }
+    .clean-table th { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .cell-compact { font-size:13px; line-height:1.4; }
+    .truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px; }
+    .wrap-anywhere { overflow-wrap:anywhere; max-width:260px; }
     .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); }
     .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); }
     .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); }
@@ -258,7 +318,51 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     .secondary-button { background: color-mix(in srgb, var(--surface) 86%, var(--bg-app) 14%); color: var(--text-strong); border:1px solid var(--border); cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
     .primary-button.small,
     .secondary-button.small { padding:6px 10px; font-size:12px; }
+    .ghost-button { border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 85%, var(--bg-app) 15%); color: var(--text-strong); border-radius:10px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+    .ghost-button.small { padding:6px 8px; font-size:12px; }
+    .detail-row td { padding:0; border-bottom:none; }
+    .detail-card { display:grid; gap:10px; padding:12px; border-top:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%); }
+    .detail-card .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--muted); font-weight:700; }
+    .detail-text { margin:4px 0 0; font-size:13px; line-height:1.5; color: var(--text-strong); max-width:100%; overflow-wrap:anywhere; }
     @media (max-width: 900px) {
         .clean-table { display:block; overflow-x:auto; }
+        .truncate { max-width:160px; }
     }
 </style>
+
+<script>
+    (() => {
+        const form = document.querySelector('[data-timesheet-form]');
+        if (form) {
+            const projectSelect = form.querySelector('[data-project-select]');
+            const taskSelect = form.querySelector('[data-task-select]');
+            const taskOptions = taskSelect ? Array.from(taskSelect.options).slice(1) : [];
+
+            const syncTasks = () => {
+                const projectId = projectSelect?.value ?? '';
+                if (taskSelect) {
+                    taskSelect.disabled = projectId === '';
+                    taskSelect.value = '';
+                    taskOptions.forEach(option => {
+                        option.hidden = projectId === '' || option.dataset.projectId !== projectId;
+                    });
+                }
+            };
+
+            if (projectSelect) {
+                projectSelect.addEventListener('change', syncTasks);
+            }
+            syncTasks();
+        }
+
+        document.querySelectorAll('[data-toggle-detail]').forEach(button => {
+            button.addEventListener('click', () => {
+                const detailRow = button.closest('tr')?.nextElementSibling;
+                if (!detailRow || !detailRow.classList.contains('detail-row')) {
+                    return;
+                }
+                detailRow.hidden = !detailRow.hidden;
+            });
+        });
+    })();
+</script>

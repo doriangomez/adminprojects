@@ -145,53 +145,51 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
             <?php if (empty($timesheetApprovals)): ?>
                 <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
             <?php else: ?>
-                <div class="timesheet-list">
-                    <?php foreach ($timesheetApprovals as $row): ?>
-                        <?php
-                        $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
-                        $statusLabel = $status === 'pending' ? 'Pendiente' : $status;
-                        ?>
-                        <article class="timesheet-card">
-                            <header>
-                                <div>
-                                    <strong>⏱️ <?= htmlspecialchars($row['talent'] ?? '') ?></strong>
-                                    <div class="meta-line">Proyecto: <?= htmlspecialchars($row['project'] ?? '') ?></div>
-                                    <div class="meta-line">Tarea: <?= htmlspecialchars($row['task'] ?? '') ?></div>
-                                </div>
-                                <span class="badge <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
-                                    <?= htmlspecialchars($statusLabel) ?>
-                                </span>
-                            </header>
-                            <div class="timesheet-info">
-                                <div>
-                                    <span class="meta-label">Fecha</span>
-                                    <div><?= htmlspecialchars($row['date'] ?? '') ?></div>
-                                </div>
-                                <div>
-                                    <span class="meta-label">Horas</span>
-                                    <div><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
-                                </div>
-                                <div>
-                                    <span class="meta-label">Comentario</span>
-                                    <div><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></div>
-                                </div>
-                            </div>
-                            <div class="timesheet-actions">
-                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
-                                    <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario de aprobación">
-                                    <button type="submit" class="action-btn small primary">
-                                        ✅ Aprobar
-                                    </button>
-                                </form>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
-                                    <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo de rechazo">
-                                    <button type="submit" class="action-btn small danger">
-                                        ❌ Rechazar
-                                    </button>
-                                </form>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
+                <div class="timesheet-table">
+                    <table class="clean-table">
+                        <thead>
+                            <tr>
+                                <th>Proyecto</th>
+                                <th>Tarea</th>
+                                <th>Talento</th>
+                                <th>Fecha</th>
+                                <th>Horas</th>
+                                <th>Comentario</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($timesheetApprovals as $row): ?>
+                                <?php
+                                $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
+                                $statusLabel = $status === 'pending' ? 'Pendiente' : $status;
+                                ?>
+                                <tr>
+                                    <td class="wrap-anywhere"><?= htmlspecialchars($row['project'] ?? '') ?></td>
+                                    <td class="wrap-anywhere"><?= htmlspecialchars($row['task'] ?? '') ?></td>
+                                    <td class="wrap-anywhere"><?= htmlspecialchars($row['talent'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($row['date'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
+                                    <td class="wrap-anywhere"><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></td>
+                                    <td>
+                                        <div class="timesheet-actions">
+                                            <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
+                                                <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario de aprobación">
+                                                <button type="submit" class="action-btn small primary">✅ Aprobar</button>
+                                            </form>
+                                            <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
+                                                <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo de rechazo">
+                                                <button type="submit" class="action-btn small danger">❌ Rechazar</button>
+                                            </form>
+                                            <span class="badge <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
+                                                <?= htmlspecialchars($statusLabel) ?>
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             <?php endif; ?>
         </section>
@@ -257,15 +255,18 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
     .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-strong); font-size:12px; }
     .toast { position:sticky; top:12px; align-self:flex-start; background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color: var(--text-strong); padding:8px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--success) 40%, var(--border) 60%); font-weight:600; font-size:13px; }
     .toast.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
-    .timesheet-list { display:flex; flex-direction:column; gap:12px; }
-    .timesheet-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; flex-direction:column; gap:10px; }
-    .timesheet-card header { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    .timesheet-info { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
-    .timesheet-actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .timesheet-table { width:100%; }
+    .clean-table { width:100%; border-collapse:collapse; }
+    .clean-table th,
+    .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:13px; line-height:1.4; }
+    .clean-table th { font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .wrap-anywhere { overflow-wrap:anywhere; max-width:240px; }
+    .timesheet-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-strong); }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
+        .clean-table { display:block; overflow-x:auto; }
     }
 </style>
 

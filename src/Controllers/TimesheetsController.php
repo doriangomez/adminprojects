@@ -11,6 +11,16 @@ class TimesheetsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
         $canReport = $this->auth->canAccessTimesheets();
         $canApprove = $this->auth->canApproveTimesheets();
+        $weekValue = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = new DateTimeImmutable('monday this week');
+        if ($weekValue !== '') {
+            $parsedWeek = DateTimeImmutable::createFromFormat('o-\\WW', $weekValue);
+            if ($parsedWeek instanceof DateTimeImmutable) {
+                $weekStart = $parsedWeek->modify('monday this week');
+            }
+        }
+        $weekEnd = $weekStart->modify('+6 days');
+        $weekValue = $weekStart->format('o-\\WW');
 
         if (!$canReport && !$canApprove) {
             http_response_code(403);
@@ -25,6 +35,9 @@ class TimesheetsController extends Controller
             'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
             'canApprove' => $canApprove,
             'canReport' => $canReport,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'weekValue' => $weekValue,
         ]);
     }
 
@@ -74,7 +87,9 @@ class TimesheetsController extends Controller
         try {
             $timesheetId = $repo->createTimesheet([
                 'task_id' => $taskId,
+                'project_id' => $assignment['project_id'] ?? null,
                 'talent_id' => $talentId,
+                'user_id' => $userId,
                 'assignment_id' => null,
                 'date' => $date,
                 'hours' => $hours,

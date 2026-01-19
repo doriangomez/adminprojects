@@ -42,13 +42,74 @@ class TasksRepository
 
         return $this->db->fetchAll(
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
-                    p.name AS project, p.phase AS project_phase, ta.name AS assignee
+                    p.id AS project_id, p.name AS project, p.phase AS project_phase, ta.name AS assignee
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              LEFT JOIN talents ta ON ta.id = t.assignee_id
              ' . $where . '
              ORDER BY p.name ASC, t.due_date ASC',
             $params
+        );
+    }
+
+    public function find(int $taskId, array $user): ?array
+    {
+        $conditions = ['t.id = :id'];
+        $params = [':id' => $taskId];
+
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        if ($hasPmColumn && !$this->isPrivileged($user)) {
+            $conditions[] = 'p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
+        }
+
+        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $row = $this->db->fetchOne(
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.assignee_id,
+                    p.id AS project_id, p.name AS project, p.phase AS project_phase
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             ' . $where . '
+             LIMIT 1',
+            $params
+        );
+
+        return $row ?: null;
+    }
+
+    public function updateTask(int $taskId, array $payload): void
+    {
+        $this->db->execute(
+            'UPDATE tasks
+             SET title = :title,
+                 status = :status,
+                 priority = :priority,
+                 estimated_hours = :estimated,
+                 due_date = :due_date,
+                 assignee_id = :assignee,
+                 updated_at = NOW()
+             WHERE id = :id',
+            [
+                ':title' => $payload['title'],
+                ':status' => $payload['status'],
+                ':priority' => $payload['priority'],
+                ':estimated' => $payload['estimated_hours'],
+                ':due_date' => $payload['due_date'],
+                ':assignee' => $payload['assignee_id'],
+                ':id' => $taskId,
+            ]
+        );
+    }
+
+    public function updateStatus(int $taskId, string $status): void
+    {
+        $this->db->execute(
+            'UPDATE tasks SET status = :status, updated_at = NOW() WHERE id = :id',
+            [
+                ':status' => $status,
+                ':id' => $taskId,
+            ]
         );
     }
 
