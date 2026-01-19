@@ -250,36 +250,35 @@ $projectProgress = isset($service['project_progress']) ? (float) $service['proje
 
 <style>
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
-    .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
+    .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--bg-card); }
     .outsourcing-tabs { display:flex; gap:12px; flex-wrap:wrap; }
-    .tab-link { text-decoration:none; padding:6px 12px; border-radius:999px; background:#e0f2fe; color:#0369a1; font-weight:700; font-size:13px; }
+    .tab-link { text-decoration:none; padding:6px 12px; border-radius:999px; border:1px solid var(--border); background: color-mix(in srgb, var(--bg-card) 85%, var(--bg-app) 15%); color: var(--text-main); font-weight:700; font-size:13px; }
     .outsourcing-overview { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-    .overview-card { border:1px solid var(--border); border-radius:16px; padding:14px; background:#fff; display:flex; flex-direction:column; gap:8px; }
+    .overview-card { border:1px solid var(--border); border-radius:16px; padding:14px; background: var(--bg-card); display:flex; flex-direction:column; gap:8px; }
     .summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
-    .summary-grid strong { font-size:14px; color: var(--text-strong); }
-    .summary-note p { margin:4px 0 0; font-size:13px; color: var(--text-strong); }
+    .summary-grid strong { font-size:14px; color: var(--text-main); }
+    .summary-note p { margin:4px 0 0; font-size:13px; color: var(--text-main); }
     .status-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .outsourcing-followups { border:1px solid var(--border); border-radius:16px; padding:16px; background:#fff; display:flex; flex-direction:column; gap:12px; }
-    .section-title { margin:0; font-size:16px; color: var(--text-strong); }
-    .followup-form { border:1px dashed var(--border); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; background:#fff; }
-    .followup-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
+    .outsourcing-followups { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--bg-card); display:flex; flex-direction:column; gap:12px; }
+    .section-title { margin:0; font-size:16px; color: var(--text-main); }
+    .followup-form { border:1px dashed var(--border); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); }
+    .followup-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-main); }
     .followup-form input,
     .followup-form select,
-    .followup-form textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
+    .followup-form textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
     .followup-list { display:flex; flex-direction:column; gap:16px; }
-    .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background:#f8fafc; display:flex; flex-direction:column; gap:12px; }
+    .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: color-mix(in srgb, var(--bg-card) 86%, var(--bg-app) 14%); display:flex; flex-direction:column; gap:12px; }
     .followup-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .followup-actions { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
     .followup-body { display:grid; gap:12px; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
-    .status-muted { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
-    .status-success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
-    .status-warning { background:#fef9c3; color:#854d0e; border-color:#fde047; }
-    .status-danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
-    .status-pill { font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; }
+    .status-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; text-transform:uppercase; letter-spacing:0.03em; }
+    .status-muted { background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); color: var(--text-muted); border-color: var(--border); }
+    .status-success { background: color-mix(in srgb, var(--primary) 16%, var(--bg-card) 84%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); }
+    .status-warning { background: color-mix(in srgb, var(--accent) 16%, var(--bg-card) 84%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--border) 70%); }
+    .status-danger { background: color-mix(in srgb, var(--secondary) 18%, var(--bg-card) 82%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 35%, var(--border) 65%); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
+    .action-btn { background: var(--bg-card); color: var(--text-main); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn.primary { background: var(--primary); color: var(--text-main); border-color: var(--primary); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .inline-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 </style>
