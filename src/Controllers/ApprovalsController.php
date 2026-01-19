@@ -42,19 +42,4 @@ class ApprovalsController extends Controller
             'roleFlags' => $roleFlags,
         ]);
     }
-
-    private function documentRoleFlags(int $userId): array
-    {
-        $row = $this->db->fetchOne(
-            'SELECT can_review_documents, can_validate_documents, can_approve_documents FROM users WHERE id = :id LIMIT 1',
-            [':id' => $userId]
-        ) ?: [];
-
-        return [
-            'can_review' => ((int) ($row['can_review_documents'] ?? 0)) === 1,
-            'can_validate' => ((int) ($row['can_validate_documents'] ?? 0)) === 1,
-            'can_approve' => ((int) ($row['can_approve_documents'] ?? 0)) === 1,
-            'can_manage' => $this->auth->can('projects.manage'),
-        ];
-    }
 }

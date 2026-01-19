@@ -425,7 +425,15 @@ foreach ($documentExpectedItems as $doc) {
     .upload-preview { margin-top:6px; background:#fff; border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
     .document-files { display:flex; flex-direction:column; gap:12px; }
     .document-file-table { display:grid; gap:8px; }
-    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; }
+    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; line-height:1.5; white-space:normal; overflow-wrap:break-word; word-break:break-word; }
+    .document-file-row > div,
+    .document-file-row > span {
+        min-width: 0;
+        line-height: 1.5;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
     .document-file-head { background:#f1f5f9; font-weight:700; }
     .document-file-head span { font-size:12px; text-transform:uppercase; color: var(--muted); }
     .file-type-icon { margin-right:6px; }
