@@ -230,6 +230,10 @@ class App
                 $controller->updateProgress((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/notes$#', $path, $matches) && $method === 'POST') {
+                $controller->createNote((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
                 $controller->show((int) $matches[1]);
                 return;

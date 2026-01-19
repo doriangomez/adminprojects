@@ -6,12 +6,14 @@ $progressPhases = is_array($progressPhases ?? null) ? $progressPhases : [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $currentUser = is_array($currentUser ?? null) ? $currentUser : [];
 $canManage = !empty($canManage);
-$canUpdateProgress = !empty($canUpdateProgress);
+$isManualProgress = ($project['progress_mode'] ?? $project['progress_type'] ?? 'manual') !== 'automatic';
+$canUpdateProgress = !empty($canUpdateProgress) && $isManualProgress;
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
 $progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
+$projectNotes = is_array($projectNotes ?? null) ? $projectNotes : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
-$view = in_array($view, ['resumen', 'documentos'], true) ? $view : 'documentos';
+$view = in_array($view, ['resumen', 'documentos', 'seguimiento'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -343,7 +345,11 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     </header>
 
     <?php
-    $activeTab = $view === 'resumen' ? 'resumen' : 'documents';
+    $activeTab = match ($view) {
+        'resumen' => 'resumen',
+        'seguimiento' => 'seguimiento',
+        default => 'documents',
+    };
     require __DIR__ . '/_tabs.php';
     ?>
 
@@ -487,6 +493,55 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
                     </div>
                 <?php endif; ?>
             </div>
+        </section>
+    <?php elseif ($view === 'seguimiento'): ?>
+        <section class="notes-grid" id="project-notes">
+            <article class="notes-card">
+                <div class="notes-card__header">
+                    <div>
+                        <p class="eyebrow">Notas y seguimiento</p>
+                        <h4>Registro operativo del proyecto</h4>
+                    </div>
+                    <span class="pill neutral">Historial activo</span>
+                </div>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/notes" class="notes-form">
+                    <label class="notes-field">
+                        <span>Nueva nota</span>
+                        <textarea name="note" rows="4" placeholder="Registra acuerdos, seguimiento y decisiones clave." required></textarea>
+                    </label>
+                    <div class="notes-actions">
+                        <button type="submit" class="action-btn primary">Guardar nota</button>
+                    </div>
+                </form>
+            </article>
+
+            <article class="notes-card">
+                <div class="notes-card__header">
+                    <div>
+                        <p class="eyebrow">Historial</p>
+                        <h4>Seguimientos recientes</h4>
+                    </div>
+                </div>
+                <?php if (empty($projectNotes)): ?>
+                    <p class="section-muted">Aún no hay notas registradas para este proyecto.</p>
+                <?php else: ?>
+                    <div class="notes-timeline">
+                        <?php foreach ($projectNotes as $note): ?>
+                            <?php
+                            $payload = is_array($note['payload'] ?? null) ? $note['payload'] : [];
+                            $noteText = trim((string) ($payload['note'] ?? ''));
+                            ?>
+                            <div class="notes-entry">
+                                <div>
+                                    <strong><?= htmlspecialchars($note['user_name'] ?? 'Sistema') ?></strong>
+                                    <span class="section-muted"><?= htmlspecialchars($formatTimestamp($note['created_at'] ?? null)) ?></span>
+                                </div>
+                                <p><?= $noteText !== '' ? nl2br(htmlspecialchars($noteText)) : 'Sin detalle registrado.' ?></p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </article>
         </section>
     <?php else: ?>
         <div class="project-layout">
@@ -829,6 +884,16 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .modal__field textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     .modal__actions { display:flex; justify-content:flex-end; gap:8px; }
     .icon-btn { border:none; background:transparent; cursor:pointer; font-size:16px; }
+    .notes-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
+    .notes-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:14px; }
+    .notes-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .notes-form { display:flex; flex-direction:column; gap:12px; }
+    .notes-field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--muted); }
+    .notes-field textarea { width:100%; border-radius:12px; border:1px solid var(--border); padding:10px; font-size:14px; color: var(--text-strong); background:#fff; }
+    .notes-actions { display:flex; justify-content:flex-end; }
+    .notes-timeline { display:flex; flex-direction:column; gap:12px; }
+    .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background:rgba(148, 163, 184, 0.08); display:flex; flex-direction:column; gap:8px; }
+    .notes-entry strong { color: var(--text-strong); }
     @media (max-width: 960px) {
         .project-layout { grid-template-columns: 1fr; }
         .phase-sidebar { max-height:none; }

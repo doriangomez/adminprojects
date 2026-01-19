@@ -625,6 +625,39 @@ class ProjectsController extends Controller
         header('Location: /project/public/projects/' . $id . '?progress=updated');
     }
 
+    public function createNote(int $id): void
+    {
+        $this->requirePermission('projects.view');
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $note = trim((string) ($_POST['note'] ?? ''));
+        if ($note === '') {
+            http_response_code(400);
+            exit('La nota no puede estar vacía.');
+        }
+
+        $auditRepo = new AuditLogRepository($this->db);
+        $auditRepo->log(
+            $user['id'] ?? null,
+            'project_note',
+            $id,
+            'project_note_created',
+            [
+                'note' => $note,
+            ]
+        );
+
+        header('Location: /project/public/projects/' . $id . '?view=seguimiento');
+    }
+
     public function destroy(): void
     {
         if (!$this->canDeleteProjects()) {
@@ -1339,6 +1372,7 @@ class ProjectsController extends Controller
             $config['document_flow']['expected_docs'] ?? []
         );
         $progressHistory = (new AuditLogRepository($this->db))->listForEntity('project_progress', $id, 50);
+        $projectNotes = (new AuditLogRepository($this->db))->listForEntity('project_note', $id, 50);
         $pendingControls = count($nodesRepo->pendingCriticalNodes($id));
         $approvedDocuments = $this->countApprovedDocuments($projectNodes);
         $loggedHours = $repo->timesheetHoursForProject($id);
@@ -1357,6 +1391,7 @@ class ProjectsController extends Controller
             'accessRoles' => $config['access']['roles'] ?? [],
             'canUpdateProgress' => $this->userCanUpdateProjectProgress(),
             'progressHistory' => $progressHistory,
+            'projectNotes' => $projectNotes,
             'progressIndicators' => [
                 'approved_documents' => $approvedDocuments,
                 'pending_controls' => $pendingControls,
