@@ -14,7 +14,7 @@
         padding: 8px;
         border-radius: 14px;
         border: 1px solid var(--border);
-        background: var(--bg-card, #ffffff);
+        background: var(--bg-card);
     }
     .tab-nav label {
         cursor: pointer;
@@ -48,7 +48,7 @@
         display: block;
     }
     .config-card {
-        background: var(--bg-card, #ffffff);
+        background: var(--bg-card);
         border: 1px solid var(--border);
         box-shadow: none;
     }
@@ -70,6 +70,49 @@
     .preview-card {
         position: sticky;
         top: 16px;
+    }
+    .toggle-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .toggle-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        color: var(--text-main, var(--text));
+    }
+    .toggle-switch input {
+        display: none;
+    }
+    .toggle-switch .toggle-track {
+        width: 42px;
+        height: 24px;
+        background: var(--border);
+        border-radius: 999px;
+        position: relative;
+        transition: background 0.2s ease;
+        border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    }
+    .toggle-switch .toggle-track::after {
+        content: '';
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--bg-card, #ffffff);
+        border: 1px solid var(--border);
+        top: 2px;
+        left: 2px;
+        transition: transform 0.2s ease;
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--text-main, var(--text)) 18%, transparent);
+    }
+    .toggle-switch input:checked + .toggle-track {
+        background: var(--primary);
+    }
+    .toggle-switch input:checked + .toggle-track::after {
+        transform: translateX(18px);
     }
     @media (max-width: 980px) {
         .section-grid-two {
@@ -315,6 +358,18 @@
                                             <input type="checkbox" name="budget_change_requires_approval" <?= $configData['operational_rules']['approvals']['budget_change_requires_approval'] ? 'checked' : '' ?>>
                                             Cambios de presupuesto requieren aprobación
                                         </label>
+                                    </div>
+                                </div>
+
+                                <div class="form-block">
+                                    <span class="section-label">Timesheets</span>
+                                    <div class="toggle-field">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" name="timesheets_enabled" <?= !empty($configData['operational_rules']['timesheets']['enabled']) ? 'checked' : '' ?>>
+                                            <span class="toggle-track" aria-hidden="true"></span>
+                                            Habilitar reporte de horas (Timesheets)
+                                        </label>
+                                        <small class="section-muted">Activa el módulo y el menú para talentos con reporte requerido.</small>
                                     </div>
                                 </div>
 

@@ -470,16 +470,19 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>
-            <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
-                <span class="nav-label">Talento</span>
-            </a>
             <?php if ($auth->canAccessTimesheets()): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true">⏱️</span>
                     <span class="nav-label">Timesheet</span>
+                    <?php if (!empty($timesheetPendingCount)): ?>
+                        <span class="nav-badge" aria-label="Timesheets pendientes"><?= (int) $timesheetPendingCount ?></span>
+                    <?php endif; ?>
                 </a>
             <?php endif; ?>
+            <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
+                <span class="nav-label">Talento</span>
+            </a>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>

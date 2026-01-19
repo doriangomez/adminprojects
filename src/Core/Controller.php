@@ -14,8 +14,12 @@ abstract class Controller
         $auth = $this->auth;
         $user = $this->auth->user();
         $approvalBadgeCount = 0;
+        $timesheetPendingCount = 0;
         if (!empty($user)) {
             $approvalBadgeCount = $this->approvalInboxCount((int) ($user['id'] ?? 0));
+            if ($this->auth->canApproveTimesheets()) {
+                $timesheetPendingCount = (new TimesheetsRepository($this->db))->countPendingApprovals();
+            }
         }
         $appName = $data['appName'] ?? $this->getAppName();
         $title = $data['title'] ?? $appName;

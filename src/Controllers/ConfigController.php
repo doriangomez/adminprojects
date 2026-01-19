@@ -133,6 +133,9 @@ class ConfigController extends Controller
                     'external_talent_requires_approval' => isset($_POST['external_talent_requires_approval']),
                     'budget_change_requires_approval' => isset($_POST['budget_change_requires_approval']),
                 ],
+                'timesheets' => [
+                    'enabled' => isset($_POST['timesheets_enabled']),
+                ],
             ],
         ];
 
