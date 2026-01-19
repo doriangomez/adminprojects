@@ -50,77 +50,123 @@ $riskServicesCount = count(array_filter(
 
 <section class="outsourcing-shell">
     <header class="outsourcing-header">
-        <div class="header-main">
-            <p class="eyebrow">Outsourcing</p>
-            <h2>Outsourcing</h2>
-            <p class="section-muted">Gestión de talento externo</p>
+        <div class="header-identity">
+            <span class="header-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="presentation">
+                    <path d="M7.5 7.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0Zm-4.5 13a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+            </span>
+            <div class="header-text">
+                <p class="eyebrow">Outsourcing</p>
+                <h2>Outsourcing</h2>
+                <p class="header-subtitle">Gestión de talento externo por servicio</p>
+            </div>
         </div>
-        <div class="header-meta">
-            <span class="context-badge">PMO / ISO</span>
-            <span class="header-count"><?= count($services) ?> servicios</span>
+        <div class="header-actions">
+            <div class="header-meta">
+                <span class="context-badge">PMO / ISO</span>
+                <span class="header-count"><?= count($services) ?> servicios</span>
+            </div>
+            <div class="header-quick-actions">
+                <a class="action-btn ghost" href="#outsourcing-filters">
+                    <span class="btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="presentation">
+                            <path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    Filtros
+                </a>
+                <?php if ($canManage): ?>
+                    <a class="action-btn ghost" href="#registrar-talento">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                <path d="M19 7.5V5m0 0V2.5M19 5h2.5M19 5h-2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        Nuevo talento
+                    </a>
+                    <a class="action-btn primary" href="#registrar-servicio">
+                        <span class="btn-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M4 7.5h16M4 12h16M4 16.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                <path d="M18 14.5V12m0 0V9.5m0 2.5h2.5m-2.5 0h-2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                            </svg>
+                        </span>
+                        Nuevo servicio
+                    </a>
+                <?php endif; ?>
+            </div>
         </div>
     </header>
 
     <section class="outsourcing-kpis">
         <article class="kpi-card">
-            <span class="kpi-icon" aria-hidden="true">
+            <div class="kpi-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="presentation">
-                    <path d="M4 6.75A2.75 2.75 0 0 1 6.75 4h10.5A2.75 2.75 0 0 1 20 6.75v10.5A2.75 2.75 0 0 1 17.25 20H6.75A2.75 2.75 0 0 1 4 17.25Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M8 9.5h8M8 12h5M8 14.5h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M4 6.75A2.75 2.75 0 0 1 6.75 4h10.5A2.75 2.75 0 0 1 20 6.75v10.5A2.75 2.75 0 0 1 17.25 20H6.75A2.75 2.75 0 0 1 4 17.25Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <path d="M8 9.5h8M8 12h5M8 14.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                 </svg>
-            </span>
+            </div>
             <div>
-                <p class="kpi-label">Servicios activos</p>
                 <p class="kpi-value"><?= $activeServicesCount ?></p>
+                <p class="kpi-label">Servicios activos</p>
             </div>
         </article>
         <article class="kpi-card">
-            <span class="kpi-icon" aria-hidden="true">
+            <div class="kpi-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="presentation">
-                    <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                 </svg>
-            </span>
+            </div>
             <div>
-                <p class="kpi-label">Talentos externos</p>
                 <p class="kpi-value"><?= $externalTalentsCount ?></p>
+                <p class="kpi-label">Talentos externos</p>
             </div>
         </article>
         <article class="kpi-card">
-            <span class="kpi-icon" aria-hidden="true">
+            <div class="kpi-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="presentation">
-                    <path d="M7 4.5h10M7 12h10M7 19.5h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M7 4.5h10M7 12h10M7 19.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                     <circle cx="5" cy="4.5" r="1" fill="currentColor"/>
                     <circle cx="5" cy="12" r="1" fill="currentColor"/>
                     <circle cx="5" cy="19.5" r="1" fill="currentColor"/>
                 </svg>
-            </span>
+            </div>
             <div>
-                <p class="kpi-label">Seguimientos pendientes</p>
                 <p class="kpi-value"><?= $pendingFollowupsCount ?></p>
+                <p class="kpi-label">Pendientes de seguimiento</p>
             </div>
         </article>
         <article class="kpi-card">
-            <span class="kpi-icon" aria-hidden="true">
+            <div class="kpi-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="presentation">
-                    <path d="M12 4 20 19H4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                    <path d="M12 9v4.5M12 17.5v.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 4 20 19H4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                    <path d="M12 9v4.5M12 17.5v.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                 </svg>
-            </span>
+            </div>
             <div>
-                <p class="kpi-label">Servicios en riesgo</p>
                 <p class="kpi-value"><?= $riskServicesCount ?></p>
+                <p class="kpi-label">Servicios en riesgo</p>
             </div>
         </article>
     </section>
 
     <section class="outsourcing-list">
         <div class="section-head">
-            <div>
-                <h3>Servicios activos y en seguimiento</h3>
-                <small class="section-muted">Consulta el estado actual de cada asignación de outsourcing.</small>
+            <div class="section-title">
+                <span class="section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                        <path d="M6 7.5h12M6 12h12M6 16.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <div>
+                    <h3>Servicios activos y en seguimiento</h3>
+                    <small class="section-muted">Consulta el estado actual de cada asignación de outsourcing.</small>
+                </div>
             </div>
         </div>
-        <form method="GET" action="<?= $basePath ?>/outsourcing" class="outsourcing-filters">
+        <form method="GET" action="<?= $basePath ?>/outsourcing" class="outsourcing-filters" id="outsourcing-filters">
             <label>Cliente
                 <select name="client_id">
                     <option value="">Todos</option>
@@ -162,208 +208,416 @@ $riskServicesCount = count(array_filter(
                 </select>
             </label>
             <div class="filter-actions">
-                <button type="submit" class="action-btn">Filtrar</button>
-                <a class="action-btn" href="<?= $basePath ?>/outsourcing">Limpiar</a>
+                <button type="submit" class="action-btn">
+                    <span class="btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="presentation">
+                            <path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    Filtrar
+                </button>
+                <a class="action-btn" href="<?= $basePath ?>/outsourcing">
+                    <span class="btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="presentation">
+                            <path d="M6 6h12M6 12h12M6 18h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    Limpiar
+                </a>
             </div>
         </form>
         <?php if (empty($services)): ?>
             <p class="section-muted">Aún no hay servicios de outsourcing registrados.</p>
         <?php else: ?>
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Talento</th>
-                            <th>Cliente</th>
-                            <th>Proyecto</th>
-                            <th>Inicio</th>
-                            <th>Fin</th>
-                            <th>Estado del servicio</th>
-                            <th>Último seguimiento</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($services as $service): ?>
-                            <tr>
-                                <td>
-                                    <a class="link" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>">
-                                        <?= htmlspecialchars($service['talent_name'] ?? 'Talento') ?>
-                                    </a>
-                                    <small class="section-muted"><?= htmlspecialchars($service['talent_email'] ?? '') ?></small>
-                                </td>
-                                <td><?= htmlspecialchars($service['client_name'] ?? 'Cliente') ?></td>
-                                <td><?= htmlspecialchars($service['project_name'] ?? 'Sin proyecto') ?></td>
-                                <td><?= htmlspecialchars($formatDate($service['start_date'] ?? null)) ?></td>
-                                <td><?= htmlspecialchars($formatDate($service['end_date'] ?? null)) ?></td>
-                                <td>
-                                    <span class="status-badge <?= $healthBadge($service['current_health'] ?? null) ?>">
-                                        <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?= htmlspecialchars($formatDate($service['last_followup_end'] ?? $service['health_updated_at'] ?? null)) ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="service-grid">
+                <?php foreach ($services as $service): ?>
+                    <article class="service-card">
+                        <header class="service-card-header">
+                            <div class="service-title">
+                                <span class="service-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" role="presentation">
+                                        <path d="M4 6.75A2.75 2.75 0 0 1 6.75 4h10.5A2.75 2.75 0 0 1 20 6.75v10.5A2.75 2.75 0 0 1 17.25 20H6.75A2.75 2.75 0 0 1 4 17.25Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                        <path d="M8 9.5h8M8 12h5M8 14.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+                                <div>
+                                    <h4><?= htmlspecialchars($service['project_name'] ?? 'Servicio de outsourcing') ?></h4>
+                                    <p class="section-muted">Cliente: <?= htmlspecialchars($service['client_name'] ?? 'Cliente') ?></p>
+                                </div>
+                            </div>
+                            <span class="status-badge <?= $healthBadge($service['current_health'] ?? null) ?>">
+                                <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
+                            </span>
+                        </header>
+                        <div class="service-meta">
+                            <div>
+                                <span class="section-muted">Periodo</span>
+                                <strong><?= htmlspecialchars($formatDate($service['start_date'] ?? null)) ?> · <?= htmlspecialchars($formatDate($service['end_date'] ?? null)) ?></strong>
+                            </div>
+                            <div>
+                                <span class="section-muted">Último seguimiento</span>
+                                <strong><?= htmlspecialchars($formatDate($service['last_followup_end'] ?? $service['health_updated_at'] ?? null)) ?></strong>
+                            </div>
+                        </div>
+                        <div class="service-talents">
+                            <span class="section-muted">Talentos asignados</span>
+                            <div class="talent-chip">
+                                <span class="chip-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" role="presentation">
+                                        <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+                                <?= htmlspecialchars($service['talent_name'] ?? 'Talento') ?>
+                            </div>
+                            <small class="section-muted"><?= htmlspecialchars($service['talent_email'] ?? '') ?></small>
+                        </div>
+                        <div class="service-actions">
+                            <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" role="presentation">
+                                        <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                        <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                    </svg>
+                                </span>
+                                Ver
+                            </a>
+                            <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>#resumen">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" role="presentation">
+                                        <path d="M4 16.5V20h3.5L19 8.5 15.5 5 4 16.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                                    </svg>
+                                </span>
+                                Editar
+                            </a>
+                            <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>#seguimientos">
+                                <span class="btn-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" role="presentation">
+                                        <path d="M4 6.5h16M4 12h16M4 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                    </svg>
+                                </span>
+                                Seguimiento
+                            </a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </section>
 
     <?php if ($canManage): ?>
-        <details class="outsourcing-form" open>
+        <details class="outsourcing-form" open id="registrar-talento">
             <summary>
-                <div>
-                    <h3>Registrar talento</h3>
-                    <small class="section-muted">Crea un talento sin salir del módulo para asignarlo al servicio.</small>
+                <div class="section-title">
+                    <span class="section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="presentation">
+                            <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h3>Registrar talento</h3>
+                        <small class="section-muted">Crea un talento sin salir del módulo para asignarlo al servicio.</small>
+                    </div>
                 </div>
+                <span class="summary-indicator" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
             </summary>
             <?php if ($talentCreatedMessage): ?>
                 <div class="alert success"><?= htmlspecialchars($talentCreatedMessage) ?></div>
             <?php endif; ?>
             <form method="POST" action="<?= $basePath ?>/outsourcing/talents" class="talent-form">
-                <div class="form-section">
-                    <h4>Datos generales</h4>
-                    <div class="grid">
-                        <label>Nombre
-                            <input name="name" required>
-                        </label>
-                        <label>Correo
-                            <input type="email" name="email" required>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            Datos del talento
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Nombre
+                                <input name="name" required>
+                            </label>
+                            <label>Correo
+                                <input type="email" name="email" required>
+                            </label>
+                        </div>
+                        <div class="grid">
+                            <label>Rol
+                                <input name="role" required placeholder="Ej. Analista, DevOps">
+                            </label>
+                            <label>Seniority
+                                <input name="seniority" placeholder="Ej. Senior">
+                            </label>
+                        </div>
+                    </div>
+                </details>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M5 7.5h14M7 12h10M9 16.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            Capacidad y horas
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Capacidad horaria (h/semana)
+                                <input type="number" step="0.5" name="capacidad_horaria" value="40">
+                            </label>
+                            <label>Disponibilidad (%)
+                                <input type="number" name="availability" value="100">
+                            </label>
+                        </div>
+                    </div>
+                </details>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M6 8.5h12M6 12h12M6 15.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            Costos
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Costo hora
+                                <input type="number" step="0.01" name="hourly_cost" value="0">
+                            </label>
+                            <label>Tarifa hora
+                                <input type="number" step="0.01" name="hourly_rate" value="0">
+                            </label>
+                        </div>
+                    </div>
+                </details>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M7.5 4.5h9A2.5 2.5 0 0 1 19 7v9a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16V7A2.5 2.5 0 0 1 7.5 4.5Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                    <path d="M9.5 12l1.8 1.8 3.2-3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            Reglas
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Tipo de talento
+                                <select name="tipo_talento">
+                                    <option value="externo" selected>Externo</option>
+                                    <option value="interno">Interno</option>
+                                    <option value="otro">Otro</option>
+                                </select>
+                            </label>
+                            <label>Reporte de horas
+                                <select name="requiere_reporte_horas">
+                                    <option value="1" selected>Requiere reporte</option>
+                                    <option value="0">No reporta</option>
+                                </select>
+                            </label>
+                        </div>
+                        <label class="checkbox">
+                            <input type="checkbox" name="requiere_aprobacion_horas" value="1" checked>
+                            Requiere aprobación de horas
                         </label>
                     </div>
-                    <div class="grid">
-                        <label>Rol
-                            <input name="role" required placeholder="Ej. Analista, DevOps">
-                        </label>
-                        <label>Seniority
-                            <input name="seniority" placeholder="Ej. Senior">
-                        </label>
-                    </div>
-                </div>
-                <div class="form-section">
-                    <h4>Capacidad y costos</h4>
-                    <div class="grid">
-                        <label>Capacidad horaria (h/semana)
-                            <input type="number" step="0.5" name="capacidad_horaria" value="40">
-                        </label>
-                        <label>Disponibilidad (%)
-                            <input type="number" name="availability" value="100">
-                        </label>
-                    </div>
-                    <div class="grid">
-                        <label>Costo hora
-                            <input type="number" step="0.01" name="hourly_cost" value="0">
-                        </label>
-                        <label>Tarifa hora
-                            <input type="number" step="0.01" name="hourly_rate" value="0">
-                        </label>
-                    </div>
-                </div>
-                <div class="form-section">
-                    <h4>Reglas</h4>
-                    <div class="grid">
-                        <label>Tipo de talento
-                            <select name="tipo_talento">
-                                <option value="externo" selected>Externo</option>
-                                <option value="interno">Interno</option>
-                                <option value="otro">Otro</option>
-                            </select>
-                        </label>
-                        <label>Reporte de horas
-                            <select name="requiere_reporte_horas">
-                                <option value="1" selected>Requiere reporte</option>
-                                <option value="0">No reporta</option>
-                            </select>
-                        </label>
-                    </div>
-                    <label class="checkbox">
-                        <input type="checkbox" name="requiere_aprobacion_horas" value="1" checked>
-                        Requiere aprobación de horas
-                    </label>
-                </div>
+                </details>
                 <button type="submit" class="action-btn primary">Guardar talento</button>
             </form>
         </details>
-        <details class="outsourcing-form">
+        <details class="outsourcing-form" id="registrar-servicio">
             <summary>
-                <div>
-                    <h3>Registrar servicio de outsourcing</h3>
-                    <small class="section-muted">Registra una asignación de talento con su cliente y periodo de servicio.</small>
+                <div class="section-title">
+                    <span class="section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="presentation">
+                            <path d="M4 6.75A2.75 2.75 0 0 1 6.75 4h10.5A2.75 2.75 0 0 1 20 6.75v10.5A2.75 2.75 0 0 1 17.25 20H6.75A2.75 2.75 0 0 1 4 17.25Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                            <path d="M8 9.5h8M8 12h5M8 14.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h3>Registrar servicio de outsourcing</h3>
+                        <small class="section-muted">Registra una asignación de talento con su cliente y periodo de servicio.</small>
+                    </div>
                 </div>
+                <span class="summary-indicator" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
             </summary>
             <form method="POST" action="<?= $basePath ?>/outsourcing">
-                <div class="form-section">
-                    <h4>Asignación</h4>
-                    <div class="grid">
-                        <label>Talento
-                            <select name="talent_id" required>
-                                <option value="">Selecciona un talento</option>
-                                <?php foreach ($talents as $talent): ?>
-                                    <option value="<?= (int) $talent['id'] ?>" <?= $preselectedTalentId === (int) $talent['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($talent['name'] ?? '') ?> (<?= htmlspecialchars($talent['role_name'] ?? '') ?>)
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M6 7.5h12M6 12h12M6 16.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            Asignación
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Talento
+                                <select name="talent_id" required>
+                                    <option value="">Selecciona un talento</option>
+                                    <?php foreach ($talents as $talent): ?>
+                                        <option value="<?= (int) $talent['id'] ?>" <?= $preselectedTalentId === (int) $talent['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($talent['name'] ?? '') ?> (<?= htmlspecialchars($talent['role_name'] ?? '') ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Cliente
+                                <select name="client_id" required>
+                                    <option value="">Selecciona un cliente</option>
+                                    <?php foreach ($clients as $client): ?>
+                                        <option value="<?= (int) $client['id'] ?>">
+                                            <?= htmlspecialchars($client['name'] ?? '') ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        </div>
+                        <label>Proyecto relacionado (opcional)
+                            <select name="project_id">
+                                <option value="">Sin proyecto</option>
+                                <?php foreach ($projects as $project): ?>
+                                    <option value="<?= (int) $project['id'] ?>">
+                                        <?= htmlspecialchars($project['name'] ?? '') ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label>Cliente
-                            <select name="client_id" required>
-                                <option value="">Selecciona un cliente</option>
-                                <?php foreach ($clients as $client): ?>
-                                    <option value="<?= (int) $client['id'] ?>">
-                                        <?= htmlspecialchars($client['name'] ?? '') ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                    </div>
+                </details>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M7 4.5h10M7 12h10M7 19.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                    <circle cx="5" cy="4.5" r="1" fill="currentColor"/>
+                                    <circle cx="5" cy="12" r="1" fill="currentColor"/>
+                                    <circle cx="5" cy="19.5" r="1" fill="currentColor"/>
+                                </svg>
+                            </span>
+                            Periodo
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Inicio del servicio
+                                <input type="date" name="start_date" required>
+                            </label>
+                            <label>Fin del servicio
+                                <input type="date" name="end_date">
+                            </label>
+                        </div>
+                    </div>
+                </details>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M12 4v8l5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                </svg>
+                            </span>
+                            Seguimiento
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <div class="grid">
+                            <label>Frecuencia de seguimiento
+                                <select name="followup_frequency" required>
+                                    <option value="weekly">Semanal</option>
+                                    <option value="monthly" selected>Mensual</option>
+                                </select>
+                            </label>
+                            <label>Estado del servicio
+                                <select name="service_status" required>
+                                    <option value="active">Activo</option>
+                                    <option value="paused">En pausa</option>
+                                    <option value="ended">Finalizado</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+                <details class="form-accordion" open>
+                    <summary>
+                        <span class="accordion-title">
+                            <span class="section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="presentation">
+                                    <path d="M5 6.5h14M5 12h14M5 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </span>
+                            Observaciones
+                        </span>
+                        <span class="summary-indicator" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="presentation">
+                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </summary>
+                    <div class="form-section">
+                        <label>Observaciones
+                            <textarea name="observations" rows="3" placeholder="Notas del servicio, acuerdos o restricciones."></textarea>
                         </label>
                     </div>
-                    <label>Proyecto relacionado (opcional)
-                        <select name="project_id">
-                            <option value="">Sin proyecto</option>
-                            <?php foreach ($projects as $project): ?>
-                                <option value="<?= (int) $project['id'] ?>">
-                                    <?= htmlspecialchars($project['name'] ?? '') ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                </div>
-                <div class="form-section">
-                    <h4>Periodo</h4>
-                    <div class="grid">
-                        <label>Inicio del servicio
-                            <input type="date" name="start_date" required>
-                        </label>
-                        <label>Fin del servicio
-                            <input type="date" name="end_date">
-                        </label>
-                    </div>
-                </div>
-                <div class="form-section">
-                    <h4>Seguimiento</h4>
-                    <div class="grid">
-                        <label>Frecuencia de seguimiento
-                            <select name="followup_frequency" required>
-                                <option value="weekly">Semanal</option>
-                                <option value="monthly" selected>Mensual</option>
-                            </select>
-                        </label>
-                        <label>Estado del servicio
-                            <select name="service_status" required>
-                                <option value="active">Activo</option>
-                                <option value="paused">En pausa</option>
-                                <option value="ended">Finalizado</option>
-                            </select>
-                        </label>
-                    </div>
-                </div>
-                <div class="form-section">
-                    <h4>Observaciones</h4>
-                    <label>Observaciones
-                        <textarea name="observations" rows="3" placeholder="Notas del servicio, acuerdos o restricciones."></textarea>
-                    </label>
-                </div>
+                </details>
                 <button type="submit" class="action-btn primary">Guardar servicio</button>
             </form>
         </details>
@@ -372,29 +626,49 @@ $riskServicesCount = count(array_filter(
 
 <style>
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
-    .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--bg-card); }
-    .header-main h2 { margin:0; font-size:22px; color: var(--text-main); }
-    .header-main .section-muted { margin:6px 0 0; color: var(--text-muted); }
-    .header-meta { display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
-    .context-badge { background: var(--secondary); color: var(--text-main); border-radius:999px; padding:6px 12px; font-size:12px; font-weight:700; border:1px solid var(--border); }
-    .header-count { font-size:13px; color: var(--text-muted); font-weight:600; }
-    .outsourcing-kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
-    .kpi-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--bg-card); display:flex; gap:12px; align-items:center; }
-    .kpi-icon { width:42px; height:42px; border-radius:12px; background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); display:flex; align-items:center; justify-content:center; color: var(--text-main); }
-    .kpi-icon svg { width:22px; height:22px; }
-    .kpi-label { margin:0; font-size:12px; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-value { margin:4px 0 0; font-size:20px; font-weight:700; color: var(--text-main); }
-    .outsourcing-list, .outsourcing-form { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--bg-card); display:flex; flex-direction:column; gap:12px; }
-    .outsourcing-filters { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:12px; border-radius:12px; border:1px dashed var(--border); background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); }
+    .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--bg-card); }
+    .header-identity { display:flex; gap:14px; align-items:center; }
+    .header-icon { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 18%, var(--bg-card) 82%); color: var(--primary); }
+    .header-icon svg { width:28px; height:28px; }
+    .header-text h2 { margin:0; font-size:24px; color: var(--text-main); }
+    .header-subtitle { margin:6px 0 0; color: var(--text-muted); }
+    .header-actions { display:flex; flex-direction:column; gap:12px; align-items:flex-end; }
+    .header-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+    .context-badge { background: color-mix(in srgb, var(--secondary) 20%, var(--bg-card) 80%); color: var(--secondary); border-radius:999px; padding:6px 12px; font-size:12px; font-weight:700; border:1px solid color-mix(in srgb, var(--secondary) 40%, var(--border) 60%); }
+    .header-count { font-size:12px; color: var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+    .header-quick-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .outsourcing-kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+    .kpi-card { border:1px solid var(--border); border-radius:16px; padding:14px; background: var(--bg-card); display:flex; gap:12px; align-items:center; }
+    .kpi-icon { width:48px; height:48px; border-radius:14px; background: color-mix(in srgb, var(--bg-card) 78%, var(--bg-app) 22%); display:flex; align-items:center; justify-content:center; color: var(--text-main); }
+    .kpi-icon svg { width:24px; height:24px; }
+    .kpi-label { margin:2px 0 0; font-size:11px; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; }
+    .kpi-value { margin:0; font-size:22px; font-weight:800; color: var(--text-main); }
+    .outsourcing-list, .outsourcing-form { border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--bg-card); display:flex; flex-direction:column; gap:14px; }
+    .section-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .section-title { display:flex; gap:10px; align-items:center; }
+    .section-title h3 { margin:0; font-size:18px; color: var(--text-main); }
+    .section-icon { width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--bg-card) 70%, var(--bg-app) 30%); color: var(--text-main); }
+    .section-icon svg { width:18px; height:18px; }
+    .outsourcing-filters { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:12px; border-radius:14px; border:1px dashed var(--border); background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); }
     .outsourcing-filters label { font-weight:600; display:flex; flex-direction:column; gap:6px; color: var(--text-main); }
-    .outsourcing-filters select { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+    .outsourcing-filters select { padding:9px 10px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
     .filter-actions { display:flex; gap:8px; align-items:flex-end; }
-    .table-wrapper { overflow:auto; }
-    table { width:100%; border-collapse:collapse; font-size:13px; }
-    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:top; }
-    td { color: var(--text-main); }
-    td small { display:block; margin-top:4px; color: var(--text-muted); font-size:12px; }
-    th { font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color: var(--text-muted); font-weight:700; }
+    .service-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
+    .service-card { border:1px solid var(--border); border-radius:18px; padding:16px; background: color-mix(in srgb, var(--bg-card) 86%, var(--bg-app) 14%); display:flex; flex-direction:column; gap:12px; }
+    .service-card-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .service-title { display:flex; gap:10px; align-items:center; }
+    .service-title h4 { margin:0; font-size:16px; color: var(--text-main); }
+    .service-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 14%, var(--bg-card) 86%); color: var(--primary); }
+    .service-icon svg { width:20px; height:20px; }
+    .service-meta { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+    .service-meta strong { color: var(--text-main); font-size:13px; }
+    .service-talents { display:flex; flex-direction:column; gap:6px; }
+    .talent-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background: var(--bg-card); font-weight:600; color: var(--text-main); }
+    .chip-icon { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--bg-card) 70%, var(--bg-app) 30%); color: var(--text-main); }
+    .chip-icon svg { width:14px; height:14px; }
+    .service-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .icon-action { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); text-decoration:none; font-weight:600; font-size:13px; }
+    .icon-action:hover { border-color: var(--primary); }
     .status-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; display:inline-flex; text-transform:uppercase; letter-spacing:0.03em; }
     .status-muted { background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); color: var(--text-muted); border-color: var(--border); }
     .status-success { background: color-mix(in srgb, var(--primary) 16%, var(--bg-card) 84%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); }
@@ -404,17 +678,22 @@ $riskServicesCount = count(array_filter(
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-main); font-size:13px; }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
     textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; background: var(--bg-card); color: var(--text-main); }
-    .action-btn { background: var(--bg-card); color: var(--text-main); border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; }
+    .action-btn { background: var(--bg-card); color: var(--text-main); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
     .action-btn.primary { background: var(--primary); color: var(--text-main); border-color: var(--primary); }
-    .link { color: var(--primary); font-weight:600; text-decoration:none; }
-    .link:hover { text-decoration:underline; }
+    .action-btn.ghost { background: color-mix(in srgb, var(--bg-card) 85%, var(--bg-app) 15%); }
+    .btn-icon { display:inline-flex; width:16px; height:16px; }
+    .btn-icon svg { width:16px; height:16px; }
     .talent-form { display:flex; flex-direction:column; gap:12px; }
     .checkbox { flex-direction:row; align-items:center; gap:8px; font-weight:600; }
     .alert.success { padding:10px 12px; border-radius:12px; background: color-mix(in srgb, var(--primary) 12%, var(--bg-card) 88%); color: var(--text-main); border:1px solid color-mix(in srgb, var(--primary) 30%, var(--border) 70%); font-weight:600; }
-    .outsourcing-form summary { cursor:pointer; list-style:none; }
+    .outsourcing-form summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .outsourcing-form summary::-webkit-details-marker { display:none; }
-    .outsourcing-form summary div { display:flex; flex-direction:column; gap:4px; }
     .outsourcing-form summary h3 { margin:0; font-size:16px; color: var(--text-main); }
-    .form-section { border:1px dashed var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-app) 12%); }
-    .form-section h4 { margin:0; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; color: var(--text-muted); }
+    .summary-indicator { display:inline-flex; width:18px; height:18px; }
+    .summary-indicator svg { width:18px; height:18px; }
+    .form-accordion { border:1px solid var(--border); border-radius:14px; padding:10px; background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); }
+    .form-accordion summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:700; color: var(--text-main); }
+    .form-accordion summary::-webkit-details-marker { display:none; }
+    .accordion-title { display:inline-flex; gap:8px; align-items:center; }
+    .form-section { border:1px dashed var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-app) 12%); margin-top:10px; }
 </style>
