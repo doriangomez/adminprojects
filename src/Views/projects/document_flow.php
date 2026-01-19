@@ -312,7 +312,7 @@ foreach ($documentExpectedItems as $doc) {
                          data-approved-by="<?= htmlspecialchars((string) ($file['approved_by'] ?? '')) ?>"
                          data-approved-at="<?= htmlspecialchars((string) ($file['approved_at'] ?? '')) ?>">
                         <div>
-                            <strong><span class="file-type-icon"><?= htmlspecialchars($fileIcon) ?></span><?= htmlspecialchars($fileName) ?></strong>
+                            <strong class="document-name"><span class="file-type-icon"><?= htmlspecialchars($fileIcon) ?></span><?= htmlspecialchars($fileName) ?></strong>
                             <small class="section-muted">Subido: <?= htmlspecialchars((string) ($file['created_at'] ?? '')) ?></small>
                             <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
                         </div>
@@ -425,7 +425,7 @@ foreach ($documentExpectedItems as $doc) {
     .upload-preview { margin-top:6px; background:#fff; border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
     .document-files { display:flex; flex-direction:column; gap:12px; }
     .document-file-table { display:grid; gap:8px; }
-    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; line-height:1.5; white-space:normal; overflow-wrap:break-word; word-break:break-word; }
+    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; align-items:start; line-height:1.5; white-space:normal; overflow-wrap:break-word; word-break:break-word; font-size:12px; }
     .document-file-row > div,
     .document-file-row > span {
         min-width: 0;
@@ -436,14 +436,18 @@ foreach ($documentExpectedItems as $doc) {
     }
     .document-file-head { background:#f1f5f9; font-weight:700; }
     .document-file-head span { font-size:12px; text-transform:uppercase; color: var(--muted); }
+    .document-name { font-size:13px; font-weight:500; line-height:1.4; }
     .file-type-icon { margin-right:6px; }
     .tag-editor { display:flex; flex-direction:column; gap:6px; }
     .tag-pills { display:flex; flex-wrap:wrap; gap:6px; }
-    .tag-pill { background:#e0f2fe; color:#075985; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; }
+    .tag-pill { background:#e0f2fe; color:#075985; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; }
     .tag-controls { display:flex; flex-direction:column; gap:6px; }
     .tag-controls select, .tag-controls input, .version-input { width:100%; border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
-    .version-input { font-size:13px; }
-    .status-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-bottom:6px; }
+    .document-file-row .action-btn,
+    .document-file-row select,
+    .document-file-row input { font-size:12px; }
+    .version-input { font-size:12px; }
+    .status-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; margin-bottom:6px; }
     .status-pending { background:#fef9c3; color:#854d0e; }
     .status-review { background:#e0f2fe; color:#075985; }
     .status-validated { background:#dcfce7; color:#166534; }
@@ -451,7 +455,7 @@ foreach ($documentExpectedItems as $doc) {
     .status-rejected { background:#fee2e2; color:#991b1b; }
     .file-actions { display:flex; flex-wrap:wrap; gap:6px; }
     .file-meta { display:flex; flex-direction:column; gap:4px; }
-    .flow-summary { display:block; margin:6px 0; font-size:12px; color: var(--muted); }
+    .flow-summary { display:block; margin:6px 0; font-size:11px; color: var(--text-muted); }
     .flow-panel { margin-top:6px; background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
     .history-panel { margin-top:6px; background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
     .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-strong); font-size:12px; }
@@ -459,7 +463,8 @@ foreach ($documentExpectedItems as $doc) {
     .flow-grid label { display:flex; flex-direction:column; gap:4px; font-size:13px; color: var(--text-strong); }
     .flow-grid select { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .document-alert { background:#fef3c7; color:#92400e; padding:8px 10px; border-radius:10px; font-size:13px; display:flex; flex-direction:column; gap:4px; min-width:200px; }
-    .file-trace { margin-top:6px; font-size:12px; color: var(--muted); }
+    .document-file-row .section-muted { font-size:11px; color: var(--text-muted); }
+    .file-trace { margin-top:6px; font-size:11px; color: var(--text-muted); }
     .flow-actions { display:flex; justify-content:flex-end; margin-bottom:6px; }
     .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:50; }
     .modal[hidden] { display:none; }
