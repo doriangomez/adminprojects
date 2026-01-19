@@ -21,15 +21,19 @@
             border: 1px solid var(--border);
             border-radius: 14px;
             padding: 16px 18px;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-main) 12%, transparent);
         }
-        .card.elevated { box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06); }
+        .card.elevated { box-shadow: 0 12px 28px color-mix(in srgb, var(--text-main) 12%, transparent); }
         .kpi-card {
             display: flex;
             align-items: center;
             gap: 14px;
             padding: 14px 16px;
-            background: linear-gradient(135deg, rgba(226, 232, 240, 0.4), rgba(248, 250, 252, 0.92));
+            background: linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--bg-card) 82%, var(--bg-app) 18%),
+                color-mix(in srgb, var(--bg-card) 94%, var(--bg-app) 6%)
+            );
             border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
         }
         .kpi-icon {
@@ -40,18 +44,18 @@
             align-items: center;
             justify-content: center;
             background: color-mix(in srgb, var(--primary) 14%, transparent);
-            color: var(--primary-strong);
+            color: var(--primary);
             border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
         }
         .kpi-icon svg { width: 26px; height: 26px; stroke: currentColor; }
         .kpi-card .meta { display: flex; flex-direction: column; gap: 6px; }
         .kpi-card .label { font-size: 13px; color: var(--text-muted); letter-spacing: 0.01em; }
         .kpi-card .value { font-size: 24px; font-weight: 800; color: var(--text-main); }
-        .kpi-card[data-tone="green"] .kpi-icon { background: rgba(52, 211, 153, 0.16); color: #0f766e; border-color: rgba(16, 185, 129, 0.24); }
-        .kpi-card[data-tone="amber"] .kpi-icon { background: rgba(251, 191, 36, 0.18); color: #b45309; border-color: rgba(251, 191, 36, 0.24); }
-        .kpi-card[data-tone="slate"] .kpi-icon { background: rgba(148, 163, 184, 0.16); color: var(--text-main); border-color: rgba(148, 163, 184, 0.24); }
-        .kpi-card[data-tone="blue"] .kpi-icon { background: rgba(59, 130, 246, 0.16); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.24); }
-        .kpi-card[data-tone="purple"] .kpi-icon { background: rgba(168, 85, 247, 0.16); color: #6d28d9; border-color: rgba(168, 85, 247, 0.24); }
+        .kpi-card[data-tone="green"] .kpi-icon { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+        .kpi-card[data-tone="amber"] .kpi-icon { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
+        .kpi-card[data-tone="slate"] .kpi-icon { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-main); border-color: color-mix(in srgb, var(--text-muted) 30%, transparent); }
+        .kpi-card[data-tone="blue"] .kpi-icon { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+        .kpi-card[data-tone="purple"] .kpi-icon { background: color-mix(in srgb, var(--secondary) 18%, transparent); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 30%, transparent); }
 
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
         .chart-card h4 { margin: 0 0 6px 0; font-size: 15px; color: var(--text-main); font-weight: 800; }
@@ -68,10 +72,10 @@
 
         .section-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
         .pill { display: inline-flex; align-items:center; gap: 8px; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
-        .pill.soft-green { background: rgba(16, 185, 129, 0.12); color: #0f766e; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .pill.soft-amber { background: rgba(251, 191, 36, 0.12); color: #92400e; border: 1px solid rgba(251, 191, 36, 0.2); }
-        .pill.soft-blue { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.2); }
-        .pill.soft-red { background: rgba(248, 113, 113, 0.12); color: #b91c1c; border: 1px solid rgba(248, 113, 113, 0.2); }
+        .pill.soft-green { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 24%, transparent); }
+        .pill.soft-amber { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 24%, transparent); }
+        .pill.soft-blue { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent); }
+        .pill.soft-red { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         thead th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent); }
@@ -193,6 +197,10 @@
                         <span class="value"><?= $timesheets['talents_without_report'] ?? 0 ?></span>
                     </div>
                     <div class="metric-item">
+                        <span class="label">Aprobaciones pendientes</span>
+                        <span class="value"><?= $timesheets['pending_approvals_count'] ?? 0 ?></span>
+                    </div>
+                    <div class="metric-item">
                         <span class="label">Internos vs externos</span>
                         <span class="value"><?= $timesheets['internal_talents'] ?? 0 ?> / <?= $timesheets['external_talents'] ?? 0 ?></span>
                     </div>
@@ -201,6 +209,7 @@
             </div>
             <div class="card">
                 <h4>Horas por proyecto</h4>
+                <canvas id="hoursProjectChart" height="130"></canvas>
                 <?php if (!empty($timesheets['hours_by_project'])): ?>
                     <table>
                         <thead>
@@ -224,6 +233,7 @@
             </div>
             <div class="card">
                 <h4>Horas por talento</h4>
+                <canvas id="hoursTalentChart" height="130"></canvas>
                 <?php if (!empty($timesheets['hours_by_talent'])): ?>
                     <table>
                         <thead>
@@ -356,6 +366,10 @@
 
     const progressLabels = <?= json_encode(array_map(static fn ($row) => $row['client'] ?? '', $progressByClient)) ?>;
     const progressData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['avg_progress'] ?? 0), 1), $progressByClient)) ?>;
+    const projectHourLabels = <?= json_encode(array_map(static fn ($row) => $row['project'] ?? '', $timesheets['hours_by_project'] ?? [])) ?>;
+    const projectHourData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['total_hours'] ?? 0), 1), $timesheets['hours_by_project'] ?? [])) ?>;
+    const talentHourLabels = <?= json_encode(array_map(static fn ($row) => $row['talent'] ?? '', $timesheets['hours_by_talent'] ?? [])) ?>;
+    const talentHourData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['total_hours'] ?? 0), 1), $timesheets['hours_by_talent'] ?? [])) ?>;
 
     const cssVars = getComputedStyle(document.documentElement);
     const primary = cssVars.getPropertyValue('--primary').trim();
@@ -394,13 +408,15 @@
     const secondaryBorder = toRgba(secondary, 0.9);
     const accentFill = toRgba(accent, 0.55);
     const accentBorder = toRgba(accent, 0.9);
+    const mutedFill = toRgba(textMuted, 0.45);
+    const mutedBorder = toRgba(textMuted, 0.8);
 
     const statusCtx = document.getElementById('statusChart').getContext('2d');
     new Chart(statusCtx, {
         type: 'doughnut',
         data: {
             labels: ['Planning', 'En curso', 'En riesgo', 'Cerrado'],
-            datasets: [{ data: statusData, backgroundColor: [secondaryFill, primaryFill, accentFill, toRgba('#94a3b8', 0.5)], borderColor: [secondaryBorder, primaryBorder, accentBorder, toRgba('#94a3b8', 0.9)], borderWidth: 1.4 }]
+            datasets: [{ data: statusData, backgroundColor: [secondaryFill, primaryFill, accentFill, mutedFill], borderColor: [secondaryBorder, primaryBorder, accentBorder, mutedBorder], borderWidth: 1.4 }]
         },
         options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: textMain } } }, cutout: '62%' }
     });
@@ -421,4 +437,42 @@
             }
         }
     });
+
+    const hoursProjectCanvas = document.getElementById('hoursProjectChart');
+    if (hoursProjectCanvas && projectHourLabels.length) {
+        new Chart(hoursProjectCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: projectHourLabels,
+                datasets: [{ label: 'Horas', data: projectHourData, backgroundColor: secondaryFill, borderColor: secondaryBorder, borderWidth: 1.2, borderRadius: 8 }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridBorderSoft }, ticks: { color: textMuted } },
+                    x: { grid: { display: false }, ticks: { color: textMuted } }
+                }
+            }
+        });
+    }
+
+    const hoursTalentCanvas = document.getElementById('hoursTalentChart');
+    if (hoursTalentCanvas && talentHourLabels.length) {
+        new Chart(hoursTalentCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: talentHourLabels,
+                datasets: [{ label: 'Horas', data: talentHourData, backgroundColor: accentFill, borderColor: accentBorder, borderWidth: 1.2, borderRadius: 8 }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: gridBorderSoft }, ticks: { color: textMuted } },
+                    x: { grid: { display: false }, ticks: { color: textMuted } }
+                }
+            }
+        });
+    }
 </script>

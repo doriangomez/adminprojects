@@ -117,7 +117,7 @@ class TimesheetsRepository
         }
 
         return $this->db->fetchAll(
-            "SELECT t.id, t.title, p.name AS project
+            "SELECT t.id, t.title, p.id AS project_id, p.name AS project
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              WHERE " . implode(' AND ', $conditions) . '
@@ -163,27 +163,57 @@ class TimesheetsRepository
             'requiere_reporte_horas' => $talent['requiere_reporte_horas'] ?? 0,
             'requiere_aprobacion_horas' => $talent['requiere_aprobacion_horas'] ?? 0,
             'talent_id' => $talent['id'],
+            'project_id' => $task['project_id'] ?? null,
         ];
     }
 
     public function createTimesheet(array $payload): int
     {
+        $columns = [
+            'task_id',
+            'talent_id',
+            'assignment_id',
+            'date',
+            'hours',
+            'status',
+            'comment',
+            'approval_comment',
+            'billable',
+            'approved_by',
+            'approved_at',
+        ];
+
+        $params = [
+            ':task_id' => (int) $payload['task_id'],
+            ':talent_id' => (int) $payload['talent_id'],
+            ':assignment_id' => $payload['assignment_id'] !== null ? (int) $payload['assignment_id'] : null,
+            ':date' => $payload['date'],
+            ':hours' => (float) $payload['hours'],
+            ':status' => $payload['status'],
+            ':comment' => $payload['comment'],
+            ':approval_comment' => $payload['approval_comment'] ?? null,
+            ':billable' => (int) $payload['billable'],
+            ':approved_by' => $payload['approved_by'],
+            ':approved_at' => $payload['approved_at'],
+        ];
+
+        if ($this->db->columnExists('timesheets', 'project_id')) {
+            $columns[] = 'project_id';
+            $params[':project_id'] = $payload['project_id'] ?? null;
+        }
+
+        if ($this->db->columnExists('timesheets', 'user_id')) {
+            $columns[] = 'user_id';
+            $params[':user_id'] = $payload['user_id'] ?? null;
+        }
+
+        $columns[] = 'created_at';
+        $columns[] = 'updated_at';
+
         $timesheetId = $this->db->insert(
-            'INSERT INTO timesheets (task_id, talent_id, assignment_id, date, hours, status, comment, approval_comment, billable, approved_by, approved_at, created_at, updated_at)
-             VALUES (:task_id, :talent_id, :assignment_id, :date, :hours, :status, :comment, :approval_comment, :billable, :approved_by, :approved_at, NOW(), NOW())',
-            [
-                ':task_id' => (int) $payload['task_id'],
-                ':talent_id' => (int) $payload['talent_id'],
-                ':assignment_id' => $payload['assignment_id'] !== null ? (int) $payload['assignment_id'] : null,
-                ':date' => $payload['date'],
-                ':hours' => (float) $payload['hours'],
-                ':status' => $payload['status'],
-                ':comment' => $payload['comment'],
-                ':approval_comment' => $payload['approval_comment'] ?? null,
-                ':billable' => (int) $payload['billable'],
-                ':approved_by' => $payload['approved_by'],
-                ':approved_at' => $payload['approved_at'],
-            ]
+            'INSERT INTO timesheets (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', array_keys($params)) . ', NOW(), NOW())',
+            $params
         );
 
         $this->refreshTaskActualHours((int) $payload['task_id']);

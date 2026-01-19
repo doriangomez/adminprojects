@@ -289,8 +289,18 @@ class DatabaseMigrator
         }
 
         try {
+            if (!$this->db->columnExists('timesheets', 'project_id')) {
+                $this->db->execute('ALTER TABLE timesheets ADD COLUMN project_id INT NULL AFTER task_id');
+                $this->db->clearColumnCache();
+            }
+
             if (!$this->db->columnExists('timesheets', 'assignment_id')) {
                 $this->db->execute('ALTER TABLE timesheets ADD COLUMN assignment_id INT NULL AFTER talent_id');
+                $this->db->clearColumnCache();
+            }
+
+            if (!$this->db->columnExists('timesheets', 'user_id')) {
+                $this->db->execute('ALTER TABLE timesheets ADD COLUMN user_id INT NULL AFTER talent_id');
                 $this->db->clearColumnCache();
             }
 
@@ -309,6 +319,30 @@ class DatabaseMigrator
             if (!$this->db->columnExists('timesheets', 'approval_comment')) {
                 $this->db->execute('ALTER TABLE timesheets ADD COLUMN approval_comment TEXT NULL AFTER comment');
                 $this->db->clearColumnCache();
+            }
+
+            if ($this->db->columnExists('timesheets', 'comment')) {
+                $this->db->execute('UPDATE timesheets SET comment = \'\' WHERE comment IS NULL');
+                $this->db->execute('ALTER TABLE timesheets MODIFY comment TEXT NOT NULL');
+                $this->db->clearColumnCache();
+            }
+
+            if ($this->db->columnExists('timesheets', 'project_id')
+                && !$this->db->foreignKeyExists('timesheets', 'project_id', 'projects')
+                && $this->db->tableExists('projects')
+            ) {
+                $this->db->execute(
+                    'ALTER TABLE timesheets ADD CONSTRAINT fk_timesheets_project_id FOREIGN KEY (project_id) REFERENCES projects(id)'
+                );
+            }
+
+            if ($this->db->columnExists('timesheets', 'user_id')
+                && !$this->db->foreignKeyExists('timesheets', 'user_id', 'users')
+                && $this->db->tableExists('users')
+            ) {
+                $this->db->execute(
+                    'ALTER TABLE timesheets ADD CONSTRAINT fk_timesheets_user_id FOREIGN KEY (user_id) REFERENCES users(id)'
+                );
             }
 
             if ($this->db->columnExists('timesheets', 'assignment_id')
@@ -365,6 +399,24 @@ class DatabaseMigrator
                         );
                     }
                 }
+            }
+
+            if ($this->db->columnExists('timesheets', 'project_id') && $this->db->tableExists('tasks')) {
+                $this->db->execute(
+                    'UPDATE timesheets ts
+                     JOIN tasks t ON t.id = ts.task_id
+                     SET ts.project_id = t.project_id
+                     WHERE ts.project_id IS NULL'
+                );
+            }
+
+            if ($this->db->columnExists('timesheets', 'user_id') && $this->db->tableExists('talents')) {
+                $this->db->execute(
+                    'UPDATE timesheets ts
+                     JOIN talents ta ON ta.id = ts.talent_id
+                     SET ts.user_id = ta.user_id
+                     WHERE ts.user_id IS NULL'
+                );
             }
         } catch (\PDOException $e) {
             error_log('Error asegurando esquema de timesheets: ' . $e->getMessage());

@@ -5,7 +5,17 @@ $followups = is_array($followups ?? null) ? $followups : [];
 $users = is_array($users ?? null) ? $users : [];
 $documentFlowConfig = is_array($documentFlowConfig ?? null) ? $documentFlowConfig : [];
 $currentUser = is_array($currentUser ?? null) ? $currentUser : [];
-$timesheetSummary = is_array($timesheetSummary ?? null) ? $timesheetSummary : ['total_hours' => 0, 'approved_hours' => 0, 'pending_hours' => 0];
+$timesheetSummary = is_array($timesheetSummary ?? null)
+    ? $timesheetSummary
+    : [
+        'total_hours' => 0,
+        'approved_hours' => 0,
+        'pending_hours' => 0,
+        'hours_by_project' => [],
+        'hours_by_talent' => [],
+        'period_start' => null,
+        'period_end' => null,
+    ];
 $canManage = !empty($canManage);
 
 $serviceStatusLabels = [
@@ -57,6 +67,13 @@ $projectProgress = isset($service['project_progress']) ? (float) $service['proje
 $approvalState = ($timesheetSummary['pending_hours'] ?? 0) > 0
     ? 'Pendiente'
     : (($timesheetSummary['approved_hours'] ?? 0) > 0 ? 'Aprobado' : 'Sin reportes');
+$periodLabel = ($timesheetSummary['period_start'] ?? null)
+    ? sprintf(
+        '%s → %s',
+        (string) ($timesheetSummary['period_start'] ?? ''),
+        (string) ($timesheetSummary['period_end'] ?? '')
+    )
+    : 'Sin periodo';
 ?>
 
 <section class="outsourcing-shell">
@@ -175,8 +192,63 @@ $approvalState = ($timesheetSummary['pending_hours'] ?? 0) > 0
                     <strong><?= number_format((float) ($timesheetSummary['total_hours'] ?? 0), 1, ',', '.') ?>h</strong>
                 </div>
                 <div>
+                    <span class="section-muted">Horas aprobadas</span>
+                    <strong><?= number_format((float) ($timesheetSummary['approved_hours'] ?? 0), 1, ',', '.') ?>h</strong>
+                </div>
+                <div>
+                    <span class="section-muted">Horas pendientes</span>
+                    <strong><?= number_format((float) ($timesheetSummary['pending_hours'] ?? 0), 1, ',', '.') ?>h</strong>
+                </div>
+                <div>
                     <span class="section-muted">Estado de aprobación</span>
                     <strong><?= htmlspecialchars($approvalState) ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Periodo considerado</span>
+                    <strong><?= htmlspecialchars($periodLabel) ?></strong>
+                </div>
+            </div>
+        </div>
+        <div class="overview-card">
+            <h4>
+                <span class="section-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                        <path d="M4 6.5h16M4 12h16M4 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                Resumen de horas
+            </h4>
+            <p class="section-muted">Distribución por proyecto y talento.</p>
+            <div class="summary-split">
+                <div>
+                    <span class="section-muted">Por proyecto</span>
+                    <?php if (!empty($timesheetSummary['hours_by_project'])): ?>
+                        <ul class="summary-list">
+                            <?php foreach ($timesheetSummary['hours_by_project'] as $row): ?>
+                                <li>
+                                    <span class="summary-name"><?= htmlspecialchars((string) ($row['project'] ?? 'Sin proyecto')) ?></span>
+                                    <strong><?= number_format((float) ($row['total_hours'] ?? 0), 1, ',', '.') ?>h</strong>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <p class="section-muted">Sin horas por proyecto.</p>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <span class="section-muted">Por talento</span>
+                    <?php if (!empty($timesheetSummary['hours_by_talent'])): ?>
+                        <ul class="summary-list">
+                            <?php foreach ($timesheetSummary['hours_by_talent'] as $row): ?>
+                                <li>
+                                    <span class="summary-name"><?= htmlspecialchars((string) ($row['talent'] ?? 'Talento')) ?></span>
+                                    <strong><?= number_format((float) ($row['total_hours'] ?? 0), 1, ',', '.') ?>h</strong>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <p class="section-muted">Sin horas por talento.</p>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -411,6 +483,10 @@ $approvalState = ($timesheetSummary['pending_hours'] ?? 0) > 0
     .summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
     .summary-grid strong { font-size:14px; color: var(--text-main); }
     .summary-note p { margin:4px 0 0; font-size:13px; color: var(--text-main); }
+    .summary-split { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .summary-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+    .summary-list li { display:flex; justify-content:space-between; gap:10px; font-size:13px; color: var(--text-main); }
+    .summary-name { max-width:160px; overflow-wrap:anywhere; text-overflow:ellipsis; }
     .status-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .outsourcing-followups { border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--bg-card); display:flex; flex-direction:column; gap:12px; }
     .section-head { display:flex; justify-content:space-between; align-items:flex-start; }

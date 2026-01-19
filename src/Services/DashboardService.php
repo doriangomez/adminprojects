@@ -169,6 +169,7 @@ class DashboardService
         $weeklyHours = 0.0;
         $pendingHours = 0.0;
         $todayHours = 0.0;
+        $pendingApprovalsCount = 0;
         $hoursByProject = [];
         $hoursByTalent = [];
 
@@ -197,6 +198,18 @@ class DashboardService
                 $params
             );
             $pendingHours = (float) ($pendingRow['total'] ?? 0);
+
+            $pendingCountRow = $this->db->fetchOne(
+                "SELECT COUNT(*) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 JOIN projects p ON p.id = t.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND ts.status IN ('pending','submitted','pending_approval')",
+                $params
+            );
+            $pendingApprovalsCount = (int) ($pendingCountRow['total'] ?? 0);
 
             $todayRow = $this->db->fetchOne(
                 "SELECT SUM(ts.hours) AS total
@@ -307,6 +320,7 @@ class DashboardService
             'weekly_hours' => $weeklyHours,
             'pending_hours' => $pendingHours,
             'today_hours' => $todayHours,
+            'pending_approvals_count' => $pendingApprovalsCount,
             'hours_by_project' => $hoursByProject,
             'hours_by_talent' => $hoursByTalent,
             'talents_without_report' => $talentsWithoutReport,

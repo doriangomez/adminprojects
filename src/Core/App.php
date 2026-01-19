@@ -296,7 +296,20 @@ class App
         }
 
         if (str_starts_with($path, '/tasks')) {
-            (new TasksController($this->db, $this->auth))->index();
+            $controller = new TasksController($this->db, $this->auth);
+            if (preg_match('#^/tasks/(\\d+)/edit$#', $path, $matches) && $method === 'GET') {
+                $controller->edit((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/tasks/(\\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->update((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/tasks/(\\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateStatus((int) $matches[1]);
+                return;
+            }
+            $controller->index();
             return;
         }
 
