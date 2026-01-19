@@ -147,6 +147,7 @@ class ConfigController extends Controller
     public function storeUser(): void
     {
         $this->ensureConfigAccess();
+        $this->ensureNotImpersonating();
 
         $repo = new UsersRepository($this->db);
         $password = $_POST['password'] ?? '';
@@ -173,6 +174,7 @@ class ConfigController extends Controller
     public function updateUser(): void
     {
         $this->ensureConfigAccess();
+        $this->ensureNotImpersonating();
 
         $repo = new UsersRepository($this->db);
         $password = $_POST['password'] ?? '';
@@ -201,6 +203,7 @@ class ConfigController extends Controller
     public function deactivateUser(): void
     {
         $this->ensureConfigAccess();
+        $this->ensureNotImpersonating();
 
         $repo = new UsersRepository($this->db);
         $repo->deactivate((int) $_POST['id']);
@@ -211,6 +214,7 @@ class ConfigController extends Controller
     public function storeRole(): void
     {
         $this->ensureConfigAccess();
+        $this->ensureNotImpersonating();
 
         $repo = new RolesRepository($this->db);
         $roleId = $repo->create([
@@ -227,6 +231,7 @@ class ConfigController extends Controller
     public function updateRole(): void
     {
         $this->ensureConfigAccess();
+        $this->ensureNotImpersonating();
 
         $repo = new RolesRepository($this->db);
         $roleId = (int) $_POST['id'];
@@ -389,6 +394,14 @@ class ConfigController extends Controller
                 http_response_code(403);
                 exit('Acceso denegado');
             }
+        }
+    }
+
+    private function ensureNotImpersonating(): void
+    {
+        if ($this->auth->isImpersonating()) {
+            http_response_code(403);
+            exit('Acción no disponible en modo impersonación.');
         }
     }
 

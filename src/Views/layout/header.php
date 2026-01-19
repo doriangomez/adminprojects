@@ -224,6 +224,21 @@ error_log(sprintf(
         .role-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); font-size:12px; font-weight:600; }
         .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); text-decoration:none; font-weight:600; }
         .logout-btn:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: color-mix(in srgb, var(--primary) 24%, transparent); color: var(--primary); }
+        .impersonation-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin: 18px 24px 0;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border) 55%);
+            background: color-mix(in srgb, var(--accent) 18%, var(--bg-card) 82%);
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        .impersonation-banner strong { font-weight: 800; }
+        .impersonation-banner .btn { padding: 8px 12px; }
         main {
             flex: 1;
             min-height: 100vh;
@@ -521,6 +536,16 @@ error_log(sprintf(
                 </div>
             <?php endif; ?>
         </header>
+        <?php if ($auth->isImpersonating()): ?>
+            <div class="impersonation-banner">
+                <div>
+                    Estás viendo el sistema como: <strong><?= htmlspecialchars($user['name'] ?? '') ?></strong>
+                </div>
+                <form method="POST" action="<?= $basePath ?>/impersonate/stop">
+                    <button class="btn secondary" type="submit">Volver a mi sesión</button>
+                </form>
+            </div>
+        <?php endif; ?>
         <div class="content">
             <div class="page-heading">
                 <h2><?= htmlspecialchars($title ?? 'Panel') ?></h2>

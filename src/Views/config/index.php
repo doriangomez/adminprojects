@@ -565,6 +565,12 @@
                                                 </td>
                                                 <td>
                                                     <div class="table-actions">
+                                                        <?php if ($isAdmin): ?>
+                                                            <form method="POST" action="/project/public/impersonate/start" class="inline">
+                                                                <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                                                <button class="btn secondary" type="submit">Ver como usuario</button>
+                                                            </form>
+                                                        <?php endif; ?>
                                                         <form method="POST" action="/project/public/config/users/update" class="inline">
                                                             <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
                                                             <input name="name" value="<?= htmlspecialchars($user['name']) ?>" style="width:140px;">
