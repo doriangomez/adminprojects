@@ -195,6 +195,9 @@ class ConfigService
                 'external_talent_requires_approval' => true,
                 'budget_change_requires_approval' => true,
             ],
+            'timesheets' => [
+                'enabled' => false,
+            ],
         ],
     ];
 
@@ -253,6 +256,10 @@ class ConfigService
                     $this->defaults['operational_rules']['approvals'],
                     $stored['operational_rules']['approvals'] ?? []
                 ),
+                'timesheets' => array_merge(
+                    $this->defaults['operational_rules']['timesheets'],
+                    $stored['operational_rules']['timesheets'] ?? []
+                ),
             ],
         ];
     }
@@ -306,6 +313,10 @@ class ConfigService
                 'approvals' => array_merge(
                     $current['operational_rules']['approvals'],
                     $payload['operational_rules']['approvals'] ?? []
+                ),
+                'timesheets' => array_merge(
+                    $current['operational_rules']['timesheets'] ?? [],
+                    $payload['operational_rules']['timesheets'] ?? []
                 ),
             ],
         ];

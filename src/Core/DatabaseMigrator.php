@@ -238,6 +238,33 @@ class DatabaseMigrator
                     ':name' => 'Aprobar timesheets',
                 ]
             );
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                [
+                    ':code' => 'timesheets.view',
+                    ':name' => 'Ver y registrar timesheets',
+                ]
+            );
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                [
+                    ':code' => 'approve_timesheet',
+                    ':name' => 'Aprobar timesheets',
+                ]
+            );
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                [
+                    ':code' => 'view_timesheet',
+                    ':name' => 'Ver y registrar timesheets',
+                ]
+            );
 
             $roles = $this->db->fetchAll(
                 "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')"
@@ -258,6 +285,20 @@ class DatabaseMigrator
                         ':code' => 'timesheets.approve',
                     ]
                 );
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :roleId, p.id
+                     FROM permissions p
+                     WHERE p.code = :code
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':roleId' => (int) $role['id'],
+                        ':code' => 'approve_timesheet',
+                    ]
+                );
             }
 
             $talentRoles = $this->db->fetchAll("SELECT id FROM roles WHERE nombre = 'Talento'");
@@ -274,6 +315,20 @@ class DatabaseMigrator
                     [
                         ':roleId' => (int) $role['id'],
                         ':code' => 'timesheets.view',
+                    ]
+                );
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :roleId, p.id
+                     FROM permissions p
+                     WHERE p.code = :code
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':roleId' => (int) $role['id'],
+                        ':code' => 'view_timesheet',
                     ]
                 );
             }

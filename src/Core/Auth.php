@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 class Auth
 {
+    private ?array $configCache = null;
+
     public function __construct(private Database $db)
     {
         if (session_status() === PHP_SESSION_NONE) {
@@ -134,15 +136,38 @@ class Auth
             return false;
         }
 
+        if (!$this->timesheetsEnabled()) {
+            return false;
+        }
+
+        if (!$this->can('view_timesheet') && !$this->can('timesheets.view')) {
+            return false;
+        }
+
         return $this->hasTimesheetAssignments();
     }
 
     public function canApproveTimesheets(): bool
     {
-        if ($this->isTalentUser()) {
+        if (!$this->timesheetsEnabled()) {
             return false;
         }
 
-        return $this->can('timesheets.approve');
+        return $this->can('approve_timesheet') || $this->can('timesheets.approve');
+    }
+
+    private function timesheetsEnabled(): bool
+    {
+        $config = $this->loadConfig();
+        return (bool) ($config['operational_rules']['timesheets']['enabled'] ?? false);
+    }
+
+    private function loadConfig(): array
+    {
+        if ($this->configCache === null) {
+            $this->configCache = (new ConfigService($this->db))->getConfig();
+        }
+
+        return $this->configCache;
     }
 }
