@@ -997,6 +997,11 @@ foreach ($documentExpectedItems as $doc) {
         }, true);
 
         root.addEventListener('click', (event) => {
+            const openUploadAction = event.target.closest('[data-open-upload]');
+            if (openUploadAction) {
+                openUploadModal(event);
+                return;
+            }
             const toggleFlow = event.target.closest('[data-toggle-flow]');
             if (toggleFlow) {
                 const row = toggleFlow.closest('[data-file-row]');

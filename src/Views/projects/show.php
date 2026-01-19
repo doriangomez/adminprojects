@@ -675,7 +675,7 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
 </section>
 
 <?php if ($canUpdateProgress): ?>
-    <div class="modal" id="progress-modal" aria-hidden="true">
+    <div class="progress-modal" id="progress-modal" aria-hidden="true">
         <div class="modal__backdrop" data-close-modal></div>
         <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="progress-modal-title">
             <div class="modal__header">
@@ -712,12 +712,22 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     };
 
     openProgressButtons.forEach((button) => {
-        button.addEventListener('click', () => toggleProgressModal(true));
+        button.addEventListener('click', () => {
+            console.log('Click en Actualizar avance: handler activo.');
+            toggleProgressModal(true);
+        });
     });
 
     closeProgressButtons.forEach((button) => {
         button.addEventListener('click', () => toggleProgressModal(false));
     });
+
+    const progressForm = progressModal ? progressModal.querySelector('form') : null;
+    if (progressForm) {
+        progressForm.addEventListener('submit', () => {
+            console.log('Click en Guardar avance: handler activo.');
+        });
+    }
 
     if (progressModal) {
         progressModal.addEventListener('click', (event) => {
@@ -807,10 +817,10 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
     .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: rgba(148, 163, 184, 0.12); }
     .phase-warning { color:#7f1d1d; margin:0; }
-    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
-    .modal.is-visible { display:flex; }
-    .modal__backdrop { position:absolute; inset:0; background:rgba(15, 23, 42, 0.45); }
-    .modal__panel { position:relative; background: var(--card); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px rgba(15, 23, 42, 0.25); display:flex; flex-direction:column; gap:12px; z-index:1; }
+    .progress-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
+    .progress-modal.is-visible { display:flex; }
+    .progress-modal .modal__backdrop { position:absolute; inset:0; background:rgba(15, 23, 42, 0.45); }
+    .progress-modal .modal__panel { position:relative; background: var(--card); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px rgba(15, 23, 42, 0.25); display:flex; flex-direction:column; gap:12px; z-index:1; }
     .modal__header { display:flex; justify-content:space-between; align-items:center; }
     .modal__header h3 { margin:0; }
     .modal__body { display:flex; flex-direction:column; gap:12px; }
