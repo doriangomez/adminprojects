@@ -80,7 +80,8 @@ error_log(sprintf(
         .sidebar.collapsed .user-meta,
         .sidebar.collapsed .nav-title,
         .sidebar.collapsed .nav-label,
-        .sidebar.collapsed .nav-section-label { display: none; }
+        .sidebar.collapsed .nav-section-label,
+        .sidebar.collapsed .nav-badge { display: none; }
         .sidebar.collapsed .nav-link { justify-content: center; }
         .sidebar.collapsed .nav-link::before { display: none; }
         .sidebar.collapsed .user-panel { justify-content: center; }
@@ -179,6 +180,17 @@ error_log(sprintf(
             color: inherit;
         }
         .nav-label { white-space: nowrap; }
+        .nav-badge {
+            margin-left: auto;
+            min-width: 24px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--on-primary);
+            background: var(--accent);
+            text-align: center;
+        }
         .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; }
         .topbar {
             padding: 10px 22px;
@@ -304,6 +316,10 @@ error_log(sprintf(
             padding: 12px 12px;
             border-bottom: 1px solid var(--border);
             text-align: left;
+            line-height: 1.5;
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
         th {
             font-size: 12px;
@@ -446,6 +462,9 @@ error_log(sprintf(
             <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12h6l2 3 4-6h4"/><path d="M5 20h14"/><path d="M7 4h10v4H7z"/></svg></span>
                 <span class="nav-label">Aprobaciones</span>
+                <?php if (!empty($approvalBadgeCount)): ?>
+                    <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
+                <?php endif; ?>
             </a>
             <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
