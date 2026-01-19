@@ -18,6 +18,11 @@ $tabs = [
         'href' => $documentsHref,
         'icon' => '📂',
     ],
+    'seguimiento' => [
+        'label' => 'Notas / Seguimiento',
+        'href' => $basePath . '/projects/' . $projectId . '?view=seguimiento',
+        'icon' => '📝',
+    ],
     'tareas' => [
         'label' => 'Tareas',
         'href' => $basePath . '/projects/' . $projectId . '/tasks',
