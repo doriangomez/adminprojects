@@ -59,6 +59,8 @@ class OutsourcingServicesController extends Controller
             exit('Servicio de outsourcing no encontrado.');
         }
 
+        $timesheetSummary = $servicesRepo->timesheetSummary($service);
+
         $users = array_values(array_filter(
             (new UsersRepository($this->db))->all(),
             static fn (array $candidate): bool => (int) ($candidate['active'] ?? 0) === 1
@@ -86,6 +88,7 @@ class OutsourcingServicesController extends Controller
             'documentFlowConfig' => (new ConfigService($this->db))->getConfig()['document_flow'] ?? [],
             'currentUser' => $user,
             'canManage' => $this->auth->canAccessOutsourcing(),
+            'timesheetSummary' => $timesheetSummary,
         ]);
     }
 

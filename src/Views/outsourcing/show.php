@@ -5,6 +5,7 @@ $followups = is_array($followups ?? null) ? $followups : [];
 $users = is_array($users ?? null) ? $users : [];
 $documentFlowConfig = is_array($documentFlowConfig ?? null) ? $documentFlowConfig : [];
 $currentUser = is_array($currentUser ?? null) ? $currentUser : [];
+$timesheetSummary = is_array($timesheetSummary ?? null) ? $timesheetSummary : ['total_hours' => 0, 'approved_hours' => 0, 'pending_hours' => 0];
 $canManage = !empty($canManage);
 
 $serviceStatusLabels = [
@@ -53,6 +54,9 @@ $followupIcon = static function (?string $status, ?string $health): string {
 };
 $latestHealth = $followups[0]['service_health'] ?? null;
 $projectProgress = isset($service['project_progress']) ? (float) $service['project_progress'] : null;
+$approvalState = ($timesheetSummary['pending_hours'] ?? 0) > 0
+    ? 'Pendiente'
+    : (($timesheetSummary['approved_hours'] ?? 0) > 0 ? 'Aprobado' : 'Sin reportes');
 ?>
 
 <section class="outsourcing-shell">
@@ -165,6 +169,14 @@ $projectProgress = isset($service['project_progress']) ? (float) $service['proje
                 <div>
                     <span class="section-muted">Avance del proyecto (manual)</span>
                     <strong><?= $projectProgress !== null ? htmlspecialchars((string) $projectProgress) . '%' : 'Sin proyecto' ?></strong>
+                </div>
+                <div>
+                    <span class="section-muted">Horas reportadas</span>
+                    <strong><?= number_format((float) ($timesheetSummary['total_hours'] ?? 0), 1, ',', '.') ?>h</strong>
+                </div>
+                <div>
+                    <span class="section-muted">Estado de aprobación</span>
+                    <strong><?= htmlspecialchars($approvalState) ?></strong>
                 </div>
             </div>
         </div>

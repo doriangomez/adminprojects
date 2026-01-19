@@ -177,6 +177,10 @@
             <div class="card">
                 <div class="metric-grid">
                     <div class="metric-item">
+                        <span class="label">Horas reportadas hoy</span>
+                        <span class="value"><?= number_format($timesheets['today_hours'] ?? 0, 1, ',', '.') ?></span>
+                    </div>
+                    <div class="metric-item">
                         <span class="label">Horas cargadas semana</span>
                         <span class="value"><?= number_format($timesheets['weekly_hours'] ?? 0, 1, ',', '.') ?></span>
                     </div>
@@ -194,6 +198,52 @@
                     </div>
                 </div>
                 <p class="muted">Semana <?= htmlspecialchars($timesheets['period_start'] ?? '') ?> - <?= htmlspecialchars($timesheets['period_end'] ?? '') ?></p>
+            </div>
+            <div class="card">
+                <h4>Horas por proyecto</h4>
+                <?php if (!empty($timesheets['hours_by_project'])): ?>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Proyecto</th>
+                                <th class="text-right">Horas aprobadas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($timesheets['hours_by_project'] as $row): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($row['project'] ?? '') ?></td>
+                                    <td class="text-right"><?= number_format((float) ($row['total_hours'] ?? 0), 1, ',', '.') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <p class="muted">Sin horas aprobadas para mostrar.</p>
+                <?php endif; ?>
+            </div>
+            <div class="card">
+                <h4>Horas por talento</h4>
+                <?php if (!empty($timesheets['hours_by_talent'])): ?>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Talento</th>
+                                <th class="text-right">Horas aprobadas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($timesheets['hours_by_talent'] as $row): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($row['talent'] ?? '') ?></td>
+                                    <td class="text-right"><?= number_format((float) ($row['total_hours'] ?? 0), 1, ',', '.') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <p class="muted">Sin horas aprobadas para mostrar.</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>

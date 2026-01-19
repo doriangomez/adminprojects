@@ -1,128 +1,264 @@
-<div class="grid">
-    <div class="card kpi">
-        <span class="label">Borrador</span>
-        <span class="value"><?= $kpis['draft'] ?? 0 ?></span>
-    </div>
-    <div class="card kpi">
-        <span class="label">Pendiente</span>
-        <span class="value"><?= $kpis['pending'] ?? 0 ?></span>
-    </div>
-    <div class="card kpi">
-        <span class="label">Aprobado</span>
-        <span class="value"><?= $kpis['approved'] ?? 0 ?></span>
-    </div>
-    <div class="card kpi">
-        <span class="label">Rechazado</span>
-        <span class="value"><?= $kpis['rejected'] ?? 0 ?></span>
-    </div>
-</div>
+<?php
+$basePath = $basePath ?? '/project/public';
+$rows = is_array($rows ?? null) ? $rows : [];
+$kpis = is_array($kpis ?? null) ? $kpis : [];
+$tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet : [];
+$pendingApprovals = is_array($pendingApprovals ?? null) ? $pendingApprovals : [];
+$canApprove = !empty($canApprove);
+$canReport = !empty($canReport);
 
-<?php if (!empty($canReport)): ?>
-    <div class="card" style="margin-top: 12px;">
-        <h3 style="margin-top:0;">Mis horas</h3>
-        <?php if (empty($tasksForTimesheet)): ?>
-            <p style="margin:0; color: var(--muted);">No hay tareas disponibles para registrar horas.</p>
-        <?php else: ?>
-            <form method="POST" action="<?= $basePath ?>/timesheets/create" style="display:flex; flex-direction:column; gap:10px;">
-                <label>Tarea
-                    <select name="task_id" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
-                        <option value="">Selecciona una tarea</option>
-                        <?php foreach ($tasksForTimesheet as $task): ?>
-                            <option value="<?= (int) $task['id'] ?>"><?= htmlspecialchars($task['project']) ?> · <?= htmlspecialchars($task['title']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </label>
-                <small style="color: var(--muted);">Solo se muestran tareas asignadas al talento y en estado Doing (En curso).</small>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px;">
-                    <label>Fecha
-                        <input type="date" name="date" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
-                    </label>
-                    <label>Horas
-                        <input type="number" name="hours" step="0.25" min="0.25" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">
-                    </label>
-                </div>
-                <label style="display:flex; gap:8px; align-items:center;">
-                    <input type="checkbox" name="billable" value="1"> Facturable
-                </label>
-                <button type="submit" class="primary-button" style="border:none; cursor:pointer;">Registrar horas</button>
-            </form>
-        <?php endif; ?>
-    </div>
-<?php endif; ?>
+$statusMeta = [
+    'draft' => ['label' => 'Borrador', 'icon' => '📝', 'class' => 'status-muted'],
+    'pending' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-warning'],
+    'approved' => ['label' => 'Aprobado', 'icon' => '✅', 'class' => 'status-success'],
+    'rejected' => ['label' => 'Rechazado', 'icon' => '❌', 'class' => 'status-danger'],
+];
 
-<?php if (!empty($canApprove)): ?>
-    <div class="card" style="margin-top: 12px;">
-        <h3 style="margin-top:0;">Horas pendientes de aprobación</h3>
-        <?php if (empty($pendingApprovals)): ?>
-            <p style="margin:0; color: var(--muted);">No hay horas pendientes.</p>
+$weekStart = new DateTimeImmutable('monday this week');
+$weekEnd = $weekStart->modify('+6 days');
+$weekRows = array_values(array_filter($rows, static function (array $row) use ($weekStart, $weekEnd): bool {
+    $date = $row['date'] ?? null;
+    if (!$date) {
+        return false;
+    }
+    $timestamp = strtotime($date);
+    if (!$timestamp) {
+        return false;
+    }
+    return $timestamp >= $weekStart->getTimestamp() && $timestamp <= $weekEnd->getTimestamp();
+}));
+?>
+
+<section class="timesheets-shell">
+    <header class="timesheets-header">
+        <div>
+            <h2>Timesheets</h2>
+            <p class="section-muted">Registro diario y semanal de horas por proyecto y tarea.</p>
+        </div>
+        <div class="week-pill">
+            Semana <?= htmlspecialchars($weekStart->format('d/m')) ?> - <?= htmlspecialchars($weekEnd->format('d/m')) ?>
+        </div>
+    </header>
+
+    <div class="kpi-grid">
+        <div class="card kpi">
+            <span class="label">📝 Borrador</span>
+            <span class="value"><?= $kpis['draft'] ?? 0 ?></span>
+        </div>
+        <div class="card kpi">
+            <span class="label">⏳ Pendiente</span>
+            <span class="value"><?= $kpis['pending'] ?? 0 ?></span>
+        </div>
+        <div class="card kpi">
+            <span class="label">✅ Aprobado</span>
+            <span class="value"><?= $kpis['approved'] ?? 0 ?></span>
+        </div>
+        <div class="card kpi">
+            <span class="label">❌ Rechazado</span>
+            <span class="value"><?= $kpis['rejected'] ?? 0 ?></span>
+        </div>
+    </div>
+
+    <?php if ($canReport): ?>
+        <section class="card timesheet-entry">
+            <header>
+                <h3>Registrar horas</h3>
+                <p class="section-muted">Solo verás tareas asignadas y en estado En progreso.</p>
+            </header>
+            <?php if (empty($tasksForTimesheet)): ?>
+                <p class="section-muted">No hay tareas disponibles para registrar horas.</p>
+            <?php else: ?>
+                <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form">
+                    <label>Tarea
+                        <select name="task_id" required>
+                            <option value="">Selecciona una tarea</option>
+                            <?php foreach ($tasksForTimesheet as $task): ?>
+                                <option value="<?= (int) $task['id'] ?>"><?= htmlspecialchars($task['project']) ?> · <?= htmlspecialchars($task['title']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <div class="form-grid">
+                        <label>Fecha
+                            <input type="date" name="date" required>
+                        </label>
+                        <label>Horas
+                            <input type="number" name="hours" step="0.25" min="0.25" required>
+                        </label>
+                    </div>
+                    <label>Comentario
+                        <textarea name="comment" rows="2" required placeholder="Describe lo trabajado en la tarea."></textarea>
+                    </label>
+                    <label class="checkbox">
+                        <input type="checkbox" name="billable" value="1"> Facturable
+                    </label>
+                    <button type="submit" class="primary-button">Registrar horas</button>
+                </form>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
+
+    <section class="card timesheet-week">
+        <header>
+            <h3>Vista semanal</h3>
+            <p class="section-muted">Horas reportadas en la semana actual.</p>
+        </header>
+        <?php if (empty($weekRows)): ?>
+            <p class="section-muted">Aún no tienes registros en esta semana.</p>
         <?php else: ?>
-            <table>
+            <table class="clean-table">
                 <thead>
                     <tr>
-                        <th>Fecha</th>
+                        <th>Día</th>
                         <th>Proyecto</th>
                         <th>Tarea</th>
-                        <th>Talento</th>
                         <th>Horas</th>
                         <th>Estado</th>
-                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach($pendingApprovals as $row): ?>
+                    <?php foreach ($weekRows as $row): ?>
+                        <?php
+                        $statusKey = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
+                        $meta = $statusMeta[$statusKey] ?? ['label' => ucfirst((string) $statusKey), 'icon' => '📌', 'class' => 'status-muted'];
+                        ?>
                         <tr>
-                            <td><?= htmlspecialchars($row['date']) ?></td>
-                            <td><?= htmlspecialchars($row['project']) ?></td>
-                            <td><?= htmlspecialchars($row['task']) ?></td>
-                            <td><?= htmlspecialchars($row['talent']) ?></td>
-                            <td><?= $row['hours'] ?></td>
-                            <td><span class="badge warning">pendiente</span></td>
-                            <td>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" style="display:inline;">
-                                    <button type="submit" class="primary-button" style="border:none; cursor:pointer; padding:6px 10px;">Aprobar</button>
-                                </form>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" style="display:inline;">
-                                    <button type="submit" class="secondary-button" style="border:none; cursor:pointer; padding:6px 10px;">Rechazar</button>
-                                </form>
-                            </td>
+                            <td><?= htmlspecialchars($row['date'] ?? '') ?></td>
+                            <td><?= htmlspecialchars($row['project'] ?? '') ?></td>
+                            <td><?= htmlspecialchars($row['task'] ?? '') ?></td>
+                            <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
+                            <td><span class="badge <?= $meta['class'] ?>"><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         <?php endif; ?>
-    </div>
-<?php endif; ?>
+    </section>
 
-<div class="card" style="margin-top: 12px;">
-    <h3 style="margin-top:0;">Registro de horas</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Fecha</th>
-                <th>Proyecto</th>
-                <th>Tarea</th>
-                <th>Talento</th>
-                <th>Horas</th>
-                <th>Estado</th>
-                <th>Facturable</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach($rows as $row): ?>
-                <?php
-                $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
-                $badgeClass = $status === 'approved' ? 'success' : ($status === 'pending' ? 'warning' : ($status === 'rejected' ? 'danger' : ''));
-                ?>
+    <?php if ($canApprove): ?>
+        <section class="card timesheet-approvals">
+            <header>
+                <h3>Horas pendientes de aprobación</h3>
+                <p class="section-muted">Aprueba o rechaza con comentario.</p>
+            </header>
+            <?php if (empty($pendingApprovals)): ?>
+                <p class="section-muted">No hay horas pendientes.</p>
+            <?php else: ?>
+                <table class="clean-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Proyecto</th>
+                            <th>Tarea</th>
+                            <th>Talento</th>
+                            <th>Horas</th>
+                            <th>Comentario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pendingApprovals as $row): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($row['date']) ?></td>
+                                <td><?= htmlspecialchars($row['project']) ?></td>
+                                <td><?= htmlspecialchars($row['task']) ?></td>
+                                <td><?= htmlspecialchars($row['talent']) ?></td>
+                                <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
+                                <td><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></td>
+                                <td>
+                                    <div class="action-stack">
+                                        <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
+                                            <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario aprobación">
+                                            <button type="submit" class="primary-button small">✅ Aprobar</button>
+                                        </form>
+                                        <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
+                                            <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo rechazo">
+                                            <button type="submit" class="secondary-button small">❌ Rechazar</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
+
+    <section class="card timesheet-history">
+        <header>
+            <h3>Historial completo</h3>
+            <p class="section-muted">Todos los registros asociados a tus permisos.</p>
+        </header>
+        <table class="clean-table">
+            <thead>
                 <tr>
-                    <td><?= htmlspecialchars($row['date']) ?></td>
-                    <td><?= htmlspecialchars($row['project']) ?></td>
-                    <td><?= htmlspecialchars($row['task']) ?></td>
-                    <td><?= htmlspecialchars($row['talent']) ?></td>
-                    <td><?= $row['hours'] ?></td>
-                    <td><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($status) ?></span></td>
-                    <td><?= $row['billable'] ? 'Sí' : 'No' ?></td>
+                    <th>Fecha</th>
+                    <th>Proyecto</th>
+                    <th>Tarea</th>
+                    <th>Talento</th>
+                    <th>Horas</th>
+                    <th>Estado</th>
+                    <th>Comentario</th>
+                    <th>Facturable</th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
+            </thead>
+            <tbody>
+                <?php foreach ($rows as $row): ?>
+                    <?php
+                    $statusKey = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
+                    $meta = $statusMeta[$statusKey] ?? ['label' => ucfirst((string) $statusKey), 'icon' => '📌', 'class' => 'status-muted'];
+                    ?>
+                    <tr>
+                        <td><?= htmlspecialchars($row['date'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($row['project'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($row['task'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($row['talent'] ?? '') ?></td>
+                        <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
+                        <td><span class="badge <?= $meta['class'] ?>"><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span></td>
+                        <td><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></td>
+                        <td><?= !empty($row['billable']) ? 'Sí' : 'No' ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </section>
+</section>
+
+<style>
+    .timesheets-shell { display:flex; flex-direction:column; gap:16px; }
+    .timesheets-header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .timesheets-header h2 { margin:0; }
+    .section-muted { color: var(--muted); margin:0; font-size:13px; }
+    .week-pill { padding:6px 12px; border-radius:999px; background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); color: var(--text-strong); font-weight:700; font-size:12px; }
+    .kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; }
+    .timesheet-entry header,
+    .timesheet-week header,
+    .timesheet-approvals header,
+    .timesheet-history header { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+    .timesheet-form { display:flex; flex-direction:column; gap:12px; }
+    .timesheet-form select,
+    .timesheet-form input,
+    .timesheet-form textarea,
+    .inline-form input { width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; background: var(--surface); color: var(--text-strong); }
+    .form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .checkbox { display:flex; gap:8px; align-items:center; }
+    .clean-table { width:100%; border-collapse:collapse; }
+    .clean-table th,
+    .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:14px; }
+    .clean-table th { font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px; }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); }
+    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); }
+    .action-stack { display:flex; flex-direction:column; gap:8px; }
+    .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .primary-button { background: var(--primary); color: var(--on-primary); border:none; cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
+    .secondary-button { background: color-mix(in srgb, var(--surface) 86%, var(--bg-app) 14%); color: var(--text-strong); border:1px solid var(--border); cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
+    .primary-button.small,
+    .secondary-button.small { padding:6px 10px; font-size:12px; }
+    @media (max-width: 900px) {
+        .clean-table { display:block; overflow-x:auto; }
+    }
+</style>

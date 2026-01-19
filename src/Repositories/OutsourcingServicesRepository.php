@@ -123,6 +123,40 @@ class OutsourcingServicesRepository
         return $service ?: null;
     }
 
+    public function timesheetSummary(array $service): array
+    {
+        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks') || !$this->db->tableExists('talents')) {
+            return ['total_hours' => 0.0, 'approved_hours' => 0.0, 'pending_hours' => 0.0];
+        }
+
+        $projectId = (int) ($service['project_id'] ?? 0);
+        $userId = (int) ($service['talent_id'] ?? 0);
+        if ($projectId <= 0 || $userId <= 0) {
+            return ['total_hours' => 0.0, 'approved_hours' => 0.0, 'pending_hours' => 0.0];
+        }
+
+        $row = $this->db->fetchOne(
+            "SELECT SUM(ts.hours) AS total_hours,
+                    SUM(CASE WHEN ts.status = 'approved' THEN ts.hours ELSE 0 END) AS approved_hours,
+                    SUM(CASE WHEN ts.status IN ('pending','submitted','pending_approval') THEN ts.hours ELSE 0 END) AS pending_hours
+             FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             JOIN talents ta ON ta.id = ts.talent_id
+             WHERE t.project_id = :project
+             AND ta.user_id = :user",
+            [
+                ':project' => $projectId,
+                ':user' => $userId,
+            ]
+        );
+
+        return [
+            'total_hours' => (float) ($row['total_hours'] ?? 0),
+            'approved_hours' => (float) ($row['approved_hours'] ?? 0),
+            'pending_hours' => (float) ($row['pending_hours'] ?? 0),
+        ];
+    }
+
     public function createService(array $payload): int
     {
         if (!$this->db->tableExists('outsourcing_services')) {

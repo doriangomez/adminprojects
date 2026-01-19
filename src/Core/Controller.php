@@ -75,6 +75,10 @@ abstract class Controller
             $count += count($repo->inboxDocumentsForUser('en_aprobacion', 'approver_id', $userId));
         }
 
+        if ($this->auth->canApproveTimesheets()) {
+            $count += (new TimesheetsRepository($this->db))->countPendingApprovals();
+        }
+
         return $count;
     }
 

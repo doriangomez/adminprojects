@@ -368,6 +368,8 @@ CREATE TABLE timesheets (
     date DATE NOT NULL,
     hours DECIMAL(8,2) NOT NULL,
     status VARCHAR(20) NOT NULL,
+    comment TEXT NOT NULL,
+    approval_comment TEXT NULL,
     billable TINYINT(1) DEFAULT 0,
     approved_by INT,
     approved_at DATETIME,
@@ -643,8 +645,8 @@ INSERT INTO talent_skills (talent_id, skill_id) VALUES (1,1), (1,2);
 INSERT INTO tasks (project_id, assignee_id, title, description, status, priority, estimated_hours, actual_hours, due_date)
 VALUES (1, 1, 'Definir plan de despliegue', 'Plan detallado de despliegue por fases', 'in_progress', 'high', 40, 12, DATE_ADD(CURDATE(), INTERVAL 7 DAY));
 
-INSERT INTO timesheets (task_id, talent_id, date, hours, status, billable)
-VALUES (1, 1, CURDATE(), 6, 'approved', 1);
+INSERT INTO timesheets (task_id, talent_id, date, hours, status, comment, billable)
+VALUES (1, 1, CURDATE(), 6, 'approved', 'Carga inicial de horas.', 1);
 
 INSERT INTO revenues (project_id, description, amount, recognized_at) VALUES (1, 'Hito 1', 25000, CURDATE());
 INSERT INTO costs (project_id, description, amount, incurred_at) VALUES (1, 'Servicios en la nube', 12000, CURDATE());

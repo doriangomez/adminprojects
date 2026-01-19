@@ -30,7 +30,8 @@ class TimesheetsRepository
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         return $this->db->fetchAll(
-            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, p.name AS project, t.title AS task, ta.name AS talent
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment,
+                    p.name AS project, t.title AS task, ta.name AS talent
              FROM timesheets ts
              JOIN tasks t ON t.id = ts.task_id
              JOIN projects p ON p.id = t.project_id
@@ -107,13 +108,20 @@ class TimesheetsRepository
             return [];
         }
 
+        $conditions = [
+            't.assignee_id = :talent',
+            "t.status = 'in_progress'",
+        ];
+        if ((int) ($talent['is_outsourcing'] ?? 0) !== 1 && $this->db->tableExists('outsourcing_services')) {
+            $conditions[] = 'NOT EXISTS (SELECT 1 FROM outsourcing_services os WHERE os.project_id = t.project_id)';
+        }
+
         return $this->db->fetchAll(
             "SELECT t.id, t.title, p.name AS project
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
-             WHERE t.assignee_id = :talent
-             AND t.status = 'in_progress'
-             ORDER BY p.name ASC, t.title ASC",
+             WHERE " . implode(' AND ', $conditions) . '
+             ORDER BY p.name ASC, t.title ASC',
             [':talent' => (int) $talent['id']]
         );
     }
@@ -129,12 +137,23 @@ class TimesheetsRepository
             return null;
         }
 
+        $outsourcingSelect = $this->db->tableExists('outsourcing_services')
+            ? '(SELECT COUNT(*) FROM outsourcing_services os WHERE os.project_id = t.project_id) AS outsourcing_total'
+            : '0 AS outsourcing_total';
+
         $task = $this->db->fetchOne(
-            'SELECT id, status, assignee_id FROM tasks WHERE id = :task LIMIT 1',
+            'SELECT t.id, t.status, t.assignee_id, t.project_id, ' . $outsourcingSelect . '
+             FROM tasks t
+             WHERE t.id = :task
+             LIMIT 1',
             [':task' => $taskId]
         );
 
         if (!$task || (int) ($task['assignee_id'] ?? 0) !== (int) $talent['id']) {
+            return null;
+        }
+
+        if (!empty($task['outsourcing_total']) && (int) ($talent['is_outsourcing'] ?? 0) !== 1) {
             return null;
         }
 
@@ -150,8 +169,8 @@ class TimesheetsRepository
     public function createTimesheet(array $payload): int
     {
         $timesheetId = $this->db->insert(
-            'INSERT INTO timesheets (task_id, talent_id, assignment_id, date, hours, status, billable, approved_by, approved_at, created_at, updated_at)
-             VALUES (:task_id, :talent_id, :assignment_id, :date, :hours, :status, :billable, :approved_by, :approved_at, NOW(), NOW())',
+            'INSERT INTO timesheets (task_id, talent_id, assignment_id, date, hours, status, comment, approval_comment, billable, approved_by, approved_at, created_at, updated_at)
+             VALUES (:task_id, :talent_id, :assignment_id, :date, :hours, :status, :comment, :approval_comment, :billable, :approved_by, :approved_at, NOW(), NOW())',
             [
                 ':task_id' => (int) $payload['task_id'],
                 ':talent_id' => (int) $payload['talent_id'],
@@ -159,6 +178,8 @@ class TimesheetsRepository
                 ':date' => $payload['date'],
                 ':hours' => (float) $payload['hours'],
                 ':status' => $payload['status'],
+                ':comment' => $payload['comment'],
+                ':approval_comment' => $payload['approval_comment'] ?? null,
                 ':billable' => (int) $payload['billable'],
                 ':approved_by' => $payload['approved_by'],
                 ':approved_at' => $payload['approved_at'],
@@ -177,7 +198,7 @@ class TimesheetsRepository
         }
 
         return $this->db->fetchAll(
-            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, p.name AS project, t.title AS task,
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment, p.name AS project, t.title AS task,
                     ts.approved_at, ts.rejected_at, ua.name AS approved_by_name, ur.name AS rejected_by_name
              FROM timesheets ts
              JOIN tasks t ON t.id = ts.task_id
@@ -202,7 +223,7 @@ class TimesheetsRepository
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         return $this->db->fetchAll(
-            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, p.name AS project, t.title AS task, ta.name AS talent
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment, p.name AS project, t.title AS task, ta.name AS talent
              FROM timesheets ts
              JOIN tasks t ON t.id = ts.task_id
              JOIN projects p ON p.id = t.project_id
@@ -213,7 +234,22 @@ class TimesheetsRepository
         );
     }
 
-    public function updateApprovalStatus(int $timesheetId, string $status, int $userId): bool
+    public function countPendingApprovals(): int
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return 0;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total
+             FROM timesheets
+             WHERE status IN ("pending", "submitted", "pending_approval")'
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function updateApprovalStatus(int $timesheetId, string $status, int $userId, ?string $comment = null): bool
     {
         if (!in_array($status, ['approved', 'rejected'], true)) {
             throw new InvalidArgumentException('Estado de aprobación inválido.');
@@ -239,11 +275,13 @@ class TimesheetsRepository
              SET status = :status,
                  {$column} = :user,
                  {$columnDate} = NOW(),
+                 approval_comment = :comment,
                  updated_at = NOW()
              WHERE id = :id AND status IN ('pending', 'submitted', 'pending_approval')",
             [
                 ':status' => $status,
                 ':user' => $userId,
+                ':comment' => $comment !== null ? trim($comment) : null,
                 ':id' => $timesheetId,
             ]
         );
@@ -280,7 +318,7 @@ class TimesheetsRepository
         }
 
         $row = $this->db->fetchOne(
-            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas
+            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, is_outsourcing
              FROM talents
              WHERE user_id = :user
              LIMIT 1',
