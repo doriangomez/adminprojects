@@ -9,7 +9,7 @@ $canReport = !empty($canReport);
 
 $statusMeta = [
     'draft' => ['label' => 'Borrador', 'icon' => '📝', 'class' => 'status-muted'],
-    'pending' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-warning'],
+    'pending' => ['label' => 'Enviado', 'icon' => '⏳', 'class' => 'status-warning'],
     'approved' => ['label' => 'Aprobado', 'icon' => '✅', 'class' => 'status-success'],
     'rejected' => ['label' => 'Rechazado', 'icon' => '❌', 'class' => 'status-danger'],
 ];
@@ -46,7 +46,7 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
             <span class="value"><?= $kpis['draft'] ?? 0 ?></span>
         </div>
         <div class="card kpi">
-            <span class="label">⏳ Pendiente</span>
+            <span class="label">⏳ Enviado</span>
             <span class="value"><?= $kpis['pending'] ?? 0 ?></span>
         </div>
         <div class="card kpi">

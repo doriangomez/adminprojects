@@ -9,18 +9,12 @@ class TimesheetsController extends Controller
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $userId = (int) ($user['id'] ?? 0);
-        $isTalent = $this->auth->isTalentUser();
-        $canReport = $isTalent && $this->auth->canAccessTimesheets();
+        $canReport = $this->auth->canAccessTimesheets();
         $canApprove = $this->auth->canApproveTimesheets();
 
-        if ($isTalent && !$canReport) {
+        if (!$canReport && !$canApprove) {
             http_response_code(403);
             exit('Tu perfil no requiere reporte de horas.');
-        }
-
-        if (!$isTalent && !$canApprove) {
-            http_response_code(403);
-            exit('Acceso denegado');
         }
 
         $this->render('timesheets/index', [
