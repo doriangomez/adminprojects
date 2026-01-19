@@ -712,12 +712,22 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     };
 
     openProgressButtons.forEach((button) => {
-        button.addEventListener('click', () => toggleProgressModal(true));
+        button.addEventListener('click', () => {
+            console.log('Click en Actualizar avance: handler activo.');
+            toggleProgressModal(true);
+        });
     });
 
     closeProgressButtons.forEach((button) => {
         button.addEventListener('click', () => toggleProgressModal(false));
     });
+
+    const progressForm = progressModal ? progressModal.querySelector('form') : null;
+    if (progressForm) {
+        progressForm.addEventListener('submit', () => {
+            console.log('Click en Guardar avance: handler activo.');
+        });
+    }
 
     if (progressModal) {
         progressModal.addEventListener('click', (event) => {

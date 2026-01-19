@@ -289,6 +289,12 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
                 const documentId = row.dataset.documentId;
                 const commentInput = row.querySelector('[data-comment-input]');
                 const comment = commentInput ? commentInput.value.trim() : '';
+                console.log('Click en comentario/seguimiento documental:', {
+                    action,
+                    projectId,
+                    documentId,
+                    hasComment: comment !== '',
+                });
                 actionBtn.disabled = true;
                 fetch(`${basePath}/projects/${projectId}/nodes/${documentId}/document-status`, {
                     method: 'POST',
