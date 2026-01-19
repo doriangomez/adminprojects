@@ -26,6 +26,7 @@ class Auth
         $_SESSION['user'] = [
             'id' => (int) $user['id'],
             'name' => $user['name'],
+            'email' => $user['email'] ?? null,
             'role' => $user['rol_nombre'],
             'role_id' => (int) $user['role_id'],
         ];
@@ -47,6 +48,62 @@ class Auth
     {
         $_SESSION = [];
         session_destroy();
+    }
+
+    public function isImpersonating(): bool
+    {
+        return !empty($_SESSION['impersonator']) && !empty($_SESSION['impersonation']);
+    }
+
+    public function impersonator(): ?array
+    {
+        return $_SESSION['impersonator'] ?? null;
+    }
+
+    public function startImpersonation(int $userId): bool
+    {
+        $actor = $_SESSION['impersonator'] ?? $this->user();
+        if (!$actor || strcasecmp((string) ($actor['role'] ?? ''), 'Administrador') !== 0) {
+            return false;
+        }
+
+        $target = $this->db->fetchOne(
+            'SELECT u.*, r.nombre AS rol_nombre FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = :id AND u.active = 1',
+            [':id' => $userId]
+        );
+
+        if (!$target) {
+            return false;
+        }
+
+        if (empty($_SESSION['impersonator'])) {
+            $_SESSION['impersonator'] = $this->user();
+        }
+
+        $_SESSION['user'] = [
+            'id' => (int) $target['id'],
+            'name' => $target['name'],
+            'email' => $target['email'] ?? null,
+            'role' => $target['rol_nombre'],
+            'role_id' => (int) $target['role_id'],
+        ];
+
+        $_SESSION['impersonation'] = [
+            'user_id' => (int) $target['id'],
+            'user_name' => $target['name'],
+            'started_at' => date('c'),
+        ];
+
+        return true;
+    }
+
+    public function stopImpersonation(): void
+    {
+        if (!empty($_SESSION['impersonator'])) {
+            $_SESSION['user'] = $_SESSION['impersonator'];
+        }
+
+        unset($_SESSION['impersonator'], $_SESSION['impersonation']);
     }
 
     public function can(string $permission): bool

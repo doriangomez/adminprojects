@@ -59,6 +59,20 @@ class App
             return;
         }
 
+        if ($this->auth->isImpersonating() && $path !== '/impersonate/stop') {
+            $this->logImpersonationRequest($path, $method);
+        }
+
+        if ($path === '/impersonate/start' && $method === 'POST') {
+            (new AuthController($this->db, $this->auth))->startImpersonation();
+            return;
+        }
+
+        if ($path === '/impersonate/stop' && $method === 'POST') {
+            (new AuthController($this->db, $this->auth))->stopImpersonation();
+            return;
+        }
+
         if ($path === '/' || $path === '/dashboard') {
             (new DashboardController($this->db, $this->auth))->index();
             return;
@@ -446,5 +460,33 @@ class App
 
         http_response_code(404);
         echo 'Ruta no encontrada';
+    }
+
+    private function logImpersonationRequest(string $path, string $method): void
+    {
+        $impersonator = $this->auth->impersonator();
+        $current = $this->auth->user();
+
+        if (empty($impersonator) || empty($current)) {
+            return;
+        }
+
+        try {
+            $auditRepo = new AuditLogRepository($this->db);
+            $auditRepo->log(
+                $impersonator['id'] ?? null,
+                'impersonation',
+                (int) ($current['id'] ?? 0),
+                'request',
+                [
+                    'impersonator' => $impersonator,
+                    'impersonated' => $current,
+                    'path' => $path,
+                    'method' => $method,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('No se pudo registrar auditoría de impersonación: ' . $e->getMessage());
+        }
     }
 }
