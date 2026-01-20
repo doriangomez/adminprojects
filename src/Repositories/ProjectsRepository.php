@@ -626,11 +626,14 @@ class ProjectsRepository
         }
         $activeFlag = $assignmentStatus === 'active' ? 1 : 0;
 
+        $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
+        $assignmentTalentColumn = $hasTalentColumn ? 'talent_id' : 'user_id';
+        $talentId = (int) ($payload['talent_id'] ?? 0);
         $userId = (int) ($payload['user_id'] ?? 0);
         if ($userId <= 0 && $this->db->tableExists('talents') && $this->db->columnExists('talents', 'user_id')) {
             $talentUser = $this->db->fetchOne(
                 'SELECT user_id FROM talents WHERE id = :id',
-                [':id' => (int) $payload['talent_id']]
+                [':id' => $talentId]
             );
             $userId = (int) ($talentUser['user_id'] ?? 0);
         }
@@ -638,19 +641,29 @@ class ProjectsRepository
             $userId = (int) ($payload['created_by'] ?? 0);
         }
 
+        $assignmentTalentValue = $hasTalentColumn ? $talentId : $userId;
         $totalPercent = $this->db->fetchOne(
-            'SELECT SUM(allocation_percent) AS total_percent FROM project_talent_assignments WHERE talent_id = :talent',
-            [':talent' => $payload['talent_id']]
+            sprintf(
+                'SELECT SUM(allocation_percent) AS total_percent FROM project_talent_assignments WHERE %s = :talent',
+                $assignmentTalentColumn
+            ),
+            [':talent' => $assignmentTalentValue]
         );
         $totalHours = $this->db->fetchOne(
-            'SELECT SUM(weekly_hours) AS total_hours FROM project_talent_assignments WHERE talent_id = :talent',
-            [':talent' => $payload['talent_id']]
+            sprintf(
+                'SELECT SUM(weekly_hours) AS total_hours FROM project_talent_assignments WHERE %s = :talent',
+                $assignmentTalentColumn
+            ),
+            [':talent' => $assignmentTalentValue]
         );
 
-        $talent = $this->db->fetchOne(
-            'SELECT weekly_capacity, capacidad_horaria FROM talents WHERE id = :id',
-            [':id' => $payload['talent_id']]
-        );
+        $talent = [];
+        if ($this->db->tableExists('talents') && $talentId > 0) {
+            $talent = $this->db->fetchOne(
+                'SELECT weekly_capacity, capacidad_horaria FROM talents WHERE id = :id',
+                [':id' => $talentId]
+            ) ?: [];
+        }
         $weeklyCapacity = (float) ($talent['weekly_capacity'] ?? 0);
         $talentCapacity = (float) ($talent['capacidad_horaria'] ?? 0);
         if ($talentCapacity > 0) {
@@ -668,34 +681,69 @@ class ProjectsRepository
             throw new InvalidArgumentException('Las horas asignadas exceden la capacidad semanal del talento.');
         }
 
-        $talentTimesheetConfig = $this->db->fetchOne(
-            'SELECT requiere_reporte_horas, requiere_aprobacion_horas FROM talents WHERE id = :id',
-            [':id' => (int) $payload['talent_id']]
-        ) ?: [];
+        $talentTimesheetConfig = [];
+        if ($this->db->tableExists('talents') && $talentId > 0) {
+            $talentTimesheetConfig = $this->db->fetchOne(
+                'SELECT requiere_reporte_horas, requiere_aprobacion_horas FROM talents WHERE id = :id',
+                [':id' => $talentId]
+            ) ?: [];
+        }
 
         $requiresTimesheet = (int) ($talentTimesheetConfig['requiere_reporte_horas'] ?? 0);
         $requiresApproval = (int) ($talentTimesheetConfig['requiere_aprobacion_horas'] ?? 0);
 
+        $columns = [
+            'project_id',
+            'user_id',
+            'role',
+            'start_date',
+            'end_date',
+            'allocation_percent',
+            'weekly_hours',
+            'cost_type',
+            'cost_value',
+            'is_external',
+            'requires_timesheet',
+            'requires_timesheet_approval',
+            'assignment_status',
+            'active',
+            'created_at',
+            'updated_at',
+        ];
+        $params = [
+            ':project_id' => (int) $payload['project_id'],
+            ':user_id' => $userId,
+            ':role' => $payload['role'],
+            ':start_date' => $payload['start_date'] ?: null,
+            ':end_date' => $payload['end_date'] ?: null,
+            ':allocation_percent' => $payload['allocation_percent'],
+            ':weekly_hours' => $payload['weekly_hours'],
+            ':cost_type' => $payload['cost_type'],
+            ':cost_value' => $payload['cost_value'],
+            ':is_external' => (int) $payload['is_external'],
+            ':requires_timesheet' => $requiresTimesheet,
+            ':requires_timesheet_approval' => $requiresApproval,
+            ':assignment_status' => $assignmentStatus,
+            ':active' => $activeFlag,
+        ];
+        if ($hasTalentColumn) {
+            $columns[] = 'talent_id';
+            $params[':talent_id'] = $talentId;
+        }
+
+        $valuePlaceholders = [];
+        foreach ($columns as $column) {
+            if (in_array($column, ['created_at', 'updated_at'], true)) {
+                $valuePlaceholders[] = 'NOW()';
+                continue;
+            }
+            $valuePlaceholders[] = ':' . $column;
+        }
+
         $this->db->insert(
-            'INSERT INTO project_talent_assignments (project_id, user_id, talent_id, role, start_date, end_date, allocation_percent, weekly_hours, cost_type, cost_value, is_external, requires_timesheet, requires_timesheet_approval, assignment_status, active, created_at, updated_at)
-             VALUES (:project_id, :user_id, :talent_id, :role, :start_date, :end_date, :allocation_percent, :weekly_hours, :cost_type, :cost_value, :is_external, :requires_timesheet, :requires_timesheet_approval, :assignment_status, :active, NOW(), NOW())',
-            [
-                ':project_id' => (int) $payload['project_id'],
-                ':user_id' => $userId,
-                ':talent_id' => (int) $payload['talent_id'],
-                ':role' => $payload['role'],
-                ':start_date' => $payload['start_date'] ?: null,
-                ':end_date' => $payload['end_date'] ?: null,
-                ':allocation_percent' => $payload['allocation_percent'],
-                ':weekly_hours' => $payload['weekly_hours'],
-                ':cost_type' => $payload['cost_type'],
-                ':cost_value' => $payload['cost_value'],
-                ':is_external' => (int) $payload['is_external'],
-                ':requires_timesheet' => $requiresTimesheet,
-                ':requires_timesheet_approval' => $requiresApproval,
-                ':assignment_status' => $assignmentStatus,
-                ':active' => $activeFlag,
-            ]
+            'INSERT INTO project_talent_assignments (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', $valuePlaceholders) . ')',
+            $params
         );
     }
 
