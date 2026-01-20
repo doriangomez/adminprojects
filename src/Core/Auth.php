@@ -213,6 +213,11 @@ class Auth
         return $this->can('approve_timesheet') || $this->can('timesheets.approve');
     }
 
+    public function isTimesheetsEnabled(): bool
+    {
+        return $this->timesheetsEnabled();
+    }
+
     private function timesheetsEnabled(): bool
     {
         $config = $this->loadConfig();

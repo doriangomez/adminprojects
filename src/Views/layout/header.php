@@ -1,5 +1,6 @@
 <?php
-$theme = $theme ?? (new ThemeRepository())->getActiveTheme();
+$theme = (new ThemeRepository())->getActiveTheme();
+$timesheetsEnabled = $timesheetsEnabled ?? false;
 $basePath = '/project/public';
 $appDisplayName = $appName ?? 'PMO';
 $logoUrl = !empty($theme['logo_url']) ? $theme['logo_url'] : '';
@@ -468,12 +469,10 @@ error_log(sprintf(
 
             <div class="nav-divider" aria-hidden="true"></div>
             <span class="nav-section-label">Gestión</span>
-            <?php if ($auth->canAccessOutsourcing()): ?>
-                <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>">
-                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
-                    <span class="nav-label">Outsourcing</span>
-                </a>
-            <?php endif; ?>
+            <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
+                <span class="nav-label">Outsourcing</span>
+            </a>
             <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12h6l2 3 4-6h4"/><path d="M5 20h14"/><path d="M7 4h10v4H7z"/></svg></span>
                 <span class="nav-label">Aprobaciones</span>
@@ -485,7 +484,7 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>
-            <?php if ($auth->canAccessTimesheets()): ?>
+            <?php if ($timesheetsEnabled): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
                     <span class="nav-icon" aria-hidden="true">⏱️</span>
                     <span class="nav-label">Timesheet</span>

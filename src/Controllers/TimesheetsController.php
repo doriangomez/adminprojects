@@ -11,6 +11,7 @@ class TimesheetsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
         $canReport = $this->auth->canAccessTimesheets();
         $canApprove = $this->auth->canApproveTimesheets();
+        $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = new DateTimeImmutable('monday this week');
         if ($weekValue !== '') {
@@ -22,9 +23,9 @@ class TimesheetsController extends Controller
         $weekEnd = $weekStart->modify('+6 days');
         $weekValue = $weekStart->format('o-\\WW');
 
-        if (!$canReport && !$canApprove) {
-            http_response_code(403);
-            exit('Tu perfil no requiere reporte de horas.');
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
         }
 
         $this->render('timesheets/index', [
@@ -35,6 +36,7 @@ class TimesheetsController extends Controller
             'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
             'canApprove' => $canApprove,
             'canReport' => $canReport,
+            'timesheetsEnabled' => $timesheetsEnabled,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'weekValue' => $weekValue,
