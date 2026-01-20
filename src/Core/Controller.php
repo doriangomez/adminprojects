@@ -23,7 +23,9 @@ abstract class Controller
         }
         $appName = $data['appName'] ?? $this->getAppName();
         $title = $data['title'] ?? $appName;
-        $theme = $data['theme'] ?? (new ThemeRepository($this->db))->getActiveTheme();
+        $theme = (new ThemeRepository($this->db))->getActiveTheme();
+        $configData = (new ConfigService($this->db))->getConfig();
+        $timesheetsEnabled = (bool) ($configData['operational_rules']['timesheets']['enabled'] ?? false);
         include __DIR__ . '/../Views/layout/header.php';
         include __DIR__ . '/../Views/' . $view . '.php';
         include __DIR__ . '/../Views/layout/footer.php';

@@ -82,6 +82,13 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
         </div>
     </div>
 
+    <?php if (!$canReport): ?>
+        <section class="card timesheet-alert" role="status">
+            <strong>Tu perfil no tiene habilitado el reporte de horas.</strong>
+            <p class="section-muted">Puedes revisar la información disponible, pero no podrás registrar nuevas horas.</p>
+        </section>
+    <?php endif; ?>
+
     <?php if ($canReport): ?>
         <section class="card timesheet-entry">
             <header>
@@ -297,6 +304,7 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     .timesheet-form input,
     .timesheet-form textarea,
     .inline-form input { width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; background: var(--surface); color: var(--text-strong); }
+    .timesheet-alert { display:flex; flex-direction:column; gap:6px; border-left:4px solid var(--accent); }
     .form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
     .checkbox { display:flex; gap:8px; align-items:center; }
     .clean-table { width:100%; border-collapse:collapse; }
