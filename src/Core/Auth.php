@@ -201,7 +201,7 @@ class Auth
             return false;
         }
 
-        return $this->hasTimesheetAssignments();
+        return true;
     }
 
     public function canApproveTimesheets(): bool
