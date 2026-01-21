@@ -25,19 +25,29 @@ error_log(sprintf(
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
     <style>
         :root {
-            --primary: <?= htmlspecialchars($theme['primary'] ?? '#2563eb') ?>;
-            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '#111827') ?>;
-            --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? '#2563eb')) ?>;
-            --bg-app: <?= htmlspecialchars($theme['background'] ?? '#f3f4f6') ?>;
-            --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
-            --text-main: <?= htmlspecialchars($theme['text_main'] ?? '#0f172a') ?>;
-            --text-muted: <?= htmlspecialchars($theme['text_muted'] ?? '#475569') ?>;
-            --text-soft: <?= htmlspecialchars($theme['text_soft'] ?? ($theme['text_disabled'] ?? '#94a3b8')) ?>;
-            --text-disabled: var(--text-soft);
-            --border: <?= htmlspecialchars($theme['border'] ?? '#e5e7eb') ?>;
+            --primary: <?= htmlspecialchars($theme['primary'] ?? '') ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '') ?>;
+            --accent: <?= htmlspecialchars($theme['accent'] ?? '') ?>;
+            --background: <?= htmlspecialchars($theme['background'] ?? '') ?>;
+            --surface: <?= htmlspecialchars($theme['surface'] ?? '') ?>;
+            --text-primary: <?= htmlspecialchars($theme['textPrimary'] ?? $theme['text_main'] ?? '') ?>;
+            --text-secondary: <?= htmlspecialchars($theme['textSecondary'] ?? $theme['text_muted'] ?? '') ?>;
+            --disabled: <?= htmlspecialchars($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? '') ?>;
+            --border: <?= htmlspecialchars($theme['border'] ?? '') ?>;
+            --success: <?= htmlspecialchars($theme['success'] ?? '') ?>;
+            --warning: <?= htmlspecialchars($theme['warning'] ?? '') ?>;
+            --danger: <?= htmlspecialchars($theme['danger'] ?? '') ?>;
+            --info: <?= htmlspecialchars($theme['info'] ?? '') ?>;
+            --neutral: <?= htmlspecialchars($theme['neutral'] ?? '') ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
             --logo-url: <?= htmlspecialchars($logoCss) ?>;
 
+            --bg-app: var(--background);
+            --bg-card: var(--surface);
+            --text-main: var(--text-primary);
+            --text-muted: var(--text-secondary);
+            --text-soft: var(--disabled);
+            --text-disabled: var(--disabled);
             --primary-hover: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%);
             --primary-strong: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%);
             --bg: var(--bg-app);
@@ -46,10 +56,7 @@ error_log(sprintf(
             --text-strong: var(--text-main);
             --text: var(--text-muted);
             --muted: var(--text-muted);
-            --on-primary: color-mix(in srgb, var(--bg-card) 94%, var(--text-main) 6%);
-            --success: color-mix(in srgb, var(--accent) 28%, var(--primary) 72%);
-            --warning: var(--accent);
-            --danger: color-mix(in srgb, var(--accent) 25%, var(--secondary) 75%);
+            --on-primary: color-mix(in srgb, var(--surface) 94%, var(--text-primary) 6%);
         }
         * {
             box-sizing: border-box;
@@ -273,14 +280,14 @@ error_log(sprintf(
         .form-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; grid-column:1 / -1; }
         .card-stack { display:flex; flex-direction:column; gap:12px; }
         .cards-grid { align-items:stretch; }
-        .preview-pane { background: color-mix(in srgb, white 12%, transparent); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:10px; }
+        .preview-pane { background: color-mix(in srgb, var(--surface) 12%, transparent); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:10px; }
         .preview-header { display:flex; align-items:center; gap:12px; }
         .sidebar.collapsed .brand-name { display: none; }
         .sidebar.collapsed .brand-box { justify-content: center; }
         .sidebar.collapsed .brand-mark img { height: 32px; }
         .sidebar.collapsed .brand-fallback { font-size: 16px; }
         .preview-logo { height:42px; background:var(--panel); padding:8px; border-radius:10px; box-shadow:0 8px 20px var(--glow); }
-        .preview-subtitle { color: color-mix(in srgb, white 80%, transparent); font-size:13px; }
+        .preview-subtitle { color: color-mix(in srgb, var(--surface) 80%, transparent); font-size:13px; }
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -296,9 +303,9 @@ error_log(sprintf(
             color: var(--text-main);
         }
         .alert.error {
-            border-color: rgb(248, 113, 113);
-            background: rgb(254, 226, 226);
-            color: rgb(153, 27, 27);
+            border-color: color-mix(in srgb, var(--danger) 40%, var(--surface) 60%);
+            background: color-mix(in srgb, var(--danger) 15%, var(--surface) 85%);
+            color: var(--danger);
         }
         .card.ghosted { background: transparent; border-style: dashed; }
         .kpi { display: flex; align-items: center; gap: 14px; }
@@ -321,7 +328,10 @@ error_log(sprintf(
             border: 1px solid var(--border);
         }
         .badge.success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+        .badge.warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); }
+        .badge.info { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
         .badge.danger { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+        .badge.neutral { background: color-mix(in srgb, var(--neutral) 12%, transparent); color: var(--text-main); }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -361,6 +371,10 @@ error_log(sprintf(
         .btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
         .btn.secondary { background: var(--card); }
         .btn.ghost { background: transparent; border-style: dashed; }
+        .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+        .btn.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+        .btn.danger:hover { background: color-mix(in srgb, var(--danger) 20%, transparent); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
+        .btn.warning:hover { background: color-mix(in srgb, var(--warning) 20%, transparent); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); color: var(--warning); }
         .btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-primary); }
         .btn:active { background: var(--primary-strong); border-color: var(--primary-strong); color: var(--on-primary); }
         form.inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

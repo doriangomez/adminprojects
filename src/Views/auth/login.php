@@ -15,27 +15,36 @@ require_once __DIR__ . '/../layout/logo_helper.php';
     <link rel="stylesheet" href="/project/public/assets/css/auth.css">
     <style>
         :root {
-            --primary: <?= htmlspecialchars($theme['primary'] ?? '#2563eb') ?>;
-            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '#0f172a') ?>;
-            --accent: <?= htmlspecialchars($theme['accent'] ?? ($theme['primary'] ?? '#2563eb')) ?>;
-            --bg-app: <?= htmlspecialchars($theme['background'] ?? '#f5f7fb') ?>;
-            --bg-card: <?= htmlspecialchars($theme['surface'] ?? '#ffffff') ?>;
-            --text-main: <?= htmlspecialchars($theme['text_main'] ?? '#0f172a') ?>;
-            --text-muted: <?= htmlspecialchars($theme['text_muted'] ?? '#475569') ?>;
-            --text-soft: <?= htmlspecialchars($theme['text_soft'] ?? ($theme['text_disabled'] ?? '#94a3b8')) ?>;
-            --text-disabled: var(--text-soft);
-            --border: <?= htmlspecialchars($theme['border'] ?? '#e5e7eb') ?>;
+            --primary: <?= htmlspecialchars($theme['primary'] ?? '') ?>;
+            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '') ?>;
+            --accent: <?= htmlspecialchars($theme['accent'] ?? '') ?>;
+            --background: <?= htmlspecialchars($theme['background'] ?? '') ?>;
+            --surface: <?= htmlspecialchars($theme['surface'] ?? '') ?>;
+            --text-primary: <?= htmlspecialchars($theme['textPrimary'] ?? $theme['text_main'] ?? '') ?>;
+            --text-secondary: <?= htmlspecialchars($theme['textSecondary'] ?? $theme['text_muted'] ?? '') ?>;
+            --disabled: <?= htmlspecialchars($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? '') ?>;
+            --border: <?= htmlspecialchars($theme['border'] ?? '') ?>;
+            --success: <?= htmlspecialchars($theme['success'] ?? '') ?>;
+            --warning: <?= htmlspecialchars($theme['warning'] ?? '') ?>;
+            --danger: <?= htmlspecialchars($theme['danger'] ?? '') ?>;
+            --info: <?= htmlspecialchars($theme['info'] ?? '') ?>;
+            --neutral: <?= htmlspecialchars($theme['neutral'] ?? '') ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
             --logo-url: <?= htmlspecialchars($logoCss) ?>;
+
+            --bg-app: var(--background);
+            --bg-card: var(--surface);
+            --text-main: var(--text-primary);
+            --text-muted: var(--text-secondary);
+            --text-soft: var(--disabled);
+            --text-disabled: var(--disabled);
             --bg: var(--bg-app);
             --card: var(--bg-card);
             --surface: var(--card);
             --text-strong: var(--text-main);
             --text: var(--text-muted);
             --muted: var(--text-muted);
-            --success: color-mix(in srgb, var(--accent) 30%, var(--primary) 70%);
-            --warning: var(--accent);
-            --danger: color-mix(in srgb, var(--accent) 25%, var(--secondary) 75%);
+            --on-primary: color-mix(in srgb, var(--surface) 94%, var(--text-primary) 6%);
         }
     </style>
 </head>

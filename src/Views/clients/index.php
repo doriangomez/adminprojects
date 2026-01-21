@@ -12,12 +12,12 @@
         width: 36px;
         height: 36px;
         border-radius: 12px;
-        background: rgb(219, 234, 254);
+        background: color-mix(in srgb, var(--info) 18%, var(--surface) 82%);
         color: var(--primary);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid rgb(191, 219, 254);
+        border: 1px solid color-mix(in srgb, var(--info) 35%, var(--surface) 65%);
     }
     .clients-title h3 {
         margin: 0;
@@ -42,20 +42,20 @@
         padding: 16px;
         border: 1px solid var(--border);
         border-radius: 14px;
-        background: linear-gradient(135deg, rgba(219, 234, 254, 0.25), #fff);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--info) 18%, var(--surface) 82%), var(--surface));
         transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
     }
     .client-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 12px 24px color-mix(in srgb, var(--text-strong) 6%, transparent);
         border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
     }
     .client-avatar {
         width: 64px;
         height: 64px;
         border-radius: 50%;
-        background: linear-gradient(180deg, rgb(239, 246, 255), rgb(219, 234, 254));
-        border: 1px solid rgb(191, 219, 254);
+        background: linear-gradient(180deg, color-mix(in srgb, var(--info) 12%, var(--surface) 88%), color-mix(in srgb, var(--info) 22%, var(--surface) 78%));
+        border: 1px solid color-mix(in srgb, var(--info) 35%, var(--surface) 65%);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -69,7 +69,7 @@
         width: 100%;
         height: 100%;
         object-fit: contain;
-        background: #fff;
+        background: var(--surface);
         border-radius: 50%;
     }
     .client-body {
@@ -105,7 +105,7 @@
         gap: 6px;
         padding: 6px 10px;
         border-radius: 10px;
-        background: rgb(249, 250, 251);
+        background: color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%);
         border: 1px solid var(--border);
     }
     .meta-item svg { width: 14px; height: 14px; stroke: currentColor; }
@@ -120,12 +120,12 @@
         font-weight: 700;
         border: 1px solid var(--border);
     }
-    .priority-badge.alta { background: #fde2e2; color: #b91c1c; border-color: #fecaca; }
-    .priority-badge.media { background: #fef9c3; color: #92400e; border-color: #fde68a; }
-    .priority-badge.baja { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-    .priority-badge.default { background: rgb(243, 244, 246); color: var(--text-strong); }
-    .status-badge { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
-    .health-badge { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+    .priority-badge.alta { background: color-mix(in srgb, var(--danger) 15%, var(--surface) 85%); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); }
+    .priority-badge.media { background: color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); }
+    .priority-badge.baja { background: color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--surface) 60%); }
+    .priority-badge.default { background: color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color: var(--text-strong); }
+    .status-badge { background: color-mix(in srgb, var(--info) 15%, var(--surface) 85%); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, var(--surface) 60%); }
+    .health-badge { background: color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); }
     .client-actions {
         display: flex;
         flex-direction: column;
@@ -147,7 +147,7 @@
         gap: 6px;
         padding: 8px 12px;
         border-radius: 12px;
-        background: rgb(249, 250, 251);
+        background: color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%);
         border: 1px solid var(--border);
         color: var(--text-strong);
         font-weight: 700;

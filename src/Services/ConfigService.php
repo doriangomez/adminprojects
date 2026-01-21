@@ -6,21 +6,12 @@ class ConfigService
 {
     private string $filePath;
     private ?Database $db;
+    private ?array $themeDefaults = null;
 
     private array $defaults = [
         'debug' => false,
         'theme' => [
             'logo' => '/project/public/uploads/logos/default.svg',
-            'primary' => '#2563eb',
-            'secondary' => '#111827',
-            'accent' => '#f59e0b',
-            'background' => '#f3f4f6',
-            'surface' => '#ffffff',
-            'text_main' => '#0f172a',
-            'text_muted' => '#475569',
-            'text_disabled' => '#94a3b8',
-            'text_soft' => '#94a3b8',
-            'border' => '#e5e7eb',
             'font_family' => "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             'login_hero' => 'Orquesta tus operaciones críticas',
             'login_message' => 'Diseña flujos, controla riesgos y haz visible el valor de tu PMO.',
@@ -211,10 +202,11 @@ class ConfigService
     {
         $stored = $this->readConfigStorage();
         $expectedDocs = $this->normalizeExpectedDocs($stored['document_flow']['expected_docs'] ?? $this->defaults['document_flow']['expected_docs']);
+        $themeDefaults = $this->getThemeDefaults();
 
         return [
             'debug' => (bool) ($stored['debug'] ?? false),
-            'theme' => array_merge($this->defaults['theme'], $stored['theme'] ?? []),
+            'theme' => array_merge($themeDefaults, $stored['theme'] ?? []),
             'master_files' => array_merge($this->defaults['master_files'], $stored['master_files'] ?? []),
             'delivery' => [
                 'methodologies' => $stored['delivery']['methodologies'] ?? $this->defaults['delivery']['methodologies'],
@@ -361,7 +353,30 @@ class ConfigService
 
     public function getDefaults(): array
     {
-        return $this->defaults;
+        $defaults = $this->defaults;
+        $defaults['theme'] = $this->getThemeDefaults();
+
+        return $defaults;
+    }
+
+    public function getThemeDefaults(): array
+    {
+        if ($this->themeDefaults !== null) {
+            return $this->themeDefaults;
+        }
+
+        $themeDefaultsPath = __DIR__ . '/../../data/theme_defaults.json';
+        $themeDefaults = [];
+        if (is_file($themeDefaultsPath)) {
+            $decoded = json_decode((string) file_get_contents($themeDefaultsPath), true);
+            if (is_array($decoded)) {
+                $themeDefaults = $decoded;
+            }
+        }
+
+        $this->themeDefaults = array_merge($themeDefaults, $this->defaults['theme']);
+
+        return $this->themeDefaults;
     }
 
     private function loadRiskCatalog(): array

@@ -470,14 +470,14 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .wizard-step.active::after { opacity:1; }
     .wizard-step__marker { display:flex; align-items:center; gap:10px; position:relative; z-index:1; }
     .wizard-step__icon { width:42px; height:42px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--primary); }
-    .wizard-step__number { width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; background: #e5e7eb; color: #111827; border:1px solid var(--border); }
+    .wizard-step__number { width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; background: color-mix(in srgb, var(--neutral) 20%, var(--surface) 80%); color: var(--text-primary); border:1px solid var(--border); }
     .wizard-step__body { display:flex; flex-direction:column; gap:4px; position:relative; z-index:1; }
     .wizard-step__title { margin:0; font-weight:800; color: var(--text-strong); }
     .wizard-step__subtitle { margin:0; color: var(--muted); font-size:13px; }
-    .wizard-step.completed .wizard-step__icon { background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; border-color: color-mix(in srgb, #16a34a 40%, transparent); }
-    .wizard-step.completed .wizard-step__number { background:#dcfce7; color:#166534; border-color: color-mix(in srgb, #16a34a 50%, transparent); }
+    .wizard-step.completed .wizard-step__icon { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
+    .wizard-step.completed .wizard-step__number { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color: color-mix(in srgb, var(--success) 50%, transparent); }
     .wizard-step.active { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 8%, transparent); }
-    .wizard-step.active .wizard-step__icon { background: color-mix(in srgb, var(--primary) 18%, white 12%); color: var(--primary-strong); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
+    .wizard-step.active .wizard-step__icon { background: color-mix(in srgb, var(--primary) 18%, var(--surface) 12%); color: var(--primary-strong); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
     .wizard-step.active .wizard-step__number { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
     .wizard-content { display:none; flex-direction:column; gap:16px; }
     .wizard-content.active { display:flex; }
@@ -494,18 +494,18 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .step-block__eyebrow { margin:0; font-weight:800; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
     .step-block__title { display:block; font-size:16px; color: var(--text-strong); }
     .step-block__help { margin:4px 0 0 0; font-size:13px; color: var(--muted); }
-    .step-block--required { background: color-mix(in srgb, #fef3c7 16%, var(--surface)); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
-    .step-block--recommended { background: color-mix(in srgb, #dbeafe 24%, var(--surface)); border-color: color-mix(in srgb, #60a5fa 30%, var(--border)); }
-    .step-block--optional { background: color-mix(in srgb, #ecfdf3 22%, var(--surface)); border-color: color-mix(in srgb, #34d399 24%, var(--border)); }
+    .step-block--required { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
+    .step-block--recommended { background: color-mix(in srgb, var(--info) 24%, var(--surface)); border-color: color-mix(in srgb, var(--info) 30%, var(--border)); }
+    .step-block--optional { background: color-mix(in srgb, var(--success) 22%, var(--surface)); border-color: color-mix(in srgb, var(--success) 24%, var(--border)); }
     .field-label { display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:700; color: var(--text-strong); }
     .field-title { display:flex; align-items:center; gap:8px; }
     .field-icon { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, transparent); font-size:14px; }
-    .field-required { display:inline-flex; align-items:center; gap:4px; font-size:11px; color: #b91c1c; background: color-mix(in srgb, #fecaca 60%, transparent); padding:2px 6px; border-radius:999px; border:1px solid color-mix(in srgb, #fca5a5 70%, transparent); }
+    .field-required { display:inline-flex; align-items:center; gap:4px; font-size:11px; color: var(--danger); background: color-mix(in srgb, var(--danger) 20%, transparent); padding:2px 6px; border-radius:999px; border:1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
     .field-required__icon { font-size:12px; }
     .input.is-invalid input,
     .input.is-invalid select,
-    .input.is-invalid textarea { border-color:#ef4444 !important; box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 25%, transparent); }
-    .input.is-invalid .field-title { color:#b91c1c; }
+    .input.is-invalid textarea { border-color:var(--danger) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, transparent); }
+    .input.is-invalid .field-title { color:var(--danger); }
     .wizard-validation { display:none; }
     .wizard-validation.is-visible { display:block; }
     .wizard-docs-note { margin-top:4px; }
@@ -531,17 +531,17 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .muted { color: var(--muted); font-weight:600; margin:0; }
     .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-weight:700; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); }
     .ghosted-pill { background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--muted); }
-    .soft-blue { background:#e0e7ff; color:#1d4ed8; }
-    .soft-amber { background:#fef3c7; color:#b45309; }
-    .soft-green { background:#dcfce7; color:#15803d; }
-    .soft-slate { background:#e5e7eb; color:#374151; }
+    .soft-blue { background:color-mix(in srgb, var(--info) 18%, var(--surface) 82%); color:var(--info); }
+    .soft-amber { background:color-mix(in srgb, var(--warning) 18%, var(--surface) 82%); color:var(--warning); }
+    .soft-green { background:color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color:var(--success); }
+    .soft-slate { background:color-mix(in srgb, var(--neutral) 18%, var(--surface) 82%); color:var(--text-secondary); }
     .alert { padding:12px 14px; border-radius:10px; margin-bottom:10px; font-weight:700; }
-    .alert.error { background:#fee2e2; border:1px solid #fecaca; color:#991b1b; }
-    .alert.warning { background:#fef9c3; border:1px solid #fde68a; color:#92400e; }
+    .alert.error { background:color-mix(in srgb, var(--danger) 15%, var(--surface) 85%); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); color:var(--danger); }
+    .alert.warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); border:1px solid color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); color:var(--warning); }
     .wizard-hidden-step { display:none; }
-    .wizard-loader { position:fixed; inset:0; background: color-mix(in srgb, #0f172a 45%, transparent); display:none; align-items:center; justify-content:center; z-index:9999; padding:24px; }
+    .wizard-loader { position:fixed; inset:0; background: color-mix(in srgb, var(--text-main) 45%, transparent); display:none; align-items:center; justify-content:center; z-index:9999; padding:24px; }
     .wizard-loader.is-visible { display:flex; }
-    .wizard-loader__card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:14px; box-shadow: 0 18px 40px color-mix(in srgb, #0f172a 35%, transparent); }
+    .wizard-loader__card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:14px; box-shadow: 0 18px 40px color-mix(in srgb, var(--text-main) 35%, transparent); }
     .wizard-loader__spinner { width:28px; height:28px; border-radius:50%; border:3px solid color-mix(in srgb, var(--primary) 25%, transparent); border-top-color: var(--primary); animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 840px) {
