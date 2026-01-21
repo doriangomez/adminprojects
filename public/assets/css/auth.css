@@ -6,8 +6,8 @@ body {
     margin: 0;
     min-height: 100vh;
     font-family: var(--font-family);
-    color: var(--text);
-    background: var(--bg);
+    color: var(--text-secondary);
+    background: var(--background);
 }
 
 .page {
@@ -30,8 +30,8 @@ body {
     max-width: 640px;
     padding: clamp(32px, 4vw, 48px);
     border-radius: 24px;
-    background: color-mix(in srgb, var(--card) 94%, var(--bg) 6%);
-    box-shadow: 0 24px 52px color-mix(in srgb, var(--text-strong) 8%, transparent);
+    background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
+    box-shadow: 0 24px 52px color-mix(in srgb, var(--text-primary) 8%, var(--background));
     border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border) 88%);
 }
 
@@ -47,14 +47,14 @@ body {
     width: auto;
     max-width: 220px;
     object-fit: contain;
-    filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--text-strong) 10%, transparent));
+    filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--text-primary) 10%, var(--background)));
 }
 
 .logo-fallback {
     font-weight: 800;
     font-size: 40px;
     letter-spacing: 0.06em;
-    color: var(--text-strong);
+    color: var(--text-primary);
 }
 .logo-fallback.is-hidden { display: none; }
 
@@ -62,14 +62,14 @@ body {
     margin: 0;
     font-size: clamp(28px, 3vw, 34px);
     line-height: 1.2;
-    color: var(--text-strong);
+    color: var(--text-primary);
     letter-spacing: -0.02em;
 }
 
 .subtitle {
     margin: 0;
     max-width: 440px;
-    color: var(--muted);
+    color: var(--text-secondary);
     font-size: 16px;
     line-height: 1.5;
 }
@@ -86,9 +86,9 @@ body {
     gap: 12px;
     padding: 12px 14px;
     border-radius: 16px;
-    background: var(--card);
+    background: var(--surface);
     border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border) 88%);
-    box-shadow: 0 8px 20px color-mix(in srgb, var(--text-strong) 6%, transparent);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 6%, var(--background));
     align-items: center;
 }
 
@@ -98,9 +98,9 @@ body {
     border-radius: 12px;
     display: grid;
     place-items: center;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 24%, var(--surface) 76%), color-mix(in srgb, var(--accent) 22%, var(--surface) 78%));
-    color: var(--text-strong);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 60%, transparent);
+    background: color-mix(in srgb, var(--primary) 55%, var(--accent) 45%);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 60%, var(--background));
 }
 
 .bullet-icon svg {
@@ -112,7 +112,7 @@ body {
 .bullet-text {
     margin: 0;
     font-weight: 600;
-    color: var(--text-strong);
+    color: var(--text-primary);
     letter-spacing: -0.01em;
     font-size: 15px;
     line-height: 1.4;
@@ -125,10 +125,10 @@ body {
 
 .card {
     width: min(460px, 100%);
-    background: var(--card);
+    background: var(--surface);
     border-radius: 22px;
     padding: clamp(28px, 3vw, 36px);
-    box-shadow: 0 22px 44px color-mix(in srgb, var(--text-strong) 12%, transparent);
+    box-shadow: 0 22px 44px color-mix(in srgb, var(--text-primary) 12%, var(--background));
     border: 1px solid var(--border);
 }
 
@@ -139,7 +139,7 @@ body {
     padding: 6px 12px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%);
-    color: var(--text-strong);
+    color: var(--text-primary);
     font-size: 13px;
     font-weight: 600;
 }
@@ -147,12 +147,12 @@ body {
 .card h1 {
     margin: 14px 0 6px;
     font-size: 22px;
-    color: var(--text-strong);
+    color: var(--text-primary);
 }
 
 .subtitle-card {
     margin: 0 0 22px;
-    color: var(--muted);
+    color: var(--text-secondary);
     font-size: 15px;
 }
 
@@ -168,7 +168,7 @@ body {
 
 label {
     font-weight: 600;
-    color: var(--text-strong);
+    color: var(--text-primary);
     font-size: 14px;
 }
 
@@ -199,8 +199,8 @@ input {
     padding: 12px 14px 12px 44px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--card) 96%, var(--bg) 4%);
-    color: var(--text-strong);
+    background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
+    color: var(--text-primary);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     font-size: 15px;
 }
@@ -212,7 +212,7 @@ input:focus {
 }
 
 input::placeholder {
-    color: var(--muted);
+    color: var(--text-secondary);
 }
 
 .alert-error {
@@ -234,8 +234,8 @@ input::placeholder {
     width: 100%;
     height: 46px;
     border-radius: 12px;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 88%, var(--secondary) 12%), color-mix(in srgb, var(--accent) 60%, var(--primary) 40%));
-    color: var(--on-primary);
+    background: color-mix(in srgb, var(--primary) 70%, var(--accent) 30%);
+    color: var(--text-primary);
     border: none;
     font-weight: 700;
     font-size: 15px;
@@ -244,14 +244,14 @@ input::placeholder {
     justify-content: center;
     gap: 10px;
     cursor: pointer;
-    box-shadow: 0 16px 32px color-mix(in srgb, var(--primary) 28%, transparent);
+    box-shadow: 0 16px 32px color-mix(in srgb, var(--primary) 28%, var(--background));
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .primary-btn:hover {
     transform: translateY(-1px);
     filter: brightness(1.02);
-    box-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 28%, transparent);
+    box-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 28%, var(--background));
 }
 
 .primary-btn:disabled {
@@ -264,7 +264,7 @@ input::placeholder {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--surface) 40%, transparent);
+    border: 2px solid color-mix(in srgb, var(--surface) 40%, var(--background));
     border-top-color: var(--surface);
     animation: spin 0.8s linear infinite;
     display: none;

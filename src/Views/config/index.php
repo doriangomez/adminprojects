@@ -14,16 +14,16 @@
         padding: 8px;
         border-radius: 14px;
         border: 1px solid var(--border);
-        background: var(--bg-card);
+        background: var(--surface);
     }
     .tab-nav label {
         cursor: pointer;
         padding: 8px 14px;
         border-radius: 10px;
         font-weight: 600;
-        color: var(--text-main, var(--text));
+        color: var(--text-primary);
         background: var(--surface);
-        border: 1px solid transparent;
+        border: 1px solid var(--background);
     }
     #tab-identidad:checked ~ .tab-nav label[for="tab-identidad"],
     #tab-apariencia:checked ~ .tab-nav label[for="tab-apariencia"],
@@ -31,7 +31,7 @@
     #tab-gobierno:checked ~ .tab-nav label[for="tab-gobierno"],
     #tab-catalogos:checked ~ .tab-nav label[for="tab-catalogos"] {
         background: var(--primary);
-        color: var(--on-primary);
+        color: var(--text-primary);
         border-color: color-mix(in srgb, var(--primary) 85%, var(--secondary) 15%);
     }
     .tab-panels {
@@ -48,7 +48,7 @@
         display: block;
     }
     .config-card {
-        background: var(--bg-card);
+        background: var(--surface);
         border: 1px solid var(--border);
         box-shadow: none;
     }
@@ -81,7 +81,7 @@
         align-items: center;
         gap: 10px;
         font-weight: 600;
-        color: var(--text-main, var(--text));
+        color: var(--text-primary);
     }
     .toggle-switch input {
         display: none;
@@ -93,7 +93,7 @@
         border-radius: 999px;
         position: relative;
         transition: background 0.2s ease;
-        border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+        border: 1px solid color-mix(in srgb, var(--border) 80%, var(--background));
     }
     .toggle-switch .toggle-track::after {
         content: '';
@@ -101,12 +101,12 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: var(--bg-card);
+        background: var(--surface);
         border: 1px solid var(--border);
         top: 2px;
         left: 2px;
         transition: transform 0.2s ease;
-        box-shadow: 0 1px 2px color-mix(in srgb, var(--text-main, var(--text)) 18%, transparent);
+        box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 18%, var(--background));
     }
     .toggle-switch input:checked + .toggle-track {
         background: var(--primary);
@@ -139,7 +139,9 @@
                 <small class="text-muted">Identidad, apariencia, operación y gobierno en una sola vista clara.</small>
             </div>
             <?php if(!empty($savedMessage)): ?>
-                <span class="badge success">Guardado</span>
+                <span class="badge success" data-theme-saved>Guardado</span>
+            <?php else: ?>
+                <span class="badge success" data-theme-saved hidden>Guardado</span>
             <?php endif; ?>
         </div>
 
@@ -239,12 +241,12 @@
                             </div>
                         </div>
 
-                        <div class="card config-card preview-card" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color:color-mix(in srgb, var(--surface) 90%, var(--secondary) 10%);">
+                        <div class="card config-card preview-card" style="background: color-mix(in srgb, var(--primary) 60%, var(--secondary) 40%); color:color-mix(in srgb, var(--surface) 90%, var(--secondary) 10%);">
                             <div class="card-content" style="position:relative;">
                                 <div class="toolbar" style="margin-bottom:4px;">
                                     <h3 style="margin:0;">Previsualización</h3>
                                 </div>
-                                <p class="text-muted" style="color: color-mix(in srgb, var(--surface) 78%, transparent); margin:0;">Vista rápida del login y navegación.</p>
+                                <p class="text-muted" style="color: color-mix(in srgb, var(--surface) 78%, var(--background)); margin:0;">Vista rápida del login y navegación.</p>
                                 <div class="preview-pane">
                                     <?php if(!empty($activeTheme['logo_url'])): ?>
                                         <div class="preview-header">
@@ -256,15 +258,15 @@
                                         </div>
                                     <?php endif; ?>
                                     <div class="pillset">
-                                        <span class="badge" style="background:var(--panel); color: var(--primary);">Primario <?= htmlspecialchars($activeTheme['primary'] ?? '') ?></span>
-                                        <span class="badge" style="background:var(--panel); color: var(--secondary);">Secundario <?= htmlspecialchars($activeTheme['secondary'] ?? '') ?></span>
-                                        <span class="badge" style="background:var(--panel); color: var(--accent);">Acento <?= htmlspecialchars($activeTheme['accent'] ?? '') ?></span>
+                                        <span class="badge" style="background:color-mix(in srgb, var(--surface) 90%, var(--background) 10%); color: var(--primary);">Primario <?= htmlspecialchars($activeTheme['primary'] ?? '') ?></span>
+                                        <span class="badge" style="background:color-mix(in srgb, var(--surface) 90%, var(--background) 10%); color: var(--secondary);">Secundario <?= htmlspecialchars($activeTheme['secondary'] ?? '') ?></span>
+                                        <span class="badge" style="background:color-mix(in srgb, var(--surface) 90%, var(--background) 10%); color: var(--accent);">Acento <?= htmlspecialchars($activeTheme['accent'] ?? '') ?></span>
                                     </div>
-                                    <small style="color: color-mix(in srgb, var(--surface) 75%, transparent);">Roles activos: <?= htmlspecialchars(implode('· ', $configData['access']['roles'])) ?></small>
+                                    <small style="color: color-mix(in srgb, var(--surface) 75%, var(--background));">Roles activos: <?= htmlspecialchars(implode('· ', $configData['access']['roles'])) ?></small>
                                 </div>
                                 <div class="pillset">
-                                    <span class="pill" style="background: color-mix(in srgb, var(--surface) 18%, transparent); color:var(--on-primary);">Fuente: <?= htmlspecialchars($activeTheme['font_family'] ?? '') ?></span>
-                                    <span class="pill" style="background: color-mix(in srgb, var(--surface) 18%, transparent); color:var(--on-primary);">Fondo: <?= htmlspecialchars($activeTheme['background'] ?? '') ?></span>
+                                    <span class="pill" style="background: color-mix(in srgb, var(--surface) 18%, var(--background)); color:var(--text-primary);">Fuente: <?= htmlspecialchars($activeTheme['font_family'] ?? '') ?></span>
+                                    <span class="pill" style="background: color-mix(in srgb, var(--surface) 18%, var(--background)); color:var(--text-primary);">Fondo: <?= htmlspecialchars($activeTheme['background'] ?? '') ?></span>
                                 </div>
                             </div>
                         </div>
@@ -446,7 +448,7 @@
                                 <input name="descripcion" placeholder="Descripción">
                                 <div class="pillset full-span">
                                     <?php foreach($permissions as $permission): ?>
-                                        <label class="pill" style="background: var(--soft-secondary); border: 1px solid var(--border);">
+                                        <label class="pill" style="background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); border: 1px solid var(--border);">
                                             <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
                                             <?= htmlspecialchars($permission['name']) ?>
                                         </label>
@@ -464,7 +466,7 @@
                                         <div class="toolbar">
                                             <div>
                                                 <strong><?= htmlspecialchars($role['nombre']) ?></strong>
-                                                <p style="margin:0; color: var(--muted); font-size:13px;"><?= htmlspecialchars($role['descripcion'] ?? 'Rol operativo') ?></p>
+                                                <p style="margin:0; color: var(--text-secondary); font-size:13px;"><?= htmlspecialchars($role['descripcion'] ?? 'Rol operativo') ?></p>
                                             </div>
                                             <button class="btn secondary" type="submit">Actualizar rol</button>
                                         </div>
@@ -475,7 +477,7 @@
                                         <div class="pillset">
                                             <?php foreach($permissions as $permission): ?>
                                                 <?php $assigned = array_filter($role['permissions'], fn($p) => (int)$p['id'] === (int)$permission['id']); ?>
-                                                <label class="pill" style="background: var(--panel); border: 1px solid var(--border);">
+                                                <label class="pill" style="background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); border: 1px solid var(--border);">
                                                     <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $assigned ? 'checked' : '' ?>>
                                                     <?= htmlspecialchars($permission['name']) ?>
                                                 </label>
@@ -664,7 +666,7 @@
                                     <input type="number" name="severity_base" min="1" max="5" value="3" required>
                                 </label>
                                 <fieldset class="pillset full-span" style="border:1px solid var(--border); padding:8px; border-radius:10px;">
-                                    <legend style="font-weight:700; color:var(--text); margin:0 0 6px 0;">Impacto</legend>
+                                    <legend style="font-weight:700; color:var(--text-secondary); margin:0 0 6px 0;">Impacto</legend>
                                     <label class="pill"><input type="checkbox" name="impact_scope"> Alcance</label>
                                     <label class="pill"><input type="checkbox" name="impact_time"> Tiempo</label>
                                     <label class="pill"><input type="checkbox" name="impact_cost"> Costo</label>
@@ -681,14 +683,14 @@
                             </form>
                             <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
                                 <?php foreach ($risksByCategory as $category => $risks): ?>
-                                    <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--surface-alt, var(--surface));">
+                                    <div style="border:1px solid var(--border); border-radius:12px; padding:12px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%);">
                                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
                                             <strong><?= htmlspecialchars($category) ?></strong>
                                             <span class="pill soft-slate"><?= count($risks) ?> riesgos</span>
                                         </div>
                                         <div style="display:flex; flex-direction:column; gap:8px;">
                                             <?php foreach ($risks as $risk): ?>
-                                                <form method="POST" action="/project/public/config/risk-catalog/update" class="pill" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; background:var(--soft-secondary); border:1px solid var(--border); padding:10px; border-radius:10px;">
+                                                <form method="POST" action="/project/public/config/risk-catalog/update" class="pill" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; background:color-mix(in srgb, var(--surface) 90%, var(--background) 10%); border:1px solid var(--border); padding:10px; border-radius:10px;">
                                                     <input type="hidden" name="code" value="<?= htmlspecialchars($risk['code']) ?>">
                                                     <div style="flex:1 1 180px; min-width:140px;">
                                                         <strong><?= htmlspecialchars($risk['label']) ?></strong>
@@ -748,7 +750,7 @@
                             <p class="badge neutral" style="margin:0;">Catálogos maestros</p>
                             <h3 style="margin:6px 0 0 0;">CRUD seguro sobre catálogos base</h3>
                         </div>
-                        <small style="color: var(--muted);">Solo altas, ediciones y bajas de catálogos operativos</small>
+                        <small style="color: var(--text-secondary);">Solo altas, ediciones y bajas de catálogos operativos</small>
                     </div>
                     <div class="config-columns cards-grid">
                         <?php foreach($masterData as $table => $items): ?>
@@ -807,3 +809,35 @@
         </div>
     </div>
 </section>
+<script>
+    const themeForms = document.querySelectorAll('form[action="/project/public/config/theme"]');
+    themeForms.forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(form);
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    form.submit();
+                    return;
+                }
+                const data = await response.json();
+                if (data && data.theme && typeof window.applyTheme === 'function') {
+                    window.applyTheme(data.theme);
+                }
+                const savedBadge = document.querySelector('[data-theme-saved]');
+                if (savedBadge) {
+                    savedBadge.hidden = false;
+                }
+            } catch (error) {
+                form.submit();
+            }
+        });
+    });
+</script>

@@ -626,74 +626,74 @@ $riskServicesCount = count(array_filter(
 
 <style>
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
-    .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--bg-card); }
+    .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); }
     .header-identity { display:flex; gap:14px; align-items:center; }
-    .header-icon { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 18%, var(--bg-card) 82%); color: var(--primary); }
+    .header-icon { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 18%, var(--surface) 82%); color: var(--primary); }
     .header-icon svg { width:28px; height:28px; }
-    .header-text h2 { margin:0; font-size:24px; color: var(--text-main); }
-    .header-subtitle { margin:6px 0 0; color: var(--text-muted); }
+    .header-text h2 { margin:0; font-size:24px; color: var(--text-primary); }
+    .header-subtitle { margin:6px 0 0; color: var(--text-secondary); }
     .header-actions { display:flex; flex-direction:column; gap:12px; align-items:flex-end; }
     .header-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
-    .context-badge { background: color-mix(in srgb, var(--secondary) 20%, var(--bg-card) 80%); color: var(--secondary); border-radius:999px; padding:6px 12px; font-size:12px; font-weight:700; border:1px solid color-mix(in srgb, var(--secondary) 40%, var(--border) 60%); }
-    .header-count { font-size:12px; color: var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+    .context-badge { background: color-mix(in srgb, var(--secondary) 20%, var(--surface) 80%); color: var(--secondary); border-radius:999px; padding:6px 12px; font-size:12px; font-weight:700; border:1px solid color-mix(in srgb, var(--secondary) 40%, var(--border) 60%); }
+    .header-count { font-size:12px; color: var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
     .header-quick-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
     .outsourcing-kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    .kpi-card { border:1px solid var(--border); border-radius:16px; padding:14px; background: var(--bg-card); display:flex; gap:12px; align-items:center; }
-    .kpi-icon { width:48px; height:48px; border-radius:14px; background: color-mix(in srgb, var(--bg-card) 78%, var(--bg-app) 22%); display:flex; align-items:center; justify-content:center; color: var(--text-main); }
+    .kpi-card { border:1px solid var(--border); border-radius:16px; padding:14px; background: var(--surface); display:flex; gap:12px; align-items:center; }
+    .kpi-icon { width:48px; height:48px; border-radius:14px; background: color-mix(in srgb, var(--surface) 78%, var(--background) 22%); display:flex; align-items:center; justify-content:center; color: var(--text-primary); }
     .kpi-icon svg { width:24px; height:24px; }
-    .kpi-label { margin:2px 0 0; font-size:11px; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; }
-    .kpi-value { margin:0; font-size:22px; font-weight:800; color: var(--text-main); }
-    .outsourcing-list, .outsourcing-form { border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--bg-card); display:flex; flex-direction:column; gap:14px; }
+    .kpi-label { margin:2px 0 0; font-size:11px; color: var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; }
+    .kpi-value { margin:0; font-size:22px; font-weight:800; color: var(--text-primary); }
+    .outsourcing-list, .outsourcing-form { border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); display:flex; flex-direction:column; gap:14px; }
     .section-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .section-title { display:flex; gap:10px; align-items:center; }
-    .section-title h3 { margin:0; font-size:18px; color: var(--text-main); }
-    .section-icon { width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--bg-card) 70%, var(--bg-app) 30%); color: var(--text-main); }
+    .section-title h3 { margin:0; font-size:18px; color: var(--text-primary); }
+    .section-icon { width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-primary); }
     .section-icon svg { width:18px; height:18px; }
-    .outsourcing-filters { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:12px; border-radius:14px; border:1px dashed var(--border); background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); }
-    .outsourcing-filters label { font-weight:600; display:flex; flex-direction:column; gap:6px; color: var(--text-main); }
-    .outsourcing-filters select { padding:9px 10px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+    .outsourcing-filters { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; padding:12px; border-radius:14px; border:1px dashed var(--border); background: color-mix(in srgb, var(--surface) 80%, var(--background) 20%); }
+    .outsourcing-filters label { font-weight:600; display:flex; flex-direction:column; gap:6px; color: var(--text-primary); }
+    .outsourcing-filters select { padding:9px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); }
     .filter-actions { display:flex; gap:8px; align-items:flex-end; }
     .service-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
-    .service-card { border:1px solid var(--border); border-radius:18px; padding:16px; background: color-mix(in srgb, var(--bg-card) 86%, var(--bg-app) 14%); display:flex; flex-direction:column; gap:12px; }
+    .service-card { border:1px solid var(--border); border-radius:18px; padding:16px; background: color-mix(in srgb, var(--surface) 86%, var(--background) 14%); display:flex; flex-direction:column; gap:12px; }
     .service-card-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .service-title { display:flex; gap:10px; align-items:center; }
-    .service-title h4 { margin:0; font-size:16px; color: var(--text-main); }
-    .service-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 14%, var(--bg-card) 86%); color: var(--primary); }
+    .service-title h4 { margin:0; font-size:16px; color: var(--text-primary); }
+    .service-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%); color: var(--primary); }
     .service-icon svg { width:20px; height:20px; }
     .service-meta { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
-    .service-meta strong { color: var(--text-main); font-size:13px; }
+    .service-meta strong { color: var(--text-primary); font-size:13px; }
     .service-talents { display:flex; flex-direction:column; gap:6px; }
-    .talent-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background: var(--bg-card); font-weight:600; color: var(--text-main); }
-    .chip-icon { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--bg-card) 70%, var(--bg-app) 30%); color: var(--text-main); }
+    .talent-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background: var(--surface); font-weight:600; color: var(--text-primary); }
+    .chip-icon { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-primary); }
     .chip-icon svg { width:14px; height:14px; }
     .service-actions { display:flex; flex-wrap:wrap; gap:8px; }
-    .icon-action { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); text-decoration:none; font-weight:600; font-size:13px; }
+    .icon-action { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); text-decoration:none; font-weight:600; font-size:13px; }
     .icon-action:hover { border-color: var(--primary); }
-    .status-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; display:inline-flex; text-transform:uppercase; letter-spacing:0.03em; }
-    .status-muted { background: color-mix(in srgb, var(--bg-card) 80%, var(--bg-app) 20%); color: var(--text-muted); border-color: var(--border); }
-    .status-success { background: color-mix(in srgb, var(--primary) 16%, var(--bg-card) 84%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); }
-    .status-warning { background: color-mix(in srgb, var(--accent) 16%, var(--bg-card) 84%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--border) 70%); }
-    .status-danger { background: color-mix(in srgb, var(--secondary) 18%, var(--bg-card) 82%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 35%, var(--border) 65%); }
+    .status-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; text-transform:uppercase; letter-spacing:0.03em; }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--background) 20%); color: var(--text-secondary); border-color: var(--border); }
+    .status-success { background: color-mix(in srgb, var(--primary) 16%, var(--surface) 84%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); }
+    .status-warning { background: color-mix(in srgb, var(--accent) 16%, var(--surface) 84%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--border) 70%); }
+    .status-danger { background: color-mix(in srgb, var(--secondary) 18%, var(--surface) 82%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 35%, var(--border) 65%); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-main); font-size:13px; }
-    select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
-    textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; background: var(--bg-card); color: var(--text-main); }
-    .action-btn { background: var(--bg-card); color: var(--text-main); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
-    .action-btn.primary { background: var(--primary); color: var(--text-main); border-color: var(--primary); }
-    .action-btn.ghost { background: color-mix(in srgb, var(--bg-card) 85%, var(--bg-app) 15%); }
+    label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:13px; }
+    select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); }
+    textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; background: var(--surface); color: var(--text-primary); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+    .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+    .action-btn.ghost { background: color-mix(in srgb, var(--surface) 85%, var(--background) 15%); }
     .btn-icon { display:inline-flex; width:16px; height:16px; }
     .btn-icon svg { width:16px; height:16px; }
     .talent-form { display:flex; flex-direction:column; gap:12px; }
     .checkbox { flex-direction:row; align-items:center; gap:8px; font-weight:600; }
-    .alert.success { padding:10px 12px; border-radius:12px; background: color-mix(in srgb, var(--primary) 12%, var(--bg-card) 88%); color: var(--text-main); border:1px solid color-mix(in srgb, var(--primary) 30%, var(--border) 70%); font-weight:600; }
+    .alert.success { padding:10px 12px; border-radius:12px; background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%); color: var(--text-primary); border:1px solid color-mix(in srgb, var(--primary) 30%, var(--border) 70%); font-weight:600; }
     .outsourcing-form summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .outsourcing-form summary::-webkit-details-marker { display:none; }
-    .outsourcing-form summary h3 { margin:0; font-size:16px; color: var(--text-main); }
+    .outsourcing-form summary h3 { margin:0; font-size:16px; color: var(--text-primary); }
     .summary-indicator { display:inline-flex; width:18px; height:18px; }
     .summary-indicator svg { width:18px; height:18px; }
-    .form-accordion { border:1px solid var(--border); border-radius:14px; padding:10px; background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); }
-    .form-accordion summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:700; color: var(--text-main); }
+    .form-accordion { border:1px solid var(--border); border-radius:14px; padding:10px; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
+    .form-accordion summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:700; color: var(--text-primary); }
     .form-accordion summary::-webkit-details-marker { display:none; }
     .accordion-title { display:inline-flex; gap:8px; align-items:center; }
-    .form-section { border:1px dashed var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-app) 12%); margin-top:10px; }
+    .form-section { border:1px dashed var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); margin-top:10px; }
 </style>

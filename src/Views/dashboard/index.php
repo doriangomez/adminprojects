@@ -8,7 +8,7 @@
         .section-title {
             font-size: 18px;
             font-weight: 800;
-            color: var(--text-main);
+            color: var(--text-primary);
             margin: 0 0 10px;
         }
         .kpi-grid {
@@ -17,24 +17,20 @@
             gap: 14px;
         }
         .card {
-            background: var(--bg-card);
+            background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 14px;
             padding: 16px 18px;
-            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-main) 12%, transparent);
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 12%, var(--background));
         }
-        .card.elevated { box-shadow: 0 12px 28px color-mix(in srgb, var(--text-main) 12%, transparent); }
+        .card.elevated { box-shadow: 0 12px 28px color-mix(in srgb, var(--text-primary) 12%, var(--background)); }
         .kpi-card {
             display: flex;
             align-items: center;
             gap: 14px;
             padding: 14px 16px;
-            background: linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--bg-card) 82%, var(--bg-app) 18%),
-                color-mix(in srgb, var(--bg-card) 94%, var(--bg-app) 6%)
-            );
-            border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+            background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%);
+            border: 1px solid color-mix(in srgb, var(--border) 80%, var(--background));
         }
         .kpi-icon {
             width: 46px;
@@ -43,45 +39,45 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: color-mix(in srgb, var(--primary) 14%, transparent);
+            background: color-mix(in srgb, var(--primary) 14%, var(--background));
             color: var(--primary);
-            border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+            border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--background));
         }
         .kpi-icon svg { width: 26px; height: 26px; stroke: currentColor; }
         .kpi-card .meta { display: flex; flex-direction: column; gap: 6px; }
-        .kpi-card .label { font-size: 13px; color: var(--text-muted); letter-spacing: 0.01em; }
-        .kpi-card .value { font-size: 24px; font-weight: 800; color: var(--text-main); }
-        .kpi-card[data-tone="green"] .kpi-icon { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
-        .kpi-card[data-tone="amber"] .kpi-icon { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
-        .kpi-card[data-tone="slate"] .kpi-icon { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-main); border-color: color-mix(in srgb, var(--text-muted) 30%, transparent); }
-        .kpi-card[data-tone="blue"] .kpi-icon { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
-        .kpi-card[data-tone="purple"] .kpi-icon { background: color-mix(in srgb, var(--secondary) 18%, transparent); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 30%, transparent); }
+        .kpi-card .label { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.01em; }
+        .kpi-card .value { font-size: 24px; font-weight: 800; color: var(--text-primary); }
+        .kpi-card[data-tone="green"] .kpi-icon { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--background)); }
+        .kpi-card[data-tone="amber"] .kpi-icon { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, var(--background)); }
+        .kpi-card[data-tone="slate"] .kpi-icon { background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); color: var(--text-primary); border-color: color-mix(in srgb, var(--text-secondary) 30%, var(--background)); }
+        .kpi-card[data-tone="blue"] .kpi-icon { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--background)); }
+        .kpi-card[data-tone="purple"] .kpi-icon { background: color-mix(in srgb, var(--secondary) 18%, var(--background)); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 30%, var(--background)); }
 
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-        .chart-card h4 { margin: 0 0 6px 0; font-size: 15px; color: var(--text-main); font-weight: 800; }
-        .chart-legend { font-size: 13px; color: var(--text-muted); margin: 6px 0 0; }
+        .chart-card h4 { margin: 0 0 6px 0; font-size: 15px; color: var(--text-primary); font-weight: 800; }
+        .chart-legend { font-size: 13px; color: var(--text-secondary); margin: 6px 0 0; }
 
         .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
         .metric-item { display: flex; flex-direction: column; gap: 6px; }
-        .metric-item .label { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-        .metric-item .value { font-size: 20px; font-weight: 800; color: var(--text-main); }
+        .metric-item .label { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+        .metric-item .value { font-size: 20px; font-weight: 800; color: var(--text-primary); }
 
-        .list { margin: 0; padding-left: 18px; color: var(--text-main); font-size: 14px; }
+        .list { margin: 0; padding-left: 18px; color: var(--text-primary); font-size: 14px; }
         .list li { margin-bottom: 6px; }
-        .muted { color: var(--text-muted); font-size: 14px; margin: 0; }
+        .muted { color: var(--text-secondary); font-size: 14px; margin: 0; }
 
         .section-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
         .pill { display: inline-flex; align-items:center; gap: 8px; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
-        .pill.soft-green { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 24%, transparent); }
-        .pill.soft-amber { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 24%, transparent); }
-        .pill.soft-blue { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent); }
-        .pill.soft-red { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent); }
+        .pill.soft-green { background: color-mix(in srgb, var(--success) 14%, var(--background)); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 24%, var(--background)); }
+        .pill.soft-amber { background: color-mix(in srgb, var(--warning) 14%, var(--background)); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--background)); }
+        .pill.soft-blue { background: color-mix(in srgb, var(--primary) 14%, var(--background)); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--background)); }
+        .pill.soft-red { background: color-mix(in srgb, var(--danger) 14%, var(--background)); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--background)); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        thead th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent); }
-        tbody td { padding: 12px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); font-weight: 600; color: var(--text-main); }
+        thead th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, var(--background)); }
+        tbody td { padding: 12px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); font-weight: 600; color: var(--text-primary); }
         tbody tr:last-child td { border-bottom: none; }
-        tbody tr:hover td { background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-app) 10%); }
+        tbody tr:hover td { background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
         .text-right { text-align: right; }
     </style>
 
@@ -375,8 +371,8 @@
     const primary = cssVars.getPropertyValue('--primary').trim();
     const secondary = cssVars.getPropertyValue('--secondary').trim();
     const accent = cssVars.getPropertyValue('--accent').trim();
-    const textMain = cssVars.getPropertyValue('--text-main').trim();
-    const textMuted = cssVars.getPropertyValue('--text-muted').trim();
+    const textMain = cssVars.getPropertyValue('--text-primary').trim();
+    const textMuted = cssVars.getPropertyValue('--text-secondary').trim();
     const gridBorder = cssVars.getPropertyValue('--border').trim();
     const toRgba = (color, alpha) => {
         if (!color) {

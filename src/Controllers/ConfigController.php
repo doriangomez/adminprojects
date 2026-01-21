@@ -148,6 +148,31 @@ class ConfigController extends Controller
 
         $configService->updateConfig($payload);
 
+        $acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+        $requestType = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
+        if (str_contains($acceptHeader, 'application/json') || $requestType === 'fetch') {
+            $theme = (new ThemeRepository($this->db))->getActiveTheme();
+            $themePayload = [
+                'background' => (string) ($theme['background'] ?? ''),
+                'surface' => (string) ($theme['surface'] ?? ''),
+                'primary' => (string) ($theme['primary'] ?? ''),
+                'secondary' => (string) ($theme['secondary'] ?? ''),
+                'accent' => (string) ($theme['accent'] ?? ''),
+                'text-primary' => (string) ($theme['textPrimary'] ?? $theme['text_main'] ?? ''),
+                'text-secondary' => (string) ($theme['textSecondary'] ?? $theme['text_muted'] ?? ''),
+                'text-disabled' => (string) ($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? ''),
+                'border' => (string) ($theme['border'] ?? ''),
+                'success' => (string) ($theme['success'] ?? ''),
+                'warning' => (string) ($theme['warning'] ?? ''),
+                'danger' => (string) ($theme['danger'] ?? ''),
+                'info' => (string) ($theme['info'] ?? ''),
+                'neutral' => (string) ($theme['neutral'] ?? ''),
+            ];
+            header('Content-Type: application/json');
+            echo json_encode(['theme' => $themePayload], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         header('Location: /project/public/config?saved=1');
     }
 

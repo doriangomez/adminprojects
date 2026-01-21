@@ -794,108 +794,108 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
 
 <style>
     .project-shell { display:flex; flex-direction:column; gap:16px; }
-    .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); }
+    .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
-    .project-title-block h2 { margin:0; color: var(--text-strong); }
+    .project-title-block h2 { margin:0; color: var(--text-primary); }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .project-badges { display:flex; gap:8px; flex-wrap:wrap; }
-    .pill.neutral { background: color-mix(in srgb, var(--text-muted) 10%, transparent); border-color: var(--border); color: var(--text-strong); }
+    .pill.neutral { background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); border-color: var(--border); color: var(--text-primary); }
     .summary-layout { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
-    .info-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:14px; }
+    .info-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:14px; }
     .info-list { display:grid; gap:10px; }
-    .info-list span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .info-list strong { font-size:15px; color: var(--text-strong); }
-    .progress-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:12px; }
+    .info-list span { font-size:12px; text-transform:uppercase; color: var(--text-secondary); font-weight:700; }
+    .info-list strong { font-size:15px; color: var(--text-primary); }
+    .progress-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
     .progress-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-    .action-btn { background: var(--card); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-    .action-btn.danger { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 12%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
-    .pill.methodology { border:1px solid transparent; }
-    .pill.methodology.scrum { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
-    .pill.methodology.traditional { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+    .pill.methodology { border:1px solid var(--background); }
+    .pill.methodology.scrum { background: color-mix(in srgb, var(--info) 18%, var(--background)); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, var(--background)); }
+    .pill.methodology.traditional { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--background)); }
     .folder-meta { display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
-    .status-muted { background: color-mix(in srgb, var(--text-muted) 14%, transparent); color: var(--text-strong); border-color: var(--border); }
-    .status-info { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
-    .status-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 32%, transparent); }
-    .status-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 32%, transparent); }
-    .status-danger { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 32%, transparent); }
-    .count-pill { font-size:12px; font-weight:700; color: var(--text-strong); background: color-mix(in srgb, var(--text-muted) 10%, transparent); border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
-    .breadcrumb { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; color: var(--muted); margin-bottom:8px; }
-    .breadcrumb a { color: var(--text-strong); text-decoration:none; font-weight:600; }
-    .breadcrumb span { color: var(--muted); }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); }
+    .status-muted { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color: var(--text-primary); border-color: var(--border); }
+    .status-info { background: color-mix(in srgb, var(--primary) 14%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--background)); }
+    .status-success { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 32%, var(--background)); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 32%, var(--background)); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 16%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 32%, var(--background)); }
+    .count-pill { font-size:12px; font-weight:700; color: var(--text-primary); background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
+    .breadcrumb { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; color: var(--text-secondary); margin-bottom:8px; }
+    .breadcrumb a { color: var(--text-primary); text-decoration:none; font-weight:600; }
+    .breadcrumb span { color: var(--text-secondary); }
     .project-progress { display:flex; flex-direction:column; gap:4px; max-width:320px; }
-    .project-progress__label { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .project-progress__bar { background: color-mix(in srgb, var(--text-muted) 22%, transparent); border-radius:999px; overflow:hidden; height:8px; }
+    .project-progress__label { font-size:12px; text-transform:uppercase; color: var(--text-secondary); font-weight:700; }
+    .project-progress__bar { background: color-mix(in srgb, var(--text-secondary) 22%, var(--background)); border-radius:999px; overflow:hidden; height:8px; }
     .project-progress__bar div { height:100%; background: var(--primary); border-radius:999px; }
-    .project-progress__value { font-size:12px; color: var(--muted); }
+    .project-progress__value { font-size:12px; color: var(--text-secondary); }
     .progress-meta { display:grid; gap:8px; width:100%; }
-    .progress-meta__item { display:flex; flex-direction:column; gap:2px; font-size:12px; color: var(--muted); }
+    .progress-meta__item { display:flex; flex-direction:column; gap:2px; font-size:12px; color: var(--text-secondary); }
     .progress-meta__item.full { grid-column: 1 / -1; }
-    .progress-meta__item strong { font-size:13px; color: var(--text-strong); }
-    .progress-meta__item.full p { margin:0; font-size:13px; color: var(--text-strong); }
+    .progress-meta__item strong { font-size:13px; color: var(--text-primary); }
+    .progress-meta__item.full p { margin:0; font-size:13px; color: var(--text-primary); }
     .indicator-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    .indicator-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--card); display:flex; align-items:center; gap:12px; }
-    .indicator-card span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .indicator-card strong { font-size:18px; color: var(--text-strong); display:block; }
-    .indicator-card small { font-size:12px; color: var(--muted); }
-    .indicator-icon { width:36px; height:36px; border-radius:10px; background: color-mix(in srgb, var(--primary) 12%, transparent); display:inline-flex; align-items:center; justify-content:center; }
+    .indicator-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; align-items:center; gap:12px; }
+    .indicator-card span { font-size:12px; text-transform:uppercase; color: var(--text-secondary); font-weight:700; }
+    .indicator-card strong { font-size:18px; color: var(--text-primary); display:block; }
+    .indicator-card small { font-size:12px; color: var(--text-secondary); }
+    .indicator-icon { width:36px; height:36px; border-radius:10px; background: color-mix(in srgb, var(--primary) 12%, var(--background)); display:inline-flex; align-items:center; justify-content:center; }
     .progress-history { display:flex; }
-    .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:12px; width:100%; }
+    .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; width:100%; }
     .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .project-layout { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
-    .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--text-muted) 8%, transparent); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
+    .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
     .phase-sidebar__header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
     .phase-list, .phase-sublist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
     .phase-item { display:flex; flex-direction:column; gap:6px; }
-    .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-strong); border:1px solid transparent; background: var(--card); }
+    .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-primary); border:1px solid var(--background); background: var(--surface); }
     .phase-link:hover { border-color: var(--border); }
-    .phase-link.active { background: var(--secondary); color: var(--bg-card); border-color: var(--secondary); }
-    .phase-link.active .section-muted { color: color-mix(in srgb, var(--bg-card) 75%, transparent); }
+    .phase-link.active { background: var(--secondary); color: var(--surface); border-color: var(--secondary); }
+    .phase-link.active .section-muted { color: color-mix(in srgb, var(--surface) 75%, var(--background)); }
     .phase-link__title { display:flex; gap:10px; align-items:center; }
     .phase-icon { font-size:18px; }
-    .phase-progress-bar { height:6px; background: color-mix(in srgb, var(--text-muted) 22%, transparent); border-radius:999px; overflow:hidden; }
+    .phase-progress-bar { height:6px; background: color-mix(in srgb, var(--text-secondary) 22%, var(--background)); border-radius:999px; overflow:hidden; }
     .phase-progress-bar div { height:100%; background: var(--primary); }
-    .phase-group { border:1px solid var(--border); border-radius:12px; padding:8px; background: var(--card); }
+    .phase-group { border:1px solid var(--border); border-radius:12px; padding:8px; background: var(--surface); }
     .phase-group summary { list-style:none; cursor:pointer; }
     .phase-group summary::-webkit-details-marker { display:none; }
     .phase-sublist { margin-top:8px; padding-left:0; }
-    .phase-panel { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); min-height:70vh; display:flex; flex-direction:column; gap:16px; }
+    .phase-panel { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); min-height:70vh; display:flex; flex-direction:column; gap:16px; }
     .phase-panel__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border); padding-bottom:12px; }
     .phase-panel__header h3 { margin:0; }
     .phase-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
     .phase-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
     .phase-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--border); padding-bottom:8px; }
-    .phase-tab { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-muted) 10%, transparent); }
-    .phase-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .phase-tab { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-primary); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
+    .phase-tab.active { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .phase-tab.disabled { opacity:0.5; cursor:not-allowed; }
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
-    .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+    .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
     .phase-warning { color: var(--danger); margin:0; }
     .progress-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
     .progress-modal.is-visible { display:flex; }
-    .progress-modal .modal__backdrop { position:absolute; inset:0; background: color-mix(in srgb, var(--text-main) 45%, transparent); }
-    .progress-modal .modal__panel { position:relative; background: var(--card); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px color-mix(in srgb, var(--text-main) 25%, transparent); display:flex; flex-direction:column; gap:12px; z-index:1; }
+    .progress-modal .modal__backdrop { position:absolute; inset:0; background: color-mix(in srgb, var(--text-primary) 45%, var(--background)); }
+    .progress-modal .modal__panel { position:relative; background: var(--surface); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px color-mix(in srgb, var(--text-primary) 25%, var(--background)); display:flex; flex-direction:column; gap:12px; z-index:1; }
     .modal__header { display:flex; justify-content:space-between; align-items:center; }
     .modal__header h3 { margin:0; }
     .modal__body { display:flex; flex-direction:column; gap:12px; }
-    .modal__field { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
+    .modal__field { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     .modal__field input,
     .modal__field textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     .modal__actions { display:flex; justify-content:flex-end; gap:8px; }
-    .icon-btn { border:none; background:transparent; cursor:pointer; font-size:16px; }
+    .icon-btn { border:none; background:var(--background); cursor:pointer; font-size:16px; }
     .notes-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
-    .notes-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:14px; }
+    .notes-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:14px; }
     .notes-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .notes-form { display:flex; flex-direction:column; gap:12px; }
-    .notes-field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--muted); }
-    .notes-field textarea { width:100%; border-radius:12px; border:1px solid var(--border); padding:10px; font-size:14px; color: var(--text-strong); background: var(--bg-card); }
+    .notes-field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--text-secondary); }
+    .notes-field textarea { width:100%; border-radius:12px; border:1px solid var(--border); padding:10px; font-size:14px; color: var(--text-primary); background: var(--surface); }
     .notes-actions { display:flex; justify-content:flex-end; }
     .notes-timeline { display:flex; flex-direction:column; gap:12px; }
-    .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--text-muted) 8%, transparent); display:flex; flex-direction:column; gap:8px; }
-    .notes-entry strong { color: var(--text-strong); }
+    .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:8px; }
+    .notes-entry strong { color: var(--text-primary); }
     @media (max-width: 960px) {
         .project-layout { grid-template-columns: 1fr; }
         .phase-sidebar { max-height:none; }

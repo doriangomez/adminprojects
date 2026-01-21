@@ -330,24 +330,24 @@ $formatTimestamp = static function (?string $value): string {
     .project-shell { display:flex; flex-direction:column; gap:16px; }
     .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
-    .project-title-block h2 { margin:0; color: var(--text-strong); }
+    .project-title-block h2 { margin:0; color: var(--text-primary); }
     .outsourcing-indicators,
     .outsourcing-settings,
     .outsourcing-assignments,
     .outsourcing-followups { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
     .context-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
-    .context-item { border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--surface) 88%, var(--bg-app) 12%); display:flex; flex-direction:column; gap:4px; }
-    .context-item span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .context-item strong { font-size:16px; color: var(--text-strong); }
+    .context-item { border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); display:flex; flex-direction:column; gap:4px; }
+    .context-item span { font-size:12px; text-transform:uppercase; color: var(--text-secondary); font-weight:700; }
+    .context-item strong { font-size:16px; color: var(--text-primary); }
     .settings-form { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-    .settings-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
+    .settings-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     .settings-form select { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     .assignment-list { display:flex; flex-direction:column; gap:10px; }
-    .assignment-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:flex-start; background: color-mix(in srgb, var(--surface) 88%, var(--bg-app) 12%); }
+    .assignment-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:flex-start; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); }
     .assignment-meta { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
     .assignment-status-form { display:flex; gap:8px; align-items:center; }
     .assignment-form, .followup-form { border:1px dashed var(--border); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; background: var(--surface); }
-    .assignment-form label, .followup-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
+    .assignment-form label, .followup-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     .assignment-form input,
     .assignment-form select,
     .followup-form input,
@@ -356,18 +356,18 @@ $formatTimestamp = static function (?string $value): string {
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
     .checkbox-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px; }
     .followup-timeline { display:flex; flex-direction:column; gap:16px; position:relative; padding-left:18px; }
-    .followup-timeline::before { content:""; position:absolute; left:7px; top:0; bottom:0; width:2px; background: color-mix(in srgb, var(--primary) 30%, transparent); }
-    .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: color-mix(in srgb, var(--surface) 88%, var(--bg-app) 12%); display:flex; flex-direction:column; gap:12px; position:relative; }
+    .followup-timeline::before { content:""; position:absolute; left:7px; top:0; bottom:0; width:2px; background: color-mix(in srgb, var(--primary) 30%, var(--background)); }
+    .followup-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); display:flex; flex-direction:column; gap:12px; position:relative; }
     .followup-marker { width:14px; height:14px; border-radius:50%; background: var(--primary); position:absolute; left:-26px; top:18px; }
     .followup-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .followup-body { display:grid; gap:12px; }
     .followup-body h6 { margin:0 0 6px 0; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
-    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); border-color: var(--border); }
-    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); border-color: color-mix(in srgb, var(--success) 35%, var(--border) 65%); }
-    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
-    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); border-color: var(--border); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-primary); border-color: color-mix(in srgb, var(--success) 35%, var(--border) 65%); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
 </style>

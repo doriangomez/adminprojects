@@ -2,7 +2,7 @@
     <div>
         <a href="/project/public/clients" class="btn ghost">← Volver</a>
         <h3 style="margin:8px 0 0 0;">Registrar cliente</h3>
-        <p style="margin:4px 0 0 0; color: var(--muted);">Ficha dedicada para registrar nuevos clientes sin mezclar con el listado.</p>
+        <p style="margin:4px 0 0 0; color: var(--text-secondary);">Ficha dedicada para registrar nuevos clientes sin mezclar con el listado.</p>
     </div>
 </div>
 
@@ -60,7 +60,7 @@
         <label class="input">
             <span>Logo del cliente</span>
             <input type="file" name="logo" accept=".png,.jpg,.jpeg,.svg">
-            <small style="color: var(--muted);">Formatos: PNG, JPG o SVG. Se almacenará en uploads/clients/.</small>
+            <small style="color: var(--text-secondary);">Formatos: PNG, JPG o SVG. Se almacenará en uploads/clients/.</small>
         </label>
         <label class="input">
             <span>Riesgo de la relación</span>
