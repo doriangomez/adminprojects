@@ -433,6 +433,17 @@ error_log(sprintf(
             .page-heading h2 { font-size: 20px; }
         }
     </style>
+    <script>
+        window.applyTheme = function(theme) {
+            if (!theme || typeof theme !== 'object') {
+                return;
+            }
+            Object.entries(theme).forEach(([key, value]) => {
+                document.documentElement.style.setProperty(`--${key}`, value ?? '');
+            });
+        };
+        window.applyTheme(<?= json_encode($themeVariables, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+    </script>
 </head>
 <body>
     <aside class="sidebar">
