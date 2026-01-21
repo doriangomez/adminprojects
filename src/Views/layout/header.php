@@ -39,25 +39,23 @@ error_log(sprintf(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
+    <script>
+        window.applyTheme = function(theme) {
+            if (!theme || typeof theme !== 'object') {
+                return;
+            }
+            Object.entries(theme).forEach(([key, value]) => {
+                document.documentElement.style.setProperty(`--${key}`, value ?? '');
+            });
+        };
+        window.loadAndApplyTheme = function() {
+            const theme = window.__APP_THEME__ || {};
+            window.applyTheme(theme);
+        };
+        window.__APP_THEME__ = <?= json_encode($themeVariables, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        window.loadAndApplyTheme();
+    </script>
     <style>
-        :root {
-            --primary: <?= htmlspecialchars($theme['primary'] ?? '') ?>;
-            --secondary: <?= htmlspecialchars($theme['secondary'] ?? '') ?>;
-            --accent: <?= htmlspecialchars($theme['accent'] ?? '') ?>;
-            --background: <?= htmlspecialchars($theme['background'] ?? '') ?>;
-            --surface: <?= htmlspecialchars($theme['surface'] ?? '') ?>;
-            --text-primary: <?= htmlspecialchars($theme['textPrimary'] ?? $theme['text_main'] ?? '') ?>;
-            --text-secondary: <?= htmlspecialchars($theme['textSecondary'] ?? $theme['text_muted'] ?? '') ?>;
-            --text-disabled: <?= htmlspecialchars($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? '') ?>;
-            --border: <?= htmlspecialchars($theme['border'] ?? '') ?>;
-            --success: <?= htmlspecialchars($theme['success'] ?? '') ?>;
-            --warning: <?= htmlspecialchars($theme['warning'] ?? '') ?>;
-            --danger: <?= htmlspecialchars($theme['danger'] ?? '') ?>;
-            --info: <?= htmlspecialchars($theme['info'] ?? '') ?>;
-            --neutral: <?= htmlspecialchars($theme['neutral'] ?? '') ?>;
-            --font-family: <?= htmlspecialchars($theme['font_family'] ?? '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif') ?>;
-            --logo-url: <?= htmlspecialchars($logoCss) ?>;
-        }
         * {
             box-sizing: border-box;
             font-family: var(--font-family);
