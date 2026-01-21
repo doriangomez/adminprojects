@@ -31,7 +31,7 @@
     #tab-gobierno:checked ~ .tab-nav label[for="tab-gobierno"],
     #tab-catalogos:checked ~ .tab-nav label[for="tab-catalogos"] {
         background: var(--primary);
-        color: #fff;
+        color: var(--on-primary);
         border-color: color-mix(in srgb, var(--primary) 85%, #000 15%);
     }
     .tab-panels {

@@ -106,7 +106,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: 16px;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 12px 30px color-mix(in srgb, var(--text-main) 8%, transparent);
     }
 
     .projects-hero h1 {
@@ -144,21 +144,21 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
     .button.primary {
         background: var(--primary);
-        color: #fff;
+        color: var(--on-primary);
         border-color: var(--primary);
-        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.2);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 35%, transparent);
     }
 
     .button.secondary {
-        background: rgba(15, 23, 42, 0.92);
-        color: #fff;
-        border-color: rgba(15, 23, 42, 0.92);
+        background: var(--secondary);
+        color: var(--bg-card);
+        border-color: var(--secondary);
     }
 
     .button.ghost {
-        background: rgba(148, 163, 184, 0.2);
+        background: color-mix(in srgb, var(--text-muted) 18%, transparent);
         color: var(--text-strong);
-        border-color: rgba(148, 163, 184, 0.35);
+        border-color: color-mix(in srgb, var(--text-muted) 30%, transparent);
     }
 
     .button:hover { transform: translateY(-1px); }
@@ -176,7 +176,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         gap: 6px;
         padding: 6px 10px;
         border-radius: 999px;
-        background: rgba(148, 163, 184, 0.18);
+        background: color-mix(in srgb, var(--text-muted) 16%, transparent);
         color: var(--text-strong);
         font-size: 12px;
         font-weight: 700;
@@ -232,7 +232,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         display: flex;
         gap: 12px;
         align-items: center;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 6%, transparent);
     }
 
     .kpi-icon {
@@ -242,7 +242,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(59, 130, 246, 0.12);
+        background: color-mix(in srgb, var(--primary) 14%, transparent);
         color: var(--primary);
     }
 
@@ -268,7 +268,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
     .view-toggle a.active {
         background: var(--primary);
-        color: #fff;
+        color: var(--on-primary);
         border-color: var(--primary);
     }
 
@@ -295,12 +295,12 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--muted);
-        background: rgba(148, 163, 184, 0.12);
+        background: color-mix(in srgb, var(--text-muted) 14%, transparent);
         font-weight: 700;
     }
 
     .project-row { cursor: pointer; }
-    .project-row:hover { background: rgba(148, 163, 184, 0.12); }
+    .project-row:hover { background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
 
     .project-title { font-weight: 700; color: var(--text-strong); margin: 0; }
     .project-client { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
@@ -316,17 +316,17 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         border: 1px solid transparent;
     }
 
-    .badge.neutral { background: rgba(148, 163, 184, 0.2); color: var(--text-strong); }
-    .badge.status-active { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.3); }
-    .badge.status-completed { background: rgba(34, 197, 94, 0.15); color: #15803d; border-color: rgba(34, 197, 94, 0.3); }
-    .badge.status-blocked { background: rgba(239, 68, 68, 0.15); color: #b91c1c; border-color: rgba(239, 68, 68, 0.3); }
-    .badge.status-planning { background: rgba(234, 179, 8, 0.15); color: #92400e; border-color: rgba(234, 179, 8, 0.3); }
-    .badge.risk-low { background: rgba(34, 197, 94, 0.14); color: #166534; border-color: rgba(34, 197, 94, 0.25); }
-    .badge.risk-medium { background: rgba(234, 179, 8, 0.16); color: #92400e; border-color: rgba(234, 179, 8, 0.3); }
-    .badge.risk-high { background: rgba(239, 68, 68, 0.16); color: #991b1b; border-color: rgba(239, 68, 68, 0.3); }
+    .badge.neutral { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-strong); }
+    .badge.status-active { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+    .badge.status-completed { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
+    .badge.status-blocked { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+    .badge.status-planning { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
+    .badge.risk-low { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
+    .badge.risk-medium { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
+    .badge.risk-high { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
 
-    .progress-track { width: 120px; height: 8px; background: rgba(148, 163, 184, 0.25); border-radius: 999px; overflow: hidden; }
-    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #22c55e); }
+    .progress-track { width: 120px; height: 8px; background: color-mix(in srgb, var(--text-muted) 20%, transparent); border-radius: 999px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--success)); }
 
     .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -343,7 +343,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         text-decoration: none;
     }
 
-    .icon-button:hover { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+    .icon-button:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 
     .project-grid {
         display: grid;
@@ -359,7 +359,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 6%, transparent);
     }
 
     .project-card header {
@@ -379,7 +379,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         border: 1px solid var(--border);
         border-radius: 10px;
         padding: 8px 10px;
-        background: rgba(148, 163, 184, 0.12);
+        background: color-mix(in srgb, var(--text-muted) 12%, transparent);
         font-size: 12px;
         display: flex;
         flex-direction: column;
@@ -415,7 +415,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+        box-shadow: 0 16px 32px color-mix(in srgb, var(--text-main) 16%, transparent);
         padding: 8px;
         display: flex;
         flex-direction: column;
@@ -439,15 +439,15 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     }
 
     .menu-list a:hover,
-    .menu-list button:hover { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+    .menu-list button:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 
     .menu-list button { width: 100%; text-align: left; }
 
-    .menu-details[open] .menu-trigger { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
+    .menu-details[open] .menu-trigger { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 
     .risk-summary { font-size: 12px; color: var(--muted); }
 
-    .empty-state { padding: 18px; border-radius: 14px; background: rgba(148, 163, 184, 0.12); border: 1px solid var(--border); color: var(--muted); font-weight: 600; }
+    .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); border: 1px solid var(--border); color: var(--muted); font-weight: 600; }
 
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
