@@ -22,11 +22,11 @@
     .clients-title h3 {
         margin: 0;
         font-size: 24px;
-        color: var(--text-strong);
+        color: var(--text-primary);
     }
     .clients-subtitle {
         margin: 4px 0 0 0;
-        color: var(--muted);
+        color: var(--text-secondary);
         font-weight: 500;
     }
     .clients-cardlist {
@@ -42,19 +42,19 @@
         padding: 16px;
         border: 1px solid var(--border);
         border-radius: 14px;
-        background: linear-gradient(135deg, color-mix(in srgb, var(--info) 18%, var(--surface) 82%), var(--surface));
+        background: color-mix(in srgb, var(--info) 18%, var(--surface) 82%);
         transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
     }
     .client-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 24px color-mix(in srgb, var(--text-strong) 6%, transparent);
+        box-shadow: 0 12px 24px color-mix(in srgb, var(--text-primary) 6%, var(--background));
         border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
     }
     .client-avatar {
         width: 64px;
         height: 64px;
         border-radius: 50%;
-        background: linear-gradient(180deg, color-mix(in srgb, var(--info) 12%, var(--surface) 88%), color-mix(in srgb, var(--info) 22%, var(--surface) 78%));
+        background: color-mix(in srgb, var(--info) 18%, var(--surface) 82%);
         border: 1px solid color-mix(in srgb, var(--info) 35%, var(--surface) 65%);
         display: inline-flex;
         align-items: center;
@@ -88,14 +88,14 @@
     .client-name {
         font-size: 18px;
         font-weight: 800;
-        color: var(--text-strong);
+        color: var(--text-primary);
         margin: 0 0 2px 0;
     }
     .client-meta, .client-secondary {
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
-        color: var(--muted);
+        color: var(--text-secondary);
         font-weight: 600;
         font-size: 13px;
     }
@@ -105,7 +105,7 @@
         gap: 6px;
         padding: 6px 10px;
         border-radius: 10px;
-        background: color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
         border: 1px solid var(--border);
     }
     .meta-item svg { width: 14px; height: 14px; stroke: currentColor; }
@@ -123,7 +123,7 @@
     .priority-badge.alta { background: color-mix(in srgb, var(--danger) 15%, var(--surface) 85%); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); }
     .priority-badge.media { background: color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); }
     .priority-badge.baja { background: color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--surface) 60%); }
-    .priority-badge.default { background: color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color: var(--text-strong); }
+    .priority-badge.default { background: color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color: var(--text-primary); }
     .status-badge { background: color-mix(in srgb, var(--info) 15%, var(--surface) 85%); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, var(--surface) 60%); }
     .health-badge { background: color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); }
     .client-actions {
@@ -147,9 +147,9 @@
         gap: 6px;
         padding: 8px 12px;
         border-radius: 12px;
-        background: color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
         border: 1px solid var(--border);
-        color: var(--text-strong);
+        color: var(--text-primary);
         font-weight: 700;
     }
     .metric-chip svg { width: 16px; height: 16px; stroke: currentColor; }
@@ -237,11 +237,11 @@
                         </div>
                     </div>
                     <div class="client-secondary">
-                        <span class="meta-item" style="background: transparent; border-color: transparent; padding: 0; gap:6px;">
+                        <span class="meta-item" style="background: var(--background); border-color: var(--background); padding: 0; gap:6px;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg>
                             <?= htmlspecialchars($client['pm_name'] ?? 'Sin asignar') ?>
                         </span>
-                        <span class="meta-item" style="background: transparent; border-color: transparent; padding: 0; gap:6px;">
+                        <span class="meta-item" style="background: var(--background); border-color: var(--background); padding: 0; gap:6px;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/><path d="M9 7v10"/></svg>
                             Área: <?= htmlspecialchars($client['area_label'] ?? ($client['area_code'] ?? 'No definida')) ?>
                         </span>

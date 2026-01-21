@@ -103,21 +103,21 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         align-items: flex-start;
         gap: 16px;
         padding: 18px 20px;
-        background: var(--card);
+        background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 16px;
-        box-shadow: 0 12px 30px color-mix(in srgb, var(--text-main) 8%, transparent);
+        box-shadow: 0 12px 30px color-mix(in srgb, var(--text-primary) 8%, var(--background));
     }
 
     .projects-hero h1 {
         margin: 0 0 4px;
         font-size: 26px;
-        color: var(--text-strong);
+        color: var(--text-primary);
     }
 
     .projects-hero p {
         margin: 0;
-        color: var(--muted);
+        color: var(--text-secondary);
         font-weight: 500;
     }
 
@@ -138,27 +138,27 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         border: 1px solid var(--border);
         font-size: 14px;
-        background: var(--card);
-        color: var(--text-strong);
+        background: var(--surface);
+        color: var(--text-primary);
     }
 
     .button.primary {
         background: var(--primary);
-        color: var(--on-primary);
+        color: var(--text-primary);
         border-color: var(--primary);
-        box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 35%, transparent);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 35%, var(--background));
     }
 
     .button.secondary {
         background: var(--secondary);
-        color: var(--bg-card);
+        color: var(--surface);
         border-color: var(--secondary);
     }
 
     .button.ghost {
-        background: color-mix(in srgb, var(--text-muted) 18%, transparent);
-        color: var(--text-strong);
-        border-color: color-mix(in srgb, var(--text-muted) 30%, transparent);
+        background: color-mix(in srgb, var(--text-secondary) 18%, var(--background));
+        color: var(--text-primary);
+        border-color: color-mix(in srgb, var(--text-secondary) 30%, var(--background));
     }
 
     .button:hover { transform: translateY(-1px); }
@@ -176,8 +176,8 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         gap: 6px;
         padding: 6px 10px;
         border-radius: 999px;
-        background: color-mix(in srgb, var(--text-muted) 16%, transparent);
-        color: var(--text-strong);
+        background: color-mix(in srgb, var(--text-secondary) 16%, var(--background));
+        color: var(--text-primary);
         font-size: 12px;
         font-weight: 700;
     }
@@ -187,7 +187,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         flex-direction: column;
         gap: 12px;
         padding: 14px 16px;
-        background: var(--card);
+        background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 14px;
     }
@@ -228,11 +228,11 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         padding: 14px;
         border-radius: 14px;
         border: 1px solid var(--border);
-        background: var(--card);
+        background: var(--surface);
         display: flex;
         gap: 12px;
         align-items: center;
-        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 6%, transparent);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 6%, var(--background));
     }
 
     .kpi-icon {
@@ -242,12 +242,12 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, var(--primary) 14%, transparent);
+        background: color-mix(in srgb, var(--primary) 14%, var(--background));
         color: var(--primary);
     }
 
-    .kpi-card .label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
-    .kpi-card .value { margin: 0; font-size: 22px; color: var(--text-strong); font-weight: 800; }
+    .kpi-card .label { color: var(--text-secondary); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+    .kpi-card .value { margin: 0; font-size: 22px; color: var(--text-primary); font-weight: 800; }
 
     .view-toggle {
         display: flex;
@@ -262,20 +262,20 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         text-decoration: none;
         font-weight: 700;
         font-size: 13px;
-        color: var(--text-strong);
-        background: var(--card);
+        color: var(--text-primary);
+        background: var(--surface);
     }
 
     .view-toggle a.active {
         background: var(--primary);
-        color: var(--on-primary);
+        color: var(--text-primary);
         border-color: var(--primary);
     }
 
     .project-table {
         width: 100%;
         border-collapse: collapse;
-        background: var(--card);
+        background: var(--surface);
         border-radius: 14px;
         overflow: hidden;
         border: 1px solid var(--border);
@@ -294,16 +294,16 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: var(--muted);
-        background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+        color: var(--text-secondary);
+        background: color-mix(in srgb, var(--text-secondary) 14%, var(--background));
         font-weight: 700;
     }
 
     .project-row { cursor: pointer; }
-    .project-row:hover { background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+    .project-row:hover { background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
 
-    .project-title { font-weight: 700; color: var(--text-strong); margin: 0; }
-    .project-client { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+    .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
+    .project-client { color: var(--text-secondary); font-size: 13px; margin: 2px 0 0; }
 
     .badge {
         display: inline-flex;
@@ -313,20 +313,20 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         border-radius: 999px;
         font-weight: 700;
         font-size: 12px;
-        border: 1px solid transparent;
+        border: 1px solid var(--background);
     }
 
-    .badge.neutral { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-strong); }
-    .badge.status-active { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
-    .badge.status-completed { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
-    .badge.status-blocked { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
-    .badge.status-planning { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
-    .badge.risk-low { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
-    .badge.risk-medium { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
-    .badge.risk-high { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+    .badge.neutral { background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); color: var(--text-primary); }
+    .badge.status-active { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--background)); }
+    .badge.status-completed { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
+    .badge.status-blocked { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
+    .badge.status-planning { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--background)); }
+    .badge.risk-low { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
+    .badge.risk-medium { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--background)); }
+    .badge.risk-high { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
 
-    .progress-track { width: 120px; height: 8px; background: color-mix(in srgb, var(--text-muted) 20%, transparent); border-radius: 999px; overflow: hidden; }
-    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--success)); }
+    .progress-track { width: 120px; height: 8px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 999px; background: color-mix(in srgb, var(--primary) 60%, var(--success) 40%); }
 
     .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -335,15 +335,15 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         height: 30px;
         border-radius: 8px;
         border: 1px solid var(--border);
-        background: var(--card);
-        color: var(--text-strong);
+        background: var(--surface);
+        color: var(--text-primary);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         text-decoration: none;
     }
 
-    .icon-button:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+    .icon-button:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); }
 
     .project-grid {
         display: grid;
@@ -352,14 +352,14 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     }
 
     .project-card {
-        background: var(--card);
+        background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 14px;
         display: flex;
         flex-direction: column;
         gap: 10px;
-        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 6%, transparent);
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 6%, var(--background));
     }
 
     .project-card header {
@@ -379,7 +379,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         border: 1px solid var(--border);
         border-radius: 10px;
         padding: 8px 10px;
-        background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+        background: color-mix(in srgb, var(--text-secondary) 12%, var(--background));
         font-size: 12px;
         display: flex;
         flex-direction: column;
@@ -387,8 +387,8 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         text-align: left;
     }
 
-    .metric span { color: var(--muted); font-weight: 600; }
-    .metric strong { color: var(--text-strong); font-size: 14px; }
+    .metric span { color: var(--text-secondary); font-weight: 600; }
+    .metric strong { color: var(--text-primary); font-size: 14px; }
 
     .card-actions {
         position: relative;
@@ -397,7 +397,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
     .menu-trigger {
         border: 1px solid var(--border);
-        background: var(--card);
+        background: var(--surface);
         border-radius: 8px;
         width: 32px;
         height: 32px;
@@ -412,10 +412,10 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         right: 0;
         top: 36px;
         min-width: 180px;
-        background: var(--card);
+        background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: 0 16px 32px color-mix(in srgb, var(--text-main) 16%, transparent);
+        box-shadow: 0 16px 32px color-mix(in srgb, var(--text-primary) 16%, var(--background));
         padding: 8px;
         display: flex;
         flex-direction: column;
@@ -426,7 +426,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     .menu-list a,
     .menu-list button {
         text-decoration: none;
-        color: var(--text-strong);
+        color: var(--text-primary);
         padding: 8px 10px;
         border-radius: 8px;
         font-weight: 600;
@@ -434,20 +434,20 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
         gap: 8px;
         align-items: center;
         border: none;
-        background: transparent;
+        background: var(--background);
         cursor: pointer;
     }
 
     .menu-list a:hover,
-    .menu-list button:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+    .menu-list button:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); }
 
     .menu-list button { width: 100%; text-align: left; }
 
-    .menu-details[open] .menu-trigger { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+    .menu-details[open] .menu-trigger { background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); }
 
-    .risk-summary { font-size: 12px; color: var(--muted); }
+    .risk-summary { font-size: 12px; color: var(--text-secondary); }
 
-    .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); border: 1px solid var(--border); color: var(--muted); font-weight: 600; }
+    .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; }
 
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
@@ -458,7 +458,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
 <div class="projects-hero">
     <div>
-        <p class="eyebrow" style="margin:0; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Panel</p>
+        <p class="eyebrow" style="margin:0; color: var(--text-secondary); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Panel</p>
         <h1>Proyectos</h1>
         <p>Ejecución y control operativo</p>
         <div class="hero-chips">
@@ -583,7 +583,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
 <div class="toolbar" style="margin-top: 6px;">
     <div>
-        <strong style="color: var(--text-strong);">Listado general</strong>
+        <strong style="color: var(--text-primary);">Listado general</strong>
         <p class="muted" style="margin:4px 0 0;">Vista compacta para operación o lectura ejecutiva.</p>
     </div>
     <div class="view-toggle">
@@ -643,7 +643,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                                 <div class="progress-track" aria-hidden="true">
                                     <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                 </div>
-                                <span style="font-size:12px; color: var(--muted);"><?= $progress ?>%</span>
+                                <span style="font-size:12px; color: var(--text-secondary);"><?= $progress ?>%</span>
                             </div>
                         </td>
                         <td><?= htmlspecialchars($pmName) ?></td>
@@ -728,7 +728,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         <div class="progress-track" aria-hidden="true">
                             <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                         </div>
-                        <span style="font-size:12px; color: var(--muted);">Avance <?= $progress ?>%</span>
+                        <span style="font-size:12px; color: var(--text-secondary);">Avance <?= $progress ?>%</span>
                     </div>
 
                     <div class="card-metrics">

@@ -4,6 +4,22 @@ $loginHero = $theme['login_hero'] ?? 'Orquesta tus operaciones críticas';
 $loginSubtitle = $theme['login_subtitle'] ?? 'Controla proyectos, recursos y decisiones clave desde una sola plataforma.';
 $logoUrl = $theme['logo_url'] ?? '';
 $logoCss = $logoUrl !== '' ? "url('{$logoUrl}')" : 'none';
+$themeVariables = [
+    'background' => (string) ($theme['background'] ?? ''),
+    'surface' => (string) ($theme['surface'] ?? ''),
+    'primary' => (string) ($theme['primary'] ?? ''),
+    'secondary' => (string) ($theme['secondary'] ?? ''),
+    'accent' => (string) ($theme['accent'] ?? ''),
+    'text-primary' => (string) ($theme['textPrimary'] ?? $theme['text_main'] ?? ''),
+    'text-secondary' => (string) ($theme['textSecondary'] ?? $theme['text_muted'] ?? ''),
+    'text-disabled' => (string) ($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? ''),
+    'border' => (string) ($theme['border'] ?? ''),
+    'success' => (string) ($theme['success'] ?? ''),
+    'warning' => (string) ($theme['warning'] ?? ''),
+    'danger' => (string) ($theme['danger'] ?? ''),
+    'info' => (string) ($theme['info'] ?? ''),
+    'neutral' => (string) ($theme['neutral'] ?? ''),
+];
 require_once __DIR__ . '/../layout/logo_helper.php';
 ?>
 <!DOCTYPE html>
@@ -22,7 +38,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
             --surface: <?= htmlspecialchars($theme['surface'] ?? '') ?>;
             --text-primary: <?= htmlspecialchars($theme['textPrimary'] ?? $theme['text_main'] ?? '') ?>;
             --text-secondary: <?= htmlspecialchars($theme['textSecondary'] ?? $theme['text_muted'] ?? '') ?>;
-            --disabled: <?= htmlspecialchars($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? '') ?>;
+            --text-disabled: <?= htmlspecialchars($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? '') ?>;
             --border: <?= htmlspecialchars($theme['border'] ?? '') ?>;
             --success: <?= htmlspecialchars($theme['success'] ?? '') ?>;
             --warning: <?= htmlspecialchars($theme['warning'] ?? '') ?>;
@@ -31,22 +47,19 @@ require_once __DIR__ . '/../layout/logo_helper.php';
             --neutral: <?= htmlspecialchars($theme['neutral'] ?? '') ?>;
             --font-family: <?= htmlspecialchars($theme['font_family'] ?? "'Inter', sans-serif") ?>;
             --logo-url: <?= htmlspecialchars($logoCss) ?>;
-
-            --bg-app: var(--background);
-            --bg-card: var(--surface);
-            --text-main: var(--text-primary);
-            --text-muted: var(--text-secondary);
-            --text-soft: var(--disabled);
-            --text-disabled: var(--disabled);
-            --bg: var(--bg-app);
-            --card: var(--bg-card);
-            --surface: var(--card);
-            --text-strong: var(--text-main);
-            --text: var(--text-muted);
-            --muted: var(--text-muted);
-            --on-primary: color-mix(in srgb, var(--surface) 94%, var(--text-primary) 6%);
         }
     </style>
+    <script>
+        window.applyTheme = function(theme) {
+            if (!theme || typeof theme !== 'object') {
+                return;
+            }
+            Object.entries(theme).forEach(([key, value]) => {
+                document.documentElement.style.setProperty(`--${key}`, value ?? '');
+            });
+        };
+        window.applyTheme(<?= json_encode($themeVariables, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+    </script>
 </head>
 <body>
     <div class="page">

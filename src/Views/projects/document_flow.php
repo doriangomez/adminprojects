@@ -111,9 +111,9 @@ foreach ($documentExpectedItems as $doc) {
 <section class="document-flow" data-document-flow="<?= htmlspecialchars($documentFlowId) ?>">
     <header class="document-header">
         <div>
-            <p class="eyebrow" style="margin:0; color: var(--muted);"><?= htmlspecialchars($documentContextLabel) ?> · <?= htmlspecialchars($documentNodeCode) ?></p>
+            <p class="eyebrow" style="margin:0; color: var(--text-secondary);"><?= htmlspecialchars($documentContextLabel) ?> · <?= htmlspecialchars($documentNodeCode) ?></p>
             <h4 style="margin:4px 0 0;">Gestión documental de <?= htmlspecialchars($documentNodeName) ?></h4>
-            <small style="color: var(--muted);"><?= htmlspecialchars($documentContextDescription) ?></small>
+            <small style="color: var(--text-secondary);"><?= htmlspecialchars($documentContextDescription) ?></small>
         </div>
     </header>
 
@@ -404,28 +404,28 @@ foreach ($documentExpectedItems as $doc) {
     .document-flow { display:flex; flex-direction:column; gap:16px; }
     .document-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .document-toast { border-radius:10px; padding:10px 12px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
-    .document-toast.success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); border:1px solid color-mix(in srgb, var(--success) 30%, transparent); }
-    .document-toast.warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); border:1px solid color-mix(in srgb, var(--warning) 30%, transparent); }
-    .document-toast.error { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); border:1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
+    .document-toast.success { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); border:1px solid color-mix(in srgb, var(--success) 30%, var(--background)); }
+    .document-toast.warning { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border:1px solid color-mix(in srgb, var(--warning) 30%, var(--background)); }
+    .document-toast.error { background: color-mix(in srgb, var(--danger) 16%, var(--background)); color: var(--danger); border:1px solid color-mix(in srgb, var(--danger) 30%, var(--background)); }
     .document-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
-    .document-section { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-muted) 10%, transparent); display:flex; flex-direction:column; gap:8px; }
+    .document-section { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); display:flex; flex-direction:column; gap:8px; }
     .document-section h5 { margin:0; }
-    .section-muted { color: var(--muted); margin:0; font-size:13px; }
-    .expected-list { margin:0; padding-left:0; list-style:none; color: var(--text-strong); display:flex; flex-direction:column; gap:6px; }
-    .expected-list li { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; background: var(--bg-card); padding:6px 8px; border-radius:8px; border:1px solid var(--border); }
-    .expected-pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background: color-mix(in srgb, var(--text-muted) 16%, transparent); color: var(--text-strong); }
-    .expected-loaded { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
-    .expected-approved { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
-    .expected-pending { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
-    .expected-review { background: color-mix(in srgb, var(--secondary) 18%, transparent); color: var(--secondary); }
-    .expected-optional { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); }
+    .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
+    .expected-list { margin:0; padding-left:0; list-style:none; color: var(--text-primary); display:flex; flex-direction:column; gap:6px; }
+    .expected-list li { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; background: var(--surface); padding:6px 8px; border-radius:8px; border:1px solid var(--border); }
+    .expected-pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); color: var(--text-primary); }
+    .expected-loaded { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); }
+    .expected-approved { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); }
+    .expected-pending { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); }
+    .expected-review { background: color-mix(in srgb, var(--secondary) 18%, var(--background)); color: var(--secondary); }
+    .expected-optional { background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); color: var(--text-secondary); }
     .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .document-search input { border:1px solid var(--border); border-radius:8px; padding:6px 10px; min-width:220px; }
     .upload-form { display:flex; flex-direction:column; gap:8px; }
-    .upload-preview { margin-top:6px; background: var(--bg-card); border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
+    .upload-preview { margin-top:6px; background: var(--surface); border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
     .document-files { display:flex; flex-direction:column; gap:12px; }
     .document-file-table { display:grid; gap:8px; }
-    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background: var(--bg-card); align-items:start; line-height:1.5; white-space:normal; overflow-wrap:break-word; word-break:break-word; font-size:12px; }
+    .document-file-row { display:grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1.2fr) minmax(120px, 0.6fr) minmax(190px, 1fr) minmax(140px, 0.8fr); gap:10px; padding:10px; border:1px solid var(--border); border-radius:12px; background: var(--surface); align-items:start; line-height:1.5; white-space:normal; overflow-wrap:break-word; word-break:break-word; font-size:12px; }
     .document-file-row > div,
     .document-file-row > span {
         min-width: 0;
@@ -434,13 +434,13 @@ foreach ($documentExpectedItems as $doc) {
         overflow-wrap: break-word;
         word-break: break-word;
     }
-    .document-file-head { background: color-mix(in srgb, var(--text-muted) 14%, transparent); font-weight:700; }
-    .document-file-head span { font-size:12px; text-transform:uppercase; color: var(--muted); }
+    .document-file-head { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); font-weight:700; }
+    .document-file-head span { font-size:12px; text-transform:uppercase; color: var(--text-secondary); }
     .document-name { font-size:13px; font-weight:500; line-height:1.4; }
     .file-type-icon { margin-right:6px; }
     .tag-editor { display:flex; flex-direction:column; gap:6px; }
     .tag-pills { display:flex; flex-wrap:wrap; gap:6px; }
-    .tag-pill { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; }
+    .tag-pill { background: color-mix(in srgb, var(--primary) 16%, var(--background)); color: var(--primary); padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; }
     .tag-controls { display:flex; flex-direction:column; gap:6px; }
     .tag-controls select, .tag-controls input, .version-input { width:100%; border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .document-file-row .action-btn,
@@ -448,42 +448,42 @@ foreach ($documentExpectedItems as $doc) {
     .document-file-row input { font-size:12px; }
     .version-input { font-size:12px; }
     .status-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; margin-bottom:6px; }
-    .status-pending { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
-    .status-review { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
-    .status-validated { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
-    .status-approved { background: color-mix(in srgb, var(--secondary) 18%, transparent); color: var(--secondary); }
-    .status-rejected { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+    .status-pending { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); }
+    .status-review { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); }
+    .status-validated { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); }
+    .status-approved { background: color-mix(in srgb, var(--secondary) 18%, var(--background)); color: var(--secondary); }
+    .status-rejected { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); }
     .file-actions { display:flex; flex-wrap:wrap; gap:6px; }
     .file-meta { display:flex; flex-direction:column; gap:4px; }
-    .flow-summary { display:block; margin:6px 0; font-size:11px; color: var(--text-muted); }
-    .flow-panel { margin-top:6px; background: color-mix(in srgb, var(--text-muted) 10%, transparent); border:1px solid var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
-    .history-panel { margin-top:6px; background: color-mix(in srgb, var(--text-muted) 10%, transparent); border:1px dashed var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
-    .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-strong); font-size:12px; }
+    .flow-summary { display:block; margin:6px 0; font-size:11px; color: var(--text-secondary); }
+    .flow-panel { margin-top:6px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); border:1px solid var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
+    .history-panel { margin-top:6px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); border:1px dashed var(--border); border-radius:10px; padding:8px; grid-column: 1 / -1; }
+    .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-primary); font-size:12px; }
     .flow-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-bottom:6px; }
-    .flow-grid label { display:flex; flex-direction:column; gap:4px; font-size:13px; color: var(--text-strong); }
+    .flow-grid label { display:flex; flex-direction:column; gap:4px; font-size:13px; color: var(--text-primary); }
     .flow-grid select { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
-    .document-alert { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); padding:8px 10px; border-radius:10px; font-size:13px; display:flex; flex-direction:column; gap:4px; min-width:200px; }
-    .document-file-row .section-muted { font-size:11px; color: var(--text-muted); }
-    .file-trace { margin-top:6px; font-size:11px; color: var(--text-muted); }
+    .document-alert { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); padding:8px 10px; border-radius:10px; font-size:13px; display:flex; flex-direction:column; gap:4px; min-width:200px; }
+    .document-file-row .section-muted { font-size:11px; color: var(--text-secondary); }
+    .file-trace { margin-top:6px; font-size:11px; color: var(--text-secondary); }
     .flow-actions { display:flex; justify-content:flex-end; margin-bottom:6px; }
     .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:50; }
     .modal[hidden] { display:none; }
-    .modal-backdrop { position:absolute; inset:0; background: color-mix(in srgb, var(--text-main) 45%, transparent); }
-    .modal-panel { position:relative; background: var(--bg-card); border-radius:14px; padding:16px; width:min(640px, 92vw); max-height:90vh; overflow:auto; display:flex; flex-direction:column; gap:12px; box-shadow:0 20px 40px color-mix(in srgb, var(--text-main) 20%, transparent); }
+    .modal-backdrop { position:absolute; inset:0; background: color-mix(in srgb, var(--text-primary) 45%, var(--background)); }
+    .modal-panel { position:relative; background: var(--surface); border-radius:14px; padding:16px; width:min(640px, 92vw); max-height:90vh; overflow:auto; display:flex; flex-direction:column; gap:12px; box-shadow:0 20px 40px color-mix(in srgb, var(--text-primary) 20%, var(--background)); }
     .modal-panel header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-    .field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--text-strong); }
+    .field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--text-primary); }
     .field input, .field select, .field textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .field-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
-    .form-validation { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); border:1px solid color-mix(in srgb, var(--warning) 35%, transparent); border-radius:8px; padding:8px 10px; font-size:12px; font-weight:600; }
+    .form-validation { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border:1px solid color-mix(in srgb, var(--warning) 35%, var(--background)); border-radius:8px; padding:8px 10px; font-size:12px; font-weight:600; }
     .switch { display:flex; align-items:center; gap:10px; font-size:13px; }
     .switch input { display:none; }
-    .switch .slider { width:40px; height:22px; background: color-mix(in srgb, var(--text-muted) 22%, transparent); border-radius:999px; position:relative; }
-    .switch .slider::after { content:''; position:absolute; width:18px; height:18px; background: var(--bg-card); border-radius:50%; top:2px; left:2px; transition:all 0.2s ease; box-shadow:0 1px 3px color-mix(in srgb, var(--text-main) 25%, transparent); }
+    .switch .slider { width:40px; height:22px; background: color-mix(in srgb, var(--text-secondary) 22%, var(--background)); border-radius:999px; position:relative; }
+    .switch .slider::after { content:''; position:absolute; width:18px; height:18px; background: var(--surface); border-radius:50%; top:2px; left:2px; transition:all 0.2s ease; box-shadow:0 1px 3px color-mix(in srgb, var(--text-primary) 25%, var(--background)); }
     .switch input:checked + .slider { background: var(--success); }
     .switch input:checked + .slider::after { transform: translateX(18px); }
     .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
     .action-btn { display:inline-flex; align-items:center; gap:8px; }
-    .button-spinner { width:14px; height:14px; border-radius:50%; border:2px solid color-mix(in srgb, var(--on-primary) 50%, transparent); border-top-color: var(--on-primary); animation: spin 1s linear infinite; display:none; }
+    .button-spinner { width:14px; height:14px; border-radius:50%; border:2px solid color-mix(in srgb, var(--text-primary) 50%, var(--background)); border-top-color: var(--text-primary); animation: spin 1s linear infinite; display:none; }
     .action-btn.is-loading .button-spinner { display:inline-block; }
     .action-btn.is-loading .button-label { opacity:0.8; }
     @keyframes spin {

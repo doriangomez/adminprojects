@@ -92,17 +92,17 @@ $priorityOptions = [
     .task-edit-shell { display:flex; flex-direction:column; gap:16px; }
     .task-edit-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .task-edit-header h2 { margin:0; }
-    .section-muted { color: var(--muted); margin:0; font-size:13px; }
+    .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
     .card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .task-edit-card { display:flex; flex-direction:column; gap:16px; }
     .task-context { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
-    .task-context strong { font-size:15px; color: var(--text-strong); }
+    .task-context strong { font-size:15px; color: var(--text-primary); }
     .wrap-anywhere { overflow-wrap:anywhere; max-width:280px; }
     .task-edit-form { display:flex; flex-direction:column; gap:12px; }
     .form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); font-size:13px; }
+    label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:13px; }
     input,
-    select { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-strong); }
-    .primary-button { background: var(--primary); color: var(--on-primary); border:none; cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; width:fit-content; }
-    .secondary-button { background: color-mix(in srgb, var(--surface) 86%, var(--bg-app) 14%); color: var(--text-strong); border:1px solid var(--border); cursor:pointer; border-radius:10px; padding:8px 12px; font-weight:700; text-decoration:none; }
+    select { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); }
+    .primary-button { background: var(--primary); color: var(--text-primary); border:none; cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; width:fit-content; }
+    .secondary-button { background: color-mix(in srgb, var(--surface) 86%, var(--background) 14%); color: var(--text-primary); border:1px solid var(--border); cursor:pointer; border-radius:10px; padding:8px 12px; font-weight:700; text-decoration:none; }
 </style>

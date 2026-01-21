@@ -59,7 +59,7 @@ if ($projectType === 'outsourcing') {
 
 <style>
     .project-tabs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px; }
-    .project-tab { padding:9px 14px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-muted) 14%, transparent); display:inline-flex; align-items:center; gap:8px; }
+    .project-tab { padding:9px 14px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-primary); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); display:inline-flex; align-items:center; gap:8px; }
     .project-tab__icon { font-size:14px; }
-    .project-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .project-tab.active { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
 </style>

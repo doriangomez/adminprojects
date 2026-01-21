@@ -288,11 +288,11 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     .timesheets-shell { display:flex; flex-direction:column; gap:16px; }
     .timesheets-header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
     .timesheets-header h2 { margin:0; }
-    .section-muted { color: var(--muted); margin:0; font-size:13px; }
+    .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
     .header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
     .week-selector { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .week-selector input { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-strong); font-size:13px; }
-    .week-pill { padding:6px 12px; border-radius:999px; background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); color: var(--text-strong); font-weight:700; font-size:12px; }
+    .week-selector input { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size:13px; }
+    .week-pill { padding:6px 12px; border-radius:999px; background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); color: var(--text-primary); font-weight:700; font-size:12px; }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     .kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px; }
     .timesheet-entry header,
@@ -303,35 +303,35 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     .timesheet-form select,
     .timesheet-form input,
     .timesheet-form textarea,
-    .inline-form input { width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; background: var(--surface); color: var(--text-strong); }
+    .inline-form input { width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; background: var(--surface); color: var(--text-primary); }
     .timesheet-alert { display:flex; flex-direction:column; gap:6px; border-left:4px solid var(--accent); }
     .form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
     .checkbox { display:flex; gap:8px; align-items:center; }
     .clean-table { width:100%; border-collapse:collapse; }
     .clean-table th,
     .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:14px; line-height:1.4; }
-    .clean-table th { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .clean-table th { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--text-secondary); }
     .cell-compact { font-size:13px; line-height:1.4; }
     .truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:6px; }
     .wrap-anywhere { overflow-wrap:anywhere; max-width:260px; }
-    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); }
-    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); }
-    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); }
-    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); }
-    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); }
+    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-primary); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-primary); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-primary); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); }
     .action-stack { display:flex; flex-direction:column; gap:8px; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .primary-button { background: var(--primary); color: var(--on-primary); border:none; cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
-    .secondary-button { background: color-mix(in srgb, var(--surface) 86%, var(--bg-app) 14%); color: var(--text-strong); border:1px solid var(--border); cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
+    .primary-button { background: var(--primary); color: var(--text-primary); border:none; cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
+    .secondary-button { background: color-mix(in srgb, var(--surface) 86%, var(--background) 14%); color: var(--text-primary); border:1px solid var(--border); cursor:pointer; border-radius:10px; padding:10px 14px; font-weight:700; }
     .primary-button.small,
     .secondary-button.small { padding:6px 10px; font-size:12px; }
-    .ghost-button { border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 85%, var(--bg-app) 15%); color: var(--text-strong); border-radius:10px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+    .ghost-button { border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 85%, var(--background) 15%); color: var(--text-primary); border-radius:10px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; }
     .ghost-button.small { padding:6px 8px; font-size:12px; }
     .detail-row td { padding:0; border-bottom:none; }
-    .detail-card { display:grid; gap:10px; padding:12px; border-top:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%); }
-    .detail-card .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--muted); font-weight:700; }
-    .detail-text { margin:4px 0 0; font-size:13px; line-height:1.5; color: var(--text-strong); max-width:100%; overflow-wrap:anywhere; }
+    .detail-card { display:grid; gap:10px; padding:12px; border-top:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); }
+    .detail-card .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--text-secondary); font-weight:700; }
+    .detail-text { margin:4px 0 0; font-size:13px; line-height:1.5; color: var(--text-primary); max-width:100%; overflow-wrap:anywhere; }
     @media (max-width: 900px) {
         .clean-table { display:block; overflow-x:auto; }
         .truncate { max-width:160px; }

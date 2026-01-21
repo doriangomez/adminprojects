@@ -162,29 +162,29 @@ foreach ($selectedRisks as $riskCode) {
     .project-shell { display:flex; flex-direction:column; gap:16px; }
     .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
-    .project-title-block h2 { margin:0; color: var(--text-strong); }
+    .project-title-block h2 { margin:0; color: var(--text-primary); }
     .risk-overview,
     .risk-section,
     .task-section { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
     .risk-summary { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    .risk-summary__item { border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); display:flex; flex-direction:column; gap:4px; }
-    .risk-summary__item span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .risk-summary__item strong { font-size:16px; color: var(--text-strong); }
+    .risk-summary__item { border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); display:flex; flex-direction:column; gap:4px; }
+    .risk-summary__item span { font-size:12px; text-transform:uppercase; color: var(--text-secondary); font-weight:700; }
+    .risk-summary__item strong { font-size:16px; color: var(--text-primary); }
     .risk-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    .risk-card { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); display:flex; flex-direction:column; gap:10px; }
+    .risk-card { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); display:flex; flex-direction:column; gap:10px; }
     .risk-card__header { display:flex; align-items:center; gap:8px; }
     .risk-card__icon { width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); }
     .risk-checklist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
     .risk-checklist li { display:flex; align-items:center; gap:8px; font-weight:600; }
-    .risk-check { width:22px; height:22px; border-radius:999px; background: color-mix(in srgb, var(--success) 22%, var(--surface) 78%); color: var(--text-strong); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+    .risk-check { width:22px; height:22px; border-radius:999px; background: color-mix(in srgb, var(--success) 22%, var(--surface) 78%); color: var(--text-primary); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
     .task-list { display:flex; flex-direction:column; gap:10px; }
-    .task-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); }
+    .task-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); }
     .task-meta { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; display:inline-flex; align-items:center; gap:6px; }
-    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); border-color: var(--border); }
-    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--accent) 35%, var(--border) 65%); }
-    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); border-color: color-mix(in srgb, var(--success) 35%, var(--border) 65%); }
-    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
-    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; align-items:center; gap:6px; }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); border-color: var(--border); }
+    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 35%, var(--border) 65%); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-primary); border-color: color-mix(in srgb, var(--success) 35%, var(--border) 65%); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
 </style>

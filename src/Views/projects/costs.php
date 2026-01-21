@@ -50,19 +50,19 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
 
 <style>
     .project-shell { display:flex; flex-direction:column; gap:16px; }
-    .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); }
+    .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .project-title-block { display:flex; flex-direction:column; gap:6px; }
-    .project-title-block h2 { margin:0; color: var(--text-strong); }
+    .project-title-block h2 { margin:0; color: var(--text-primary); }
     .project-actions { display:flex; gap:8px; flex-wrap:wrap; }
-    .action-btn { background: var(--card); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
 
     .costs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-    .cost-card { border:1px solid var(--border); padding:14px; border-radius:14px; background: var(--card); display:flex; flex-direction:column; gap:6px; }
-    .cost-card strong { font-size:20px; color: var(--text-strong); }
+    .cost-card { border:1px solid var(--border); padding:14px; border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:6px; }
+    .cost-card strong { font-size:20px; color: var(--text-primary); }
     .cost-card.is-positive strong { color: var(--success); }
     .cost-card.is-negative strong { color: var(--danger); }
-    .cost-hint { font-size:12px; color: var(--muted); }
+    .cost-hint { font-size:12px; color: var(--text-secondary); }
 
-    .info-box { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--primary) 10%, transparent); }
-    .info-box p { margin:6px 0 0 0; color: var(--muted); }
+    .info-box { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--primary) 10%, var(--background)); }
+    .info-box p { margin:6px 0 0 0; color: var(--text-secondary); }
 </style>
