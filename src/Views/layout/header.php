@@ -1,5 +1,5 @@
 <?php
-$theme = (new ThemeRepository())->getActiveTheme();
+$theme = $theme ?? (new ThemeRepository())->getActiveTheme();
 $timesheetsEnabled = $timesheetsEnabled ?? false;
 $basePath = '/project/public';
 $appDisplayName = $appName ?? 'PMO';
@@ -15,6 +15,7 @@ $themeVariables = [
     'primary' => (string) ($theme['primary'] ?? ''),
     'secondary' => (string) ($theme['secondary'] ?? ''),
     'accent' => (string) ($theme['accent'] ?? ''),
+    'font-family' => (string) ($theme['font_family'] ?? ''),
     'text-primary' => (string) ($theme['textPrimary'] ?? $theme['text_main'] ?? ''),
     'text-secondary' => (string) ($theme['textSecondary'] ?? $theme['text_muted'] ?? ''),
     'text-disabled' => (string) ($theme['disabled'] ?? $theme['text_soft'] ?? $theme['text_disabled'] ?? ''),
@@ -54,6 +55,9 @@ error_log(sprintf(
         };
         window.__APP_THEME__ = <?= json_encode($themeVariables, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         window.loadAndApplyTheme();
+        document.addEventListener('DOMContentLoaded', () => {
+            window.loadAndApplyTheme();
+        });
     </script>
     <style>
         * {
@@ -433,17 +437,6 @@ error_log(sprintf(
             .page-heading h2 { font-size: 20px; }
         }
     </style>
-    <script>
-        window.applyTheme = function(theme) {
-            if (!theme || typeof theme !== 'object') {
-                return;
-            }
-            Object.entries(theme).forEach(([key, value]) => {
-                document.documentElement.style.setProperty(`--${key}`, value ?? '');
-            });
-        };
-        window.applyTheme(<?= json_encode($themeVariables, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
-    </script>
 </head>
 <body>
     <aside class="sidebar">
