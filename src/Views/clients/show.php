@@ -9,12 +9,12 @@
             <a class="btn secondary" href="/project/public/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
         <?php endif; ?>
         <?php if($auth->canDeleteClients()): ?>
-            <button type="button" class="btn ghost" style="color:#b91c1c; border-color: #fecaca; background: #fef2f2;" data-open-action="delete">
+            <button type="button" class="btn ghost danger" data-open-action="delete">
                 Eliminar cliente
             </button>
         <?php endif; ?>
         <?php if($canInactivate): ?>
-            <button type="button" class="btn ghost" style="color:#9a3412; border-color:#fed7aa; background:#fffbeb;" data-open-action="inactivate">
+            <button type="button" class="btn ghost warning" data-open-action="inactivate">
                 Inactivar cliente
             </button>
         <?php endif; ?>
@@ -29,7 +29,7 @@
                 <h4 style="margin:4px 0 0 0;">Relación con <?= htmlspecialchars($client['name']) ?></h4>
             </div>
             <?php if(!empty($client['logo_path'])): ?>
-                <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo de <?= htmlspecialchars($client['name']) ?>" style="width:64px; height:64px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:#fff;">
+                <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo de <?= htmlspecialchars($client['name']) ?>" style="width:64px; height:64px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:var(--surface);">
             <?php endif; ?>
         </div>
         <div class="grid tight" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
@@ -160,11 +160,11 @@
 </div>
 
 <?php if($auth->canDeleteClients()): ?>
-    <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.45); align-items:center; justify-content:center; padding:16px;">
-        <div class="card" style="max-width:520px; width:100%; border:1px solid #fecaca; box-shadow:0 20px 40px rgba(0,0,0,0.18);">
+    <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:color-mix(in srgb, var(--text-main) 45%, transparent); align-items:center; justify-content:center; padding:16px;">
+        <div class="card" style="max-width:520px; width:100%; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); box-shadow:0 20px 40px color-mix(in srgb, var(--text-main) 18%, transparent);">
             <div class="toolbar">
                 <div style="display:flex; gap:10px; align-items:flex-start;">
-                    <span aria-hidden="true" style="width:36px; height:36px; border-radius:12px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; display:inline-flex; align-items:center; justify-content:center; font-weight:800;">!</span>
+                    <span aria-hidden="true" style="width:36px; height:36px; border-radius:12px; background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); display:inline-flex; align-items:center; justify-content:center; font-weight:800;">!</span>
                     <div>
                         <p class="badge danger" style="margin:0;" data-modal-context>Acción crítica</p>
                         <h4 style="margin:4px 0 0 0;" data-modal-title>Eliminar cliente</h4>
@@ -179,23 +179,23 @@
                 <input type="hidden" name="math_operand2" id="math_operand2" value="<?= $mathOperand2 ?>">
                 <input type="hidden" name="math_operator" id="math_operator" value="<?= $mathOperator ?>">
                 <input type="hidden" name="force_delete" id="force_delete" value="1">
-                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid #fed7aa; background:#fffbeb; border-radius:10px; color:#9a3412; font-weight:600;">El cliente tiene dependencias activas. La eliminación permanente las borrará en cascada.</div>
+                <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--warning) 12%, var(--surface) 88%); border-radius:10px; color:var(--warning); font-weight:600;">El cliente tiene dependencias activas. La eliminación permanente las borrará en cascada.</div>
                 <div>
                     <p style="margin:0 0 4px 0; color:var(--text); font-weight:600;">Confirmación obligatoria</p>
                     <p style="margin:0 0 8px 0; color:var(--muted);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div style="flex:1;">
-                            <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgb(249, 250, 251); font-weight:700;">
+                            <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%); font-weight:700;">
                                 <?= $mathOperand1 ?> <?= $mathOperator ?> <?= $mathOperand2 ?> =
                             </div>
                         </div>
                         <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado" style="width:120px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
                     </div>
                 </div>
-                <div id="action-feedback" style="display:none; padding:10px 12px; border-radius:10px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; font-weight:600;"></div>
+                <div id="action-feedback" style="display:none; padding:10px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%); color:var(--danger); font-weight:600;"></div>
                 <div style="display:flex; justify-content:flex-end; gap:8px;">
                     <button type="button" class="btn ghost" data-close-delete>Cancelar</button>
-                    <button type="submit" class="btn ghost" id="confirm-delete-btn" style="color:#b91c1c; border-color:#fecaca; background:#fef2f2;" disabled>Eliminar permanentemente</button>
+                    <button type="submit" class="btn ghost danger" id="confirm-delete-btn" disabled>Eliminar permanentemente</button>
                 </div>
             </form>
         </div>
@@ -231,7 +231,7 @@
                         context: 'Acción crítica',
                         actionUrl: '/project/public/clients/delete',
                     buttonLabel: 'Eliminar permanentemente',
-                    buttonStyle: 'color:#b91c1c; border-color:#fecaca; background:#fef2f2;'
+                    buttonStyle: 'color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%);'
                 },
                 inactivate: {
                     title: 'Inactivar cliente',
@@ -239,7 +239,7 @@
                     context: 'Acción segura',
                     actionUrl: `/project/public/clients/${clientId}/inactivate`,
                     buttonLabel: 'Inactivar cliente',
-                    buttonStyle: 'color:#9a3412; border-color:#fed7aa; background:#fffbeb;'
+                    buttonStyle: 'color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--warning) 12%, var(--surface) 88%);'
                 }
             };
 

@@ -70,7 +70,7 @@
             <span>Logo del cliente</span>
             <?php if(!empty($client['logo_path'])): ?>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-                    <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo actual" style="width:64px; height:64px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:#fff;">
+                    <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo actual" style="width:64px; height:64px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:var(--surface);">
                     <small style="color: var(--muted);">Logo actual</small>
                 </div>
             <?php endif; ?>

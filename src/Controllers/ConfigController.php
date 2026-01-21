@@ -69,22 +69,28 @@ class ConfigController extends Controller
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
         $logoValue = $logoFromUpload ?: ($logoUrl !== '' ? $logoUrl : ($currentTheme['logo'] ?? ''));
-        $textSoft = $_POST['text_soft']
+        $disabled = $_POST['disabled']
             ?? $_POST['text_disabled']
-            ?? ($currentTheme['text_soft'] ?? $currentTheme['text_disabled'] ?? $themeDefaults['text_soft'] ?? $themeDefaults['text_disabled'] ?? '#94a3b8');
+            ?? $_POST['text_soft']
+            ?? ($currentTheme['disabled'] ?? $currentTheme['text_disabled'] ?? $currentTheme['text_soft'] ?? $themeDefaults['disabled'] ?? $themeDefaults['text_disabled'] ?? $themeDefaults['text_soft'] ?? null);
 
         $payload = [
             'theme' => [
                 'logo' => $logoValue,
-                'primary' => $_POST['primary'] ?? ($currentTheme['primary'] ?? ($themeDefaults['primary'] ?? '#2563eb')),
-                'secondary' => $_POST['secondary'] ?? ($currentTheme['secondary'] ?? ($themeDefaults['secondary'] ?? '#0f172a')),
-                'accent' => $_POST['accent'] ?? ($currentTheme['accent'] ?? ($themeDefaults['accent'] ?? '#f97316')),
-                'background' => $_POST['background'] ?? ($currentTheme['background'] ?? ($themeDefaults['background'] ?? '#0b1224')),
-                'surface' => $_POST['surface'] ?? ($currentTheme['surface'] ?? ($themeDefaults['surface'] ?? '#0f172a')),
-                'text_main' => $_POST['text_main'] ?? ($currentTheme['text_main'] ?? ($themeDefaults['text_main'] ?? '#0f172a')),
-                'text_muted' => $_POST['text_muted'] ?? ($currentTheme['text_muted'] ?? ($themeDefaults['text_muted'] ?? '#475569')),
-                'text_soft' => $textSoft,
-                'text_disabled' => $textSoft,
+                'primary' => $_POST['primary'] ?? ($currentTheme['primary'] ?? $themeDefaults['primary'] ?? ''),
+                'secondary' => $_POST['secondary'] ?? ($currentTheme['secondary'] ?? $themeDefaults['secondary'] ?? ''),
+                'accent' => $_POST['accent'] ?? ($currentTheme['accent'] ?? $themeDefaults['accent'] ?? ''),
+                'background' => $_POST['background'] ?? ($currentTheme['background'] ?? $themeDefaults['background'] ?? ''),
+                'surface' => $_POST['surface'] ?? ($currentTheme['surface'] ?? $themeDefaults['surface'] ?? ''),
+                'textPrimary' => $_POST['textPrimary'] ?? $_POST['text_primary'] ?? ($currentTheme['textPrimary'] ?? $currentTheme['text_primary'] ?? $currentTheme['text_main'] ?? $themeDefaults['textPrimary'] ?? $themeDefaults['text_primary'] ?? $themeDefaults['text_main'] ?? ''),
+                'textSecondary' => $_POST['textSecondary'] ?? $_POST['text_secondary'] ?? ($currentTheme['textSecondary'] ?? $currentTheme['text_secondary'] ?? $currentTheme['text_muted'] ?? $themeDefaults['textSecondary'] ?? $themeDefaults['text_secondary'] ?? $themeDefaults['text_muted'] ?? ''),
+                'disabled' => $disabled ?? '',
+                'border' => $_POST['border'] ?? ($currentTheme['border'] ?? $themeDefaults['border'] ?? ''),
+                'success' => $_POST['success'] ?? ($currentTheme['success'] ?? $themeDefaults['success'] ?? ''),
+                'warning' => $_POST['warning'] ?? ($currentTheme['warning'] ?? $themeDefaults['warning'] ?? ''),
+                'danger' => $_POST['danger'] ?? ($currentTheme['danger'] ?? $themeDefaults['danger'] ?? ''),
+                'info' => $_POST['info'] ?? ($currentTheme['info'] ?? $themeDefaults['info'] ?? ''),
+                'neutral' => $_POST['neutral'] ?? ($currentTheme['neutral'] ?? $themeDefaults['neutral'] ?? ''),
                 'font_family' => trim($_POST['font_family'] ?? ($currentTheme['font_family'] ?? ($themeDefaults['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"))),
                 'login_hero' => trim($_POST['login_hero'] ?? ($currentTheme['login_hero'] ?? '')),
                 'login_message' => trim($_POST['login_message'] ?? ($currentTheme['login_message'] ?? '')),

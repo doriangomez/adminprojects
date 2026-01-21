@@ -1,6 +1,6 @@
 {
     "theme": {
-        "logo": "\/project\/public\/uploads\/logos\/logo_1766440130.png",
+        "logo": "/project/public/uploads/logos/logo_1766440130.png",
         "primary": "#2563eb",
         "secondary": "#0f172a",
         "accent": "#f97316",
@@ -8,11 +8,20 @@
         "surface": "#ffffff",
         "font_family": "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         "login_hero": "Centraliza, automatiza y escala tu PMO",
-        "login_message": "Personaliza la experiencia: identidad visual, roles y gobierno de usuarios en un solo lugar."
+        "login_message": "Personaliza la experiencia: identidad visual, roles y gobierno de usuarios en un solo lugar.",
+        "textPrimary": "#f8fafc",
+        "textSecondary": "#cbd5f5",
+        "disabled": "#94a3b8",
+        "border": "#1f2937",
+        "success": "#22c55e",
+        "warning": "#f59e0b",
+        "danger": "#ef4444",
+        "info": "#38bdf8",
+        "neutral": "#64748b"
     },
     "master_files": {
-        "data_file": "data\/data.json",
-        "schema_file": "data\/schema.sql"
+        "data_file": "data/data.json",
+        "schema_file": "data/schema.sql"
     },
     "delivery": {
         "methodologies": [

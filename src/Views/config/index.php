@@ -22,7 +22,7 @@
         border-radius: 10px;
         font-weight: 600;
         color: var(--text-main, var(--text));
-        background: var(--surface, #f8fafc);
+        background: var(--surface);
         border: 1px solid transparent;
     }
     #tab-identidad:checked ~ .tab-nav label[for="tab-identidad"],
@@ -32,7 +32,7 @@
     #tab-catalogos:checked ~ .tab-nav label[for="tab-catalogos"] {
         background: var(--primary);
         color: var(--on-primary);
-        border-color: color-mix(in srgb, var(--primary) 85%, #000 15%);
+        border-color: color-mix(in srgb, var(--primary) 85%, var(--secondary) 15%);
     }
     .tab-panels {
         display: block;
@@ -101,7 +101,7 @@
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: var(--bg-card, #ffffff);
+        background: var(--bg-card);
         border: 1px solid var(--border);
         top: 2px;
         left: 2px;
@@ -220,9 +220,15 @@
                                             <label>Color acento<input type="color" name="accent" value="<?= htmlspecialchars($configData['theme']['accent']) ?>"></label>
                                             <label>Color fondo<input type="color" name="background" value="<?= htmlspecialchars($configData['theme']['background']) ?>"></label>
                                             <label>Color superficies<input type="color" name="surface" value="<?= htmlspecialchars($configData['theme']['surface']) ?>"></label>
-                                            <label>Texto principal<input type="color" name="text_main" value="<?= htmlspecialchars($configData['theme']['text_main'] ?? '#0f172a') ?>"></label>
-                                            <label>Texto secundario<input type="color" name="text_muted" value="<?= htmlspecialchars($configData['theme']['text_muted'] ?? '#475569') ?>"></label>
-                                            <label>Texto deshabilitado<input type="color" name="text_soft" value="<?= htmlspecialchars($configData['theme']['text_soft'] ?? ($configData['theme']['text_disabled'] ?? '#94a3b8')) ?>"></label>
+                                            <label>Texto principal<input type="color" name="textPrimary" value="<?= htmlspecialchars($configData['theme']['textPrimary'] ?? $configData['theme']['text_main'] ?? '') ?>"></label>
+                                            <label>Texto secundario<input type="color" name="textSecondary" value="<?= htmlspecialchars($configData['theme']['textSecondary'] ?? $configData['theme']['text_muted'] ?? '') ?>"></label>
+                                            <label>Texto deshabilitado<input type="color" name="disabled" value="<?= htmlspecialchars($configData['theme']['disabled'] ?? $configData['theme']['text_disabled'] ?? $configData['theme']['text_soft'] ?? '') ?>"></label>
+                                            <label>Borde<input type="color" name="border" value="<?= htmlspecialchars($configData['theme']['border'] ?? '') ?>"></label>
+                                            <label>Éxito<input type="color" name="success" value="<?= htmlspecialchars($configData['theme']['success'] ?? '') ?>"></label>
+                                            <label>Advertencia<input type="color" name="warning" value="<?= htmlspecialchars($configData['theme']['warning'] ?? '') ?>"></label>
+                                            <label>Peligro<input type="color" name="danger" value="<?= htmlspecialchars($configData['theme']['danger'] ?? '') ?>"></label>
+                                            <label>Información<input type="color" name="info" value="<?= htmlspecialchars($configData['theme']['info'] ?? '') ?>"></label>
+                                            <label>Neutro<input type="color" name="neutral" value="<?= htmlspecialchars($configData['theme']['neutral'] ?? '') ?>"></label>
                                         </div>
                                     </div>
                                 </div>
@@ -233,12 +239,12 @@
                             </div>
                         </div>
 
-                        <div class="card config-card preview-card" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color:color-mix(in srgb, white 90%, var(--secondary) 10%);">
+                        <div class="card config-card preview-card" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color:color-mix(in srgb, var(--surface) 90%, var(--secondary) 10%);">
                             <div class="card-content" style="position:relative;">
                                 <div class="toolbar" style="margin-bottom:4px;">
                                     <h3 style="margin:0;">Previsualización</h3>
                                 </div>
-                                <p class="text-muted" style="color: color-mix(in srgb, white 78%, transparent); margin:0;">Vista rápida del login y navegación.</p>
+                                <p class="text-muted" style="color: color-mix(in srgb, var(--surface) 78%, transparent); margin:0;">Vista rápida del login y navegación.</p>
                                 <div class="preview-pane">
                                     <?php if(!empty($activeTheme['logo_url'])): ?>
                                         <div class="preview-header">
@@ -254,11 +260,11 @@
                                         <span class="badge" style="background:var(--panel); color: var(--secondary);">Secundario <?= htmlspecialchars($activeTheme['secondary'] ?? '') ?></span>
                                         <span class="badge" style="background:var(--panel); color: var(--accent);">Acento <?= htmlspecialchars($activeTheme['accent'] ?? '') ?></span>
                                     </div>
-                                    <small style="color: color-mix(in srgb, white 75%, transparent);">Roles activos: <?= htmlspecialchars(implode('· ', $configData['access']['roles'])) ?></small>
+                                    <small style="color: color-mix(in srgb, var(--surface) 75%, transparent);">Roles activos: <?= htmlspecialchars(implode('· ', $configData['access']['roles'])) ?></small>
                                 </div>
                                 <div class="pillset">
-                                    <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fuente: <?= htmlspecialchars($activeTheme['font_family'] ?? '') ?></span>
-                                    <span class="pill" style="background: color-mix(in srgb, white 18%, transparent); color:white;">Fondo: <?= htmlspecialchars($activeTheme['background'] ?? '') ?></span>
+                                    <span class="pill" style="background: color-mix(in srgb, var(--surface) 18%, transparent); color:var(--on-primary);">Fuente: <?= htmlspecialchars($activeTheme['font_family'] ?? '') ?></span>
+                                    <span class="pill" style="background: color-mix(in srgb, var(--surface) 18%, transparent); color:var(--on-primary);">Fondo: <?= htmlspecialchars($activeTheme['background'] ?? '') ?></span>
                                 </div>
                             </div>
                         </div>

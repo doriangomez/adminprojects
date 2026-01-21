@@ -20,9 +20,8 @@ if ($methodology === 'convencional' || $methodology === '') {
     $methodology = 'cascada';
 }
 
-$badge = $methodology === 'scrum'
-    ? ['label' => 'Scrum', 'color' => '#0ea5e9', 'bg' => '#e0f2fe']
-    : ['label' => 'Tradicional', 'color' => '#6366f1', 'bg' => '#e0e7ff'];
+$badgeLabel = $methodology === 'scrum' ? 'Scrum' : 'Tradicional';
+$badgeClass = $methodology === 'scrum' ? 'pill methodology scrum' : 'pill methodology traditional';
 
 $flatten = static function (array $nodes) use (&$flatten): array {
     $items = [];
@@ -279,7 +278,7 @@ $computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpe
 $projectProgress = (float) ($project['progress'] ?? 0);
 $projectStatusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
 $projectClient = $project['client_name'] ?? $project['client'] ?? '';
-$projectMethodLabel = $badge['label'];
+$projectMethodLabel = $badgeLabel;
 $projectPmName = $project['pm_name'] ?? 'Sin PM asignado';
 $projectRiskLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
 $projectRiskLevel = strtolower((string) ($project['risk_level'] ?? ''));
@@ -333,7 +332,7 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
             <p class="eyebrow">Detalle de proyecto</p>
             <h2><?= htmlspecialchars($project['name'] ?? '') ?></h2>
             <div class="project-badges">
-                <span class="pill" style="background: <?= $badge['bg'] ?>; color: <?= $badge['color'] ?>;"><?= htmlspecialchars($badge['label']) ?></span>
+                <span class="<?= $badgeClass ?>"><?= htmlspecialchars($badgeLabel) ?></span>
                 <span class="pill neutral">Cliente: <?= htmlspecialchars($projectClient) ?></span>
                 <span class="pill neutral">Estado: <?= htmlspecialchars((string) $projectStatusLabel) ?></span>
             </div>
@@ -813,6 +812,9 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .action-btn.danger { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
+    .pill.methodology { border:1px solid transparent; }
+    .pill.methodology.scrum { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
+    .pill.methodology.traditional { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
     .folder-meta { display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap; }
     .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
     .status-muted { background: color-mix(in srgb, var(--text-muted) 14%, transparent); color: var(--text-strong); border-color: var(--border); }
