@@ -63,7 +63,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     <div>
         <a href="<?= $basePath ?>/projects" class="btn ghost">← Volver</a>
         <h3 style="margin:8px 0 0 0;">Nuevo proyecto</h3>
-        <p style="margin:4px 0 0 0; color: var(--muted);">Wizard guiado para registrar un proyecto sin depender de portafolios.</p>
+        <p style="margin:4px 0 0 0; color: var(--text-secondary);">Wizard guiado para registrar un proyecto sin depender de portafolios.</p>
     </div>
     <div class="pill soft-blue" style="align-self:center; gap:8px; display:inline-flex; align-items:center;">
         <span aria-hidden="true">🧭</span>
@@ -461,76 +461,76 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .wizard-shell { display:flex; flex-direction:column; gap:18px; }
     .wizard-header { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
     .wizard-header__title { display:flex; gap:12px; align-items:flex-start; }
-    .wizard-header__icon { width:48px; height:48px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); border:1px solid color-mix(in srgb, var(--primary) 28%, transparent); }
-    .wizard-header__title strong { display:block; margin:2px 0; font-size:18px; color: var(--text-strong); }
+    .wizard-header__icon { width:48px; height:48px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); border:1px solid color-mix(in srgb, var(--primary) 28%, var(--background)); }
+    .wizard-header__title strong { display:block; margin:2px 0; font-size:18px; color: var(--text-primary); }
     .wizard-header__meta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
     .wizard-steps { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; position:relative; padding:8px 4px; }
-    .wizard-step { display:flex; gap:12px; padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); position:relative; overflow:hidden; }
-    .wizard-step::after { content:""; position:absolute; inset:0; background: linear-gradient(120deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 40%, color-mix(in srgb, var(--primary) 6%, transparent)); opacity:0; transition:opacity 160ms ease; }
+    .wizard-step { display:flex; gap:12px; padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--background)); position:relative; overflow:hidden; }
+    .wizard-step::after { content:""; position:absolute; inset:0; background: color-mix(in srgb, var(--primary) 8%, var(--background) 92%); opacity:0; transition:opacity 160ms ease; }
     .wizard-step.active::after { opacity:1; }
     .wizard-step__marker { display:flex; align-items:center; gap:10px; position:relative; z-index:1; }
-    .wizard-step__icon { width:42px; height:42px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--primary); }
+    .wizard-step__icon { width:42px; height:42px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 8%, var(--background)); color: var(--primary); }
     .wizard-step__number { width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; background: color-mix(in srgb, var(--neutral) 20%, var(--surface) 80%); color: var(--text-primary); border:1px solid var(--border); }
     .wizard-step__body { display:flex; flex-direction:column; gap:4px; position:relative; z-index:1; }
-    .wizard-step__title { margin:0; font-weight:800; color: var(--text-strong); }
-    .wizard-step__subtitle { margin:0; color: var(--muted); font-size:13px; }
-    .wizard-step.completed .wizard-step__icon { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
-    .wizard-step.completed .wizard-step__number { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color: color-mix(in srgb, var(--success) 50%, transparent); }
-    .wizard-step.active { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 8%, transparent); }
-    .wizard-step.active .wizard-step__icon { background: color-mix(in srgb, var(--primary) 18%, var(--surface) 12%); color: var(--primary-strong); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
-    .wizard-step.active .wizard-step__number { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .wizard-step__title { margin:0; font-weight:800; color: var(--text-primary); }
+    .wizard-step__subtitle { margin:0; color: var(--text-secondary); font-size:13px; }
+    .wizard-step.completed .wizard-step__icon { background: color-mix(in srgb, var(--success) 12%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--background)); }
+    .wizard-step.completed .wizard-step__number { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color: color-mix(in srgb, var(--success) 50%, var(--background)); }
+    .wizard-step.active { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 8%, var(--background)); }
+    .wizard-step.active .wizard-step__icon { background: color-mix(in srgb, var(--primary) 18%, var(--surface) 12%); color: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); border-color: color-mix(in srgb, var(--primary) 35%, var(--background)); }
+    .wizard-step.active .wizard-step__number { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .wizard-content { display:none; flex-direction:column; gap:16px; }
     .wizard-content.active { display:flex; }
-    .step-card { border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 96%, transparent); padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 10px 30px color-mix(in srgb, var(--primary) 6%, transparent); }
+    .step-card { border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 96%, var(--background)); padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 10px 30px color-mix(in srgb, var(--primary) 6%, var(--background)); }
     .step-card__header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .step-card__grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     .step-card__grid.compact { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-    .step-block { border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); display:flex; flex-direction:column; gap:12px; }
-    .accordion { border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 94%, transparent); padding:0; }
+    .step-block { border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--background)); display:flex; flex-direction:column; gap:12px; }
+    .accordion { border:1px solid var(--border); border-radius:12px; background: color-mix(in srgb, var(--surface) 94%, var(--background)); padding:0; }
     .accordion-summary { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; cursor:pointer; list-style:none; padding:12px; }
     .accordion-summary::-webkit-details-marker { display:none; }
     .accordion-body { padding:0 12px 12px; display:flex; flex-direction:column; gap:12px; }
     .step-block__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
-    .step-block__eyebrow { margin:0; font-weight:800; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
-    .step-block__title { display:block; font-size:16px; color: var(--text-strong); }
-    .step-block__help { margin:4px 0 0 0; font-size:13px; color: var(--muted); }
+    .step-block__eyebrow { margin:0; font-weight:800; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--text-secondary); }
+    .step-block__title { display:block; font-size:16px; color: var(--text-primary); }
+    .step-block__help { margin:4px 0 0 0; font-size:13px; color: var(--text-secondary); }
     .step-block--required { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
     .step-block--recommended { background: color-mix(in srgb, var(--info) 24%, var(--surface)); border-color: color-mix(in srgb, var(--info) 30%, var(--border)); }
     .step-block--optional { background: color-mix(in srgb, var(--success) 22%, var(--surface)); border-color: color-mix(in srgb, var(--success) 24%, var(--border)); }
-    .field-label { display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:700; color: var(--text-strong); }
+    .field-label { display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:700; color: var(--text-primary); }
     .field-title { display:flex; align-items:center; gap:8px; }
-    .field-icon { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, transparent); font-size:14px; }
-    .field-required { display:inline-flex; align-items:center; gap:4px; font-size:11px; color: var(--danger); background: color-mix(in srgb, var(--danger) 20%, transparent); padding:2px 6px; border-radius:999px; border:1px solid color-mix(in srgb, var(--danger) 45%, transparent); }
+    .field-icon { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, var(--background)); font-size:14px; }
+    .field-required { display:inline-flex; align-items:center; gap:4px; font-size:11px; color: var(--danger); background: color-mix(in srgb, var(--danger) 20%, var(--background)); padding:2px 6px; border-radius:999px; border:1px solid color-mix(in srgb, var(--danger) 45%, var(--background)); }
     .field-required__icon { font-size:12px; }
     .input.is-invalid input,
     .input.is-invalid select,
-    .input.is-invalid textarea { border-color:var(--danger) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, transparent); }
+    .input.is-invalid textarea { border-color:var(--danger) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, var(--background)); }
     .input.is-invalid .field-title { color:var(--danger); }
     .wizard-validation { display:none; }
     .wizard-validation.is-visible { display:block; }
     .wizard-docs-note { margin-top:4px; }
     .risk-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .risk-group { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 95%, transparent); display:flex; flex-direction:column; gap:10px; }
-    .risk-group__header { display:flex; align-items:center; gap:8px; font-weight:800; color: var(--text-strong); }
-    .risk-group__icon { width:28px; height:28px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 12%, transparent); }
+    .risk-group { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 95%, var(--background)); display:flex; flex-direction:column; gap:10px; }
+    .risk-group__header { display:flex; align-items:center; gap:8px; font-weight:800; color: var(--text-primary); }
+    .risk-group__icon { width:28px; height:28px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 12%, var(--background)); }
     .risk-group__list { display:grid; gap:8px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-    .risk-chip { position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:999px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); cursor:pointer; transition: all 160ms ease; }
-    .risk-chip:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 12%, transparent); }
+    .risk-chip { position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:999px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--background)); cursor:pointer; transition: all 160ms ease; }
+    .risk-chip:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 12%, var(--background)); }
     .risk-chip input { position:absolute; opacity:0; pointer-events:none; }
-    .risk-chip__content { display:flex; align-items:center; gap:8px; font-weight:600; color: var(--text-strong); }
-    .risk-chip__icon { width:22px; height:22px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, transparent); font-size:13px; }
+    .risk-chip__content { display:flex; align-items:center; gap:8px; font-weight:600; color: var(--text-primary); }
+    .risk-chip__icon { width:22px; height:22px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, var(--background)); font-size:13px; }
     .risk-chip__check { opacity:0; font-weight:900; color: var(--primary); }
     .risk-chip input:checked ~ .risk-chip__check { opacity:1; }
-    .risk-chip input:checked ~ .risk-chip__content { color: var(--primary-strong); }
-    .risk-chip input:checked ~ .risk-chip__content .risk-chip__icon { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+    .risk-chip input:checked ~ .risk-chip__content { color: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); }
+    .risk-chip input:checked ~ .risk-chip__content .risk-chip__icon { background: color-mix(in srgb, var(--primary) 18%, var(--background)); }
     .risk-chip.is-hidden { display:none; }
     .risk-group__toggle { align-self:flex-start; }
     .btn.small { padding:6px 10px; font-size:12px; }
     .wizard-footer { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-top:1px dashed var(--border); padding-top:12px; }
     .wizard-footer__nav, .wizard-footer__actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .muted { color: var(--muted); font-weight:600; margin:0; }
-    .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-weight:700; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); }
-    .ghosted-pill { background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--muted); }
+    .muted { color: var(--text-secondary); font-weight:600; margin:0; }
+    .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; font-weight:700; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, var(--background)); }
+    .ghosted-pill { background: color-mix(in srgb, var(--surface) 85%, var(--background)); color: var(--text-secondary); }
     .soft-blue { background:color-mix(in srgb, var(--info) 18%, var(--surface) 82%); color:var(--info); }
     .soft-amber { background:color-mix(in srgb, var(--warning) 18%, var(--surface) 82%); color:var(--warning); }
     .soft-green { background:color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color:var(--success); }
@@ -539,10 +539,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .alert.error { background:color-mix(in srgb, var(--danger) 15%, var(--surface) 85%); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); color:var(--danger); }
     .alert.warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); border:1px solid color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); color:var(--warning); }
     .wizard-hidden-step { display:none; }
-    .wizard-loader { position:fixed; inset:0; background: color-mix(in srgb, var(--text-main) 45%, transparent); display:none; align-items:center; justify-content:center; z-index:9999; padding:24px; }
+    .wizard-loader { position:fixed; inset:0; background: color-mix(in srgb, var(--text-primary) 45%, var(--background)); display:none; align-items:center; justify-content:center; z-index:9999; padding:24px; }
     .wizard-loader.is-visible { display:flex; }
-    .wizard-loader__card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:14px; box-shadow: 0 18px 40px color-mix(in srgb, var(--text-main) 35%, transparent); }
-    .wizard-loader__spinner { width:28px; height:28px; border-radius:50%; border:3px solid color-mix(in srgb, var(--primary) 25%, transparent); border-top-color: var(--primary); animation: spin 1s linear infinite; }
+    .wizard-loader__card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:14px; box-shadow: 0 18px 40px color-mix(in srgb, var(--text-primary) 35%, var(--background)); }
+    .wizard-loader__spinner { width:28px; height:28px; border-radius:50%; border:3px solid color-mix(in srgb, var(--primary) 25%, var(--background)); border-top-color: var(--primary); animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 840px) {
         .wizard-steps { grid-template-columns: 1fr; }

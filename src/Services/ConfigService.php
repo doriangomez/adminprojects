@@ -11,7 +11,7 @@ class ConfigService
     private array $defaults = [
         'debug' => false,
         'theme' => [
-            'logo' => '/project/public/uploads/logos/default.svg',
+            'logo' => '',
             'font_family' => "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             'login_hero' => 'Orquesta tus operaciones críticas',
             'login_message' => 'Diseña flujos, controla riesgos y haz visible el valor de tu PMO.',

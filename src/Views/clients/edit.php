@@ -2,7 +2,7 @@
     <div>
         <a href="/project/public/clients/<?= (int) $client['id'] ?>" class="btn ghost">← Volver</a>
         <h3 style="margin:8px 0 0 0;">Editar cliente</h3>
-        <p style="margin:4px 0 0 0; color: var(--muted);">Actualiza la ficha sin mezclarla con el listado ni el detalle.</p>
+        <p style="margin:4px 0 0 0; color: var(--text-secondary);">Actualiza la ficha sin mezclarla con el listado ni el detalle.</p>
     </div>
 </div>
 
@@ -71,11 +71,11 @@
             <?php if(!empty($client['logo_path'])): ?>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
                     <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo actual" style="width:64px; height:64px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:var(--surface);">
-                    <small style="color: var(--muted);">Logo actual</small>
+                    <small style="color: var(--text-secondary);">Logo actual</small>
                 </div>
             <?php endif; ?>
             <input type="file" name="logo" accept=".png,.jpg,.jpeg,.svg">
-            <small style="color: var(--muted);">Sube PNG, JPG o SVG para reemplazar el logo.</small>
+            <small style="color: var(--text-secondary);">Sube PNG, JPG o SVG para reemplazar el logo.</small>
         </label>
         <label class="input">
             <span>Riesgo de la relación</span>

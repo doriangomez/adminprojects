@@ -253,18 +253,18 @@ $flashMessageText = match ($flashMessage) {
     .talent-form-section, .talent-grid, .talent-tracking { border:1px solid var(--border); border-radius:16px; padding:16px; background:var(--surface); display:flex; flex-direction:column; gap:12px; }
     .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
-    label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-strong); }
+    label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; }
     .checkbox { flex-direction:row; align-items:center; gap:8px; }
     .divider { border-top:1px dashed var(--border); margin:8px 0; }
-    .card { border:1px solid var(--border); border-radius:14px; padding:14px; background:color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%); display:flex; flex-direction:column; gap:6px; }
+    .card { border:1px solid var(--border); border-radius:14px; padding:14px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:6px; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
-    .action-btn.primary { background: var(--primary); color:var(--on-primary); border-color: var(--primary); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+    .action-btn.primary { background: var(--primary); color:var(--text-primary); border-color: var(--primary); }
     .action-btn.small { padding:6px 10px; font-size:12px; width:max-content; }
     .badge.neutral { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; display:inline-flex; }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; }
     .status-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 40%, var(--surface) 60%); }
     .status-success { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color:color-mix(in srgb, var(--success) 40%, var(--surface) 60%); }
     .status-warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); }
@@ -273,8 +273,8 @@ $flashMessageText = match ($flashMessage) {
     .table-wrapper { overflow:auto; }
     table { width:100%; border-collapse:collapse; }
     th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:top; }
-    th { font-size:12px; text-transform:uppercase; letter-spacing:0.04em; color: var(--muted); }
-    .doc-list { margin:6px 0; padding-left:18px; color: var(--text-strong); }
+    th { font-size:12px; text-transform:uppercase; letter-spacing:0.04em; color: var(--text-secondary); }
+    .doc-list { margin:6px 0; padding-left:18px; color: var(--text-primary); }
     .link { color: var(--primary); font-weight:600; text-decoration:none; }
     .link:hover { text-decoration:underline; }
     .alert.success { padding:10px 12px; border-radius:12px; background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border:1px solid color-mix(in srgb, var(--success) 40%, var(--surface) 60%); font-weight:600; }

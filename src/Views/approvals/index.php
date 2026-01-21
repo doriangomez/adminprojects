@@ -230,40 +230,40 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
     .approvals-grid { display:flex; flex-direction:column; gap:20px; }
     .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
     .approvals-section header h3 { margin:0; }
-    .section-muted { color: var(--muted); margin:0; font-size:13px; }
-    .section-muted.empty { padding:10px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); }
+    .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
+    .section-muted.empty { padding:10px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); }
     .inbox-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; flex-direction:column; gap:10px; }
     .inbox-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
-    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text); }
-    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-strong); }
-    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-strong); }
-    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-strong); }
-    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-strong); }
-    .meta-line { font-size:12px; color: var(--muted); margin-top:4px; }
+    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); }
+    .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-primary); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-primary); }
+    .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-primary); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); }
+    .meta-line { font-size:12px; color: var(--text-secondary); margin-top:4px; }
     .inbox-card__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
-    .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--muted); display:block; margin-bottom:4px; font-weight:700; }
+    .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--text-secondary); display:block; margin-bottom:4px; font-weight:700; }
     .inbox-card__footer { display:flex; gap:8px; flex-wrap:wrap; }
-    .action-btn { background: var(--surface); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-    .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .action-panel { display:flex; flex-direction:column; gap:8px; }
     .action-panel textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; width:100%; }
     .action-panel__buttons { display:flex; gap:8px; flex-wrap:wrap; }
-    .history-panel { background: color-mix(in srgb, var(--surface) 84%, var(--bg-app) 16%); border:1px dashed var(--border); border-radius:10px; padding:8px; }
-    .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-strong); font-size:12px; }
-    .toast { position:sticky; top:12px; align-self:flex-start; background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color: var(--text-strong); padding:8px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--success) 40%, var(--border) 60%); font-weight:600; font-size:13px; }
-    .toast.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-strong); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
+    .history-panel { background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); border:1px dashed var(--border); border-radius:10px; padding:8px; }
+    .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-primary); font-size:12px; }
+    .toast { position:sticky; top:12px; align-self:flex-start; background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color: var(--text-primary); padding:8px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--success) 40%, var(--border) 60%); font-weight:600; font-size:13px; }
+    .toast.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
     .timesheet-table { width:100%; }
     .clean-table { width:100%; border-collapse:collapse; }
     .clean-table th,
     .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:13px; line-height:1.4; }
-    .clean-table th { font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
+    .clean-table th { font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--text-secondary); }
     .wrap-anywhere { overflow-wrap:anywhere; max-width:240px; }
     .timesheet-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-strong); }
+    .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-primary); }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
         .clean-table { display:block; overflow-x:auto; }

@@ -2,7 +2,7 @@
     <div>
         <a href="/project/public/clients" class="btn ghost">← Volver</a>
         <h3 style="margin:8px 0 0 0;">Detalle del cliente</h3>
-        <p style="margin:4px 0 0 0; color: var(--muted);">Gobierno y contexto de la relación. La información contractual permanece en los proyectos.</p>
+        <p style="margin:4px 0 0 0; color: var(--text-secondary);">Gobierno y contexto de la relación. La información contractual permanece en los proyectos.</p>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
         <?php if($canManage): ?>
@@ -52,7 +52,7 @@
             <div>
                 <p class="muted">PM a cargo</p>
                 <strong><?= htmlspecialchars($client['pm_name'] ?? 'Sin asignar') ?></strong><br>
-                <small style="color: var(--muted);">Email: <?= htmlspecialchars($client['pm_email'] ?? '-') ?></small>
+                <small style="color: var(--text-secondary);">Email: <?= htmlspecialchars($client['pm_email'] ?? '-') ?></small>
             </div>
             <div>
                 <p class="muted">Riesgo</p>
@@ -160,18 +160,18 @@
 </div>
 
 <?php if($auth->canDeleteClients()): ?>
-    <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:color-mix(in srgb, var(--text-main) 45%, transparent); align-items:center; justify-content:center; padding:16px;">
-        <div class="card" style="max-width:520px; width:100%; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); box-shadow:0 20px 40px color-mix(in srgb, var(--text-main) 18%, transparent);">
+    <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:color-mix(in srgb, var(--text-primary) 45%, var(--background)); align-items:center; justify-content:center; padding:16px;">
+        <div class="card" style="max-width:520px; width:100%; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); box-shadow:0 20px 40px color-mix(in srgb, var(--text-primary) 18%, var(--background));">
             <div class="toolbar">
                 <div style="display:flex; gap:10px; align-items:flex-start;">
                     <span aria-hidden="true" style="width:36px; height:36px; border-radius:12px; background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); display:inline-flex; align-items:center; justify-content:center; font-weight:800;">!</span>
                     <div>
                         <p class="badge danger" style="margin:0;" data-modal-context>Acción crítica</p>
                         <h4 style="margin:4px 0 0 0;" data-modal-title>Eliminar cliente</h4>
-                        <p style="margin:4px 0 0 0; color:var(--muted);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada proyectos, asignaciones de talento, timesheets, costos y adjuntos asociados.</p>
+                        <p style="margin:4px 0 0 0; color:var(--text-secondary);" data-modal-subtitle>Esta acción es irreversible y eliminará en cascada proyectos, asignaciones de talento, timesheets, costos y adjuntos asociados.</p>
                     </div>
                 </div>
-                <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--muted);">✕</button>
+                <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--text-secondary);">✕</button>
             </div>
             <form method="POST" action="/project/public/clients/delete" class="grid" style="gap:12px;" id="delete-form">
                 <input type="hidden" name="id" value="<?= (int) $client['id'] ?>">
@@ -181,11 +181,11 @@
                 <input type="hidden" name="force_delete" id="force_delete" value="1">
                 <div id="dependency-notice" style="display: none; padding: 10px 12px; border:1px solid color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--warning) 12%, var(--surface) 88%); border-radius:10px; color:var(--warning); font-weight:600;">El cliente tiene dependencias activas. La eliminación permanente las borrará en cascada.</div>
                 <div>
-                    <p style="margin:0 0 4px 0; color:var(--text); font-weight:600;">Confirmación obligatoria</p>
-                    <p style="margin:0 0 8px 0; color:var(--muted);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
+                    <p style="margin:0 0 4px 0; color:var(--text-secondary); font-weight:600;">Confirmación obligatoria</p>
+                    <p style="margin:0 0 8px 0; color:var(--text-secondary);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div style="flex:1;">
-                            <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb, var(--surface) 92%, var(--bg-app) 8%); font-weight:700;">
+                            <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); font-weight:700;">
                                 <?= $mathOperand1 ?> <?= $mathOperator ?> <?= $mathOperand2 ?> =
                             </div>
                         </div>

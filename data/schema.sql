@@ -503,12 +503,12 @@ INSERT INTO permissions (code, name) VALUES
 INSERT INTO config_settings (config_key, config_value) VALUES
 ('app', '{
     "theme": {
-        "logo": "/project/public/uploads/logos/default.svg",
-        "primary": "#2563eb",
-        "secondary": "#111827",
-        "accent": "#f59e0b",
-        "background": "#f3f4f6",
-        "surface": "#ffffff",
+        "logo": "",
+        "primary": "",
+        "secondary": "",
+        "accent": "",
+        "background": "",
+        "surface": "",
         "font_family": "\"Inter\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
         "login_hero": "Orquesta tus operaciones críticas",
         "login_message": "Diseña flujos, controla riesgos y haz visible el valor de tu PMO."
