@@ -828,8 +828,11 @@
                     return;
                 }
                 const data = await response.json();
-                if (data && data.theme && typeof window.applyTheme === 'function') {
-                    window.applyTheme(data.theme);
+                if (data && data.theme) {
+                    window.__APP_THEME__ = data.theme;
+                    if (typeof window.applyTheme === 'function') {
+                        window.applyTheme(data.theme);
+                    }
                 }
                 const savedBadge = document.querySelector('[data-theme-saved]');
                 if (savedBadge) {
