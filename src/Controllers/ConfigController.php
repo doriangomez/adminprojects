@@ -65,28 +65,29 @@ class ConfigController extends Controller
         $configService = new ConfigService($this->db);
         $current = $configService->getConfig();
         $themeDefaults = $configService->getDefaults()['theme'] ?? [];
+        $currentTheme = $current['theme'] ?? [];
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
-        $logoValue = $logoFromUpload ?: $logoUrl;
+        $logoValue = $logoFromUpload ?: ($logoUrl !== '' ? $logoUrl : ($currentTheme['logo'] ?? ''));
         $textSoft = $_POST['text_soft']
             ?? $_POST['text_disabled']
-            ?? ($themeDefaults['text_soft'] ?? $themeDefaults['text_disabled'] ?? '#94a3b8');
+            ?? ($currentTheme['text_soft'] ?? $currentTheme['text_disabled'] ?? $themeDefaults['text_soft'] ?? $themeDefaults['text_disabled'] ?? '#94a3b8');
 
         $payload = [
             'theme' => [
                 'logo' => $logoValue,
-                'primary' => $_POST['primary'] ?? ($themeDefaults['primary'] ?? '#2563eb'),
-                'secondary' => $_POST['secondary'] ?? ($themeDefaults['secondary'] ?? '#0f172a'),
-                'accent' => $_POST['accent'] ?? ($themeDefaults['accent'] ?? '#f97316'),
-                'background' => $_POST['background'] ?? ($themeDefaults['background'] ?? '#0b1224'),
-                'surface' => $_POST['surface'] ?? ($themeDefaults['surface'] ?? '#0f172a'),
-                'text_main' => $_POST['text_main'] ?? ($themeDefaults['text_main'] ?? '#0f172a'),
-                'text_muted' => $_POST['text_muted'] ?? ($themeDefaults['text_muted'] ?? '#475569'),
+                'primary' => $_POST['primary'] ?? ($currentTheme['primary'] ?? ($themeDefaults['primary'] ?? '#2563eb')),
+                'secondary' => $_POST['secondary'] ?? ($currentTheme['secondary'] ?? ($themeDefaults['secondary'] ?? '#0f172a')),
+                'accent' => $_POST['accent'] ?? ($currentTheme['accent'] ?? ($themeDefaults['accent'] ?? '#f97316')),
+                'background' => $_POST['background'] ?? ($currentTheme['background'] ?? ($themeDefaults['background'] ?? '#0b1224')),
+                'surface' => $_POST['surface'] ?? ($currentTheme['surface'] ?? ($themeDefaults['surface'] ?? '#0f172a')),
+                'text_main' => $_POST['text_main'] ?? ($currentTheme['text_main'] ?? ($themeDefaults['text_main'] ?? '#0f172a')),
+                'text_muted' => $_POST['text_muted'] ?? ($currentTheme['text_muted'] ?? ($themeDefaults['text_muted'] ?? '#475569')),
                 'text_soft' => $textSoft,
                 'text_disabled' => $textSoft,
-                'font_family' => trim($_POST['font_family'] ?? ($themeDefaults['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif")),
-                'login_hero' => trim($_POST['login_hero'] ?? ''),
-                'login_message' => trim($_POST['login_message'] ?? ''),
+                'font_family' => trim($_POST['font_family'] ?? ($currentTheme['font_family'] ?? ($themeDefaults['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"))),
+                'login_hero' => trim($_POST['login_hero'] ?? ($currentTheme['login_hero'] ?? '')),
+                'login_message' => trim($_POST['login_message'] ?? ($currentTheme['login_message'] ?? '')),
             ],
             'master_files' => [
                 'data_file' => trim($_POST['data_file'] ?? 'data/data.json'),

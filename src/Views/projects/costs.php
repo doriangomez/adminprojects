@@ -59,10 +59,10 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
     .costs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
     .cost-card { border:1px solid var(--border); padding:14px; border-radius:14px; background: var(--card); display:flex; flex-direction:column; gap:6px; }
     .cost-card strong { font-size:20px; color: var(--text-strong); }
-    .cost-card.is-positive strong { color: #15803d; }
-    .cost-card.is-negative strong { color: #b91c1c; }
+    .cost-card.is-positive strong { color: var(--success); }
+    .cost-card.is-negative strong { color: var(--danger); }
     .cost-hint { font-size:12px; color: var(--muted); }
 
-    .info-box { border:1px solid var(--border); border-radius:12px; padding:12px; background: rgba(59, 130, 246, 0.08); }
+    .info-box { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--primary) 10%, transparent); }
     .info-box p { margin:6px 0 0 0; color: var(--muted); }
 </style>
