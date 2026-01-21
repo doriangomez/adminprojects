@@ -800,7 +800,7 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .project-title-block h2 { margin:0; color: var(--text-strong); }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .project-badges { display:flex; gap:8px; flex-wrap:wrap; }
-    .pill.neutral { background:#f8fafc; border-color: var(--border); color: var(--text-strong); }
+    .pill.neutral { background: color-mix(in srgb, var(--text-muted) 10%, transparent); border-color: var(--border); color: var(--text-strong); }
     .summary-layout { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
     .info-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:14px; }
     .info-list { display:grid; gap:10px; }
@@ -809,24 +809,24 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .progress-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:12px; }
     .progress-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .action-btn { background: var(--card); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
-    .action-btn.danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
+    .action-btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
     .folder-meta { display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap; }
     .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid transparent; }
-    .status-muted { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
-    .status-info { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
-    .status-success { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
-    .status-warning { background:#fef9c3; color:#854d0e; border-color:#fde047; }
-    .status-danger { background:#fee2e2; color:#991b1b; border-color:#fecdd3; }
-    .count-pill { font-size:12px; font-weight:700; color: var(--text-strong); background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
+    .status-muted { background: color-mix(in srgb, var(--text-muted) 14%, transparent); color: var(--text-strong); border-color: var(--border); }
+    .status-info { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+    .status-success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 32%, transparent); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 32%, transparent); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 32%, transparent); }
+    .count-pill { font-size:12px; font-weight:700; color: var(--text-strong); background: color-mix(in srgb, var(--text-muted) 10%, transparent); border:1px solid var(--border); border-radius:999px; padding:4px 8px; }
     .breadcrumb { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13px; color: var(--muted); margin-bottom:8px; }
     .breadcrumb a { color: var(--text-strong); text-decoration:none; font-weight:600; }
     .breadcrumb span { color: var(--muted); }
     .project-progress { display:flex; flex-direction:column; gap:4px; max-width:320px; }
     .project-progress__label { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
-    .project-progress__bar { background:#e5e7eb; border-radius:999px; overflow:hidden; height:8px; }
+    .project-progress__bar { background: color-mix(in srgb, var(--text-muted) 22%, transparent); border-radius:999px; overflow:hidden; height:8px; }
     .project-progress__bar div { height:100%; background: var(--primary); border-radius:999px; }
     .project-progress__value { font-size:12px; color: var(--muted); }
     .progress-meta { display:grid; gap:8px; width:100%; }
@@ -839,22 +839,22 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .indicator-card span { font-size:12px; text-transform:uppercase; color: var(--muted); font-weight:700; }
     .indicator-card strong { font-size:18px; color: var(--text-strong); display:block; }
     .indicator-card small { font-size:12px; color: var(--muted); }
-    .indicator-icon { width:36px; height:36px; border-radius:10px; background: rgba(59, 130, 246, 0.12); display:inline-flex; align-items:center; justify-content:center; }
+    .indicator-icon { width:36px; height:36px; border-radius:10px; background: color-mix(in srgb, var(--primary) 12%, transparent); display:inline-flex; align-items:center; justify-content:center; }
     .progress-history { display:flex; }
     .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--card); display:flex; flex-direction:column; gap:12px; width:100%; }
     .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .project-layout { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
-    .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: rgba(148, 163, 184, 0.08); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
+    .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--text-muted) 8%, transparent); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
     .phase-sidebar__header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
     .phase-list, .phase-sublist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
     .phase-item { display:flex; flex-direction:column; gap:6px; }
     .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-strong); border:1px solid transparent; background: var(--card); }
     .phase-link:hover { border-color: var(--border); }
-    .phase-link.active { background:#0f172a; color:#fff; border-color:#0f172a; }
-    .phase-link.active .section-muted { color: rgba(255,255,255,0.75); }
+    .phase-link.active { background: var(--secondary); color: var(--bg-card); border-color: var(--secondary); }
+    .phase-link.active .section-muted { color: color-mix(in srgb, var(--bg-card) 75%, transparent); }
     .phase-link__title { display:flex; gap:10px; align-items:center; }
     .phase-icon { font-size:18px; }
-    .phase-progress-bar { height:6px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+    .phase-progress-bar { height:6px; background: color-mix(in srgb, var(--text-muted) 22%, transparent); border-radius:999px; overflow:hidden; }
     .phase-progress-bar div { height:100%; background: var(--primary); }
     .phase-group { border:1px solid var(--border); border-radius:12px; padding:8px; background: var(--card); }
     .phase-group summary { list-style:none; cursor:pointer; }
@@ -866,16 +866,16 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .phase-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
     .phase-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
     .phase-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--border); padding-bottom:8px; }
-    .phase-tab { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background:#f8fafc; }
-    .phase-tab.active { background: var(--primary); color:#fff; border-color: var(--primary); }
+    .phase-tab { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-muted) 10%, transparent); }
+    .phase-tab.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
     .phase-tab.disabled { opacity:0.5; cursor:not-allowed; }
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
-    .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: rgba(148, 163, 184, 0.12); }
-    .phase-warning { color:#7f1d1d; margin:0; }
+    .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+    .phase-warning { color: var(--danger); margin:0; }
     .progress-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
     .progress-modal.is-visible { display:flex; }
-    .progress-modal .modal__backdrop { position:absolute; inset:0; background:rgba(15, 23, 42, 0.45); }
-    .progress-modal .modal__panel { position:relative; background: var(--card); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px rgba(15, 23, 42, 0.25); display:flex; flex-direction:column; gap:12px; z-index:1; }
+    .progress-modal .modal__backdrop { position:absolute; inset:0; background: color-mix(in srgb, var(--text-main) 45%, transparent); }
+    .progress-modal .modal__panel { position:relative; background: var(--card); border-radius:16px; padding:16px; width:min(520px, 90vw); box-shadow:0 20px 40px color-mix(in srgb, var(--text-main) 25%, transparent); display:flex; flex-direction:column; gap:12px; z-index:1; }
     .modal__header { display:flex; justify-content:space-between; align-items:center; }
     .modal__header h3 { margin:0; }
     .modal__body { display:flex; flex-direction:column; gap:12px; }
@@ -889,10 +889,10 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .notes-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .notes-form { display:flex; flex-direction:column; gap:12px; }
     .notes-field { display:flex; flex-direction:column; gap:6px; font-size:13px; color: var(--muted); }
-    .notes-field textarea { width:100%; border-radius:12px; border:1px solid var(--border); padding:10px; font-size:14px; color: var(--text-strong); background:#fff; }
+    .notes-field textarea { width:100%; border-radius:12px; border:1px solid var(--border); padding:10px; font-size:14px; color: var(--text-strong); background: var(--bg-card); }
     .notes-actions { display:flex; justify-content:flex-end; }
     .notes-timeline { display:flex; flex-direction:column; gap:12px; }
-    .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background:rgba(148, 163, 184, 0.08); display:flex; flex-direction:column; gap:8px; }
+    .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--text-muted) 8%, transparent); display:flex; flex-direction:column; gap:8px; }
     .notes-entry strong { color: var(--text-strong); }
     @media (max-width: 960px) {
         .project-layout { grid-template-columns: 1fr; }

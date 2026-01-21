@@ -262,21 +262,21 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .form-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; }
     .form-header h3 { margin:0; color: var(--text-strong); }
     .form-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--border); padding-bottom:8px; }
-    .form-tabs a { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background: rgba(148, 163, 184, 0.12); }
-    .form-tabs a:hover { background: rgba(59, 130, 246, 0.12); color: var(--primary); }
-    .form-tabs a.danger-tab { border-color: rgba(239, 68, 68, 0.4); color: #b91c1c; }
+    .form-tabs a { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-strong); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-muted) 14%, transparent); }
+    .form-tabs a:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+    .form-tabs a.danger-tab { border-color: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); }
 
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
     .accordion { border:1px solid var(--border); border-radius:14px; background: var(--card); }
     .accordion-summary { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px 14px; cursor:pointer; list-style:none; }
     .accordion-summary::-webkit-details-marker { display:none; }
     .accordion-body { padding:0 14px 14px; display:flex; flex-direction:column; gap:12px; }
-    .hint-box { background: rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.4); color:#0f172a; padding:10px; border-radius:10px; }
+    .hint-box { background: color-mix(in srgb, var(--primary) 10%, transparent); border:1px solid color-mix(in srgb, var(--primary) 40%, transparent); color: var(--text-strong); padding:10px; border-radius:10px; }
 
     .risk-fieldset { border:1px solid var(--border); padding:12px; border-radius:12px; }
     .risk-fieldset legend { font-weight:700; color: var(--text-strong); padding:0 6px; }
     .risk-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-    .risk-group { border:1px solid var(--border); padding:10px; border-radius:12px; background: rgba(148, 163, 184, 0.12); display:flex; flex-direction:column; gap:10px; }
+    .risk-group { border:1px solid var(--border); padding:10px; border-radius:12px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); display:flex; flex-direction:column; gap:10px; }
     .risk-group__header { display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .risk-chips { display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap:8px; }
     .risk-chips.is-collapsed .risk-chip:nth-child(n+7) { display:none; }
@@ -284,24 +284,24 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .risk-chip input { margin-top:2px; }
     .link-button { border:none; background: transparent; color: var(--primary); font-weight:700; cursor:pointer; font-size:12px; }
 
-    .empty-state { padding:10px 12px; border-radius:10px; background: rgba(148, 163, 184, 0.12); color: var(--muted); font-weight:600; }
+    .empty-state { padding:10px 12px; border-radius:10px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); color: var(--muted); font-weight:600; }
 
-    .danger-zone { margin-top:16px; border-color:#fecaca; background: #fff7ed; }
+    .danger-zone { margin-top:16px; border-color: color-mix(in srgb, var(--danger) 35%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--bg-card) 90%); }
     .danger-header { display:flex; gap:12px; align-items:flex-start; }
-    .danger-icon { width:34px; height:34px; border-radius:10px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
-    .danger-title { margin:0; font-weight:700; color:#b91c1c; }
-    .danger-text { margin:4px 0 0 0; color:#7f1d1d; }
-    .danger-box { border:1px solid #fed7aa; background:#fffbeb; border-radius:12px; padding:12px; }
-    .danger-subtitle { margin:0 0 6px 0; font-weight:600; color:#92400e; }
-    .danger-grid { margin:0; padding-left:18px; color:#b45309; display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:4px 12px; }
-    .danger-note { margin:8px 0 0 0; color:#9a3412; font-size:14px; }
+    .danger-icon { width:34px; height:34px; border-radius:10px; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); border:1px solid color-mix(in srgb, var(--danger) 40%, transparent); display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
+    .danger-title { margin:0; font-weight:700; color: var(--danger); }
+    .danger-text { margin:4px 0 0 0; color: color-mix(in srgb, var(--danger) 80%, var(--text-main) 20%); }
+    .danger-box { border:1px solid color-mix(in srgb, var(--warning) 40%, transparent); background: color-mix(in srgb, var(--warning) 10%, var(--bg-card) 90%); border-radius:12px; padding:12px; }
+    .danger-subtitle { margin:0 0 6px 0; font-weight:600; color: var(--warning); }
+    .danger-grid { margin:0; padding-left:18px; color: var(--warning); display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:4px 12px; }
+    .danger-note { margin:8px 0 0 0; color: color-mix(in srgb, var(--warning) 80%, var(--text-main) 20%); font-size:14px; }
     .danger-math { display:flex; align-items:center; gap:10px; }
-    .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:rgba(148, 163, 184, 0.12); font-weight:700; }
-    .danger-feedback { display:none; padding:10px 12px; border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; border-radius:10px; font-weight:600; }
+    .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); font-weight:700; }
+    .danger-feedback { display:none; padding:10px 12px; border:1px solid color-mix(in srgb, var(--danger) 35%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); border-radius:10px; font-weight:600; }
     .danger-actions { display:flex; justify-content:flex-end; gap:8px; }
-    .btn.danger { color:#b91c1c; border-color:#fecaca; background:#fef2f2; }
+    .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); }
     .action-btn { background: var(--card); color: var(--text-strong); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
-    .action-btn.primary { background: var(--primary); color:#fff; border-color: var(--primary); }
+    .action-btn.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 </style>
 
 <script>
