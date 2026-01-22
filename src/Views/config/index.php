@@ -143,6 +143,11 @@
         color: var(--text-secondary);
         font-size: 14px;
     }
+    .governance-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
     .governance-switches,
     .governance-modules,
     .governance-access-section,
@@ -151,10 +156,78 @@
         flex-direction: column;
         gap: 12px;
     }
+    .governance-rules {
+        display: grid;
+        gap: 12px;
+    }
+    .governance-rule {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+    }
+    .governance-rule-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .governance-rule-title {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .governance-rule-desc {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
     .governance-module {
         display: flex;
         flex-direction: column;
         gap: 6px;
+    }
+    .governance-module-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+    }
+    .governance-module-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .governance-module-title {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .governance-module-desc {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
+    .toggle-switch--solo {
+        margin-left: auto;
+    }
+    .toggle-switch--solo .toggle-track {
+        width: 50px;
+        height: 28px;
+    }
+    .toggle-switch--solo .toggle-track::after {
+        width: 22px;
+        height: 22px;
+        top: 2px;
+        left: 2px;
+    }
+    .toggle-switch--solo input:checked + .toggle-track::after {
+        transform: translateX(22px);
     }
     .governance-block--critical {
         padding: 6px;
@@ -170,12 +243,154 @@
         margin-top: 16px;
         padding-top: 16px;
     }
+    .permission-groups {
+        display: grid;
+        gap: 16px;
+    }
+    .permission-group {
+        border-radius: 14px;
+        border: 1px dashed var(--border);
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%);
+    }
+    .permission-group-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .permission-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 8px 12px;
+        justify-items: start;
+    }
+    .permission-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    .permission-item input {
+        margin: 0;
+    }
+    .role-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .role-panel {
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
+        padding: 0;
+        overflow: hidden;
+    }
+    .role-panel summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-weight: 700;
+    }
+    .role-panel summary::-webkit-details-marker {
+        display: none;
+    }
+    .role-panel-body {
+        padding: 16px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .user-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .user-card {
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        overflow: hidden;
+    }
+    .user-card summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        display: grid;
+        grid-template-columns: minmax(140px, 1.2fr) minmax(180px, 1.4fr) minmax(120px, 1fr) minmax(90px, 0.6fr) auto;
+        gap: 12px;
+        align-items: center;
+    }
+    .user-card summary::-webkit-details-marker {
+        display: none;
+    }
+    .user-card summary span {
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+    .user-expand {
+        font-weight: 600;
+        color: var(--primary);
+    }
+    .user-details {
+        border-top: 1px solid var(--border);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .user-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    .json-collapse {
+        border-radius: 14px;
+        border: 1px dashed var(--border);
+        background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%);
+        padding: 12px 14px;
+    }
+    .json-collapse summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--text-primary);
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .json-collapse summary::-webkit-details-marker {
+        display: none;
+    }
+    .json-collapse .input-stack {
+        margin-top: 12px;
+    }
     @media (max-width: 980px) {
         .section-grid-two {
             grid-template-columns: 1fr;
         }
         .preview-card {
             position: static;
+        }
+        .user-card summary {
+            grid-template-columns: 1fr;
+        }
+        .user-expand {
+            justify-self: start;
+        }
+        .permission-list {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -412,6 +627,37 @@
 
             <section id="panel-gobierno" class="tab-panel governance-panel">
                 <form id="governance-config-form" method="POST" action="/project/public/config/theme" enctype="multipart/form-data"></form>
+                <?php
+                $permissionGroups = [
+                    'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo'],
+                    'Visualización' => ['ver', 'visualizar', 'dashboard', 'reporte', 'report'],
+                    'Operación' => ['timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
+                ];
+                $groupPermissions = function(array $permissions) use ($permissionGroups): array {
+                    $grouped = [];
+                    foreach ($permissionGroups as $group => $keywords) {
+                        $grouped[$group] = [];
+                    }
+                    $grouped['Otros'] = [];
+                    foreach ($permissions as $permission) {
+                        $name = mb_strtolower($permission['name'] ?? '');
+                        $matched = false;
+                        foreach ($permissionGroups as $group => $keywords) {
+                            foreach ($keywords as $keyword) {
+                                if (mb_strpos($name, $keyword) !== false) {
+                                    $grouped[$group][] = $permission;
+                                    $matched = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                        if (!$matched) {
+                            $grouped['Otros'][] = $permission;
+                        }
+                    }
+                    return array_filter($grouped);
+                };
+                ?>
                 <div class="governance-blocks">
                     <div class="card config-card governance-block">
                         <div class="card-content">
@@ -419,17 +665,27 @@
                                 <h3 class="governance-block-title">Reglas globales del sistema</h3>
                                 <p class="governance-block-subtitle">(impactan a todo el sistema)</p>
                             </header>
-                            <div class="governance-switches">
-                                <label class="toggle-switch">
-                                    <input type="checkbox" name="budget_change_requires_approval" form="governance-config-form" <?= $configData['operational_rules']['approvals']['budget_change_requires_approval'] ? 'checked' : '' ?>>
-                                    <span class="toggle-track" aria-hidden="true"></span>
-                                    Cambios de presupuesto requieren aprobación
-                                </label>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" name="external_talent_requires_approval" form="governance-config-form" <?= $configData['operational_rules']['approvals']['external_talent_requires_approval'] ? 'checked' : '' ?>>
-                                    <span class="toggle-track" aria-hidden="true"></span>
-                                    Talento externo requiere aprobación
-                                </label>
+                            <div class="governance-rules">
+                                <div class="governance-rule">
+                                    <div class="governance-rule-info">
+                                        <span class="governance-rule-title">Cambios de presupuesto requieren aprobación</span>
+                                        <p class="governance-rule-desc">Evita ajustes de presupuesto sin revisión previa.</p>
+                                    </div>
+                                    <label class="toggle-switch toggle-switch--solo" aria-label="Cambios de presupuesto requieren aprobación">
+                                        <input type="checkbox" name="budget_change_requires_approval" form="governance-config-form" <?= $configData['operational_rules']['approvals']['budget_change_requires_approval'] ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                    </label>
+                                </div>
+                                <div class="governance-rule">
+                                    <div class="governance-rule-info">
+                                        <span class="governance-rule-title">Talento externo requiere aprobación</span>
+                                        <p class="governance-rule-desc">Asegura control en la incorporación de talento externo.</p>
+                                    </div>
+                                    <label class="toggle-switch toggle-switch--solo" aria-label="Talento externo requiere aprobación">
+                                        <input type="checkbox" name="external_talent_requires_approval" form="governance-config-form" <?= $configData['operational_rules']['approvals']['external_talent_requires_approval'] ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -441,26 +697,34 @@
                                 <p class="governance-block-subtitle">Activa o desactiva módulos del sistema.</p>
                             </header>
                             <div class="governance-modules">
-                                <div class="governance-module">
-                                    <label class="toggle-switch">
+                                <div class="governance-module-row">
+                                    <div class="governance-module-info">
+                                        <span class="governance-module-title">Timesheets</span>
+                                        <p class="governance-module-desc">Activa el módulo y el menú para talentos con reporte requerido.</p>
+                                    </div>
+                                    <label class="toggle-switch toggle-switch--solo" aria-label="Habilitar reporte de horas (Timesheets)">
                                         <input type="checkbox" name="timesheets_enabled" form="governance-config-form" <?= !empty($configData['operational_rules']['timesheets']['enabled']) ? 'checked' : '' ?>>
                                         <span class="toggle-track" aria-hidden="true"></span>
-                                        Habilitar reporte de horas (Timesheets)
-                                    </label>
-                                    <small class="section-muted">Activa el módulo y el menú para talentos con reporte requerido.</small>
-                                </div>
-                                <div class="governance-module">
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" checked disabled>
-                                        <span class="toggle-track" aria-hidden="true"></span>
-                                        Outsourcing
                                     </label>
                                 </div>
-                                <div class="governance-module">
-                                    <label class="toggle-switch">
+                                <div class="governance-module-row">
+                                    <div class="governance-module-info">
+                                        <span class="governance-module-title">Outsourcing</span>
+                                        <p class="governance-module-desc">Disponible para gestión de talento externo y proveedores.</p>
+                                    </div>
+                                    <label class="toggle-switch toggle-switch--solo" aria-label="Outsourcing">
                                         <input type="checkbox" checked disabled>
                                         <span class="toggle-track" aria-hidden="true"></span>
-                                        Aprobaciones
+                                    </label>
+                                </div>
+                                <div class="governance-module-row">
+                                    <div class="governance-module-info">
+                                        <span class="governance-module-title">Aprobaciones</span>
+                                        <p class="governance-module-desc">Controla la ruta de revisiones críticas del sistema.</p>
+                                    </div>
+                                    <label class="toggle-switch toggle-switch--solo" aria-label="Aprobaciones">
+                                        <input type="checkbox" checked disabled>
+                                        <span class="toggle-track" aria-hidden="true"></span>
                                     </label>
                                 </div>
                             </div>
@@ -473,71 +737,103 @@
                                 <h3 class="governance-block-title">Gobernanza de acceso</h3>
                                 <p class="governance-block-subtitle">(quién puede hacer qué)</p>
                             </header>
-                            <div class="governance-access-section">
-                                <span class="section-label">Roles del sistema</span>
-                                <div class="input-stack">
-                                    <label>Roles permitidos (separados por coma)</label>
-                                    <input name="roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['access']['roles'])) ?>">
+                            <div class="governance-card-body">
+                                <div class="governance-access-section">
+                                    <span class="section-label">Roles del sistema</span>
+                                    <div class="input-stack">
+                                        <label>Roles permitidos (separados por coma)</label>
+                                        <input name="roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['access']['roles'])) ?>">
+                                    </div>
+                                    <div class="option-row">
+                                        <label class="option">
+                                            <input type="checkbox" name="allow_self_registration" form="governance-config-form" <?= $configData['access']['user_management']['allow_self_registration'] ? 'checked' : '' ?>>
+                                            Auto-registro
+                                        </label>
+                                        <label class="option">
+                                            <input type="checkbox" name="require_approval" form="governance-config-form" <?= $configData['access']['user_management']['require_approval'] ? 'checked' : '' ?>>
+                                            Requiere aprobación
+                                        </label>
+                                    </div>
                                 </div>
-                                <div class="option-row">
-                                    <label class="option">
-                                        <input type="checkbox" name="allow_self_registration" form="governance-config-form" <?= $configData['access']['user_management']['allow_self_registration'] ? 'checked' : '' ?>>
-                                        Auto-registro
-                                    </label>
-                                    <label class="option">
-                                        <input type="checkbox" name="require_approval" form="governance-config-form" <?= $configData['access']['user_management']['require_approval'] ? 'checked' : '' ?>>
-                                        Requiere aprobación
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="governance-access-section">
-                                <span class="section-label">Permisos por rol</span>
-                                <form method="POST" action="/project/public/config/roles/create" class="config-form-grid">
-                                    <input name="nombre" placeholder="Nombre del rol" required>
-                                    <input name="descripcion" placeholder="Descripción">
-                                    <div class="pillset full-span">
-                                        <?php foreach($permissions as $permission): ?>
-                                            <label class="pill" style="background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); border: 1px solid var(--border);">
-                                                <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
-                                                <?= htmlspecialchars($permission['name']) ?>
-                                            </label>
+                                <div class="governance-access-section">
+                                    <span class="section-label">Permisos por rol</span>
+                                    <form method="POST" action="/project/public/config/roles/create" class="config-form-grid">
+                                        <input name="nombre" placeholder="Nombre del rol" required>
+                                        <input name="descripcion" placeholder="Descripción">
+                                        <div class="permission-groups full-span">
+                                            <?php foreach($groupPermissions($permissions) as $groupName => $groupItems): ?>
+                                                <div class="permission-group">
+                                                    <p class="permission-group-title"><?= htmlspecialchars($groupName) ?></p>
+                                                    <div class="permission-list">
+                                                        <?php foreach($groupItems as $permission): ?>
+                                                            <label class="permission-item">
+                                                                <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
+                                                                <?= htmlspecialchars($permission['name']) ?>
+                                                            </label>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div class="form-footer">
+                                            <div></div>
+                                            <button class="btn primary" type="submit">Crear rol</button>
+                                        </div>
+                                    </form>
+                                    <div class="role-accordion">
+                                        <?php foreach($roles as $index => $role): ?>
+                                            <details class="role-panel" <?= $index === 0 ? 'open' : '' ?>>
+                                                <summary>
+                                                    <span><?= htmlspecialchars($role['nombre']) ?></span>
+                                                    <span class="text-muted">Editar permisos</span>
+                                                </summary>
+                                                <div class="role-panel-body">
+                                                    <form method="POST" action="/project/public/config/roles/update">
+                                                        <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
+                                                        <div class="config-form-grid tight">
+                                                            <label>Nombre<input name="nombre" value="<?= htmlspecialchars($role['nombre']) ?>"></label>
+                                                            <label>Descripción<input name="descripcion" value="<?= htmlspecialchars($role['descripcion'] ?? '') ?>"></label>
+                                                        </div>
+                                                        <div class="permission-groups">
+                                                            <?php foreach($groupPermissions($permissions) as $groupName => $groupItems): ?>
+                                                                <div class="permission-group">
+                                                                    <p class="permission-group-title"><?= htmlspecialchars($groupName) ?></p>
+                                                                    <div class="permission-list">
+                                                                        <?php foreach($groupItems as $permission): ?>
+                                                                            <?php $assigned = array_filter($role['permissions'], fn($p) => (int)$p['id'] === (int)$permission['id']); ?>
+                                                                            <label class="permission-item">
+                                                                                <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $assigned ? 'checked' : '' ?>>
+                                                                                <?= htmlspecialchars($permission['name']) ?>
+                                                                            </label>
+                                                                        <?php endforeach; ?>
+                                                                    </div>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                        <div class="form-footer">
+                                                            <div></div>
+                                                            <button class="btn secondary" type="submit">Actualizar rol</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </details>
                                         <?php endforeach; ?>
                                     </div>
-                                    <div class="form-footer">
-                                        <div></div>
-                                        <button class="btn primary" type="submit">Crear rol</button>
-                                    </div>
-                                </form>
-                                <div class="card-stack">
-                                    <?php foreach($roles as $role): ?>
-                                        <form method="POST" action="/project/public/config/roles/update" class="card subtle-card stretch">
-                                            <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
-                                            <div class="toolbar">
-                                                <div>
-                                                    <strong><?= htmlspecialchars($role['nombre']) ?></strong>
-                                                    <p style="margin:0; color: var(--text-secondary); font-size:13px;"><?= htmlspecialchars($role['descripcion'] ?? 'Rol operativo') ?></p>
-                                                </div>
-                                                <button class="btn secondary" type="submit">Actualizar rol</button>
-                                            </div>
-                                            <div class="config-form-grid tight">
-                                                <label>Nombre<input name="nombre" value="<?= htmlspecialchars($role['nombre']) ?>"></label>
-                                                <label>Descripción<input name="descripcion" value="<?= htmlspecialchars($role['descripcion'] ?? '') ?>"></label>
-                                            </div>
-                                            <div class="pillset">
-                                                <?php foreach($permissions as $permission): ?>
-                                                    <?php $assigned = array_filter($role['permissions'], fn($p) => (int)$p['id'] === (int)$permission['id']); ?>
-                                                    <label class="pill" style="background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); border: 1px solid var(--border);">
-                                                        <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $assigned ? 'checked' : '' ?>>
-                                                        <?= htmlspecialchars($permission['name']) ?>
-                                                    </label>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        </form>
-                                    <?php endforeach; ?>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card config-card governance-block">
+                    <div class="card-content">
+                        <header class="governance-block-header">
+                            <h3 class="governance-block-title">Usuarios</h3>
+                            <p class="governance-block-subtitle">Gestiona altas, roles y permisos puntuales por usuario.</p>
+                        </header>
+                        <div class="governance-card-body">
                             <div class="governance-access-section">
-                                <span class="section-label">Alta y edición</span>
+                                <span class="section-label">Alta de usuarios</span>
                                 <form method="POST" action="/project/public/config/users/create" class="config-form-grid">
                                     <input name="name" placeholder="Nombre" required>
                                     <input name="email" type="email" placeholder="Correo" required>
@@ -608,103 +904,105 @@
                                         <button class="btn primary" type="submit">Crear usuario</button>
                                     </div>
                                 </form>
-                                <div class="table-wrapper">
-                                    <table>
-                                        <thead>
-                                            <tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach($users as $user): ?>
-                                                <tr>
-                                                    <td><?= htmlspecialchars($user['name']) ?></td>
-                                                    <td><?= htmlspecialchars($user['email']) ?></td>
-                                                    <td><?= htmlspecialchars($user['role_name']) ?></td>
-                                                    <td>
-                                                        <?php if((int)$user['active'] === 1): ?>
-                                                            <span class="badge success">Activo</span>
-                                                        <?php else: ?>
-                                                            <span class="badge danger">Inactivo</span>
-                                                        <?php endif; ?>
-                                                    </td>
-                                                    <td>
-                                                        <div class="table-actions">
-                                                            <?php if ($isAdmin): ?>
-                                                                <form method="POST" action="/project/public/impersonate/start" class="inline">
-                                                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                                                                    <button class="btn secondary" type="submit">Ver como usuario</button>
-                                                                </form>
-                                                            <?php endif; ?>
-                                                            <form method="POST" action="/project/public/config/users/update" class="inline">
-                                                                <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
-                                                                <input name="name" value="<?= htmlspecialchars($user['name']) ?>" style="width:140px;">
-                                                                <input name="email" value="<?= htmlspecialchars($user['email']) ?>" style="width:180px;">
-                                                                <select name="role_id">
-                                                                    <?php foreach($roles as $role): ?>
-                                                                        <option value="<?= (int) $role['id'] ?>" <?= ((int)$role['id'] === (int)$user['role_id']) ? 'selected' : '' ?>><?= htmlspecialchars($role['nombre']) ?></option>
-                                                                    <?php endforeach; ?>
-                                                                </select>
-                                                                <input name="password" type="password" placeholder="Nueva contraseña" style="width:150px;">
-                                                                <label class="option compact">
-                                                                    <input type="checkbox" name="active" <?= ((int)$user['active'] === 1) ? 'checked' : '' ?>>
-                                                                    Activo
-                                                                </label>
-                                                                <div class="config-flow-roles">
-                                                                    <strong>Flujo documental</strong>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_review_documents" <?= ((int) ($user['can_review_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Revisor
-                                                                    </label>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_validate_documents" <?= ((int) ($user['can_validate_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Validador
-                                                                    </label>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_approve_documents" <?= ((int) ($user['can_approve_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Aprobador
-                                                                    </label>
-                                                                </div>
-                                                                <div class="config-flow-roles">
-                                                                    <strong>Permisos de avance</strong>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_update_project_progress" <?= ((int) ($user['can_update_project_progress'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Actualizar avance
-                                                                    </label>
-                                                                </div>
-                                                                <div class="config-flow-roles">
-                                                                    <strong>Permisos de outsourcing</strong>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Acceder a Outsourcing
-                                                                    </label>
-                                                                </div>
-                                                                <div class="config-flow-roles">
-                                                                    <strong>Permisos de timesheets</strong>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_access_timesheets" <?= ((int) ($user['can_access_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Acceder a Timesheets
-                                                                    </label>
-                                                                    <label class="option compact">
-                                                                        <input type="checkbox" name="can_approve_timesheets" <?= ((int) ($user['can_approve_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                                        Aprobar Timesheets
-                                                                    </label>
-                                                                </div>
-                                                                <button class="btn secondary" type="submit">Guardar</button>
-                                                            </form>
-                                                            <form method="POST" action="/project/public/config/users/deactivate" onsubmit="return confirm('Desactivar usuario?');">
-                                                                <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
-                                                                <button class="btn ghost" type="submit">Desactivar</button>
-                                                            </form>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
+                                <div class="user-accordion">
+                                    <?php foreach($users as $user): ?>
+                                        <details class="user-card">
+                                            <summary>
+                                                <span><?= htmlspecialchars($user['name']) ?></span>
+                                                <span><?= htmlspecialchars($user['email']) ?></span>
+                                                <span><?= htmlspecialchars($user['role_name']) ?></span>
+                                                <span>
+                                                    <?php if((int)$user['active'] === 1): ?>
+                                                        <span class="badge success">Activo</span>
+                                                    <?php else: ?>
+                                                        <span class="badge danger">Inactivo</span>
+                                                    <?php endif; ?>
+                                                </span>
+                                                <span class="user-expand">Ver permisos</span>
+                                            </summary>
+                                            <div class="user-details">
+                                                <form method="POST" action="/project/public/config/users/update">
+                                                    <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
+                                                    <div class="config-form-grid">
+                                                        <label>Nombre<input name="name" value="<?= htmlspecialchars($user['name']) ?>"></label>
+                                                        <label>Correo<input name="email" value="<?= htmlspecialchars($user['email']) ?>"></label>
+                                                        <label>Rol
+                                                            <select name="role_id">
+                                                                <?php foreach($roles as $role): ?>
+                                                                    <option value="<?= (int) $role['id'] ?>" <?= ((int)$role['id'] === (int)$user['role_id']) ? 'selected' : '' ?>><?= htmlspecialchars($role['nombre']) ?></option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </label>
+                                                        <label>Contraseña nueva<input name="password" type="password" placeholder="Nueva contraseña"></label>
+                                                        <label class="option">
+                                                            <input type="checkbox" name="active" <?= ((int)$user['active'] === 1) ? 'checked' : '' ?>>
+                                                            Activo
+                                                        </label>
+                                                    </div>
+                                                    <div class="config-flow-roles">
+                                                        <strong>Flujo documental</strong>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_review_documents" <?= ((int) ($user['can_review_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Revisor
+                                                        </label>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_validate_documents" <?= ((int) ($user['can_validate_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Validador
+                                                        </label>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_approve_documents" <?= ((int) ($user['can_approve_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Aprobador
+                                                        </label>
+                                                    </div>
+                                                    <div class="config-flow-roles">
+                                                        <strong>Permisos de avance</strong>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_update_project_progress" <?= ((int) ($user['can_update_project_progress'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Actualizar avance
+                                                        </label>
+                                                    </div>
+                                                    <div class="config-flow-roles">
+                                                        <strong>Permisos de outsourcing</strong>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Acceder a Outsourcing
+                                                        </label>
+                                                    </div>
+                                                    <div class="config-flow-roles">
+                                                        <strong>Permisos de timesheets</strong>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_access_timesheets" <?= ((int) ($user['can_access_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Acceder a Timesheets
+                                                        </label>
+                                                        <label class="option compact">
+                                                            <input type="checkbox" name="can_approve_timesheets" <?= ((int) ($user['can_approve_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            Aprobar Timesheets
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-footer">
+                                                        <div></div>
+                                                        <button class="btn secondary" type="submit">Guardar</button>
+                                                    </div>
+                                                </form>
+                                                <div class="user-actions">
+                                                    <?php if ($isAdmin): ?>
+                                                        <form method="POST" action="/project/public/impersonate/start" class="inline">
+                                                            <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                                            <button class="btn secondary" type="submit">Ver como usuario</button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                    <form method="POST" action="/project/public/config/users/deactivate" onsubmit="return confirm('Desactivar usuario?');">
+                                                        <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
+                                                        <button class="btn ghost" type="submit">Desactivar</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
                 <div class="card config-card governance-block">
                     <div class="card-content">
@@ -727,11 +1025,13 @@
                                     <input name="document_approver_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['approver_roles'] ?? [])) ?>">
                                 </div>
                             </div>
-                            <div class="input-stack">
-                                <label>Catálogo de documentos esperados (JSON por metodología/fase/subfase)</label>
-                                <textarea name="document_expected_docs_json" form="governance-config-form" rows="6"><?= htmlspecialchars(json_encode($configData['document_flow']['expected_docs'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
-                                <small class="subtext">Estructura: {"cascada": {"02-PLANIFICACION": {"01-ENTRADAS": ["..."]}}}</small>
-                            </div>
+                            <details class="json-collapse">
+                                <summary>Catálogo de documentos esperados (JSON por metodología/fase/subfase)</summary>
+                                <div class="input-stack">
+                                    <textarea name="document_expected_docs_json" form="governance-config-form" rows="6"><?= htmlspecialchars(json_encode($configData['document_flow']['expected_docs'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
+                                    <small class="subtext">Estructura: {"cascada": {"02-PLANIFICACION": {"01-ENTRADAS": ["..."]}}}</small>
+                                </div>
+                            </details>
                             <div class="input-stack">
                                 <label>Tags sugeridos para documentos (separados por coma)</label>
                                 <input name="document_tag_options" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['tag_options'] ?? [])) ?>">
@@ -742,7 +1042,6 @@
                             <button class="btn primary" type="submit" form="governance-config-form">Guardar y aplicar</button>
                         </div>
                     </div>
-                </div>
                 </div>
             </section>
 
