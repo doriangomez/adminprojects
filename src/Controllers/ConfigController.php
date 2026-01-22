@@ -188,6 +188,8 @@ class ConfigController extends Controller
         $documentRoles = $this->documentRolePayload($isAdmin);
         $progressPermission = $this->progressPermissionPayload($isAdmin);
         $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin);
+        $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin);
+        $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin);
         $repo->create([
             'name' => $_POST['name'],
             'email' => $_POST['email'],
@@ -199,6 +201,8 @@ class ConfigController extends Controller
             'can_approve_documents' => $documentRoles['can_approve_documents'],
             'can_update_project_progress' => $progressPermission,
             'can_access_outsourcing' => $outsourcingPermission,
+            'can_access_timesheets' => $timesheetAccessPermission,
+            'can_approve_timesheets' => $timesheetApprovalPermission,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -217,6 +221,8 @@ class ConfigController extends Controller
         $documentRoles = $this->documentRolePayload($isAdmin, $current);
         $progressPermission = $this->progressPermissionPayload($isAdmin, $current);
         $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin, $current);
+        $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin, $current);
+        $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin, $current);
         $repo->update($userId, [
             'name' => $_POST['name'],
             'email' => $_POST['email'],
@@ -228,6 +234,8 @@ class ConfigController extends Controller
             'can_approve_documents' => $documentRoles['can_approve_documents'],
             'can_update_project_progress' => $progressPermission,
             'can_access_outsourcing' => $outsourcingPermission,
+            'can_access_timesheets' => $timesheetAccessPermission,
+            'can_approve_timesheets' => $timesheetApprovalPermission,
         ]);
 
         header('Location: /project/public/config?saved=1');
@@ -405,6 +413,24 @@ class ConfigController extends Controller
         }
 
         return $this->checkboxValue(['can_access_outsourcing']) ? 1 : 0;
+    }
+
+    private function timesheetAccessPermissionPayload(bool $isAdmin, array $existing = []): int
+    {
+        if (!$isAdmin) {
+            return (int) ($existing['can_access_timesheets'] ?? 0);
+        }
+
+        return $this->checkboxValue(['can_access_timesheets']) ? 1 : 0;
+    }
+
+    private function timesheetApprovalPermissionPayload(bool $isAdmin, array $existing = []): int
+    {
+        if (!$isAdmin) {
+            return (int) ($existing['can_approve_timesheets'] ?? 0);
+        }
+
+        return $this->checkboxValue(['can_approve_timesheets']) ? 1 : 0;
     }
 
     private function checkboxValue(array $keys): bool

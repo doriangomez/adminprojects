@@ -129,6 +129,29 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureUserTimesheetPermissionColumns(): void
+    {
+        if (!$this->db->tableExists('users')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->columnExists('users', 'can_access_timesheets')) {
+                $this->db->execute(
+                    'ALTER TABLE users ADD COLUMN can_access_timesheets TINYINT(1) DEFAULT 0 AFTER can_access_outsourcing'
+                );
+            }
+
+            if (!$this->db->columnExists('users', 'can_approve_timesheets')) {
+                $this->db->execute(
+                    'ALTER TABLE users ADD COLUMN can_approve_timesheets TINYINT(1) DEFAULT 0 AFTER can_access_timesheets'
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error agregando columnas de permisos de timesheets a users: ' . $e->getMessage());
+        }
+    }
+
     public function ensureAssignmentsTable(): void
     {
         try {
