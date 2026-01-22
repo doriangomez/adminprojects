@@ -275,9 +275,12 @@
         font-size: 14px;
         color: var(--text-primary);
         margin: 0;
+        line-height: 1.2;
+        white-space: nowrap;
     }
     .permission-item input {
         margin: 0;
+        flex: 0 0 auto;
     }
     .role-accordion {
         display: flex;
