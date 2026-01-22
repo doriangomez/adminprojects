@@ -208,6 +208,14 @@
                                 </header>
                                 <div class="config-form-grid">
                                     <div class="form-block">
+                                        <span class="section-label">Logo institucional</span>
+                                        <div class="input-stack">
+                                            <label>Logo (sube uno nuevo o pega una URL)</label>
+                                            <input type="file" name="logo_file" accept="image/*">
+                                            <input name="logo" value="<?= htmlspecialchars($configData['theme']['logo']) ?>" placeholder="https://..png">
+                                        </div>
+                                    </div>
+                                    <div class="form-block">
                                         <span class="section-label">Tipografía base</span>
                                         <div class="input-stack">
                                             <label>Tipografía base</label>
