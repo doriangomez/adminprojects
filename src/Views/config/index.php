@@ -264,7 +264,8 @@
     }
     .permission-list {
         display: grid;
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 16px;
     }
     .permission-item {
         display: flex;
@@ -272,6 +273,10 @@
         gap: 10px;
         font-size: 14px;
         color: var(--text-primary);
+        margin: 0;
+    }
+    .permission-item input {
+        margin: 0;
     }
     .role-accordion {
         display: flex;
@@ -382,6 +387,9 @@
         }
         .user-expand {
             justify-self: start;
+        }
+        .permission-list {
+            grid-template-columns: 1fr;
         }
     }
 </style>
