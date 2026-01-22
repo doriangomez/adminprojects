@@ -114,6 +114,36 @@
     .toggle-switch input:checked + .toggle-track::after {
         transform: translateX(18px);
     }
+    .governance-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .governance-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        align-items: start;
+    }
+    .governance-card {
+        background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .governance-card-header {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .governance-panel .form-footer {
+        border-top: 1px solid var(--border);
+        margin-top: 8px;
+        padding-top: 12px;
+    }
     @media (max-width: 980px) {
         .section-grid-two {
             grid-template-columns: 1fr;
@@ -354,7 +384,7 @@
                 </form>
             </section>
 
-            <section id="panel-gobierno" class="tab-panel">
+            <section id="panel-gobierno" class="tab-panel governance-panel">
                 <form method="POST" action="/project/public/config/theme" enctype="multipart/form-data">
                     <div class="card config-card">
                         <div class="card-content">
@@ -362,9 +392,12 @@
                                 <h3 style="margin:0;">Gobierno y control</h3>
                                 <p class="text-muted">Reglas de aprobación, roles y flujo documental.</p>
                             </header>
-                            <div class="config-form-grid">
-                                <div class="form-block">
-                                    <span class="section-label">Aprobaciones</span>
+                            <div class="governance-grid">
+                                <div class="governance-card">
+                                    <div class="governance-card-header">
+                                        <span class="section-label">Aprobaciones</span>
+                                        <small class="section-muted">Reglas de control para talento y presupuesto.</small>
+                                    </div>
                                     <div class="rules-grid">
                                         <label class="option">
                                             <input type="checkbox" name="external_talent_requires_approval" <?= $configData['operational_rules']['approvals']['external_talent_requires_approval'] ? 'checked' : '' ?>>
@@ -377,8 +410,11 @@
                                     </div>
                                 </div>
 
-                                <div class="form-block">
-                                    <span class="section-label">Timesheets</span>
+                                <div class="governance-card">
+                                    <div class="governance-card-header">
+                                        <span class="section-label">Timesheets</span>
+                                        <small class="section-muted">Disponibilidad del módulo y su menú.</small>
+                                    </div>
                                     <div class="toggle-field">
                                         <label class="toggle-switch">
                                             <input type="checkbox" name="timesheets_enabled" <?= !empty($configData['operational_rules']['timesheets']['enabled']) ? 'checked' : '' ?>>
@@ -389,8 +425,11 @@
                                     </div>
                                 </div>
 
-                                <div class="form-block">
-                                    <span class="section-label">Roles y acceso general</span>
+                                <div class="governance-card">
+                                    <div class="governance-card-header">
+                                        <span class="section-label">Roles y acceso general</span>
+                                        <small class="section-muted">Define los roles base y el proceso de alta.</small>
+                                    </div>
                                     <div class="input-stack">
                                         <label>Roles permitidos (separados por coma)</label>
                                         <input name="roles" value="<?= htmlspecialchars(implode(', ', $configData['access']['roles'])) ?>">
@@ -407,8 +446,11 @@
                                     </div>
                                 </div>
 
-                                <div class="form-block">
-                                    <span class="section-label">Gestión documental</span>
+                                <div class="governance-card">
+                                    <div class="governance-card-header">
+                                        <span class="section-label">Gestión documental</span>
+                                        <small class="section-muted">Roles y catálogos para el flujo de documentos.</small>
+                                    </div>
                                     <div class="config-form-grid tight">
                                         <div class="input-stack">
                                             <label>Roles habilitados para Revisores (coma)</label>
