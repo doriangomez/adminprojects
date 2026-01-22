@@ -197,11 +197,16 @@ class Auth
             return false;
         }
 
-        if (!$this->can('view_timesheet') && !$this->can('timesheets.view')) {
-            return false;
+        if ($this->can('view_timesheet') || $this->can('timesheets.view')) {
+            return true;
         }
 
-        return true;
+        $row = $this->db->fetchOne(
+            'SELECT can_access_timesheets FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_access_timesheets'] ?? 0)) === 1;
     }
 
     public function canApproveTimesheets(): bool
@@ -210,7 +215,21 @@ class Auth
             return false;
         }
 
-        return $this->can('approve_timesheet') || $this->can('timesheets.approve');
+        if ($this->can('approve_timesheet') || $this->can('timesheets.approve')) {
+            return true;
+        }
+
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_approve_timesheets FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_approve_timesheets'] ?? 0)) === 1;
     }
 
     public function isTimesheetsEnabled(): bool

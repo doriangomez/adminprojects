@@ -19,6 +19,7 @@ class App
         $migrator->ensureProjectActiveColumn();
         $migrator->ensureUserProgressPermissionColumn();
         $migrator->ensureUserOutsourcingPermissionColumn();
+        $migrator->ensureUserTimesheetPermissionColumns();
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureTalentSchema();

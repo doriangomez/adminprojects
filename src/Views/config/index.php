@@ -548,6 +548,20 @@
                                         <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
                                     <?php endif; ?>
                                 </div>
+                                <div class="config-flow-roles full-span">
+                                    <strong>Permisos de timesheets</strong>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_access_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Acceder a Timesheets
+                                    </label>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_approve_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Aprobar Timesheets
+                                    </label>
+                                    <?php if (!$isAdmin): ?>
+                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                                    <?php endif; ?>
+                                </div>
                                 <div class="form-footer">
                                     <div></div>
                                     <button class="btn primary" type="submit">Crear usuario</button>
@@ -620,6 +634,17 @@
                                                                 <label class="option compact">
                                                                     <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
                                                                     Acceder a Outsourcing
+                                                                </label>
+                                                            </div>
+                                                            <div class="config-flow-roles">
+                                                                <strong>Permisos de timesheets</strong>
+                                                                <label class="option compact">
+                                                                    <input type="checkbox" name="can_access_timesheets" <?= ((int) ($user['can_access_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                                    Acceder a Timesheets
+                                                                </label>
+                                                                <label class="option compact">
+                                                                    <input type="checkbox" name="can_approve_timesheets" <?= ((int) ($user['can_approve_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                                    Aprobar Timesheets
                                                                 </label>
                                                             </div>
                                                             <button class="btn secondary" type="submit">Guardar</button>
