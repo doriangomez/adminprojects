@@ -2,7 +2,7 @@
 $basePath = $basePath ?? '/project/public';
 $rows = is_array($rows ?? null) ? $rows : [];
 $kpis = is_array($kpis ?? null) ? $kpis : [];
-$tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet : [];
+$projectsForTimesheet = is_array($projectsForTimesheet ?? null) ? $projectsForTimesheet : [];
 $pendingApprovals = is_array($pendingApprovals ?? null) ? $pendingApprovals : [];
 $canApprove = !empty($canApprove);
 $canReport = !empty($canReport);
@@ -17,19 +17,20 @@ $statusMeta = [
     'rejected' => ['label' => 'Rechazado', 'icon' => '❌', 'class' => 'status-danger'],
 ];
 
-$projectsForTimesheet = [];
-foreach ($tasksForTimesheet as $task) {
-    $projectId = (int) ($task['project_id'] ?? 0);
-    if ($projectId <= 0) {
-        continue;
+$projectsForTimesheet = array_values(array_filter($projectsForTimesheet, static function (array $project): bool {
+    return (int) ($project['project_id'] ?? 0) > 0;
+}));
+$projectsForTimesheet = array_values(array_reduce($projectsForTimesheet, static function (array $carry, array $project): array {
+    $projectId = (int) ($project['project_id'] ?? 0);
+    if ($projectId <= 0 || isset($carry[$projectId])) {
+        return $carry;
     }
-    if (!isset($projectsForTimesheet[$projectId])) {
-        $projectsForTimesheet[$projectId] = [
-            'id' => $projectId,
-            'name' => (string) ($task['project'] ?? ''),
-        ];
-    }
-}
+    $carry[$projectId] = [
+        'id' => $projectId,
+        'name' => (string) ($project['project'] ?? ''),
+    ];
+    return $carry;
+}, []));
 $weekRows = array_values(array_filter($rows, static function (array $row) use ($weekStart, $weekEnd): bool {
     $date = $row['date'] ?? null;
     if (!$date) {
@@ -47,7 +48,7 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
     <header class="timesheets-header">
         <div>
             <h2>Timesheets</h2>
-            <p class="section-muted">Registro diario y semanal de horas por proyecto y tarea.</p>
+            <p class="section-muted">Registro diario y semanal de horas por proyecto.</p>
         </div>
         <div class="header-actions">
             <form method="GET" class="week-selector">
@@ -93,27 +94,17 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
         <section class="card timesheet-entry">
             <header>
                 <h3>Registrar horas</h3>
-                <p class="section-muted">Solo verás tareas asignadas y en estado En progreso.</p>
+                <p class="section-muted">El reporte de horas se registra por proyecto asignado.</p>
             </header>
-            <?php if (empty($tasksForTimesheet)): ?>
-                <p class="section-muted">No hay tareas disponibles para registrar horas.</p>
+            <?php if (empty($projectsForTimesheet)): ?>
+                <p class="section-muted">No hay proyectos activos asignados para registrar horas.</p>
             <?php else: ?>
-                <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form" data-timesheet-form>
+                <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form">
                     <label>Proyecto
-                        <select name="project_id" required data-project-select>
+                        <select name="project_id" required>
                             <option value="">Selecciona un proyecto</option>
                             <?php foreach ($projectsForTimesheet as $project): ?>
                                 <option value="<?= (int) ($project['id'] ?? 0) ?>"><?= htmlspecialchars($project['name'] ?? '') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                    <label>Tarea
-                        <select name="task_id" required data-task-select>
-                            <option value="">Selecciona una tarea</option>
-                            <?php foreach ($tasksForTimesheet as $task): ?>
-                                <option value="<?= (int) $task['id'] ?>" data-project-id="<?= (int) ($task['project_id'] ?? 0) ?>">
-                                    <?= htmlspecialchars($task['title']) ?>
-                                </option>
                             <?php endforeach; ?>
                         </select>
                     </label>
@@ -126,7 +117,7 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
                         </label>
                     </div>
                     <label>Comentario
-                        <textarea name="comment" rows="2" required placeholder="Describe lo trabajado en la tarea."></textarea>
+                        <textarea name="comment" rows="2" required placeholder="Describe lo trabajado en el proyecto."></textarea>
                     </label>
                     <label class="checkbox">
                         <input type="checkbox" name="billable" value="1"> Facturable
@@ -340,29 +331,6 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
 
 <script>
     (() => {
-        const form = document.querySelector('[data-timesheet-form]');
-        if (form) {
-            const projectSelect = form.querySelector('[data-project-select]');
-            const taskSelect = form.querySelector('[data-task-select]');
-            const taskOptions = taskSelect ? Array.from(taskSelect.options).slice(1) : [];
-
-            const syncTasks = () => {
-                const projectId = projectSelect?.value ?? '';
-                if (taskSelect) {
-                    taskSelect.disabled = projectId === '';
-                    taskSelect.value = '';
-                    taskOptions.forEach(option => {
-                        option.hidden = projectId === '' || option.dataset.projectId !== projectId;
-                    });
-                }
-            };
-
-            if (projectSelect) {
-                projectSelect.addEventListener('change', syncTasks);
-            }
-            syncTasks();
-        }
-
         document.querySelectorAll('[data-toggle-detail]').forEach(button => {
             button.addEventListener('click', () => {
                 const detailRow = button.closest('tr')?.nextElementSibling;
