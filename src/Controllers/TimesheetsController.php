@@ -115,6 +115,24 @@ class TimesheetsController extends Controller
                 ]
             );
 
+            try {
+                (new NotificationService($this->db))->notify(
+                    'timesheet.submitted',
+                    [
+                        'timesheet_id' => $timesheetId,
+                        'task_id' => $taskId,
+                        'project_id' => $assignment['project_id'] ?? null,
+                        'hours' => $hours,
+                        'date' => $date,
+                        'status' => $status,
+                        'target_user_id' => $userId,
+                    ],
+                    $userId
+                );
+            } catch (\Throwable $e) {
+                error_log('Error al notificar timesheet: ' . $e->getMessage());
+            }
+
             header('Location: /project/public/timesheets');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -159,6 +177,21 @@ class TimesheetsController extends Controller
                     'comment' => $comment !== '' ? $comment : null,
                 ]
             );
+
+            try {
+                (new NotificationService($this->db))->notify(
+                    $status === 'approved' ? 'timesheet.approved' : 'timesheet.rejected',
+                    [
+                        'timesheet_id' => $timesheetId,
+                        'status' => $status,
+                        'comment' => $comment !== '' ? $comment : null,
+                        'target_user_id' => $repo->findOwnerId($timesheetId),
+                    ],
+                    $userId
+                );
+            } catch (\Throwable $e) {
+                error_log('Error al notificar aprobación de timesheet: ' . $e->getMessage());
+            }
 
             header('Location: /project/public/timesheets');
         } catch (\InvalidArgumentException $e) {

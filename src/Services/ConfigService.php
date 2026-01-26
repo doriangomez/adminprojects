@@ -190,6 +190,25 @@ class ConfigService
                 'enabled' => false,
             ],
         ],
+        'notifications' => [
+            'enabled' => false,
+            'channels' => [
+                'email' => [
+                    'enabled' => true,
+                ],
+            ],
+            'smtp' => [
+                'host' => '',
+                'port' => 587,
+                'security' => 'tls',
+                'username' => '',
+                'password' => '',
+                'from_email' => '',
+                'from_name' => '',
+                'test_email' => '',
+            ],
+            'events' => [],
+        ],
     ];
 
     public function __construct(?Database $db = null, ?string $filePath = null)
@@ -253,6 +272,9 @@ class ConfigService
                     $stored['operational_rules']['timesheets'] ?? []
                 ),
             ],
+            'notifications' => $this->mergeNotifications(
+                $stored['notifications'] ?? []
+            ),
         ];
     }
 
@@ -311,6 +333,12 @@ class ConfigService
                     $payload['operational_rules']['timesheets'] ?? []
                 ),
             ],
+            'notifications' => $this->mergeNotifications(
+                array_merge(
+                    $current['notifications'] ?? [],
+                    $payload['notifications'] ?? []
+                )
+            ),
         ];
 
         $this->writeConfigStorage($updated);
@@ -355,6 +383,7 @@ class ConfigService
     {
         $defaults = $this->defaults;
         $defaults['theme'] = $this->getThemeDefaults();
+        $defaults['notifications']['events'] = NotificationCatalog::defaultSettings();
 
         return $defaults;
     }
@@ -402,6 +431,41 @@ class ConfigService
         }
 
         return $this->defaults['document_flow']['expected_docs'];
+    }
+
+    private function mergeNotifications(array $stored): array
+    {
+        $defaults = $this->defaults['notifications'];
+        $defaults['events'] = NotificationCatalog::defaultSettings();
+
+        $notifications = array_merge($defaults, $stored);
+        $notifications['smtp'] = array_merge($defaults['smtp'], $stored['smtp'] ?? []);
+        $notifications['channels'] = array_merge($defaults['channels'], $stored['channels'] ?? []);
+
+        $storedEvents = $stored['events'] ?? [];
+        $events = [];
+        foreach ($defaults['events'] as $code => $settings) {
+            $events[$code] = array_merge($settings, $storedEvents[$code] ?? []);
+            $events[$code]['channels'] = array_merge(
+                $settings['channels'] ?? [],
+                $storedEvents[$code]['channels'] ?? []
+            );
+            $events[$code]['recipients'] = array_merge(
+                $settings['recipients'] ?? [],
+                $storedEvents[$code]['recipients'] ?? []
+            );
+        }
+
+        foreach ($storedEvents as $code => $settings) {
+            if (isset($events[$code])) {
+                continue;
+            }
+            $events[$code] = $settings;
+        }
+
+        $notifications['events'] = $events;
+
+        return $notifications;
     }
 
     private function readConfigStorage(): array

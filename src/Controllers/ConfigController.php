@@ -55,6 +55,9 @@ class ConfigController extends Controller
             'risksByCategory' => $risksByCategory,
             'savedMessage' => !empty($_GET['saved']) ? 'Preferencias actualizadas y aplicadas en la interfaz.' : null,
             'isAdmin' => $this->auth->hasRole('Administrador'),
+            'notificationCatalog' => NotificationCatalog::events(),
+            'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
+            'notificationMessage' => $_GET['notifications'] ?? null,
         ]);
     }
 
@@ -171,6 +174,75 @@ class ConfigController extends Controller
             ];
             header('Content-Type: application/json');
             echo json_encode(['theme' => $themePayload], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        header('Location: /project/public/config?saved=1');
+    }
+
+    public function updateNotifications(): void
+    {
+        $this->ensureConfigAccess();
+
+        $configService = new ConfigService($this->db);
+        $current = $configService->getConfig();
+        $encryption = new EncryptionService();
+        $catalog = NotificationCatalog::events();
+
+        $smtpPayload = [
+            'host' => trim((string) ($_POST['smtp_host'] ?? '')),
+            'port' => (int) ($_POST['smtp_port'] ?? 587),
+            'security' => (string) ($_POST['smtp_security'] ?? 'tls'),
+            'username' => trim((string) ($_POST['smtp_username'] ?? '')),
+            'from_email' => trim((string) ($_POST['smtp_from_email'] ?? '')),
+            'from_name' => trim((string) ($_POST['smtp_from_name'] ?? '')),
+            'test_email' => trim((string) ($_POST['smtp_test_email'] ?? '')),
+        ];
+
+        $passwordInput = (string) ($_POST['smtp_password'] ?? '');
+        if ($passwordInput !== '') {
+            $smtpPayload['password'] = $encryption->encrypt($passwordInput);
+        }
+
+        $eventsPayload = [];
+        foreach ($catalog as $code => $meta) {
+            $key = $this->notificationKey($code);
+            $eventsPayload[$code] = [
+                'enabled' => isset($_POST["{$key}_enabled"]),
+                'channels' => [
+                    'email' => [
+                        'enabled' => isset($_POST["{$key}_channel_email"]),
+                    ],
+                ],
+                'recipients' => [
+                    'roles' => $this->parseList((string) ($_POST["{$key}_roles"] ?? '')),
+                    'include_actor' => isset($_POST["{$key}_include_actor"]),
+                    'include_project_manager' => isset($_POST["{$key}_include_pm"]),
+                    'include_reviewer' => isset($_POST["{$key}_include_reviewer"]),
+                    'include_validator' => isset($_POST["{$key}_include_validator"]),
+                    'include_approver' => isset($_POST["{$key}_include_approver"]),
+                    'include_target_user' => isset($_POST["{$key}_include_target_user"]),
+                ],
+            ];
+        }
+
+        $payload = [
+            'notifications' => [
+                'enabled' => isset($_POST['notifications_enabled']),
+                'smtp' => array_merge($current['notifications']['smtp'] ?? [], $smtpPayload),
+                'events' => $eventsPayload,
+            ],
+        ];
+
+        $updated = $configService->updateConfig($payload);
+
+        $action = $_POST['notifications_action'] ?? 'save';
+        if ($action === 'send_test') {
+            $service = new NotificationService($this->db);
+            $smtpConfig = $updated['notifications']['smtp'] ?? [];
+            $result = $service->sendTestEmail($smtpConfig, (string) ($smtpConfig['test_email'] ?? ''));
+            $status = $result['success'] ? 'sent' : 'failed';
+            header('Location: /project/public/config?notifications=' . $status);
             return;
         }
 
@@ -366,6 +438,11 @@ class ConfigController extends Controller
         $parts = array_filter($parts, fn ($part) => $part !== '');
 
         return array_values($parts);
+    }
+
+    private function notificationKey(string $code): string
+    {
+        return 'notify_' . str_replace(['.', '-'], '_', $code);
     }
 
     private function decodeJson(string $value, array $default = []): array

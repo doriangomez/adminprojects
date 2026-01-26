@@ -132,4 +132,22 @@ class UsersRepository
             "SELECT id, name FROM users WHERE active = 1 AND {$column} = 1 ORDER BY name ASC"
         );
     }
+
+    public function findByRoleNames(array $roles): array
+    {
+        $roles = array_values(array_filter(array_map('trim', $roles)));
+        if (empty($roles)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($roles), '?'));
+
+        return $this->db->fetchAll(
+            "SELECT u.id, u.name, u.email
+             FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE u.active = 1 AND r.nombre IN ({$placeholders})",
+            $roles
+        );
+    }
 }
