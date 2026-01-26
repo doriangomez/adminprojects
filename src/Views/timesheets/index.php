@@ -6,6 +6,7 @@ $projectsForTimesheet = is_array($projectsForTimesheet ?? null) ? $projectsForTi
 $pendingApprovals = is_array($pendingApprovals ?? null) ? $pendingApprovals : [];
 $canApprove = !empty($canApprove);
 $canReport = !empty($canReport);
+$hasReportableProjects = !empty($projectsForTimesheet);
 $weekStart = $weekStart ?? new DateTimeImmutable('monday this week');
 $weekEnd = $weekEnd ?? $weekStart->modify('+6 days');
 $weekValue = $weekValue ?? $weekStart->format('o-\\WW');
@@ -90,41 +91,46 @@ $weekRows = array_values(array_filter($rows, static function (array $row) use ($
         </section>
     <?php endif; ?>
 
-    <?php if ($canReport): ?>
+    <?php if ($canReport && $hasReportableProjects): ?>
         <section class="card timesheet-entry">
             <header>
                 <h3>Registrar horas</h3>
                 <p class="section-muted">El reporte de horas se registra por proyecto asignado.</p>
             </header>
-            <?php if (empty($projectsForTimesheet)): ?>
-                <p class="section-muted">No hay proyectos activos asignados para registrar horas.</p>
-            <?php else: ?>
-                <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form">
-                    <label>Proyecto
-                        <select name="project_id" required>
-                            <option value="">Selecciona un proyecto</option>
-                            <?php foreach ($projectsForTimesheet as $project): ?>
-                                <option value="<?= (int) ($project['id'] ?? 0) ?>"><?= htmlspecialchars($project['name'] ?? '') ?></option>
-                            <?php endforeach; ?>
-                        </select>
+            <form method="POST" action="<?= $basePath ?>/timesheets/create" class="timesheet-form">
+                <label>Proyecto
+                    <select name="project_id" required>
+                        <option value="">Selecciona un proyecto</option>
+                        <?php foreach ($projectsForTimesheet as $project): ?>
+                            <option value="<?= (int) ($project['id'] ?? 0) ?>"><?= htmlspecialchars($project['name'] ?? '') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <div class="form-grid">
+                    <label>Fecha
+                        <input type="date" name="date" required>
                     </label>
-                    <div class="form-grid">
-                        <label>Fecha
-                            <input type="date" name="date" required>
-                        </label>
-                        <label>Horas
-                            <input type="number" name="hours" step="0.25" min="0.25" required>
-                        </label>
-                    </div>
-                    <label>Comentario
-                        <textarea name="comment" rows="2" required placeholder="Describe lo trabajado en el proyecto."></textarea>
+                    <label>Horas
+                        <input type="number" name="hours" step="0.25" min="0.25" required>
                     </label>
-                    <label class="checkbox">
-                        <input type="checkbox" name="billable" value="1"> Facturable
-                    </label>
-                    <button type="submit" class="primary-button">Registrar horas</button>
-                </form>
-            <?php endif; ?>
+                </div>
+                <label>Comentario
+                    <textarea name="comment" rows="2" required placeholder="Describe lo trabajado en el proyecto."></textarea>
+                </label>
+                <label class="checkbox">
+                    <input type="checkbox" name="billable" value="1"> Facturable
+                </label>
+                <button type="submit" class="primary-button">Registrar horas</button>
+            </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($canReport && !$hasReportableProjects): ?>
+        <section class="card timesheet-entry">
+            <header>
+                <h3>Registrar horas</h3>
+            </header>
+            <p class="section-muted">No hay proyectos activos asignados para registrar horas.</p>
         </section>
     <?php endif; ?>
 
