@@ -32,7 +32,7 @@ class TimesheetsController extends Controller
             'title' => 'Timesheets',
             'rows' => $repo->weekly($user),
             'kpis' => $repo->kpis($user),
-            'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
+            'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
             'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
             'canApprove' => $canApprove,
             'canReport' => $canReport,
@@ -54,25 +54,21 @@ class TimesheetsController extends Controller
             exit('Acceso denegado');
         }
 
-        $taskId = (int) ($_POST['task_id'] ?? 0);
+        $projectId = (int) ($_POST['project_id'] ?? 0);
         $date = trim((string) ($_POST['date'] ?? ''));
         $hours = (float) ($_POST['hours'] ?? 0);
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $billable = isset($_POST['billable']) ? 1 : 0;
 
-        if ($taskId <= 0 || $date === '' || $hours <= 0 || $comment === '') {
+        if ($projectId <= 0 || $date === '' || $hours <= 0 || $comment === '') {
             http_response_code(400);
             exit('Completa los datos requeridos para registrar horas.');
         }
 
-        $assignment = $repo->assignmentForTask($taskId, $userId);
-        if (!$assignment || (int) ($assignment['requiere_reporte_horas'] ?? 0) !== 1) {
+        $assignment = $repo->assignmentForProject($projectId, $userId);
+        if (!$assignment) {
             http_response_code(403);
-            exit('No tienes una asignación habilitada para reportar horas en esta tarea.');
-        }
-        if (($assignment['task_status'] ?? '') !== 'in_progress') {
-            http_response_code(400);
-            exit('Solo puedes registrar horas en tareas en estado Doing (En curso).');
+            exit('No tienes una asignación habilitada para reportar horas en este proyecto.');
         }
 
         $talentId = (int) ($assignment['talent_id'] ?? 0);
@@ -81,18 +77,19 @@ class TimesheetsController extends Controller
             exit('Tu usuario no tiene un talento asociado.');
         }
 
-        $requiresApproval = (int) ($assignment['requiere_aprobacion_horas'] ?? 0) === 1;
+        $requiresApproval = (int) ($assignment['requires_timesheet_approval'] ?? 0) === 1;
         $status = $requiresApproval ? 'pending_approval' : 'approved';
         $approvedBy = $requiresApproval ? null : $userId;
         $approvedAt = $requiresApproval ? null : date('Y-m-d H:i:s');
 
         try {
+            $taskId = $repo->resolveTimesheetTaskId($projectId);
             $timesheetId = $repo->createTimesheet([
                 'task_id' => $taskId,
-                'project_id' => $assignment['project_id'] ?? null,
+                'project_id' => $projectId,
                 'talent_id' => $talentId,
                 'user_id' => $userId,
-                'assignment_id' => null,
+                'assignment_id' => $assignment['id'] ?? null,
                 'date' => $date,
                 'hours' => $hours,
                 'status' => $status,
@@ -109,6 +106,7 @@ class TimesheetsController extends Controller
                 $requiresApproval ? 'submitted' : 'auto_approved',
                 [
                     'task_id' => $taskId,
+                    'project_id' => $projectId,
                     'hours' => $hours,
                     'date' => $date,
                     'comment' => $comment,
@@ -121,7 +119,7 @@ class TimesheetsController extends Controller
                     [
                         'timesheet_id' => $timesheetId,
                         'task_id' => $taskId,
-                        'project_id' => $assignment['project_id'] ?? null,
+                        'project_id' => $projectId,
                         'hours' => $hours,
                         'date' => $date,
                         'status' => $status,
