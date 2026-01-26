@@ -501,6 +501,28 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureNotificationsLog(): void
+    {
+        if ($this->db->tableExists('notifications_log')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE notifications_log (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                event_type VARCHAR(80) NOT NULL,
+                channel VARCHAR(40) NOT NULL,
+                recipient_email VARCHAR(190) NOT NULL,
+                recipient_user_id INT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT "sent",
+                error_message TEXT NULL,
+                payload JSON NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_notifications_log_created (created_at)
+            ) ENGINE=InnoDB'
+        );
+    }
+
     public function resetProjectModuleDataOnce(): void
     {
         if (!$this->db->tableExists('projects')) {

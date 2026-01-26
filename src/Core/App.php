@@ -29,6 +29,7 @@ class App
         $migrator->ensureTimesheetPermissions();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
+        $migrator->ensureNotificationsLog();
         $this->auth = new Auth($this->db);
     }
 
@@ -397,6 +398,11 @@ class App
             $controller = new ConfigController($this->db, $this->auth);
             if (($path === '/config' || $path === '/config/theme') && $method === 'POST') {
                 $controller->updateTheme();
+                return;
+            }
+
+            if ($path === '/config/notifications' && $method === 'POST') {
+                $controller->updateNotifications();
                 return;
             }
 
