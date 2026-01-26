@@ -486,14 +486,6 @@
                                 </header>
                                 <div class="config-form-grid">
                                     <div class="form-block">
-                                        <span class="section-label">Logo institucional</span>
-                                        <div class="input-stack">
-                                            <label>Logo (sube uno nuevo o pega una URL)</label>
-                                            <input type="file" name="logo_file" accept="image/*">
-                                            <input name="logo" value="<?= htmlspecialchars($configData['theme']['logo']) ?>" placeholder="https://..png">
-                                        </div>
-                                    </div>
-                                    <div class="form-block">
                                         <span class="section-label">Tipografía base</span>
                                         <div class="input-stack">
                                             <label>Tipografía base</label>
@@ -611,17 +603,6 @@
                                     </div>
                                 </div>
 
-                                <div class="form-block">
-                                    <span class="section-label">Rutas de datos base</span>
-                                    <div class="input-stack">
-                                        <label>Archivo de datos principal</label>
-                                        <input name="data_file" value="<?= htmlspecialchars($configData['master_files']['data_file']) ?>" required>
-                                    </div>
-                                    <div class="input-stack">
-                                        <label>Archivo de esquema / bootstrap</label>
-                                        <input name="schema_file" value="<?= htmlspecialchars($configData['master_files']['schema_file']) ?>" required>
-                                    </div>
-                                </div>
                             </div>
                             <div class="form-footer">
                                 <span class="text-muted">Aplican a todos los proyectos en operación.</span>
@@ -1259,6 +1240,31 @@
 
             <section id="panel-catalogos" class="tab-panel">
                 <div class="section-grid config-columns">
+                    <div class="card config-card stretch">
+                        <div class="toolbar">
+                            <div>
+                                <p class="badge neutral" style="margin:0;">Datos maestros</p>
+                                <h3 style="margin:6px 0 2px 0;">Rutas de datos base</h3>
+                            </div>
+                            <small style="color: var(--text-secondary);">Archivos de referencia y esquema base del sistema.</small>
+                        </div>
+                        <div class="card-content">
+                            <form method="POST" action="/project/public/config/theme" enctype="multipart/form-data" class="config-form-grid">
+                                <div class="input-stack">
+                                    <label>Archivo de datos principal</label>
+                                    <input name="data_file" value="<?= htmlspecialchars($configData['master_files']['data_file']) ?>" required>
+                                </div>
+                                <div class="input-stack">
+                                    <label>Archivo de esquema / bootstrap</label>
+                                    <input name="schema_file" value="<?= htmlspecialchars($configData['master_files']['schema_file']) ?>" required>
+                                </div>
+                                <div class="form-footer full-span">
+                                    <div></div>
+                                    <button class="btn primary" type="submit">Guardar y aplicar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                     <div class="card config-card stretch">
                         <div class="toolbar">
                             <div>
