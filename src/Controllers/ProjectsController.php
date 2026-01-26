@@ -180,6 +180,19 @@ class ProjectsController extends Controller
             );
             error_log('estructura creada');
             error_log('retornando respuesta');
+            try {
+                (new NotificationService($this->db))->notify(
+                    'project.created',
+                    [
+                        'project_id' => $projectId,
+                        'project_name' => $payload['name'] ?? null,
+                        'pm_id' => $payload['pm_id'] ?? null,
+                    ],
+                    (int) ($this->auth->user()['id'] ?? 0)
+                );
+            } catch (\Throwable $e) {
+                error_log('Error al notificar creación de proyecto: ' . $e->getMessage());
+            }
             header('Location: /project/public/projects/' . $projectId);
             return;
         } catch (\InvalidArgumentException $e) {
@@ -563,6 +576,19 @@ class ProjectsController extends Controller
         try {
             $governed = $this->applyLifecycleGovernance($project, $closingPayload, $delivery, $repo, $riskCatalog);
             $repo->closeProject($id, $governed['health'], $governed['risk_level'] ?? null);
+            try {
+                (new NotificationService($this->db))->notify(
+                    'project.closed',
+                    [
+                        'project_id' => $id,
+                        'project_name' => $project['name'] ?? null,
+                        'pm_id' => $project['pm_id'] ?? null,
+                    ],
+                    (int) ($this->auth->user()['id'] ?? 0)
+                );
+            } catch (\Throwable $e) {
+                error_log('Error al notificar cierre de proyecto: ' . $e->getMessage());
+            }
             header('Location: /project/public/projects/' . $id);
             return;
         } catch (\InvalidArgumentException $e) {
@@ -1868,7 +1894,39 @@ class ProjectsController extends Controller
                 break;
         }
 
-        return $repo->updateDocumentStatus($projectId, $nodeId, $payload);
+        $updated = $repo->updateDocumentStatus($projectId, $nodeId, $payload);
+        $eventType = $this->notificationEventForDocumentAction($action);
+        if ($eventType !== '') {
+            try {
+                (new NotificationService($this->db))->notify(
+                    $eventType,
+                    [
+                        'project_id' => $projectId,
+                        'node_id' => $nodeId,
+                        'document_status' => $updated['document_status'] ?? $payload['document_status'],
+                        'reviewer_id' => $nodeFlow['reviewer_id'] ?? null,
+                        'validator_id' => $nodeFlow['validator_id'] ?? null,
+                        'approver_id' => $nodeFlow['approver_id'] ?? null,
+                        'target_user_id' => $nodeFlow['approver_id'] ?? null,
+                    ],
+                    $currentUserId
+                );
+            } catch (\Throwable $e) {
+                error_log('Error al notificar flujo documental: ' . $e->getMessage());
+            }
+        }
+
+        return $updated;
+    }
+
+    private function notificationEventForDocumentAction(string $action): string
+    {
+        return match ($action) {
+            'send_approval' => 'document.sent_approval',
+            'approved' => 'document.approved',
+            'rejected' => 'document.rejected',
+            default => '',
+        };
     }
 
     private function logProjectDeletion(

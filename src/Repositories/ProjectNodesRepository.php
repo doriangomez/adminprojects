@@ -2311,6 +2311,18 @@ class ProjectNodesRepository
                 $action,
                 $payload
             );
+            $eventType = match ($action) {
+                'file_created' => 'system.file_created',
+                'file_deleted' => 'system.file_deleted',
+                default => '',
+            };
+            if ($eventType !== '') {
+                (new NotificationService($this->db))->notify(
+                    $eventType,
+                    array_merge($payload, ['node_id' => $nodeId]),
+                    $userId
+                );
+            }
         } catch (\Throwable) {
             // Evitar que el fallo de auditoría rompa el flujo principal
         }

@@ -323,6 +323,20 @@ class TimesheetsRepository
         return $updated;
     }
 
+    public function findOwnerId(int $timesheetId): ?int
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT user_id FROM timesheets WHERE id = :id LIMIT 1',
+            [':id' => $timesheetId]
+        );
+
+        return $row && isset($row['user_id']) ? (int) $row['user_id'] : null;
+    }
+
     public function talentIdForUser(int $userId): ?int
     {
         if ($userId <= 0 || !$this->db->tableExists('talents')) {
