@@ -367,54 +367,28 @@
     const talentHourLabels = <?= json_encode(array_map(static fn ($row) => $row['talent'] ?? '', $timesheets['hours_by_talent'] ?? [])) ?>;
     const talentHourData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['total_hours'] ?? 0), 1), $timesheets['hours_by_talent'] ?? [])) ?>;
 
-    const cssVars = getComputedStyle(document.documentElement);
-    const primary = cssVars.getPropertyValue('--primary').trim();
-    const secondary = cssVars.getPropertyValue('--secondary').trim();
-    const accent = cssVars.getPropertyValue('--accent').trim();
-    const textMain = cssVars.getPropertyValue('--text-primary').trim();
-    const textMuted = cssVars.getPropertyValue('--text-secondary').trim();
-    const gridBorder = cssVars.getPropertyValue('--border').trim();
-    const toRgba = (color, alpha) => {
-        if (!color) {
-            return '';
-        }
-        if (color.startsWith('#')) {
-            const hex = color.replace('#', '');
-            const value = hex.length === 3
-                ? hex.split('').map(char => char + char).join('')
-                : hex;
-            const intVal = parseInt(value, 16);
-            const r = (intVal >> 16) & 255;
-            const g = (intVal >> 8) & 255;
-            const b = intVal & 255;
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-        if (color.startsWith('rgb(')) {
-            return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
-        }
-        if (color.startsWith('rgba(')) {
-            return color.replace(/rgba\(([^,]+,[^,]+,[^,]+),[^)]+\)/, `rgba($1, ${alpha})`);
-        }
-        return color;
+    const chartPalette = {
+        grid: 'rgba(148, 163, 184, 0.6)',
+        textMain: '#0f172a',
+        textMuted: '#475569',
+        primaryFill: 'rgba(37, 99, 235, 0.9)',
+        primaryBorder: 'rgba(30, 64, 175, 0.95)',
+        secondaryFill: 'rgba(16, 185, 129, 0.9)',
+        secondaryBorder: 'rgba(4, 120, 87, 0.95)',
+        accentFill: 'rgba(245, 158, 11, 0.9)',
+        accentBorder: 'rgba(180, 83, 9, 0.95)',
+        mutedFill: 'rgba(100, 116, 139, 0.9)',
+        mutedBorder: 'rgba(51, 65, 85, 0.95)'
     };
-    const gridBorderSoft = toRgba(gridBorder, 0.6);
-    const primaryFill = toRgba(primary, 0.55);
-    const primaryBorder = toRgba(primary, 0.9);
-    const secondaryFill = toRgba(secondary, 0.5);
-    const secondaryBorder = toRgba(secondary, 0.9);
-    const accentFill = toRgba(accent, 0.55);
-    const accentBorder = toRgba(accent, 0.9);
-    const mutedFill = toRgba(textMuted, 0.45);
-    const mutedBorder = toRgba(textMuted, 0.8);
 
     const statusCtx = document.getElementById('statusChart').getContext('2d');
     new Chart(statusCtx, {
         type: 'doughnut',
         data: {
             labels: ['Planning', 'En curso', 'En riesgo', 'Cerrado'],
-            datasets: [{ data: statusData, backgroundColor: [secondaryFill, primaryFill, accentFill, mutedFill], borderColor: [secondaryBorder, primaryBorder, accentBorder, mutedBorder], borderWidth: 1.4 }]
+            datasets: [{ data: statusData, backgroundColor: [chartPalette.secondaryFill, chartPalette.primaryFill, chartPalette.accentFill, chartPalette.mutedFill], borderColor: [chartPalette.secondaryBorder, chartPalette.primaryBorder, chartPalette.accentBorder, chartPalette.mutedBorder], borderWidth: 1.4 }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: textMain } } }, cutout: '62%' }
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: chartPalette.textMain } } }, cutout: '62%' }
     });
 
     const progressCtx = document.getElementById('progressChart').getContext('2d');
@@ -422,14 +396,14 @@
         type: 'bar',
         data: {
             labels: progressLabels,
-            datasets: [{ label: 'Avance %', data: progressData, backgroundColor: primaryFill, borderColor: primaryBorder, borderWidth: 1.4, borderRadius: 10 }]
+            datasets: [{ label: 'Avance %', data: progressData, backgroundColor: chartPalette.primaryFill, borderColor: chartPalette.primaryBorder, borderWidth: 1.4, borderRadius: 10 }]
         },
         options: {
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true, max: 100, grid: { color: gridBorderSoft }, ticks: { color: textMuted, callback: value => value + '%' } },
-                x: { grid: { display: false }, ticks: { color: textMuted } }
+                y: { beginAtZero: true, max: 100, grid: { color: chartPalette.grid }, ticks: { color: chartPalette.textMuted, callback: value => value + '%' } },
+                x: { grid: { display: false }, ticks: { color: chartPalette.textMuted } }
             }
         }
     });
@@ -440,14 +414,14 @@
             type: 'bar',
             data: {
                 labels: projectHourLabels,
-                datasets: [{ label: 'Horas', data: projectHourData, backgroundColor: secondaryFill, borderColor: secondaryBorder, borderWidth: 1.2, borderRadius: 8 }]
+                datasets: [{ label: 'Horas', data: projectHourData, backgroundColor: chartPalette.secondaryFill, borderColor: chartPalette.secondaryBorder, borderWidth: 1.2, borderRadius: 8 }]
             },
             options: {
                 responsive: true,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: gridBorderSoft }, ticks: { color: textMuted } },
-                    x: { grid: { display: false }, ticks: { color: textMuted } }
+                    y: { beginAtZero: true, grid: { color: chartPalette.grid }, ticks: { color: chartPalette.textMuted } },
+                    x: { grid: { display: false }, ticks: { color: chartPalette.textMuted } }
                 }
             }
         });
@@ -459,14 +433,14 @@
             type: 'bar',
             data: {
                 labels: talentHourLabels,
-                datasets: [{ label: 'Horas', data: talentHourData, backgroundColor: accentFill, borderColor: accentBorder, borderWidth: 1.2, borderRadius: 8 }]
+                datasets: [{ label: 'Horas', data: talentHourData, backgroundColor: chartPalette.accentFill, borderColor: chartPalette.accentBorder, borderWidth: 1.2, borderRadius: 8 }]
             },
             options: {
                 responsive: true,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { beginAtZero: true, grid: { color: gridBorderSoft }, ticks: { color: textMuted } },
-                    x: { grid: { display: false }, ticks: { color: textMuted } }
+                    y: { beginAtZero: true, grid: { color: chartPalette.grid }, ticks: { color: chartPalette.textMuted } },
+                    x: { grid: { display: false }, ticks: { color: chartPalette.textMuted } }
                 }
             }
         });
