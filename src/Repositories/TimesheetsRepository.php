@@ -124,8 +124,10 @@ class TimesheetsRepository
         }
         $projectStatusCondition = $this->activeProjectCondition('p');
         $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
+        $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
+        $talentSelect = $hasTalentColumn ? 'a.talent_id' : 'NULL AS talent_id';
         $assignment = $this->db->fetchOne(
-            'SELECT a.id, a.talent_id, a.requires_timesheet, a.requires_timesheet_approval,
+            'SELECT a.id, ' . $talentSelect . ', a.requires_timesheet, a.requires_timesheet_approval,
                     a.project_id, p.name AS project
              FROM project_talent_assignments a
              JOIN projects p ON p.id = a.project_id
@@ -141,7 +143,7 @@ class TimesheetsRepository
             return null;
         }
 
-        $talentId = (int) ($assignment['talent_id'] ?? 0);
+        $talentId = $hasTalentColumn ? (int) ($assignment['talent_id'] ?? 0) : 0;
         if ($talentId <= 0) {
             $talentId = $this->talentIdForUser($userId) ?? 0;
         }
