@@ -852,8 +852,8 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .phase-item { display:flex; flex-direction:column; gap:6px; }
     .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-primary); border:1px solid var(--background); background: var(--surface); }
     .phase-link:hover { border-color: var(--border); }
-    .phase-link.active { background: var(--secondary); color: var(--surface); border-color: var(--secondary); }
-    .phase-link.active .section-muted { color: color-mix(in srgb, var(--surface) 75%, var(--background)); }
+    .phase-link.active { background: var(--secondary); color: var(--text-primary); border-color: var(--secondary); font-weight:700; }
+    .phase-link.active .section-muted { color: color-mix(in srgb, var(--text-primary) 82%, var(--background)); }
     .phase-link__title { display:flex; gap:10px; align-items:center; }
     .phase-icon { font-size:18px; }
     .phase-progress-bar { height:6px; background: color-mix(in srgb, var(--text-secondary) 22%, var(--background)); border-radius:999px; overflow:hidden; }
