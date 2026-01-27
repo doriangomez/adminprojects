@@ -102,6 +102,24 @@ class TasksRepository
         );
     }
 
+    public function createForProject(int $projectId, array $payload): int
+    {
+        return $this->db->insert(
+            'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, due_date, assignee_id, created_at, updated_at)
+             VALUES (:project_id, :title, :status, :priority, :estimated, :actual, :due_date, :assignee, NOW(), NOW())',
+            [
+                ':project_id' => $projectId,
+                ':title' => $payload['title'],
+                ':status' => 'todo',
+                ':priority' => $payload['priority'],
+                ':estimated' => $payload['estimated_hours'],
+                ':actual' => 0,
+                ':due_date' => $payload['due_date'],
+                ':assignee' => $payload['assignee_id'],
+            ]
+        );
+    }
+
     public function updateStatus(int $taskId, string $status): void
     {
         $this->db->execute(

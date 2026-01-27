@@ -2,6 +2,10 @@
 $basePath = $basePath ?? '/project/public';
 $project = $project ?? [];
 $tasks = is_array($tasks ?? null) ? $tasks : [];
+$talents = is_array($talents ?? null) ? $talents : [];
+$canManage = !empty($canManage);
+$isClosed = !empty($isClosed);
+$canAddTask = $canManage && !$isClosed;
 $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
 $riskLevel = strtolower((string) ($project['risk_level'] ?? ''));
 $riskLabel = $project['health_label'] ?? $project['health'] ?? 'Sin evaluación';
@@ -132,6 +136,49 @@ foreach ($selectedRisks as $riskCode) {
             <small class="section-muted">Evidencias y controles en ejecución.</small>
         </div>
 
+        <?php if ($canAddTask): ?>
+            <form class="task-create-form" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/tasks">
+                <div class="task-create-form__header">
+                    <strong>Agregar tarea</strong>
+                    <span class="section-muted">Disponible para proyectos activos con permisos de gestión.</span>
+                </div>
+                <div class="task-create-form__grid">
+                    <label class="task-field">
+                        Título de la tarea
+                        <input type="text" name="title" required maxlength="160" placeholder="Ej. Levantar riesgos de fase 02" />
+                    </label>
+                    <label class="task-field">
+                        Prioridad
+                        <select name="priority">
+                            <option value="medium" selected>Media</option>
+                            <option value="high">Alta</option>
+                            <option value="low">Baja</option>
+                        </select>
+                    </label>
+                    <label class="task-field">
+                        Horas estimadas
+                        <input type="number" name="estimated_hours" min="0" step="0.5" value="0" />
+                    </label>
+                    <label class="task-field">
+                        Fecha límite
+                        <input type="date" name="due_date" />
+                    </label>
+                    <label class="task-field">
+                        Responsable
+                        <select name="assignee_id">
+                            <option value="0">Sin asignar</option>
+                            <?php foreach ($talents as $talent): ?>
+                                <option value="<?= (int) ($talent['id'] ?? 0) ?>"><?= htmlspecialchars($talent['name'] ?? '') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                </div>
+                <div class="task-create-form__actions">
+                    <button type="submit" class="action-btn primary">Agregar tarea</button>
+                </div>
+            </form>
+        <?php endif; ?>
+
         <?php if (empty($tasks)): ?>
             <p class="section-muted">No hay tareas registradas para este proyecto.</p>
         <?php else: ?>
@@ -187,4 +234,12 @@ foreach ($selectedRisks as $riskCode) {
     .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 40%, var(--border) 60%); }
     .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+    .task-create-form { border:1px dashed var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:12px; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
+    .task-create-form__header { display:flex; flex-direction:column; gap:4px; }
+    .task-create-form__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .task-field { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:12px; }
+    .task-field input,
+    .task-field select { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size:13px; }
+    .task-create-form__actions { display:flex; justify-content:flex-end; }
 </style>
