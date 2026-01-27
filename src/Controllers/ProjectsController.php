@@ -278,12 +278,66 @@ class ProjectsController extends Controller
         }
 
         $tasks = (new TasksRepository($this->db))->forProject($id, $user);
+        $canManage = $this->auth->can('projects.manage');
+        $isClosed = $this->normalizeStatus((string) ($project['status'] ?? '')) === 'closed';
+        $talents = [];
+        if ($canManage && !$isClosed) {
+            $talents = (new TalentsRepository($this->db))->summary();
+        }
 
         $this->render('projects/tasks', [
             'title' => 'Tareas del proyecto',
             'project' => $project,
             'tasks' => $tasks,
+            'canManage' => $canManage,
+            'isClosed' => $isClosed,
+            'talents' => $talents,
         ]);
+    }
+
+    public function storeTask(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        if ($this->normalizeStatus((string) ($project['status'] ?? '')) === 'closed') {
+            http_response_code(400);
+            exit('No puedes agregar tareas a un proyecto cerrado.');
+        }
+
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $priority = strtolower(trim((string) ($_POST['priority'] ?? 'medium')));
+        $estimatedHours = (float) ($_POST['estimated_hours'] ?? 0);
+        $dueDate = trim((string) ($_POST['due_date'] ?? ''));
+        $assigneeId = (int) ($_POST['assignee_id'] ?? 0);
+
+        if ($title === '') {
+            http_response_code(400);
+            exit('El título de la tarea es obligatorio.');
+        }
+
+        $allowedPriorities = ['low', 'medium', 'high'];
+        if (!in_array($priority, $allowedPriorities, true)) {
+            http_response_code(400);
+            exit('Prioridad de tarea inválida.');
+        }
+
+        (new TasksRepository($this->db))->createForProject($id, [
+            'title' => $title,
+            'priority' => $priority,
+            'estimated_hours' => $estimatedHours,
+            'due_date' => $dueDate !== '' ? $dueDate : null,
+            'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
+        ]);
+
+        header('Location: /project/public/projects/' . $id . '/tasks');
     }
 
     public function outsourcing(int $id): void

@@ -274,9 +274,15 @@ class App
                 $controller->costs((int) $matches[1]);
                 return;
             }
-            if (preg_match('#^/projects/(\\d+)/tasks$#', $path, $matches) && $method === 'GET') {
-                $controller->tasks((int) $matches[1]);
-                return;
+            if (preg_match('#^/projects/(\\d+)/tasks$#', $path, $matches)) {
+                if ($method === 'POST') {
+                    $controller->storeTask((int) $matches[1]);
+                    return;
+                }
+                if ($method === 'GET') {
+                    $controller->tasks((int) $matches[1]);
+                    return;
+                }
             }
             if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method === 'GET') {
                 $controller->outsourcing((int) $matches[1]);
