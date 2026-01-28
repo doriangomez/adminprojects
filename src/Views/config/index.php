@@ -129,6 +129,24 @@ if (!array_key_exists($activeTab, $tabs)) {
         gap: 6px;
         margin-bottom: 16px;
     }
+    .governance-block-title-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .governance-block-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+        color: var(--primary);
+        border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+        flex: 0 0 auto;
+    }
     .governance-block-title {
         font-size: 20px;
         margin: 0;
@@ -260,19 +278,20 @@ if (!array_key_exists($activeTab, $tabs)) {
     }
     .permission-list {
         display: grid;
-        grid-template-columns: repeat(2, minmax(220px, 1fr));
-        gap: 8px 12px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 8px 16px;
         justify-items: start;
+        align-items: start;
     }
     .permission-item {
         display: flex;
-        align-items: center;
-        gap: 6px;
+        align-items: flex-start;
+        gap: 8px;
         font-size: 14px;
         color: var(--text-primary);
         margin: 0;
         line-height: 1.2;
-        white-space: nowrap;
+        white-space: normal;
     }
     .permission-item input {
         margin: 0;
@@ -348,6 +367,36 @@ if (!array_key_exists($activeTab, $tabs)) {
         flex-direction: column;
         gap: 16px;
     }
+    .user-section-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        align-items: start;
+    }
+    .user-section-card {
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .user-section-header {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .user-section-header h4 {
+        margin: 0;
+        font-size: 16px;
+        color: var(--text-primary);
+    }
+    .user-section-header p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
     .user-actions {
         display: flex;
         flex-wrap: wrap;
@@ -389,6 +438,9 @@ if (!array_key_exists($activeTab, $tabs)) {
             justify-self: start;
         }
         .permission-list {
+            grid-template-columns: 1fr;
+        }
+        .user-section-grid {
             grid-template-columns: 1fr;
         }
     }
