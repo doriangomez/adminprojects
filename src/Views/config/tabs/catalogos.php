@@ -7,7 +7,7 @@ $catalogDomains = [
     [
         'key' => 'riesgos',
         'title' => 'Riesgos',
-        'icon' => '📌',
+        'icon' => '⚠️',
         'count' => count($riskCatalog),
         'open' => true,
     ],
@@ -28,7 +28,7 @@ $catalogDomains = [
     [
         'key' => 'legal',
         'title' => 'Legal',
-        'icon' => '⚖️',
+        'icon' => '📄',
         'count' => 0,
         'open' => false,
     ],
@@ -56,7 +56,7 @@ $catalogDomains = [
     [
         'key' => 'stakeholders',
         'title' => 'Stakeholders',
-        'icon' => '🤝',
+        'icon' => '👥',
         'count' => 0,
         'open' => false,
     ],
@@ -70,24 +70,88 @@ $catalogDomains = [
     [
         'key' => 'otros',
         'title' => 'Otros catálogos base',
-        'icon' => '🧠',
+        'icon' => '⚙️',
         'count' => $totalBaseItems,
         'open' => true,
     ],
 ];
+$catalogDomainMap = [];
+foreach ($catalogDomains as $domain) {
+    $catalogDomainMap[$domain['key']] = $domain;
+}
+$catalogGroups = [
+    [
+        'title' => 'Proyectos',
+        'icon' => '📁',
+        'items' => ['costos', 'cronograma', 'metodologias', 'operaciones', 'tecnologia'],
+    ],
+    [
+        'title' => 'Riesgos',
+        'icon' => '⚠️',
+        'items' => ['riesgos'],
+    ],
+    [
+        'title' => 'Documentos',
+        'icon' => '📄',
+        'items' => ['legal'],
+    ],
+    [
+        'title' => 'Talento',
+        'icon' => '👥',
+        'items' => ['recursos', 'stakeholders'],
+    ],
+    [
+        'title' => 'Timesheets',
+        'icon' => '⏱',
+        'items' => [],
+    ],
+    [
+        'title' => 'Sistema',
+        'icon' => '⚙️',
+        'items' => ['otros'],
+    ],
+];
 ?>
 <section id="panel-catalogos" class="tab-panel">
-    <div class="catalog-accordion-list">
+    <div class="catalog-panel">
+        <?php foreach ($catalogGroups as $group): ?>
+            <div class="catalog-group-card">
+                <div class="catalog-group-header">
+                    <div class="catalog-group-title">
+                        <span class="catalog-group-icon"><?= $group['icon'] ?></span>
+                        <strong><?= htmlspecialchars($group['title']) ?></strong>
+                    </div>
+                    <span class="badge neutral"><?= count($group['items']) ?> catálogos</span>
+                </div>
+                <div class="catalog-group-grid">
+                    <?php if (!empty($group['items'])): ?>
+                        <?php foreach ($group['items'] as $itemKey): ?>
+                            <?php if (!isset($catalogDomainMap[$itemKey])) { continue; } ?>
+                            <?php $domain = $catalogDomainMap[$itemKey]; ?>
+                            <a class="catalog-mini-card" href="#catalog-section-<?= htmlspecialchars($domain['key']) ?>">
+                                <span class="catalog-mini-icon"><?= $domain['icon'] ?></span>
+                                <span class="catalog-mini-title"><?= htmlspecialchars($domain['title']) ?></span>
+                                <span class="badge neutral"><?= $domain['count'] ?> ítems</span>
+                            </a>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="catalog-mini-card muted">Sin catálogos asignados</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <div class="catalog-section-list">
         <?php foreach ($catalogDomains as $domain): ?>
-            <details class="catalog-accordion" <?= $domain['open'] ? 'open' : '' ?>>
+            <details id="catalog-section-<?= htmlspecialchars($domain['key']) ?>" class="catalog-section-card" <?= $domain['open'] ? 'open' : '' ?>>
                 <summary>
-                    <div class="catalog-accordion-title">
-                        <span class="catalog-accordion-icon"><?= $domain['icon'] ?></span>
+                    <div class="catalog-section-title">
+                        <span class="catalog-section-icon"><?= $domain['icon'] ?></span>
                         <strong><?= htmlspecialchars($domain['title']) ?></strong>
                     </div>
                     <span class="badge neutral"><?= $domain['count'] ?> ítems</span>
                 </summary>
-                <div class="catalog-accordion-body">
+                <div class="catalog-section-body">
                     <?php if ($domain['key'] === 'riesgos'): ?>
                         <div class="catalog-stack">
                             <div class="card subtle-card catalog-block">
@@ -140,45 +204,43 @@ $catalogDomains = [
                                             <strong><?= htmlspecialchars($category) ?></strong>
                                             <span class="badge neutral"><?= count($risks) ?> riesgos</span>
                                         </div>
-                                        <div class="catalog-grid">
+                                        <div class="risk-matrix">
+                                            <div class="risk-matrix-header">
+                                                <span>Riesgo</span>
+                                                <span>Categoría</span>
+                                                <span>Aplica a</span>
+                                                <span>Severidad</span>
+                                                <span>Impacto</span>
+                                                <span>Activo</span>
+                                                <span>Acciones</span>
+                                            </div>
                                             <?php foreach ($risks as $risk): ?>
                                                 <form id="risk-update-<?= htmlspecialchars($risk['code']) ?>" method="POST" action="/project/public/config/risk-catalog/update"></form>
                                                 <form id="risk-delete-<?= htmlspecialchars($risk['code']) ?>" method="POST" action="/project/public/config/risk-catalog/delete" onsubmit="return confirm('¿Eliminar riesgo del catálogo? Esta acción no se puede deshacer.');">
                                                     <input type="hidden" name="code" value="<?= htmlspecialchars($risk['code']) ?>">
                                                 </form>
-                                                <div class="catalog-card">
+                                                <div class="risk-matrix-row">
                                                     <input type="hidden" name="code" value="<?= htmlspecialchars($risk['code']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                    <div class="catalog-card-header">
-                                                        <div>
-                                                            <div class="catalog-title"><?= htmlspecialchars($risk['label']) ?></div>
-                                                            <div class="catalog-meta">Código: <?= htmlspecialchars($risk['code']) ?></div>
-                                                        </div>
-                                                        <label class="toggle">
-                                                            <input type="checkbox" name="active" <?= !empty($risk['active']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                            <span class="toggle-ui"></span>
-                                                            <span class="toggle-text"></span>
-                                                        </label>
-                                                    </div>
-                                                    <div class="catalog-fields">
-                                                        <label class="catalog-field">Categoría
-                                                            <input name="category" value="<?= htmlspecialchars($risk['category']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                        </label>
+                                                    <div class="risk-main">
                                                         <label class="catalog-field">Nombre
                                                             <input name="label" value="<?= htmlspecialchars($risk['label']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
                                                         </label>
-                                                        <label class="catalog-field">Aplica a
-                                                            <select name="applies_to" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                                <option value="ambos" <?= ($risk['applies_to'] ?? '') === 'ambos' ? 'selected' : '' ?>>Ambos</option>
-                                                                <option value="convencional" <?= ($risk['applies_to'] ?? '') === 'convencional' ? 'selected' : '' ?>>Convencional</option>
-                                                                <option value="scrum" <?= ($risk['applies_to'] ?? '') === 'scrum' ? 'selected' : '' ?>>Scrum</option>
-                                                            </select>
-                                                        </label>
-                                                        <label class="catalog-field">Severidad
-                                                            <input type="number" name="severity_base" min="1" max="5" value="<?= (int) ($risk['severity_base'] ?? 1) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                        </label>
+                                                        <div class="catalog-meta">Código: <?= htmlspecialchars($risk['code']) ?></div>
                                                     </div>
-                                                    <div class="catalog-impact">
-                                                        <span class="catalog-meta">Impacto</span>
+                                                    <label class="catalog-field">Categoría
+                                                        <input name="category" value="<?= htmlspecialchars($risk['category']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                    </label>
+                                                    <label class="catalog-field">Aplica a
+                                                        <select name="applies_to" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                            <option value="ambos" <?= ($risk['applies_to'] ?? '') === 'ambos' ? 'selected' : '' ?>>Ambos</option>
+                                                            <option value="convencional" <?= ($risk['applies_to'] ?? '') === 'convencional' ? 'selected' : '' ?>>Convencional</option>
+                                                            <option value="scrum" <?= ($risk['applies_to'] ?? '') === 'scrum' ? 'selected' : '' ?>>Scrum</option>
+                                                        </select>
+                                                    </label>
+                                                    <label class="catalog-field">Severidad
+                                                        <input type="number" name="severity_base" min="1" max="5" value="<?= (int) ($risk['severity_base'] ?? 1) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                    </label>
+                                                    <div class="catalog-impact compact-impact">
                                                         <div class="pillset compact-pills">
                                                             <label class="pill"><input type="checkbox" name="impact_scope" <?= !empty($risk['impact_scope']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Alcance</label>
                                                             <label class="pill"><input type="checkbox" name="impact_time" <?= !empty($risk['impact_time']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Tiempo</label>
@@ -187,6 +249,11 @@ $catalogDomains = [
                                                             <label class="pill"><input type="checkbox" name="impact_legal" <?= !empty($risk['impact_legal']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Legal</label>
                                                         </div>
                                                     </div>
+                                                    <label class="toggle compact-toggle">
+                                                        <input type="checkbox" name="active" <?= !empty($risk['active']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                        <span class="toggle-ui"></span>
+                                                        <span class="toggle-text"></span>
+                                                    </label>
                                                     <div class="catalog-card-actions">
                                                         <button class="btn secondary sm" type="submit" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">Actualizar</button>
                                                         <button class="btn ghost danger sm" type="submit" form="risk-delete-<?= htmlspecialchars($risk['code']) ?>">Borrar</button>
