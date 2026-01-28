@@ -114,12 +114,6 @@ if (!array_key_exists($activeTab, $tabs)) {
     .toggle-switch input:checked + .toggle-track::after {
         transform: translateX(18px);
     }
-    .toggle-switch.is-checked .toggle-track {
-        background: var(--primary);
-    }
-    .toggle-switch.is-checked .toggle-track::after {
-        transform: translateX(18px);
-    }
     .governance-panel {
         display: flex;
         flex-direction: column;
@@ -334,12 +328,6 @@ if (!array_key_exists($activeTab, $tabs)) {
         left: 2px;
     }
     .toggle-switch--compact input:checked + .toggle-track::after {
-        transform: translateX(14px);
-    }
-    .toggle-switch--compact.is-checked .toggle-track {
-        background: var(--primary);
-    }
-    .toggle-switch--compact.is-checked .toggle-track::after {
         transform: translateX(14px);
     }
     .role-accordion {
