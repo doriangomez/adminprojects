@@ -126,13 +126,15 @@
                             <input name="roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['access']['roles'])) ?>">
                         </div>
                         <div class="option-row">
-                            <label class="option">
+                            <label class="toggle-switch" aria-label="Auto-registro">
+                                <span class="toggle-label">Auto-registro</span>
                                 <input type="checkbox" name="allow_self_registration" form="governance-config-form" <?= $configData['access']['user_management']['allow_self_registration'] ? 'checked' : '' ?>>
-                                Auto-registro
+                                <span class="toggle-track" aria-hidden="true"></span>
                             </label>
-                            <label class="option">
+                            <label class="toggle-switch" aria-label="Requiere aprobación">
+                                <span class="toggle-label">Requiere aprobación</span>
                                 <input type="checkbox" name="require_approval" form="governance-config-form" <?= $configData['access']['user_management']['require_approval'] ? 'checked' : '' ?>>
-                                Requiere aprobación
+                                <span class="toggle-track" aria-hidden="true"></span>
                             </label>
                         </div>
                     </div>

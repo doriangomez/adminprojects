@@ -79,6 +79,10 @@ if (!array_key_exists($activeTab, $tabs)) {
         font-weight: 600;
         color: var(--text-primary);
     }
+    .toggle-switch .toggle-label {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
     .toggle-switch input {
         display: none;
     }
