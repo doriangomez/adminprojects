@@ -286,8 +286,8 @@ if (!array_key_exists($activeTab, $tabs)) {
     }
     .permission-list {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+        gap: 14px;
     }
     .permission-item {
         display: flex;
@@ -299,12 +299,12 @@ if (!array_key_exists($activeTab, $tabs)) {
         color: var(--text-primary);
         margin: 0;
         line-height: 1.4;
-        padding: 12px;
+        padding: 14px;
         white-space: normal;
         border: 1px solid var(--border);
         border-radius: 12px;
         background: var(--background);
-        min-height: 76px;
+        min-height: 84px;
     }
     .permission-item + .permission-item {
         border-top: none;
@@ -312,6 +312,10 @@ if (!array_key_exists($activeTab, $tabs)) {
     .permission-name {
         flex: 1;
         font-weight: 600;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
     .permission-toggle {
         margin-left: auto;
