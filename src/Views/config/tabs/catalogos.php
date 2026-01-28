@@ -1,164 +1,82 @@
 <?php
-$totalBaseItems = 0;
-foreach ($masterData as $items) {
-    $totalBaseItems += count($items);
-}
 $catalogDomains = [
     [
-        'key' => 'metodologias',
-        'title' => 'Metodologías',
-        'icon' => '🧩',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'fases',
-        'title' => 'Fases',
-        'icon' => '🧭',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'subfases',
-        'title' => 'Subfases',
-        'icon' => '🧷',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'tipos_proyecto',
-        'title' => 'Tipos de proyecto',
-        'icon' => '🏗️',
-        'count' => 0,
-        'open' => false,
+        'key' => 'proyectos',
+        'title' => 'Proyectos',
+        'icon' => '📁',
+        'open' => true,
     ],
     [
         'key' => 'riesgos',
-        'title' => 'Riesgos (matriz)',
+        'title' => 'Riesgos',
         'icon' => '⚠️',
-        'count' => count($riskCatalog),
         'open' => true,
     ],
     [
-        'key' => 'impactos',
-        'title' => 'Impactos',
-        'icon' => '💥',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'probabilidades',
-        'title' => 'Probabilidades',
-        'icon' => '🎲',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'niveles',
-        'title' => 'Niveles',
-        'icon' => '📊',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'roles',
-        'title' => 'Roles',
-        'icon' => '👤',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'areas',
-        'title' => 'Áreas',
+        'key' => 'organizacion',
+        'title' => 'Organización',
         'icon' => '🏢',
-        'count' => 0,
         'open' => false,
     ],
     [
-        'key' => 'cargos',
-        'title' => 'Cargos',
-        'icon' => '🪪',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'tipos_talento',
-        'title' => 'Tipos de talento',
-        'icon' => '🧑‍💼',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'otros',
-        'title' => 'Datos base del sistema',
-        'icon' => '🗂️',
-        'count' => $totalBaseItems,
-        'open' => true,
-    ],
-];
-$catalogDomainMap = [];
-foreach ($catalogDomains as $domain) {
-    $catalogDomainMap[$domain['key']] = $domain;
-}
-$catalogGroups = [
-    [
-        'title' => 'Catálogos de Proyecto',
-        'icon' => '📁',
-        'items' => ['metodologias', 'fases', 'subfases', 'tipos_proyecto'],
-    ],
-    [
-        'title' => 'Catálogos de Riesgo',
-        'icon' => '⚠️',
-        'items' => ['riesgos', 'impactos', 'probabilidades', 'niveles'],
-    ],
-    [
-        'title' => 'Catálogos Organizacionales',
+        'key' => 'clientes',
+        'title' => 'Clientes',
         'icon' => '👥',
-        'items' => ['roles', 'areas', 'cargos', 'tipos_talento', 'otros'],
+        'open' => false,
+    ],
+    [
+        'key' => 'estados',
+        'title' => 'Estados',
+        'icon' => '✅',
+        'open' => false,
+    ],
+    [
+        'key' => 'sistema',
+        'title' => 'Sistema',
+        'icon' => '🛠️',
+        'open' => false,
     ],
 ];
+$baseCatalogMeta = [
+    'priorities' => ['label' => 'Prioridades', 'domain' => 'proyectos'],
+    'project_health' => ['label' => 'Health de proyecto', 'domain' => 'proyectos'],
+    'project_status' => ['label' => 'Estados de proyecto', 'domain' => 'estados'],
+    'client_status' => ['label' => 'Estados de cliente', 'domain' => 'estados'],
+    'client_sectors' => ['label' => 'Sectores de cliente', 'domain' => 'clientes'],
+    'client_categories' => ['label' => 'Categorías de cliente', 'domain' => 'clientes'],
+    'client_risk' => ['label' => 'Riesgo de cliente', 'domain' => 'clientes'],
+    'client_areas' => ['label' => 'Áreas de cliente', 'domain' => 'clientes'],
+];
+$domainTables = [];
+$domainCounts = [];
+foreach ($masterData as $table => $items) {
+    $meta = $baseCatalogMeta[$table] ?? [
+        'label' => ucwords(str_replace('_', ' ', $table)),
+        'domain' => 'sistema',
+    ];
+    $domainTables[$meta['domain']][$table] = [
+        'label' => $meta['label'],
+        'items' => $items,
+    ];
+    $domainCounts[$meta['domain']] = ($domainCounts[$meta['domain']] ?? 0) + count($items);
+}
+$domainCounts['riesgos'] = count($riskCatalog);
+$domainCounts['sistema'] = ($domainCounts['sistema'] ?? 0) + 2;
 ?>
 <section id="panel-catalogos" class="tab-panel">
-    <div class="catalog-panel">
-        <?php foreach ($catalogGroups as $group): ?>
-            <div class="catalog-group-card">
-                <div class="catalog-group-header">
-                    <div class="catalog-group-title">
-                        <span class="catalog-group-icon"><?= $group['icon'] ?></span>
-                        <strong><?= htmlspecialchars($group['title']) ?></strong>
-                    </div>
-                    <span class="badge neutral"><?= count($group['items']) ?> catálogos</span>
-                </div>
-                <div class="catalog-group-grid">
-                    <?php if (!empty($group['items'])): ?>
-                        <?php foreach ($group['items'] as $itemKey): ?>
-                            <?php if (!isset($catalogDomainMap[$itemKey])) { continue; } ?>
-                            <?php $domain = $catalogDomainMap[$itemKey]; ?>
-                            <a class="catalog-mini-card" href="#catalog-section-<?= htmlspecialchars($domain['key']) ?>">
-                                <span class="catalog-mini-icon"><?= $domain['icon'] ?></span>
-                                <span class="catalog-mini-title"><?= htmlspecialchars($domain['title']) ?></span>
-                                <span class="badge neutral"><?= $domain['count'] ?> ítems</span>
-                            </a>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div class="catalog-mini-card muted">Sin catálogos asignados</div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-    <div class="catalog-section-list">
+    <div class="catalog-domain-list">
         <?php foreach ($catalogDomains as $domain): ?>
-            <details id="catalog-section-<?= htmlspecialchars($domain['key']) ?>" class="catalog-section-card" <?= $domain['open'] ? 'open' : '' ?>>
+            <?php $domainKey = $domain['key']; ?>
+            <details id="catalog-section-<?= htmlspecialchars($domainKey) ?>" class="catalog-domain-card" <?= $domain['open'] ? 'open' : '' ?>>
                 <summary>
-                    <div class="catalog-section-title">
-                        <span class="catalog-section-icon"><?= $domain['icon'] ?></span>
+                    <div class="catalog-domain-title">
+                        <span class="catalog-domain-icon"><?= $domain['icon'] ?></span>
                         <strong><?= htmlspecialchars($domain['title']) ?></strong>
                     </div>
-                    <span class="badge neutral"><?= $domain['count'] ?> ítems</span>
+                    <span class="badge neutral"><?= $domainCounts[$domainKey] ?? 0 ?> ítems</span>
                 </summary>
-                <div class="catalog-section-body">
-                    <?php if ($domain['key'] === 'riesgos'): ?>
+                <div class="catalog-domain-body">
+                    <?php if ($domainKey === 'riesgos'): ?>
                         <div class="catalog-stack">
                             <div class="card subtle-card catalog-block">
                                 <div class="toolbar">
@@ -335,7 +253,7 @@ $catalogGroups = [
                                 <?php endif; ?>
                             </div>
                         </div>
-                    <?php elseif ($domain['key'] === 'otros'): ?>
+                    <?php elseif ($domainKey === 'sistema'): ?>
                         <div class="catalog-stack">
                             <div class="card config-card stretch">
                                 <div class="toolbar">
@@ -362,68 +280,72 @@ $catalogGroups = [
                                     </form>
                                 </div>
                             </div>
-                            <div class="catalog-base-grid">
-                                <?php foreach($masterData as $table => $items): ?>
-                                    <div class="card subtle-card stretch catalog-block">
-                                        <div class="toolbar">
+                        </div>
+                    <?php else: ?>
+                        <?php $tables = $domainTables[$domainKey] ?? []; ?>
+                        <?php if (!empty($tables)): ?>
+                            <div class="catalog-domain-grid">
+                                <?php foreach ($tables as $table => $tableData): ?>
+                                    <div class="catalog-table-block">
+                                        <div class="catalog-table-header">
                                             <div>
                                                 <p class="badge neutral" style="margin:0;">Catálogo base</p>
-                                                <h4 style="margin:4px 0 0 0;"><?= ucwords(str_replace('_', ' ', $table)) ?></h4>
+                                                <h4 style="margin:4px 0 0 0;"><?= htmlspecialchars($tableData['label']) ?></h4>
                                             </div>
+                                            <span class="badge neutral"><?= count($tableData['items']) ?> ítems</span>
                                         </div>
-                                        <div class="card-content">
-                                            <form method="POST" action="/project/public/config/master-files/create" class="config-form-grid compact-grid">
-                                                <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>">
-                                                <input name="code" placeholder="Código" required>
-                                                <input name="label" placeholder="Etiqueta" required>
-                                                <div class="form-footer">
-                                                    <div></div>
-                                                    <button class="btn primary" type="submit">Agregar</button>
-                                                </div>
-                                            </form>
-                                            <div class="catalog-grid">
-                                                <?php foreach($items as $item): ?>
-                                                    <form id="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/project/public/config/master-files/update"></form>
-                                                    <form id="base-delete-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/project/public/config/master-files/delete" onsubmit="return confirm('Eliminar entrada?');">
-                                                        <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>">
-                                                        <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
-                                                    </form>
-                                                    <div class="catalog-card">
-                                                        <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
-                                                        <input type="hidden" name="id" value="<?= (int) $item['id'] ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
-                                                        <div class="catalog-card-header">
-                                                            <div>
-                                                                <div class="catalog-title"><?= htmlspecialchars($item['label']) ?></div>
-                                                                <div class="catalog-meta">Código: <?= htmlspecialchars($item['code']) ?></div>
-                                                            </div>
-                                                            <label class="toggle-switch toggle-switch--state">
-                                                                <input type="checkbox" checked disabled>
-                                                                <span class="toggle-track" aria-hidden="true"></span>
-                                                                <span class="toggle-state" aria-hidden="true"></span>
-                                                            </label>
-                                                        </div>
-                                                        <div class="catalog-fields">
-                                                            <label class="catalog-field">Código
-                                                                <input name="code" value="<?= htmlspecialchars($item['code']) ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
-                                                            </label>
-                                                            <label class="catalog-field">Etiqueta
-                                                                <input name="label" value="<?= htmlspecialchars($item['label']) ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
-                                                            </label>
-                                                        </div>
-                                                        <div class="catalog-card-actions">
-                                                            <button class="btn secondary sm" type="submit" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">Actualizar</button>
-                                                            <button class="btn ghost danger sm" type="submit" form="base-delete-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">Borrar</button>
-                                                        </div>
-                                                    </div>
-                                                <?php endforeach; ?>
+                                        <form method="POST" action="/project/public/config/master-files/create" class="catalog-table-form">
+                                            <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>">
+                                            <input name="code" placeholder="Código" required>
+                                            <input name="label" placeholder="Etiqueta" required>
+                                            <button class="btn primary sm" type="submit">Agregar</button>
+                                        </form>
+                                        <div class="catalog-table">
+                                            <div class="catalog-table-row catalog-table-row--header">
+                                                <span>Código</span>
+                                                <span>Etiqueta</span>
+                                                <span>Estado</span>
+                                                <span>Acciones</span>
                                             </div>
+                                            <?php foreach($tableData['items'] as $item): ?>
+                                                <form id="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/project/public/config/master-files/update"></form>
+                                                <form id="base-delete-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/project/public/config/master-files/delete" onsubmit="return confirm('Eliminar entrada?');">
+                                                    <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>">
+                                                    <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
+                                                </form>
+                                                <div class="catalog-table-row">
+                                                    <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
+                                                    <input type="hidden" name="id" value="<?= (int) $item['id'] ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
+                                                    <label class="catalog-field">Código
+                                                        <input name="code" value="<?= htmlspecialchars($item['code']) ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
+                                                    </label>
+                                                    <label class="catalog-field">Etiqueta
+                                                        <input name="label" value="<?= htmlspecialchars($item['label']) ?>" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">
+                                                    </label>
+                                                    <label class="toggle-switch toggle-switch--compact toggle-switch--state catalog-table-toggle">
+                                                        <span class="toggle-label">Activo</span>
+                                                        <input type="checkbox" checked disabled>
+                                                        <span class="toggle-track" aria-hidden="true"></span>
+                                                        <span class="toggle-state" aria-hidden="true"></span>
+                                                    </label>
+                                                    <div class="catalog-table-actions">
+                                                        <button class="btn secondary sm" type="submit" form="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">Actualizar</button>
+                                                        <button class="btn ghost danger sm" type="submit" form="base-delete-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>">Borrar</button>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                            <?php if (empty($tableData['items'])): ?>
+                                                <div class="catalog-table-row catalog-table-row--empty">
+                                                    <span class="muted">Sin entradas.</span>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                        </div>
-                    <?php else: ?>
-                        <p class="catalog-empty">Sin catálogos configurados en este dominio.</p>
+                        <?php else: ?>
+                            <p class="catalog-empty">Sin catálogos configurados en este dominio.</p>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </details>
