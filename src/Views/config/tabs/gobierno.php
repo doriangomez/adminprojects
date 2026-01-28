@@ -35,7 +35,10 @@
         <div class="card config-card governance-block">
             <div class="card-content">
                 <header class="governance-block-header">
-                    <h3 class="governance-block-title">Reglas globales del sistema</h3>
+                    <div class="governance-block-title-line">
+                        <span class="governance-block-icon" aria-hidden="true">🌐</span>
+                        <h3 class="governance-block-title">Reglas globales del sistema</h3>
+                    </div>
                     <p class="governance-block-subtitle">(impactan a todo el sistema)</p>
                 </header>
                 <div class="governance-rules">
@@ -62,12 +65,13 @@
                 </div>
             </div>
         </div>
-        </div>
-
         <div class="card config-card governance-block">
             <div class="card-content">
                 <header class="governance-block-header">
-                    <h3 class="governance-block-title">Activación de módulos</h3>
+                    <div class="governance-block-title-line">
+                        <span class="governance-block-icon" aria-hidden="true">🧩</span>
+                        <h3 class="governance-block-title">Activación de módulos</h3>
+                    </div>
                     <p class="governance-block-subtitle">Activa o desactiva módulos del sistema.</p>
                 </header>
                 <div class="governance-modules">
@@ -108,7 +112,10 @@
         <div class="card config-card governance-block governance-block--critical">
             <div class="card-content">
                 <header class="governance-block-header">
-                    <h3 class="governance-block-title">Gobernanza de acceso</h3>
+                    <div class="governance-block-title-line">
+                        <span class="governance-block-icon" aria-hidden="true">🛡️</span>
+                        <h3 class="governance-block-title">Gobernanza de acceso</h3>
+                    </div>
                     <p class="governance-block-subtitle">(quién puede hacer qué)</p>
                 </header>
                 <div class="governance-card-body">
@@ -203,87 +210,109 @@
                 </div>
             </div>
         </div>
-        </div>
 
         <div class="card config-card governance-block">
             <div class="card-content">
             <header class="governance-block-header">
-                <h3 class="governance-block-title">Usuarios</h3>
+                <div class="governance-block-title-line">
+                    <span class="governance-block-icon" aria-hidden="true">👤</span>
+                    <h3 class="governance-block-title">Usuarios</h3>
+                </div>
                 <p class="governance-block-subtitle">Gestiona altas, roles y permisos puntuales por usuario.</p>
             </header>
             <div class="governance-card-body">
                 <div class="governance-access-section">
-                    <span class="section-label">Alta de usuarios</span>
-                    <form method="POST" action="/project/public/config/users/create" class="config-form-grid">
-                        <input name="name" placeholder="Nombre" required>
-                        <input name="email" type="email" placeholder="Correo" required>
-                        <input name="password" type="password" placeholder="Contraseña" required>
-                        <select name="role_id" required>
-                            <?php foreach($roles as $role): ?>
-                                <option value="<?= (int) $role['id'] ?>"><?= htmlspecialchars($role['nombre']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <label class="option">
-                            <input type="checkbox" name="active" checked>
-                            Usuario activo
-                        </label>
-                        <div class="config-flow-roles full-span">
-                            <strong>Roles del flujo documental</strong>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_review_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Puede ser Revisor
-                            </label>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_validate_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Puede ser Validador
-                            </label>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_approve_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Puede ser Aprobador
-                            </label>
-                            <?php if (!$isAdmin): ?>
-                                <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                            <?php endif; ?>
-                        </div>
-                        <div class="config-flow-roles full-span">
-                            <strong>Permisos de avance</strong>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_update_project_progress" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Puede actualizar avance del proyecto
-                            </label>
-                            <?php if (!$isAdmin): ?>
-                                <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                            <?php endif; ?>
-                        </div>
-                        <div class="config-flow-roles full-span">
-                            <strong>Permisos de outsourcing</strong>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_access_outsourcing" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Acceder a Outsourcing
-                            </label>
-                            <?php if (!$isAdmin): ?>
-                                <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                            <?php endif; ?>
-                        </div>
-                        <div class="config-flow-roles full-span">
-                            <strong>Permisos de timesheets</strong>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_access_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Acceder a Timesheets
-                            </label>
-                            <label class="option compact">
-                                <input type="checkbox" name="can_approve_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                Aprobar Timesheets
-                            </label>
-                            <?php if (!$isAdmin): ?>
-                                <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                            <?php endif; ?>
+                    <form method="POST" action="/project/public/config/users/create">
+                        <div class="user-section-grid">
+                            <div class="user-section-card">
+                                <div class="user-section-header">
+                                    <h4>Alta de usuarios</h4>
+                                    <p>Registra nuevos usuarios con rol y estado inicial.</p>
+                                </div>
+                                <div class="config-form-grid">
+                                    <input name="name" placeholder="Nombre" required>
+                                    <input name="email" type="email" placeholder="Correo" required>
+                                    <input name="password" type="password" placeholder="Contraseña" required>
+                                    <select name="role_id" required>
+                                        <?php foreach($roles as $role): ?>
+                                            <option value="<?= (int) $role['id'] ?>"><?= htmlspecialchars($role['nombre']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <label class="option">
+                                        <input type="checkbox" name="active" checked>
+                                        Usuario activo
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="user-section-card">
+                                <div class="user-section-header">
+                                    <h4>Permisos</h4>
+                                    <p>Define permisos puntuales y accesos especiales.</p>
+                                </div>
+                                <div class="config-flow-roles">
+                                    <strong>Roles del flujo documental</strong>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_review_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Puede ser Revisor
+                                    </label>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_validate_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Puede ser Validador
+                                    </label>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_approve_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Puede ser Aprobador
+                                    </label>
+                                    <?php if (!$isAdmin): ?>
+                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="config-flow-roles">
+                                    <strong>Permisos de avance</strong>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_update_project_progress" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Puede actualizar avance del proyecto
+                                    </label>
+                                    <?php if (!$isAdmin): ?>
+                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="config-flow-roles">
+                                    <strong>Permisos de outsourcing</strong>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_access_outsourcing" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Acceder a Outsourcing
+                                    </label>
+                                    <?php if (!$isAdmin): ?>
+                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="config-flow-roles">
+                                    <strong>Permisos de timesheets</strong>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_access_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Acceder a Timesheets
+                                    </label>
+                                    <label class="option compact">
+                                        <input type="checkbox" name="can_approve_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                        Aprobar Timesheets
+                                    </label>
+                                    <?php if (!$isAdmin): ?>
+                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-footer">
                             <div></div>
                             <button class="btn primary" type="submit">Crear usuario</button>
                         </div>
                     </form>
+                    <div class="user-section-card">
+                        <div class="user-section-header">
+                            <h4>Listado de usuarios</h4>
+                            <p>Consulta y actualiza permisos individuales.</p>
+                        </div>
                     <div class="user-accordion">
                         <?php foreach($users as $user): ?>
                             <details class="user-card">
@@ -380,6 +409,7 @@
                             </details>
                         <?php endforeach; ?>
                     </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -387,7 +417,10 @@
         <div class="card config-card governance-block">
             <div class="card-content">
                 <header class="governance-block-header">
-                    <h3 class="governance-block-title">Flujo documental</h3>
+                    <div class="governance-block-title-line">
+                        <span class="governance-block-icon" aria-hidden="true">📄</span>
+                        <h3 class="governance-block-title">Flujo documental</h3>
+                    </div>
                     <p class="governance-block-subtitle">(cómo pasan los documentos por revisión)</p>
                 </header>
                 <div class="governance-document-section">
