@@ -262,7 +262,8 @@ if (!array_key_exists($activeTab, $tabs)) {
         padding-top: 16px;
     }
     .permission-groups {
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: 16px;
     }
     .permission-group {
@@ -438,9 +439,6 @@ if (!array_key_exists($activeTab, $tabs)) {
         }
         .user-expand {
             justify-self: start;
-        }
-        .permission-list {
-            grid-template-columns: 1fr;
         }
         .user-section-grid {
             grid-template-columns: 1fr;
