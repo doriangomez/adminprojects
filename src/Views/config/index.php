@@ -114,6 +114,24 @@ if (!array_key_exists($activeTab, $tabs)) {
     .toggle-switch input:checked + .toggle-track::after {
         transform: translateX(18px);
     }
+    .toggle-switch--state {
+        gap: 8px;
+    }
+    .toggle-switch--state .toggle-state {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        letter-spacing: 0.06em;
+        min-width: 28px;
+        text-align: right;
+    }
+    .toggle-switch--state .toggle-state::before {
+        content: 'OFF';
+    }
+    .toggle-switch--state input:checked ~ .toggle-state::before {
+        content: 'ON';
+        color: var(--primary);
+    }
     .governance-panel {
         display: flex;
         flex-direction: column;
@@ -433,6 +451,38 @@ if (!array_key_exists($activeTab, $tabs)) {
         margin: 0;
         color: var(--text-secondary);
         font-size: 13px;
+    }
+    .user-permission-groups {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .user-permission-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .user-permission-list {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .user-permission-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--background);
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+    .user-permission-item .permission-name {
+        font-weight: 600;
+        flex: 1;
+        display: block;
     }
     .user-actions {
         display: flex;

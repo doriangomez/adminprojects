@@ -256,54 +256,83 @@
                                     <h4>Permisos</h4>
                                     <p>Define permisos puntuales y accesos especiales.</p>
                                 </div>
-                                <div class="config-flow-roles">
-                                    <strong>Roles del flujo documental</strong>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_review_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Puede ser Revisor
-                                    </label>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_validate_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Puede ser Validador
-                                    </label>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_approve_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Puede ser Aprobador
-                                    </label>
-                                    <?php if (!$isAdmin): ?>
-                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="config-flow-roles">
-                                    <strong>Permisos de avance</strong>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_update_project_progress" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Puede actualizar avance del proyecto
-                                    </label>
-                                    <?php if (!$isAdmin): ?>
-                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="config-flow-roles">
-                                    <strong>Permisos de outsourcing</strong>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_access_outsourcing" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Acceder a Outsourcing
-                                    </label>
-                                    <?php if (!$isAdmin): ?>
-                                        <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="config-flow-roles">
-                                    <strong>Permisos de timesheets</strong>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_access_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Acceder a Timesheets
-                                    </label>
-                                    <label class="option compact">
-                                        <input type="checkbox" name="can_approve_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
-                                        Aprobar Timesheets
-                                    </label>
+                                <div class="user-permission-groups">
+                                    <div class="user-permission-group">
+                                        <p class="permission-group-title">Flujo documental</p>
+                                        <div class="user-permission-list">
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Puede ser Revisor</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_review_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Puede ser Validador</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_validate_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Puede ser Aprobador</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_approve_documents" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="user-permission-group">
+                                        <p class="permission-group-title">Proyectos</p>
+                                        <div class="user-permission-list">
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Puede actualizar avance del proyecto</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_update_project_progress" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="user-permission-group">
+                                        <p class="permission-group-title">Outsourcing</p>
+                                        <div class="user-permission-list">
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Acceder a Outsourcing</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_access_outsourcing" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="user-permission-group">
+                                        <p class="permission-group-title">Timesheets</p>
+                                        <div class="user-permission-list">
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Acceder a Timesheets</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_access_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Aprobar Timesheets</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_approve_timesheets" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
                                     <?php if (!$isAdmin): ?>
                                         <small class="section-muted">Solo administradores pueden editar estos permisos.</small>
                                     <?php endif; ?>
@@ -355,45 +384,83 @@
                                                 Activo
                                             </label>
                                         </div>
-                                        <div class="config-flow-roles">
-                                            <strong>Flujo documental</strong>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_review_documents" <?= ((int) ($user['can_review_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Revisor
-                                            </label>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_validate_documents" <?= ((int) ($user['can_validate_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Validador
-                                            </label>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_approve_documents" <?= ((int) ($user['can_approve_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Aprobador
-                                            </label>
-                                        </div>
-                                        <div class="config-flow-roles">
-                                            <strong>Permisos de avance</strong>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_update_project_progress" <?= ((int) ($user['can_update_project_progress'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Actualizar avance
-                                            </label>
-                                        </div>
-                                        <div class="config-flow-roles">
-                                            <strong>Permisos de outsourcing</strong>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Acceder a Outsourcing
-                                            </label>
-                                        </div>
-                                        <div class="config-flow-roles">
-                                            <strong>Permisos de timesheets</strong>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_access_timesheets" <?= ((int) ($user['can_access_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Acceder a Timesheets
-                                            </label>
-                                            <label class="option compact">
-                                                <input type="checkbox" name="can_approve_timesheets" <?= ((int) ($user['can_approve_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
-                                                Aprobar Timesheets
-                                            </label>
+                                        <div class="user-permission-groups">
+                                            <div class="user-permission-group">
+                                                <p class="permission-group-title">Flujo documental</p>
+                                                <div class="user-permission-list">
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Revisor</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_review_documents" <?= ((int) ($user['can_review_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Validador</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_validate_documents" <?= ((int) ($user['can_validate_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Aprobador</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_approve_documents" <?= ((int) ($user['can_approve_documents'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="user-permission-group">
+                                                <p class="permission-group-title">Proyectos</p>
+                                                <div class="user-permission-list">
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Actualizar avance</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_update_project_progress" <?= ((int) ($user['can_update_project_progress'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="user-permission-group">
+                                                <p class="permission-group-title">Outsourcing</p>
+                                                <div class="user-permission-list">
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Acceder a Outsourcing</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="user-permission-group">
+                                                <p class="permission-group-title">Timesheets</p>
+                                                <div class="user-permission-list">
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Acceder a Timesheets</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_access_timesheets" <?= ((int) ($user['can_access_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Aprobar Timesheets</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_approve_timesheets" <?= ((int) ($user['can_approve_timesheets'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="form-footer">
                                             <div></div>
