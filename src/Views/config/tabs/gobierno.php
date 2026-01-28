@@ -351,11 +351,23 @@
                         </div>
                     <div class="user-accordion">
                         <?php foreach($users as $user): ?>
+                            <?php
+                                $activePermissionsCount = count(array_filter([
+                                    (int) ($user['can_review_documents'] ?? 0) === 1,
+                                    (int) ($user['can_validate_documents'] ?? 0) === 1,
+                                    (int) ($user['can_approve_documents'] ?? 0) === 1,
+                                    (int) ($user['can_update_project_progress'] ?? 0) === 1,
+                                    (int) ($user['can_access_outsourcing'] ?? 0) === 1,
+                                    (int) ($user['can_access_timesheets'] ?? 0) === 1,
+                                    (int) ($user['can_approve_timesheets'] ?? 0) === 1,
+                                ]));
+                            ?>
                             <details class="user-card">
                                 <summary>
                                     <span><?= htmlspecialchars($user['name']) ?></span>
                                     <span><?= htmlspecialchars($user['email']) ?></span>
                                     <span><?= htmlspecialchars($user['role_name']) ?></span>
+                                    <span class="pill soft-slate"><?= $activePermissionsCount ?> permisos activos</span>
                                     <span>
                                         <?php if((int)$user['active'] === 1): ?>
                                             <span class="badge success">Activo</span>
