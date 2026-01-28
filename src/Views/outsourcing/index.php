@@ -244,7 +244,7 @@ $riskServicesCount = count(array_filter(
         <?php else: ?>
             <div class="service-grid">
                 <?php foreach ($services as $service): ?>
-                    <article class="service-card">
+                    <article class="service-card <?= $healthBadge($service['current_health'] ?? null) ?>">
                         <header class="service-card-header">
                             <div class="service-title">
                                 <span class="service-icon" aria-hidden="true">
@@ -319,34 +319,55 @@ $riskServicesCount = count(array_filter(
                                     <small class="section-muted">Último seguimiento: <?= htmlspecialchars($formatDate($service['last_followup_end'] ?? $service['health_updated_at'] ?? null)) ?></small>
                                 </div>
                             </div>
+                            <div class="service-indicators">
+                                <span class="indicator-pill <?= $healthBadge($service['current_health'] ?? null) ?>">
+                                    <span class="indicator-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" role="presentation">
+                                            <path d="M4 6.5h16M4 12h16M4 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                    Seguimiento: <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
+                                </span>
+                                <span class="indicator-pill <?= $serviceStatusBadge($service['service_status'] ?? null) ?>">
+                                    <span class="indicator-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" role="presentation">
+                                            <path d="M6 5.5h12v13H6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                            <path d="M9 9.5h6M9 13.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                    Estado: <?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? ''] ?? 'Sin estado') ?>
+                                </span>
+                            </div>
                         </div>
-                        <div class="service-actions">
-                            <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" role="presentation">
-                                        <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                                        <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                                    </svg>
-                                </span>
-                                Ver
-                            </a>
-                            <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>#resumen">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" role="presentation">
-                                        <path d="M4 16.5V20h3.5L19 8.5 15.5 5 4 16.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-                                    </svg>
-                                </span>
-                                Editar
-                            </a>
-                            <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>#seguimientos">
-                                <span class="btn-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" role="presentation">
-                                        <path d="M4 6.5h16M4 12h16M4 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                    </svg>
-                                </span>
-                                Seguimiento
-                            </a>
-                        </div>
+                        <footer class="service-footer">
+                            <div class="service-actions">
+                                <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>">
+                                    <span class="btn-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" role="presentation">
+                                            <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                            <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                                        </svg>
+                                    </span>
+                                    Ver
+                                </a>
+                                <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>#resumen">
+                                    <span class="btn-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" role="presentation">
+                                            <path d="M4 16.5V20h3.5L19 8.5 15.5 5 4 16.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                                        </svg>
+                                    </span>
+                                    Editar
+                                </a>
+                                <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>#seguimientos">
+                                    <span class="btn-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" role="presentation">
+                                            <path d="M4 6.5h16M4 12h16M4 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                    Seguimiento
+                                </a>
+                            </div>
+                        </footer>
                     </article>
                 <?php endforeach; ?>
             </div>
@@ -703,7 +724,13 @@ $riskServicesCount = count(array_filter(
     .outsourcing-filters select { padding:9px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); }
     .filter-actions { display:flex; gap:8px; align-items:flex-end; }
     .service-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
-    .service-card { border:1px solid var(--border); border-radius:18px; padding:16px; background: color-mix(in srgb, var(--surface) 86%, var(--background) 14%); display:flex; flex-direction:column; gap:12px; }
+    .service-card { border:1px solid color-mix(in srgb, var(--border) 70%, transparent 30%); border-radius:20px; padding:16px; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); display:flex; flex-direction:column; gap:12px; position:relative; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08); }
+    .service-card::before { content:""; position:absolute; inset:0; border-radius:20px; border:1px solid transparent; pointer-events:none; }
+    .service-card:hover { border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12); }
+    .service-card.status-muted { border-left:4px solid color-mix(in srgb, var(--text-secondary) 40%, transparent 60%); }
+    .service-card.status-success { border-left:4px solid color-mix(in srgb, var(--primary) 70%, transparent 30%); }
+    .service-card.status-warning { border-left:4px solid color-mix(in srgb, var(--accent) 70%, transparent 30%); }
+    .service-card.status-danger { border-left:4px solid color-mix(in srgb, var(--secondary) 70%, transparent 30%); }
     .service-card-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .service-title { display:flex; gap:12px; align-items:flex-start; }
     .service-title h4 { margin:0; font-size:16px; color: var(--text-primary); }
@@ -717,21 +744,26 @@ $riskServicesCount = count(array_filter(
     .meta-icon { width:20px; height:20px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-primary); }
     .meta-icon svg { width:12px; height:12px; }
     .service-meta strong { color: var(--text-primary); font-size:13px; }
+    .service-indicators { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .indicator-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; border:1px solid var(--border); }
+    .indicator-icon { width:14px; height:14px; display:inline-flex; }
+    .indicator-icon svg { width:14px; height:14px; }
+    .service-footer { border-top:1px dashed var(--border); padding-top:12px; display:flex; justify-content:flex-end; }
     .service-actions { display:flex; flex-wrap:wrap; gap:8px; }
-    .icon-action { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); text-decoration:none; font-weight:600; font-size:13px; }
-    .icon-action:hover { border-color: var(--primary); }
+    .icon-action { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); text-decoration:none; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; }
+    .icon-action:hover { border-color: var(--primary); background: color-mix(in srgb, var(--surface) 80%, var(--background) 20%); }
     .status-badge,
-    .service-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; text-transform:uppercase; letter-spacing:0.03em; align-items:center; gap:6px; }
+    .service-badge { font-size:11px; font-weight:800; padding:5px 10px; border-radius:999px; border:1px solid transparent; display:inline-flex; text-transform:uppercase; letter-spacing:0.04em; align-items:center; gap:6px; }
     .badge-icon { width:14px; height:14px; display:inline-flex; }
     .badge-icon svg { width:14px; height:14px; }
-    .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--background) 20%); color: var(--text-secondary); border-color: var(--border); }
-    .status-success { background: color-mix(in srgb, var(--primary) 16%, var(--surface) 84%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); }
-    .status-warning { background: color-mix(in srgb, var(--accent) 16%, var(--surface) 84%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--border) 70%); }
-    .status-danger { background: color-mix(in srgb, var(--secondary) 18%, var(--surface) 82%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 35%, var(--border) 65%); }
-    .badge-muted { background: color-mix(in srgb, var(--surface) 78%, var(--background) 22%); color: var(--text-secondary); border-color: var(--border); }
-    .badge-active { background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 26%, var(--border) 74%); }
-    .badge-paused { background: color-mix(in srgb, var(--accent) 14%, var(--surface) 86%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 26%, var(--border) 74%); }
-    .badge-ended { background: color-mix(in srgb, var(--secondary) 14%, var(--surface) 86%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 26%, var(--border) 74%); }
+    .status-muted { background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 20%, var(--border) 80%); }
+    .status-success { background: color-mix(in srgb, var(--primary) 22%, var(--surface) 78%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border) 60%); }
+    .status-warning { background: color-mix(in srgb, var(--accent) 22%, var(--surface) 78%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border) 60%); }
+    .status-danger { background: color-mix(in srgb, var(--secondary) 24%, var(--surface) 76%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 45%, var(--border) 55%); }
+    .badge-muted { background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 20%, var(--border) 80%); }
+    .badge-active { background: color-mix(in srgb, var(--primary) 20%, var(--surface) 80%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 38%, var(--border) 62%); }
+    .badge-paused { background: color-mix(in srgb, var(--accent) 20%, var(--surface) 80%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 38%, var(--border) 62%); }
+    .badge-ended { background: color-mix(in srgb, var(--secondary) 20%, var(--surface) 80%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 38%, var(--border) 62%); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:13px; }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); }
