@@ -18,7 +18,7 @@ $statusMeta = [
     'rechazado' => ['label' => 'Rechazado', 'class' => 'status-danger'],
 ];
 
-$renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
+$renderRow = static function (array $doc, string $queue) use ($basePath, $statusMeta): void {
     $status = (string) ($doc['document_status'] ?? 'borrador');
     $meta = $statusMeta[$status] ?? ['label' => $status, 'class' => 'status-muted'];
     $tags = $doc['document_tags'] ?? [];
@@ -29,11 +29,20 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
     $reviewed = ($doc['reviewed_name'] ?? null) ?: ($doc['reviewed_by'] ? 'Usuario #' . (int) $doc['reviewed_by'] : null);
     $validated = ($doc['validated_name'] ?? null) ?: ($doc['validated_by'] ? 'Usuario #' . (int) $doc['validated_by'] : null);
     $approved = ($doc['approved_name'] ?? null) ?: ($doc['approved_by'] ? 'Usuario #' . (int) $doc['approved_by'] : null);
+    $queueLabels = [
+        'review' => 'Revisión',
+        'validation' => 'Validación',
+        'approval' => 'Aprobación',
+        'dispatch-validation' => 'Envío a validación',
+        'dispatch-approval' => 'Envío a aprobación',
+    ];
+    $queueLabel = $queueLabels[$queue] ?? 'Pendiente';
     ?>
-    <article class="inbox-card" data-document-row data-document-id="<?= (int) ($doc['id'] ?? 0) ?>" data-project-id="<?= (int) ($doc['project_id'] ?? 0) ?>" data-document-status="<?= htmlspecialchars($status) ?>">
+    <article class="inbox-card" data-document-row data-queue-type="<?= htmlspecialchars($queue) ?>" data-document-id="<?= (int) ($doc['id'] ?? 0) ?>" data-project-id="<?= (int) ($doc['project_id'] ?? 0) ?>" data-document-status="<?= htmlspecialchars($status) ?>">
         <header class="inbox-card__header">
-            <div>
-                <strong>📄 <?= htmlspecialchars($doc['file_name'] ?? '') ?></strong>
+            <div class="inbox-card__heading">
+                <span class="inbox-card__type"><?= htmlspecialchars($queueLabel) ?></span>
+                <strong class="inbox-card__title"><?= htmlspecialchars($doc['file_name'] ?? '') ?></strong>
                 <div class="meta-line">Proyecto: <?= htmlspecialchars($doc['project_name'] ?? '') ?></div>
                 <?php if ($location !== ''): ?>
                     <div class="meta-line">Ubicación: <?= htmlspecialchars($location) ?></div>
@@ -41,35 +50,51 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
             </div>
             <div class="badge <?= htmlspecialchars($meta['class']) ?>"><?= htmlspecialchars($meta['label']) ?></div>
         </header>
-        <div class="inbox-card__grid">
-            <div>
-                <span class="meta-label">Tipo documental</span>
-                <div><?= htmlspecialchars((string) ($doc['document_type'] ?? '')) ?></div>
+        <div class="inbox-card__body">
+            <div class="inbox-card__summary">
+                <div>
+                    <span class="meta-label">Estado actual</span>
+                    <div class="status-pill <?= htmlspecialchars($meta['class']) ?>"><?= htmlspecialchars($meta['label']) ?></div>
+                </div>
+                <div>
+                    <span class="meta-label">Responsable anterior</span>
+                    <div><?= htmlspecialchars($reviewed ?? $validated ?? $approved ?? 'Sin registro') ?></div>
+                </div>
+                <div>
+                    <span class="meta-label">Fecha</span>
+                    <div><?= htmlspecialchars((string) ($doc['approved_at'] ?? $doc['validated_at'] ?? $doc['reviewed_at'] ?? '')) ?></div>
+                </div>
             </div>
-            <div>
-                <span class="meta-label">Versión</span>
-                <div><?= htmlspecialchars((string) ($doc['document_version'] ?? '')) ?></div>
-            </div>
-            <div>
-                <span class="meta-label">Tags</span>
-                <div><?= htmlspecialchars($tagList) ?></div>
-            </div>
-            <div>
-                <span class="meta-label">Flujo asignado</span>
-                <div>Revisor: <?= htmlspecialchars($doc['reviewer_name'] ?? ($doc['reviewer_id'] ? 'Usuario #' . (int) $doc['reviewer_id'] : 'No asignado')) ?></div>
-                <div>Validador: <?= htmlspecialchars($doc['validator_name'] ?? ($doc['validator_id'] ? 'Usuario #' . (int) $doc['validator_id'] : 'No asignado')) ?></div>
-                <div>Aprobador: <?= htmlspecialchars($doc['approver_name'] ?? ($doc['approver_id'] ? 'Usuario #' . (int) $doc['approver_id'] : 'No asignado')) ?></div>
-            </div>
-            <div>
-                <span class="meta-label">Trazabilidad</span>
-                <div><?= $reviewed ? 'Revisado por ' . htmlspecialchars($reviewed) . ' · ' . htmlspecialchars((string) ($doc['reviewed_at'] ?? '')) : 'Revisión pendiente' ?></div>
-                <div><?= $validated ? 'Validado por ' . htmlspecialchars($validated) . ' · ' . htmlspecialchars((string) ($doc['validated_at'] ?? '')) : 'Validación pendiente' ?></div>
-                <div><?= $approved ? 'Aprobado por ' . htmlspecialchars($approved) . ' · ' . htmlspecialchars((string) ($doc['approved_at'] ?? '')) : 'Aprobación pendiente' ?></div>
+            <div class="inbox-card__grid">
+                <div>
+                    <span class="meta-label">Tipo documental</span>
+                    <div><?= htmlspecialchars((string) ($doc['document_type'] ?? '')) ?></div>
+                </div>
+                <div>
+                    <span class="meta-label">Versión</span>
+                    <div><?= htmlspecialchars((string) ($doc['document_version'] ?? '')) ?></div>
+                </div>
+                <div>
+                    <span class="meta-label">Tags</span>
+                    <div><?= htmlspecialchars($tagList) ?></div>
+                </div>
+                <div>
+                    <span class="meta-label">Flujo asignado</span>
+                    <div>Revisor: <?= htmlspecialchars($doc['reviewer_name'] ?? ($doc['reviewer_id'] ? 'Usuario #' . (int) $doc['reviewer_id'] : 'No asignado')) ?></div>
+                    <div>Validador: <?= htmlspecialchars($doc['validator_name'] ?? ($doc['validator_id'] ? 'Usuario #' . (int) $doc['validator_id'] : 'No asignado')) ?></div>
+                    <div>Aprobador: <?= htmlspecialchars($doc['approver_name'] ?? ($doc['approver_id'] ? 'Usuario #' . (int) $doc['approver_id'] : 'No asignado')) ?></div>
+                </div>
+                <div>
+                    <span class="meta-label">Trazabilidad</span>
+                    <div><?= $reviewed ? 'Revisado por ' . htmlspecialchars($reviewed) . ' · ' . htmlspecialchars((string) ($doc['reviewed_at'] ?? '')) : 'Revisión pendiente' ?></div>
+                    <div><?= $validated ? 'Validado por ' . htmlspecialchars($validated) . ' · ' . htmlspecialchars((string) ($doc['validated_at'] ?? '')) : 'Validación pendiente' ?></div>
+                    <div><?= $approved ? 'Aprobado por ' . htmlspecialchars($approved) . ' · ' . htmlspecialchars((string) ($doc['approved_at'] ?? '')) : 'Aprobación pendiente' ?></div>
+                </div>
             </div>
         </div>
         <div class="inbox-card__footer">
-            <a class="action-btn small" href="<?= $basePath ?>/projects/<?= (int) ($doc['project_id'] ?? 0) ?>/nodes/<?= (int) ($doc['id'] ?? 0) ?>/download">Ver</a>
-            <button class="action-btn small" type="button" data-toggle-history>Historial</button>
+            <a class="action-btn small action-btn--view" href="<?= $basePath ?>/projects/<?= (int) ($doc['project_id'] ?? 0) ?>/nodes/<?= (int) ($doc['id'] ?? 0) ?>/download">Ver</a>
+            <button class="action-btn small action-btn--history" type="button" data-toggle-history>Historial</button>
         </div>
         <div class="history-panel" data-history-panel hidden>
             <strong>Historial</strong>
@@ -104,7 +129,7 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
                 <p class="section-muted empty">No tienes documentos en revisión.</p>
             <?php else: ?>
                 <?php foreach ($reviewQueue as $doc): ?>
-                    <?php $renderRow($doc); ?>
+                    <?php $renderRow($doc, 'review'); ?>
                 <?php endforeach; ?>
             <?php endif; ?>
         </section>
@@ -118,7 +143,7 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
                 <p class="section-muted empty">No tienes documentos en validación.</p>
             <?php else: ?>
                 <?php foreach ($validationQueue as $doc): ?>
-                    <?php $renderRow($doc); ?>
+                    <?php $renderRow($doc, 'validation'); ?>
                 <?php endforeach; ?>
             <?php endif; ?>
         </section>
@@ -132,7 +157,7 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
                 <p class="section-muted empty">No tienes documentos en aprobación.</p>
             <?php else: ?>
                 <?php foreach ($approvalQueue as $doc): ?>
-                    <?php $renderRow($doc); ?>
+                    <?php $renderRow($doc, 'approval'); ?>
                 <?php endforeach; ?>
             <?php endif; ?>
         </section>
@@ -145,51 +170,65 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
             <?php if (empty($timesheetApprovals)): ?>
                 <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
             <?php else: ?>
-                <div class="timesheet-table">
-                    <table class="clean-table">
-                        <thead>
-                            <tr>
-                                <th>Proyecto</th>
-                                <th>Tarea</th>
-                                <th>Talento</th>
-                                <th>Fecha</th>
-                                <th>Horas</th>
-                                <th>Comentario</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($timesheetApprovals as $row): ?>
-                                <?php
-                                $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
-                                $statusLabel = $status === 'pending' ? 'Pendiente' : $status;
-                                ?>
-                                <tr>
-                                    <td class="wrap-anywhere"><?= htmlspecialchars($row['project'] ?? '') ?></td>
-                                    <td class="wrap-anywhere"><?= htmlspecialchars($row['task'] ?? '') ?></td>
-                                    <td class="wrap-anywhere"><?= htmlspecialchars($row['talent'] ?? '') ?></td>
-                                    <td><?= htmlspecialchars($row['date'] ?? '') ?></td>
-                                    <td><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</td>
-                                    <td class="wrap-anywhere"><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></td>
-                                    <td>
-                                        <div class="timesheet-actions">
-                                            <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
-                                                <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario de aprobación">
-                                                <button type="submit" class="action-btn small primary">✅ Aprobar</button>
-                                            </form>
-                                            <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
-                                                <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo de rechazo">
-                                                <button type="submit" class="action-btn small danger">❌ Rechazar</button>
-                                            </form>
-                                            <span class="badge <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
-                                                <?= htmlspecialchars($statusLabel) ?>
-                                            </span>
+                <div class="timesheet-cards">
+                    <?php foreach ($timesheetApprovals as $row): ?>
+                        <?php
+                        $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
+                        $statusLabel = $status === 'pending' ? 'Pendiente' : $status;
+                        ?>
+                        <article class="inbox-card timesheet-card" data-queue-type="timesheets">
+                            <header class="inbox-card__header">
+                                <div class="inbox-card__heading">
+                                    <span class="inbox-card__type">Timesheet</span>
+                                    <strong class="inbox-card__title"><?= htmlspecialchars($row['project'] ?? '') ?></strong>
+                                    <div class="meta-line">Tarea: <?= htmlspecialchars($row['task'] ?? '') ?></div>
+                                    <div class="meta-line">Talento: <?= htmlspecialchars($row['talent'] ?? '') ?></div>
+                                </div>
+                                <div class="badge <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
+                                    <?= htmlspecialchars($statusLabel) ?>
+                                </div>
+                            </header>
+                            <div class="inbox-card__body">
+                                <div class="inbox-card__summary">
+                                    <div>
+                                        <span class="meta-label">Estado actual</span>
+                                        <div class="status-pill <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
+                                            <?= htmlspecialchars($statusLabel) ?>
                                         </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                                    </div>
+                                    <div>
+                                        <span class="meta-label">Responsable anterior</span>
+                                        <div><?= htmlspecialchars($row['talent'] ?? '') ?></div>
+                                    </div>
+                                    <div>
+                                        <span class="meta-label">Fecha</span>
+                                        <div><?= htmlspecialchars($row['date'] ?? '') ?></div>
+                                    </div>
+                                </div>
+                                <div class="inbox-card__grid">
+                                    <div>
+                                        <span class="meta-label">Horas</span>
+                                        <div><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
+                                    </div>
+                                    <div>
+                                        <span class="meta-label">Comentario</span>
+                                        <div class="wrap-anywhere"><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="inbox-card__footer">
+                                <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets">Ver</a>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
+                                    <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario de aprobación">
+                                    <button type="submit" class="action-btn small primary">✅ Aprobar</button>
+                                </form>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
+                                    <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo de rechazo">
+                                    <button type="submit" class="action-btn small danger">❌ Rechazar</button>
+                                </form>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </section>
@@ -204,7 +243,7 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
                     <p class="section-muted empty">Sin documentos revisados pendientes.</p>
                 <?php else: ?>
                     <?php foreach ($dispatchQueue['send_validation'] as $doc): ?>
-                        <?php $renderRow($doc); ?>
+                        <?php $renderRow($doc, 'dispatch-validation'); ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </section>
@@ -217,7 +256,7 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
                     <p class="section-muted empty">Sin documentos validados pendientes.</p>
                 <?php else: ?>
                     <?php foreach ($dispatchQueue['send_approval'] as $doc): ?>
-                        <?php $renderRow($doc); ?>
+                        <?php $renderRow($doc, 'dispatch-approval'); ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </section>
@@ -228,25 +267,59 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
 <style>
     .approvals-shell { display:flex; flex-direction:column; gap:16px; }
     .approvals-grid { display:flex; flex-direction:column; gap:20px; }
-    .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
-    .approvals-section header h3 { margin:0; }
+    .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06); }
+    .approvals-section header { display:flex; flex-direction:column; gap:4px; }
+    .approvals-section header h3 { margin:0; display:flex; align-items:center; gap:8px; }
+    .approvals-section[data-queue="review"] header h3::before { content:"🔎"; }
+    .approvals-section[data-queue="validation"] header h3::before { content:"✅"; }
+    .approvals-section[data-queue="approval"] header h3::before { content:"🟢"; }
+    .approvals-section[data-queue="timesheets"] header h3::before { content:"🕒"; }
+    .approvals-section[data-queue="dispatch-validation"] header h3::before { content:"📨"; }
+    .approvals-section[data-queue="dispatch-approval"] header h3::before { content:"📬"; }
     .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
     .section-muted.empty { padding:10px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); }
-    .inbox-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; flex-direction:column; gap:10px; }
+    .inbox-card { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:12px; position:relative; }
+    .inbox-card::before { content:""; position:absolute; inset:0; border-radius:16px; border:1px solid transparent; pointer-events:none; }
+    .inbox-card[data-queue-type="review"]::before { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+    .inbox-card[data-queue-type="validation"]::before { border-color: color-mix(in srgb, var(--success) 40%, transparent); }
+    .inbox-card[data-queue-type="approval"]::before { border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
+    .inbox-card[data-queue-type="timesheets"]::before { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+    .inbox-card[data-queue-type="dispatch-validation"]::before { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+    .inbox-card[data-queue-type="dispatch-approval"]::before { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
     .inbox-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .inbox-card__heading { display:flex; flex-direction:column; gap:4px; }
+    .inbox-card__title { font-size:15px; }
+    .inbox-card__type { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color: var(--text-secondary); display:inline-flex; align-items:center; gap:6px; }
+    .inbox-card[data-queue-type="review"] .inbox-card__type::before { content:"🔎"; }
+    .inbox-card[data-queue-type="validation"] .inbox-card__type::before { content:"✅"; }
+    .inbox-card[data-queue-type="approval"] .inbox-card__type::before { content:"🟢"; }
+    .inbox-card[data-queue-type="timesheets"] .inbox-card__type::before { content:"🕒"; }
+    .inbox-card[data-queue-type="dispatch-validation"] .inbox-card__type::before { content:"📨"; }
+    .inbox-card[data-queue-type="dispatch-approval"] .inbox-card__type::before { content:"📬"; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
     .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); }
     .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-primary); }
     .status-warning { background: color-mix(in srgb, var(--warning) 24%, var(--surface) 76%); color: var(--text-primary); }
     .status-success { background: color-mix(in srgb, var(--success) 24%, var(--surface) 76%); color: var(--text-primary); }
     .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); }
+    .status-pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
     .meta-line { font-size:12px; color: var(--text-secondary); margin-top:4px; }
+    .inbox-card__body { display:flex; flex-direction:column; gap:12px; }
+    .inbox-card__summary { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); padding:10px; border-radius:12px; border:1px solid var(--border); }
     .inbox-card__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
     .meta-label { text-transform:uppercase; font-size:11px; letter-spacing:0.04em; color: var(--text-secondary); display:block; margin-bottom:4px; font-weight:700; }
-    .inbox-card__footer { display:flex; gap:8px; flex-wrap:wrap; }
-    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .inbox-card__footer { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06); }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
+    .action-btn--view::before { content:"👁️"; }
+    .action-btn--history::before { content:"🗂️"; }
+    .action-btn[data-action="reviewed"]::before { content:"🔎"; }
+    .action-btn[data-action="validated"]::before { content:"✅"; }
+    .action-btn[data-action="approved"]::before { content:"🟢"; }
+    .action-btn[data-action="send_validation"]::before { content:"📨"; }
+    .action-btn[data-action="send_approval"]::before { content:"📬"; }
+    .action-btn[data-action="rejected"]::before { content:"❌"; }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .action-panel { display:flex; flex-direction:column; gap:8px; }
     .action-panel textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; width:100%; }
@@ -255,18 +328,13 @@ $renderRow = static function (array $doc) use ($basePath, $statusMeta): void {
     .history-list { margin:6px 0 0; padding-left:18px; color: var(--text-primary); font-size:12px; }
     .toast { position:sticky; top:12px; align-self:flex-start; background: color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color: var(--text-primary); padding:8px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--success) 40%, var(--border) 60%); font-weight:600; font-size:13px; }
     .toast.error { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 40%, var(--border) 60%); }
-    .timesheet-table { width:100%; }
-    .clean-table { width:100%; border-collapse:collapse; }
-    .clean-table th,
-    .clean-table td { text-align:left; padding:10px; border-bottom:1px solid var(--border); font-size:13px; line-height:1.4; }
-    .clean-table th { font-size:12px; letter-spacing:0.04em; text-transform:uppercase; color: var(--text-secondary); }
+    .timesheet-cards { display:grid; gap:14px; }
     .wrap-anywhere { overflow-wrap:anywhere; max-width:240px; }
-    .timesheet-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .timesheet-card .inbox-card__footer { align-items:flex-start; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-primary); }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
-        .clean-table { display:block; overflow-x:auto; }
     }
 </style>
 
