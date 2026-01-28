@@ -192,6 +192,87 @@ if (!array_key_exists($activeTab, $tabs)) {
         flex-direction: column;
         gap: 12px;
     }
+    .governance-document-block {
+        border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+    }
+    .governance-document-block .card-content {
+        background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%);
+    }
+    .governance-flow-roles {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+        gap: 16px;
+    }
+    .governance-flow-role-card {
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.05);
+    }
+    .governance-flow-role-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-size: 15px;
+    }
+    .governance-flow-role-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in srgb, var(--primary) 16%, var(--surface));
+        border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+    }
+    .governance-flow-role-title {
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+    .governance-inline-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+        font-size: 14px;
+    }
+    .governance-json-textarea {
+        min-height: 180px;
+        background: color-mix(in srgb, var(--surface) 85%, var(--background) 15%);
+        border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+        border-radius: 12px;
+        padding: 12px;
+        font-family: "SFMono-Regular", "Menlo", "Monaco", "Courier New", monospace;
+    }
+    .governance-tag-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .governance-tag-chip {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+        border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .governance-document-footer {
+        justify-content: flex-end;
+        gap: 12px;
+        border-top: 1px solid var(--border);
+        margin-top: 18px;
+        padding-top: 16px;
+    }
     .governance-rules {
         display: grid;
         gap: 12px;
