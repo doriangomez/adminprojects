@@ -409,18 +409,18 @@ error_log(sprintf(
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
         .table-wrapper { overflow-x: auto; }
-        .catalog-panel { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:18px; }
-        .catalog-group-card { border:1px solid var(--border); border-radius:14px; background: var(--surface); padding:12px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 8%, var(--background)); }
+        .catalog-panel { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:20px; }
+        .catalog-group-card { border:1px solid var(--border); border-radius:16px; background: var(--surface); padding:14px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 10%, var(--background)); }
         .catalog-group-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-        .catalog-group-title { display:flex; align-items:center; gap:8px; font-size:14px; }
-        .catalog-group-icon { font-size:18px; }
-        .catalog-group-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:8px; }
-        .catalog-mini-card { border:1px solid var(--border); border-radius:10px; padding:8px 10px; background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); display:flex; align-items:center; gap:8px; text-decoration:none; color: var(--text-primary); font-size:12px; font-weight:600; min-height:44px; }
+        .catalog-group-title { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; }
+        .catalog-group-icon { font-size:20px; }
+        .catalog-group-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
+        .catalog-mini-card { border:1px solid var(--border); border-radius:12px; padding:10px 12px; background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); display:flex; align-items:center; gap:8px; text-decoration:none; color: var(--text-primary); font-size:12px; font-weight:600; min-height:50px; }
         .catalog-mini-card:hover { border-color: color-mix(in srgb, var(--primary) 60%, var(--border)); }
-        .catalog-mini-icon { font-size:16px; }
+        .catalog-mini-icon { font-size:18px; }
         .catalog-mini-title { flex:1; }
         .catalog-section-list { display:flex; flex-direction:column; gap:14px; }
-        .catalog-section-card { border:1px solid var(--border); border-radius:14px; background: var(--surface); box-shadow: 0 6px 16px color-mix(in srgb, var(--text-primary) 10%, var(--background)); }
+        .catalog-section-card { border:1px solid var(--border); border-radius:16px; background: var(--surface); box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 10%, var(--background)); }
         .catalog-section-card summary { list-style:none; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:pointer; }
         .catalog-section-card summary::-webkit-details-marker { display:none; }
         .catalog-section-card[open] summary { border-bottom:1px solid var(--border); background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%); }
@@ -443,17 +443,28 @@ error_log(sprintf(
         .catalog-field input, .catalog-field select { margin-top:6px; }
         .catalog-impact { display:flex; flex-direction:column; gap:6px; }
         .catalog-impact.compact-impact { gap:4px; }
+        .catalog-impact-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; }
+        .catalog-toggle { justify-content:space-between; padding:6px 10px; border-radius:12px; border:1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+        .catalog-toggle .toggle-label { font-size:12px; }
+        .impact-switches { display:flex; flex-direction:column; gap:8px; }
         .catalog-card-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
         .catalog-empty { margin:0; color: var(--text-secondary); font-size:13px; }
-        .risk-matrix { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-        .risk-matrix-header, .risk-matrix-row { display:grid; grid-template-columns: 1.4fr 1fr 1fr 0.7fr 1.4fr 0.7fr 0.9fr; gap:10px; align-items:center; padding:10px 12px; }
+        .risk-matrix { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+        .risk-matrix-header, .risk-matrix-row { display:grid; grid-template-columns: 1.7fr 0.8fr 1.4fr 0.7fr 0.7fr 0.9fr; gap:12px; align-items:center; padding:12px 14px; }
         .risk-matrix-header { background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%); font-size:12px; font-weight:700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
         .risk-matrix-row { border-top:1px solid var(--border); background: var(--surface); }
         .risk-matrix-row:nth-child(even) { background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%); }
-        .risk-main { display:flex; flex-direction:column; gap:4px; }
+        .risk-main { display:flex; flex-direction:column; gap:6px; }
+        .risk-meta-grid { display:grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap:8px; }
         .risk-matrix .catalog-field { font-size:11px; margin:0; }
         .risk-matrix .catalog-field input, .risk-matrix .catalog-field select { margin-top:4px; padding:8px 10px; }
-        .risk-matrix .pill { padding:4px 8px; font-size:10px; }
+        .risk-level { display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+        .risk-level-pill { padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; border:1px solid var(--border); }
+        .risk-level-meta { font-size:11px; color: var(--text-secondary); }
+        .risk-level-high { background: color-mix(in srgb, var(--danger) 15%, var(--surface)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+        .risk-level-mid { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
+        .risk-level-low { background: color-mix(in srgb, var(--success) 15%, var(--surface)); color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+        .notification-recipient-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:8px; }
         .toggle.compact-toggle { justify-content:flex-start; }
         .pillset.compact-pills { gap:6px; }
         .pillset-title { font-weight:700; color: var(--text-secondary); font-size:12px; margin:0 0 6px 0; }

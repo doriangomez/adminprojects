@@ -25,9 +25,9 @@
                     <div class="form-block">
                         <span class="section-label">Estado global</span>
                         <label class="toggle-switch">
+                            <span class="toggle-label">Activar notificaciones</span>
                             <input type="checkbox" name="notifications_enabled" <?= !empty($configData['notifications']['enabled']) ? 'checked' : '' ?>>
-                            <span class="toggle-track"></span>
-                            Activar notificaciones
+                            <span class="toggle-track" aria-hidden="true"></span>
                         </label>
                         <small class="text-muted">Si está desactivado, el sistema no envía ninguna notificación.</small>
                     </div>
@@ -100,9 +100,10 @@
                                             <div class="text-muted" style="font-size:12px;"><?= htmlspecialchars($meta['description'] ?? '') ?></div>
                                         </td>
                                         <td>
-                                            <label class="option compact">
+                                            <label class="toggle-switch toggle-switch--compact">
+                                                <span class="toggle-label">Correo</span>
                                                 <input type="checkbox" name="<?= $key ?>_channel_email" <?= !empty($eventConfig['channels']['email']['enabled']) ? 'checked' : '' ?>>
-                                                Correo
+                                                <span class="toggle-track" aria-hidden="true"></span>
                                             </label>
                                             <small class="text-muted" style="display:block;">(Preparado para futuros canales)</small>
                                         </td>
@@ -111,37 +112,43 @@
                                                 <label>Roles</label>
                                                 <input name="<?= $key ?>_roles" value="<?= htmlspecialchars(implode(', ', $recipients['roles'] ?? [])) ?>" placeholder="Administrador, PMO">
                                             </div>
-                                            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">
-                                                <label class="option compact">
+                                            <div class="notification-recipient-grid">
+                                                <label class="toggle-switch toggle-switch--compact">
+                                                    <span class="toggle-label">Responsable del proyecto</span>
                                                     <input type="checkbox" name="<?= $key ?>_include_pm" <?= !empty($recipients['include_project_manager']) ? 'checked' : '' ?>>
-                                                    Responsable del proyecto
+                                                    <span class="toggle-track" aria-hidden="true"></span>
                                                 </label>
-                                                <label class="option compact">
+                                                <label class="toggle-switch toggle-switch--compact">
+                                                    <span class="toggle-label">Usuario del evento</span>
                                                     <input type="checkbox" name="<?= $key ?>_include_actor" <?= !empty($recipients['include_actor']) ? 'checked' : '' ?>>
-                                                    Usuario del evento
+                                                    <span class="toggle-track" aria-hidden="true"></span>
                                                 </label>
-                                                <label class="option compact">
+                                                <label class="toggle-switch toggle-switch--compact">
+                                                    <span class="toggle-label">Usuario afectado</span>
                                                     <input type="checkbox" name="<?= $key ?>_include_target_user" <?= !empty($recipients['include_target_user']) ? 'checked' : '' ?>>
-                                                    Usuario afectado
+                                                    <span class="toggle-track" aria-hidden="true"></span>
                                                 </label>
-                                                <label class="option compact">
+                                                <label class="toggle-switch toggle-switch--compact">
+                                                    <span class="toggle-label">Revisor</span>
                                                     <input type="checkbox" name="<?= $key ?>_include_reviewer" <?= !empty($recipients['include_reviewer']) ? 'checked' : '' ?>>
-                                                    Revisor
+                                                    <span class="toggle-track" aria-hidden="true"></span>
                                                 </label>
-                                                <label class="option compact">
+                                                <label class="toggle-switch toggle-switch--compact">
+                                                    <span class="toggle-label">Validador</span>
                                                     <input type="checkbox" name="<?= $key ?>_include_validator" <?= !empty($recipients['include_validator']) ? 'checked' : '' ?>>
-                                                    Validador
+                                                    <span class="toggle-track" aria-hidden="true"></span>
                                                 </label>
-                                                <label class="option compact">
+                                                <label class="toggle-switch toggle-switch--compact">
+                                                    <span class="toggle-label">Aprobador</span>
                                                     <input type="checkbox" name="<?= $key ?>_include_approver" <?= !empty($recipients['include_approver']) ? 'checked' : '' ?>>
-                                                    Aprobador
+                                                    <span class="toggle-track" aria-hidden="true"></span>
                                                 </label>
                                             </div>
                                         </td>
                                         <td>
                                             <label class="toggle-switch toggle-switch--solo">
                                                 <input type="checkbox" name="<?= $key ?>_enabled" <?= !empty($eventConfig['enabled']) ? 'checked' : '' ?>>
-                                                <span class="toggle-track"></span>
+                                                <span class="toggle-track" aria-hidden="true"></span>
                                             </label>
                                         </td>
                                     </tr>

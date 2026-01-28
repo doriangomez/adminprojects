@@ -245,9 +245,11 @@
                                             <option value="<?= (int) $role['id'] ?>"><?= htmlspecialchars($role['nombre']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <label class="option">
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Usuario activo</span>
                                         <input type="checkbox" name="active" checked>
-                                        Usuario activo
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state" aria-hidden="true"></span>
                                     </label>
                                 </div>
                             </div>
@@ -391,9 +393,11 @@
                                                 </select>
                                             </label>
                                             <label>Contraseña nueva<input name="password" type="password" placeholder="Nueva contraseña"></label>
-                                            <label class="option">
+                                            <label class="toggle-switch toggle-switch--state">
+                                                <span class="toggle-label">Activo</span>
                                                 <input type="checkbox" name="active" <?= ((int)$user['active'] === 1) ? 'checked' : '' ?>>
-                                                Activo
+                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                <span class="toggle-state" aria-hidden="true"></span>
                                             </label>
                                         </div>
                                         <div class="user-permission-groups">
