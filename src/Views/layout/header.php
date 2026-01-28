@@ -270,6 +270,7 @@ error_log(sprintf(
         .grid.tight { gap: 10px; }
         .config-form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; align-items:start; }
         .config-form-grid.tight { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+        .config-form-grid.compact-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
         .card.stretch { height:100%; display:flex; flex-direction:column; }
         .card .card-content { display:flex; flex-direction:column; gap:14px; flex:1; }
         .form-block { display:flex; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
@@ -370,6 +371,7 @@ error_log(sprintf(
             color: var(--text-primary);
             transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
         }
+        .btn.sm { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
         .btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
         .btn.secondary { background: var(--surface); }
         .btn.ghost { background: var(--background); border-style: dashed; }
@@ -407,6 +409,42 @@ error_log(sprintf(
         .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
         .chip-list { display:flex; flex-wrap:wrap; gap:8px; }
         .table-wrapper { overflow-x: auto; }
+        .catalog-accordion-list { display:flex; flex-direction:column; gap:16px; }
+        .catalog-accordion { border:1px solid var(--border); border-radius:14px; background: var(--surface); box-shadow: 0 6px 16px color-mix(in srgb, var(--text-primary) 10%, var(--background)); }
+        .catalog-accordion summary { list-style:none; display:flex; align-items:center; justify-content:space-between; padding:14px 18px; cursor:pointer; }
+        .catalog-accordion summary::-webkit-details-marker { display:none; }
+        .catalog-accordion[open] summary { border-bottom:1px solid var(--border); background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%); }
+        .catalog-accordion-title { display:flex; align-items:center; gap:10px; font-size:15px; }
+        .catalog-accordion-icon { font-size:18px; }
+        .catalog-accordion-body { padding:16px 18px; display:flex; flex-direction:column; gap:16px; }
+        .catalog-stack { display:flex; flex-direction:column; gap:16px; }
+        .catalog-list { display:flex; flex-direction:column; gap:16px; }
+        .catalog-subgroup { display:flex; flex-direction:column; gap:12px; }
+        .catalog-subgroup-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .catalog-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+        .catalog-base-grid { display:grid; gap:16px; }
+        .catalog-block { padding: 14px; }
+        .catalog-card { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:10px; }
+        .catalog-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+        .catalog-title { font-weight:700; color: var(--text-primary); }
+        .catalog-meta { font-size:12px; color: var(--text-secondary); }
+        .catalog-fields { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+        .catalog-field { font-size:12px; color: var(--text-secondary); margin:0; }
+        .catalog-field input, .catalog-field select { margin-top:6px; }
+        .catalog-impact { display:flex; flex-direction:column; gap:6px; }
+        .catalog-card-actions { display:flex; justify-content:flex-end; gap:8px; }
+        .catalog-empty { margin:0; color: var(--text-secondary); font-size:13px; }
+        .pillset.compact-pills { gap:6px; }
+        .pillset-title { font-weight:700; color: var(--text-secondary); font-size:12px; margin:0 0 6px 0; }
+        .toggle { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color: var(--text-secondary); }
+        .toggle input { position:absolute; opacity:0; pointer-events:none; }
+        .toggle-ui { width:36px; height:20px; border-radius:999px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border:1px solid var(--border); position:relative; transition: background 160ms ease; }
+        .toggle-ui::after { content:\"\"; position:absolute; width:14px; height:14px; border-radius:50%; background: var(--surface); top:2px; left:2px; transition: transform 160ms ease; box-shadow: 0 2px 6px color-mix(in srgb, var(--text-primary) 20%, var(--background)); }
+        .toggle-text::before { content:\"OFF\"; }
+        .toggle input:checked + .toggle-ui { background: color-mix(in srgb, var(--success) 45%, var(--background)); border-color: color-mix(in srgb, var(--success) 60%, var(--border)); }
+        .toggle input:checked + .toggle-ui::after { transform: translateX(16px); }
+        .toggle input:checked + .toggle-ui + .toggle-text::before { content:\"ON\"; color: var(--success); }
+        .toggle input:disabled + .toggle-ui { opacity:0.7; }
         .config-flow-roles { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px dashed var(--border); border-radius:10px; background: var(--surface); }
         .config-flow-roles strong { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
         @media (max-width: 1180px) {
