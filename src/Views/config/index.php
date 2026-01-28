@@ -300,18 +300,18 @@ if (!array_key_exists($activeTab, $tabs)) {
     }
     .governance-flow-roles {
         display: grid;
-        grid-template-columns: repeat(3, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 16px;
     }
     .governance-flow-role-card {
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        background: var(--surface);
+        border-radius: 18px;
+        border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+        background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
         padding: 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
-        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
     }
     .governance-flow-role-header {
         display: flex;
@@ -322,14 +322,14 @@ if (!array_key_exists($activeTab, $tabs)) {
         font-size: 15px;
     }
     .governance-flow-role-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, var(--primary) 16%, var(--surface));
-        border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+        background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+        border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
     }
     .governance-flow-role-title {
         font-weight: 700;

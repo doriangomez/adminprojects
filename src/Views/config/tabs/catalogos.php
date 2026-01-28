@@ -5,34 +5,6 @@ foreach ($masterData as $items) {
 }
 $catalogDomains = [
     [
-        'key' => 'riesgos',
-        'title' => 'Riesgos',
-        'icon' => '⚠️',
-        'count' => count($riskCatalog),
-        'open' => true,
-    ],
-    [
-        'key' => 'costos',
-        'title' => 'Costos',
-        'icon' => '💰',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'cronograma',
-        'title' => 'Cronograma',
-        'icon' => '📆',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
-        'key' => 'legal',
-        'title' => 'Legal',
-        'icon' => '📄',
-        'count' => 0,
-        'open' => false,
-    ],
-    [
         'key' => 'metodologias',
         'title' => 'Metodologías',
         'icon' => '🧩',
@@ -40,37 +12,86 @@ $catalogDomains = [
         'open' => false,
     ],
     [
-        'key' => 'operaciones',
-        'title' => 'Operaciones',
-        'icon' => '⚙️',
+        'key' => 'fases',
+        'title' => 'Fases',
+        'icon' => '🧭',
         'count' => 0,
         'open' => false,
     ],
     [
-        'key' => 'recursos',
-        'title' => 'Recursos',
-        'icon' => '👥',
+        'key' => 'subfases',
+        'title' => 'Subfases',
+        'icon' => '🧷',
         'count' => 0,
         'open' => false,
     ],
     [
-        'key' => 'stakeholders',
-        'title' => 'Stakeholders',
-        'icon' => '👥',
+        'key' => 'tipos_proyecto',
+        'title' => 'Tipos de proyecto',
+        'icon' => '🏗️',
         'count' => 0,
         'open' => false,
     ],
     [
-        'key' => 'tecnologia',
-        'title' => 'Tecnología',
-        'icon' => '🖥️',
+        'key' => 'riesgos',
+        'title' => 'Riesgos (matriz)',
+        'icon' => '⚠️',
+        'count' => count($riskCatalog),
+        'open' => true,
+    ],
+    [
+        'key' => 'impactos',
+        'title' => 'Impactos',
+        'icon' => '💥',
+        'count' => 0,
+        'open' => false,
+    ],
+    [
+        'key' => 'probabilidades',
+        'title' => 'Probabilidades',
+        'icon' => '🎲',
+        'count' => 0,
+        'open' => false,
+    ],
+    [
+        'key' => 'niveles',
+        'title' => 'Niveles',
+        'icon' => '📊',
+        'count' => 0,
+        'open' => false,
+    ],
+    [
+        'key' => 'roles',
+        'title' => 'Roles',
+        'icon' => '👤',
+        'count' => 0,
+        'open' => false,
+    ],
+    [
+        'key' => 'areas',
+        'title' => 'Áreas',
+        'icon' => '🏢',
+        'count' => 0,
+        'open' => false,
+    ],
+    [
+        'key' => 'cargos',
+        'title' => 'Cargos',
+        'icon' => '🪪',
+        'count' => 0,
+        'open' => false,
+    ],
+    [
+        'key' => 'tipos_talento',
+        'title' => 'Tipos de talento',
+        'icon' => '🧑‍💼',
         'count' => 0,
         'open' => false,
     ],
     [
         'key' => 'otros',
-        'title' => 'Otros catálogos base',
-        'icon' => '⚙️',
+        'title' => 'Datos base del sistema',
+        'icon' => '🗂️',
         'count' => $totalBaseItems,
         'open' => true,
     ],
@@ -81,34 +102,19 @@ foreach ($catalogDomains as $domain) {
 }
 $catalogGroups = [
     [
-        'title' => 'Proyectos',
+        'title' => 'Catálogos de Proyecto',
         'icon' => '📁',
-        'items' => ['costos', 'cronograma', 'metodologias', 'operaciones', 'tecnologia'],
+        'items' => ['metodologias', 'fases', 'subfases', 'tipos_proyecto'],
     ],
     [
-        'title' => 'Riesgos',
+        'title' => 'Catálogos de Riesgo',
         'icon' => '⚠️',
-        'items' => ['riesgos'],
+        'items' => ['riesgos', 'impactos', 'probabilidades', 'niveles'],
     ],
     [
-        'title' => 'Documentos',
-        'icon' => '📄',
-        'items' => ['legal'],
-    ],
-    [
-        'title' => 'Talento',
+        'title' => 'Catálogos Organizacionales',
         'icon' => '👥',
-        'items' => ['recursos', 'stakeholders'],
-    ],
-    [
-        'title' => 'Timesheets',
-        'icon' => '⏱',
-        'items' => [],
-    ],
-    [
-        'title' => 'Sistema',
-        'icon' => '⚙️',
-        'items' => ['otros'],
+        'items' => ['roles', 'areas', 'cargos', 'tipos_talento', 'otros'],
     ],
 ];
 ?>
@@ -174,21 +180,44 @@ $catalogGroups = [
                                                 <option value="scrum">Scrum</option>
                                             </select>
                                         </label>
-                                        <label>Severidad base (1-5)
+                                        <label>Probabilidad (1-5)
                                             <input type="number" name="severity_base" min="1" max="5" value="3" required>
                                         </label>
-                                        <fieldset class="pillset compact-pills full-span">
-                                            <legend class="pillset-title">Impacto</legend>
-                                            <label class="pill"><input type="checkbox" name="impact_scope"> Alcance</label>
-                                            <label class="pill"><input type="checkbox" name="impact_time"> Tiempo</label>
-                                            <label class="pill"><input type="checkbox" name="impact_cost"> Costo</label>
-                                            <label class="pill"><input type="checkbox" name="impact_quality"> Calidad</label>
-                                            <label class="pill"><input type="checkbox" name="impact_legal"> Legal</label>
-                                        </fieldset>
-                                        <label class="toggle">
+                                        <div class="impact-switches full-span">
+                                            <span class="pillset-title">Impacto</span>
+                                            <div class="catalog-impact-grid">
+                                                <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                    <span class="toggle-label">Alcance</span>
+                                                    <input type="checkbox" name="impact_scope">
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                </label>
+                                                <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                    <span class="toggle-label">Tiempo</span>
+                                                    <input type="checkbox" name="impact_time">
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                </label>
+                                                <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                    <span class="toggle-label">Costo</span>
+                                                    <input type="checkbox" name="impact_cost">
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                </label>
+                                                <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                    <span class="toggle-label">Calidad</span>
+                                                    <input type="checkbox" name="impact_quality">
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                </label>
+                                                <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                    <span class="toggle-label">Legal</span>
+                                                    <input type="checkbox" name="impact_legal">
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <label class="toggle-switch toggle-switch--state">
+                                            <span class="toggle-label">Activo</span>
                                             <input type="checkbox" name="active" checked>
-                                            <span class="toggle-ui"></span>
-                                            <span class="toggle-text"></span>
+                                            <span class="toggle-track" aria-hidden="true"></span>
+                                            <span class="toggle-state" aria-hidden="true"></span>
                                         </label>
                                         <div class="form-footer">
                                             <span class="text-muted">Se agrega al catálogo central y queda disponible en proyectos.</span>
@@ -207,11 +236,10 @@ $catalogGroups = [
                                         <div class="risk-matrix">
                                             <div class="risk-matrix-header">
                                                 <span>Riesgo</span>
-                                                <span>Categoría</span>
-                                                <span>Aplica a</span>
-                                                <span>Severidad</span>
+                                                <span>Probabilidad</span>
                                                 <span>Impacto</span>
-                                                <span>Activo</span>
+                                                <span>Nivel</span>
+                                                <span>Estado</span>
                                                 <span>Acciones</span>
                                             </div>
                                             <?php foreach ($risks as $risk): ?>
@@ -222,37 +250,76 @@ $catalogGroups = [
                                                 <div class="risk-matrix-row">
                                                     <input type="hidden" name="code" value="<?= htmlspecialchars($risk['code']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
                                                     <div class="risk-main">
-                                                        <label class="catalog-field">Nombre
+                                                        <label class="catalog-field">Riesgo
                                                             <input name="label" value="<?= htmlspecialchars($risk['label']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
                                                         </label>
+                                                        <div class="risk-meta-grid">
+                                                            <label class="catalog-field">Categoría
+                                                                <input name="category" value="<?= htmlspecialchars($risk['category']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                            </label>
+                                                            <label class="catalog-field">Aplica a
+                                                                <select name="applies_to" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                                    <option value="ambos" <?= ($risk['applies_to'] ?? '') === 'ambos' ? 'selected' : '' ?>>Ambos</option>
+                                                                    <option value="convencional" <?= ($risk['applies_to'] ?? '') === 'convencional' ? 'selected' : '' ?>>Convencional</option>
+                                                                    <option value="scrum" <?= ($risk['applies_to'] ?? '') === 'scrum' ? 'selected' : '' ?>>Scrum</option>
+                                                                </select>
+                                                            </label>
+                                                        </div>
                                                         <div class="catalog-meta">Código: <?= htmlspecialchars($risk['code']) ?></div>
                                                     </div>
-                                                    <label class="catalog-field">Categoría
-                                                        <input name="category" value="<?= htmlspecialchars($risk['category']) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                    </label>
-                                                    <label class="catalog-field">Aplica a
-                                                        <select name="applies_to" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                            <option value="ambos" <?= ($risk['applies_to'] ?? '') === 'ambos' ? 'selected' : '' ?>>Ambos</option>
-                                                            <option value="convencional" <?= ($risk['applies_to'] ?? '') === 'convencional' ? 'selected' : '' ?>>Convencional</option>
-                                                            <option value="scrum" <?= ($risk['applies_to'] ?? '') === 'scrum' ? 'selected' : '' ?>>Scrum</option>
-                                                        </select>
-                                                    </label>
-                                                    <label class="catalog-field">Severidad
+                                                    <label class="catalog-field">Probabilidad
                                                         <input type="number" name="severity_base" min="1" max="5" value="<?= (int) ($risk['severity_base'] ?? 1) ?>" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
                                                     </label>
                                                     <div class="catalog-impact compact-impact">
-                                                        <div class="pillset compact-pills">
-                                                            <label class="pill"><input type="checkbox" name="impact_scope" <?= !empty($risk['impact_scope']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Alcance</label>
-                                                            <label class="pill"><input type="checkbox" name="impact_time" <?= !empty($risk['impact_time']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Tiempo</label>
-                                                            <label class="pill"><input type="checkbox" name="impact_cost" <?= !empty($risk['impact_cost']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Costo</label>
-                                                            <label class="pill"><input type="checkbox" name="impact_quality" <?= !empty($risk['impact_quality']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Calidad</label>
-                                                            <label class="pill"><input type="checkbox" name="impact_legal" <?= !empty($risk['impact_legal']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>"> Legal</label>
+                                                        <div class="catalog-impact-grid">
+                                                            <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                                <span class="toggle-label">Alcance</span>
+                                                                <input type="checkbox" name="impact_scope" <?= !empty($risk['impact_scope']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                            </label>
+                                                            <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                                <span class="toggle-label">Tiempo</span>
+                                                                <input type="checkbox" name="impact_time" <?= !empty($risk['impact_time']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                            </label>
+                                                            <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                                <span class="toggle-label">Costo</span>
+                                                                <input type="checkbox" name="impact_cost" <?= !empty($risk['impact_cost']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                            </label>
+                                                            <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                                <span class="toggle-label">Calidad</span>
+                                                                <input type="checkbox" name="impact_quality" <?= !empty($risk['impact_quality']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                            </label>
+                                                            <label class="toggle-switch toggle-switch--compact catalog-toggle">
+                                                                <span class="toggle-label">Legal</span>
+                                                                <input type="checkbox" name="impact_legal" <?= !empty($risk['impact_legal']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
+                                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                            </label>
                                                         </div>
                                                     </div>
-                                                    <label class="toggle compact-toggle">
+                                                    <?php
+                                                        $impactCount = array_sum([
+                                                            !empty($risk['impact_scope']) ? 1 : 0,
+                                                            !empty($risk['impact_time']) ? 1 : 0,
+                                                            !empty($risk['impact_cost']) ? 1 : 0,
+                                                            !empty($risk['impact_quality']) ? 1 : 0,
+                                                            !empty($risk['impact_legal']) ? 1 : 0,
+                                                        ]);
+                                                        $severity = (int) ($risk['severity_base'] ?? 1);
+                                                        $riskScore = max(1, $impactCount) * $severity;
+                                                        $riskLevel = $riskScore >= 10 ? 'Alto' : ($riskScore >= 5 ? 'Medio' : 'Bajo');
+                                                        $riskLevelClass = $riskLevel === 'Alto' ? 'risk-level-high' : ($riskLevel === 'Medio' ? 'risk-level-mid' : 'risk-level-low');
+                                                    ?>
+                                                    <div class="risk-level">
+                                                        <span class="risk-level-pill <?= $riskLevelClass ?>"><?= $riskLevel ?></span>
+                                                        <span class="risk-level-meta"><?= $riskScore ?> pts</span>
+                                                    </div>
+                                                    <label class="toggle-switch toggle-switch--compact toggle-switch--state">
                                                         <input type="checkbox" name="active" <?= !empty($risk['active']) ? 'checked' : '' ?> form="risk-update-<?= htmlspecialchars($risk['code']) ?>">
-                                                        <span class="toggle-ui"></span>
-                                                        <span class="toggle-text"></span>
+                                                        <span class="toggle-track" aria-hidden="true"></span>
+                                                        <span class="toggle-state" aria-hidden="true"></span>
                                                     </label>
                                                     <div class="catalog-card-actions">
                                                         <button class="btn secondary sm" type="submit" form="risk-update-<?= htmlspecialchars($risk['code']) ?>">Actualizar</button>
@@ -329,10 +396,10 @@ $catalogGroups = [
                                                                 <div class="catalog-title"><?= htmlspecialchars($item['label']) ?></div>
                                                                 <div class="catalog-meta">Código: <?= htmlspecialchars($item['code']) ?></div>
                                                             </div>
-                                                            <label class="toggle">
+                                                            <label class="toggle-switch toggle-switch--state">
                                                                 <input type="checkbox" checked disabled>
-                                                                <span class="toggle-ui"></span>
-                                                                <span class="toggle-text"></span>
+                                                                <span class="toggle-track" aria-hidden="true"></span>
+                                                                <span class="toggle-state" aria-hidden="true"></span>
                                                             </label>
                                                         </div>
                                                         <div class="catalog-fields">
