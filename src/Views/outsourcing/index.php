@@ -22,6 +22,19 @@ $healthBadge = static function (?string $status): string {
         default => 'status-muted',
     };
 };
+$serviceStatusLabels = [
+    'active' => 'Activo',
+    'paused' => 'En pausa',
+    'ended' => 'Finalizado',
+];
+$serviceStatusBadge = static function (?string $status): string {
+    return match ($status) {
+        'active' => 'badge-active',
+        'paused' => 'badge-paused',
+        'ended' => 'badge-ended',
+        default => 'badge-muted',
+    };
+};
 $formatDate = static function (?string $value): string {
     if (!$value) {
         return 'Sin registro';
@@ -242,34 +255,70 @@ $riskServicesCount = count(array_filter(
                                 </span>
                                 <div>
                                     <h4><?= htmlspecialchars($service['project_name'] ?? 'Servicio de outsourcing') ?></h4>
-                                    <p class="section-muted">Cliente: <?= htmlspecialchars($service['client_name'] ?? 'Cliente') ?></p>
+                                    <div class="service-badges">
+                                        <span class="service-badge <?= $serviceStatusBadge($service['service_status'] ?? null) ?>">
+                                            <span class="badge-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" role="presentation">
+                                                    <path d="M4.5 12.5 9 17l10.5-10.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                            </span>
+                                            <?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? ''] ?? 'Sin estado') ?>
+                                        </span>
+                                        <span class="status-badge <?= $healthBadge($service['current_health'] ?? null) ?>">
+                                            <span class="badge-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" role="presentation">
+                                                    <path d="M12 4 20 19H4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                                                    <path d="M12 9v4.5M12 17.5v.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                                </svg>
+                                            </span>
+                                            <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <span class="status-badge <?= $healthBadge($service['current_health'] ?? null) ?>">
-                                <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
-                            </span>
                         </header>
-                        <div class="service-meta">
-                            <div>
-                                <span class="section-muted">Periodo</span>
-                                <strong><?= htmlspecialchars($formatDate($service['start_date'] ?? null)) ?> · <?= htmlspecialchars($formatDate($service['end_date'] ?? null)) ?></strong>
+                        <div class="service-body">
+                            <div class="service-meta">
+                                <div class="meta-item">
+                                    <span class="meta-label">
+                                        <span class="meta-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" role="presentation">
+                                                <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                            </svg>
+                                        </span>
+                                        Talento
+                                    </span>
+                                    <strong><?= htmlspecialchars($service['talent_name'] ?? 'Talento') ?></strong>
+                                    <small class="section-muted"><?= htmlspecialchars($service['talent_email'] ?? '') ?></small>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">
+                                        <span class="meta-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" role="presentation">
+                                                <path d="M4.5 19.5V9.5L12 4l7.5 5.5v10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M9.5 19.5V12h5v7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                            </svg>
+                                        </span>
+                                        Cliente
+                                    </span>
+                                    <strong><?= htmlspecialchars($service['client_name'] ?? 'Cliente') ?></strong>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">
+                                        <span class="meta-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" role="presentation">
+                                                <path d="M7 4.5h10M7 12h10M7 19.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                                <circle cx="5" cy="4.5" r="1" fill="currentColor"/>
+                                                <circle cx="5" cy="12" r="1" fill="currentColor"/>
+                                                <circle cx="5" cy="19.5" r="1" fill="currentColor"/>
+                                            </svg>
+                                        </span>
+                                        Periodo
+                                    </span>
+                                    <strong><?= htmlspecialchars($formatDate($service['start_date'] ?? null)) ?> · <?= htmlspecialchars($formatDate($service['end_date'] ?? null)) ?></strong>
+                                    <small class="section-muted">Último seguimiento: <?= htmlspecialchars($formatDate($service['last_followup_end'] ?? $service['health_updated_at'] ?? null)) ?></small>
+                                </div>
                             </div>
-                            <div>
-                                <span class="section-muted">Último seguimiento</span>
-                                <strong><?= htmlspecialchars($formatDate($service['last_followup_end'] ?? $service['health_updated_at'] ?? null)) ?></strong>
-                            </div>
-                        </div>
-                        <div class="service-talents">
-                            <span class="section-muted">Talentos asignados</span>
-                            <div class="talent-chip">
-                                <span class="chip-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" role="presentation">
-                                        <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                    </svg>
-                                </span>
-                                <?= htmlspecialchars($service['talent_name'] ?? 'Talento') ?>
-                            </div>
-                            <small class="section-muted"><?= htmlspecialchars($service['talent_email'] ?? '') ?></small>
                         </div>
                         <div class="service-actions">
                             <a class="icon-action" href="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>">
@@ -656,24 +705,33 @@ $riskServicesCount = count(array_filter(
     .service-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
     .service-card { border:1px solid var(--border); border-radius:18px; padding:16px; background: color-mix(in srgb, var(--surface) 86%, var(--background) 14%); display:flex; flex-direction:column; gap:12px; }
     .service-card-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-    .service-title { display:flex; gap:10px; align-items:center; }
+    .service-title { display:flex; gap:12px; align-items:flex-start; }
     .service-title h4 { margin:0; font-size:16px; color: var(--text-primary); }
     .service-icon { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%); color: var(--primary); }
     .service-icon svg { width:20px; height:20px; }
-    .service-meta { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+    .service-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+    .service-body { border-top:1px dashed var(--border); padding-top:12px; }
+    .service-meta { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .meta-item { display:flex; flex-direction:column; gap:4px; }
+    .meta-label { display:inline-flex; align-items:center; gap:6px; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color: var(--text-secondary); font-weight:700; }
+    .meta-icon { width:20px; height:20px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-primary); }
+    .meta-icon svg { width:12px; height:12px; }
     .service-meta strong { color: var(--text-primary); font-size:13px; }
-    .service-talents { display:flex; flex-direction:column; gap:6px; }
-    .talent-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background: var(--surface); font-weight:600; color: var(--text-primary); }
-    .chip-icon { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color: var(--text-primary); }
-    .chip-icon svg { width:14px; height:14px; }
     .service-actions { display:flex; flex-wrap:wrap; gap:8px; }
     .icon-action { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); text-decoration:none; font-weight:600; font-size:13px; }
     .icon-action:hover { border-color: var(--primary); }
-    .status-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; text-transform:uppercase; letter-spacing:0.03em; }
+    .status-badge,
+    .service-badge { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; text-transform:uppercase; letter-spacing:0.03em; align-items:center; gap:6px; }
+    .badge-icon { width:14px; height:14px; display:inline-flex; }
+    .badge-icon svg { width:14px; height:14px; }
     .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--background) 20%); color: var(--text-secondary); border-color: var(--border); }
     .status-success { background: color-mix(in srgb, var(--primary) 16%, var(--surface) 84%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border) 70%); }
     .status-warning { background: color-mix(in srgb, var(--accent) 16%, var(--surface) 84%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, var(--border) 70%); }
     .status-danger { background: color-mix(in srgb, var(--secondary) 18%, var(--surface) 82%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 35%, var(--border) 65%); }
+    .badge-muted { background: color-mix(in srgb, var(--surface) 78%, var(--background) 22%); color: var(--text-secondary); border-color: var(--border); }
+    .badge-active { background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 26%, var(--border) 74%); }
+    .badge-paused { background: color-mix(in srgb, var(--accent) 14%, var(--surface) 86%); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 26%, var(--border) 74%); }
+    .badge-ended { background: color-mix(in srgb, var(--secondary) 14%, var(--surface) 86%); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 26%, var(--border) 74%); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:13px; }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); }
