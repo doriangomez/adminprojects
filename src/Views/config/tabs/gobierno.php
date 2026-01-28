@@ -164,7 +164,7 @@
                                 <button class="btn primary" type="submit">Crear rol</button>
                             </div>
                         </form>
-                        <div class="role-accordion">
+                            <div class="role-accordion">
                             <?php foreach($roles as $role): ?>
                                 <details class="role-panel">
                                     <summary>
@@ -174,6 +174,7 @@
                                     <div class="role-panel-body">
                                         <form method="POST" action="/project/public/config/roles/update">
                                             <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
+                                            <?php $rolePermissionIds = array_map('intval', array_column($role['permissions'] ?? [], 'id')); ?>
                                             <div class="config-form-grid tight">
                                                 <div class="input-stack">
                                                     <label>Nombre</label>
@@ -189,7 +190,7 @@
                                                             <p class="permission-group-title"><?= htmlspecialchars($groupName) ?></p>
                                                             <div class="permission-list">
                                                                 <?php foreach($groupItems as $permission): ?>
-                                                                    <?php $isChecked = in_array((int) $permission['id'], $role['permissions'] ?? [], true); ?>
+                                                                    <?php $isChecked = in_array((int) $permission['id'], $rolePermissionIds, true); ?>
                                                                     <label class="permission-item">
                                                                         <span class="permission-name"><?= htmlspecialchars($permission['name']) ?></span>
                                                                         <span class="toggle-switch toggle-switch--compact permission-toggle">
