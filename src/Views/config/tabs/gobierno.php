@@ -148,8 +148,11 @@
                                         <div class="permission-list">
                                             <?php foreach($groupItems as $permission): ?>
                                                 <label class="permission-item">
-                                                    <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
-                                                    <?= htmlspecialchars($permission['name']) ?>
+                                                    <span class="permission-name"><?= htmlspecialchars($permission['name']) ?></span>
+                                                    <span class="toggle-switch toggle-switch--compact permission-toggle">
+                                                        <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>">
+                                                        <span class="toggle-track"></span>
+                                                    </span>
                                                 </label>
                                             <?php endforeach; ?>
                                         </div>
@@ -188,8 +191,11 @@
                                                                 <?php foreach($groupItems as $permission): ?>
                                                                     <?php $isChecked = in_array((int) $permission['id'], $role['permissions'] ?? [], true); ?>
                                                                     <label class="permission-item">
-                                                                        <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $isChecked ? 'checked' : '' ?>>
-                                                                        <?= htmlspecialchars($permission['name']) ?>
+                                                                        <span class="permission-name"><?= htmlspecialchars($permission['name']) ?></span>
+                                                                        <span class="toggle-switch toggle-switch--compact permission-toggle <?= $isChecked ? 'is-checked' : '' ?>">
+                                                                            <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $isChecked ? 'checked' : '' ?>>
+                                                                            <span class="toggle-track"></span>
+                                                                        </span>
                                                                     </label>
                                                                 <?php endforeach; ?>
                                                             </div>
