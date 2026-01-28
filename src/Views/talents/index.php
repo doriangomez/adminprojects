@@ -57,9 +57,12 @@ $flashMessageText = match ($flashMessage) {
 
     <section class="talent-form-section">
         <div class="section-head">
-            <div>
-                <h3><?= $isEditing ? 'Editar talento' : 'Registrar talento' ?></h3>
-                <small class="section-muted">Completa la ficha del talento y define su flujo de reporte de horas.</small>
+            <div class="section-title">
+                <span class="section-icon" aria-hidden="true">🧾</span>
+                <div>
+                    <h3><?= $isEditing ? 'Editar talento' : 'Registrar talento' ?></h3>
+                    <small class="section-muted">Completa la ficha del talento y define su flujo de reporte de horas.</small>
+                </div>
             </div>
             <?php if ($isEditing): ?>
                 <a class="action-btn" href="<?= $basePath ?>/talents">Cancelar edición</a>
@@ -134,47 +137,120 @@ $flashMessageText = match ($flashMessage) {
         </form>
     </section>
 
-    <section class="talent-grid">
+    <section class="talent-grid" id="talent-list">
         <div class="section-head">
-            <div>
-                <h3>Talentos registrados</h3>
-                <small class="section-muted">Gestiona perfiles y disponibilidad.</small>
+            <div class="section-title">
+                <span class="section-icon" aria-hidden="true">🧑‍💼</span>
+                <div>
+                    <h3>Talentos registrados</h3>
+                    <small class="section-muted">Gestiona perfiles y disponibilidad.</small>
+                </div>
             </div>
         </div>
         <?php if (empty($talents)): ?>
             <p class="section-muted">Aún no se han registrado talentos.</p>
         <?php else: ?>
-            <div class="grid">
+            <div class="talent-cards">
                 <?php foreach ($talents as $talent): ?>
-                    <div class="card">
-                        <div class="toolbar">
-                            <strong><?= htmlspecialchars($talent['name'] ?? '') ?></strong>
-                            <?php
-                            $tipoTalento = $talent['tipo_talento'] ?? 'interno';
-                            $tipoClass = $tipoTalento === 'externo' ? 'status-info' : ($tipoTalento === 'otro' ? 'status-warning' : 'status-muted');
-                            ?>
+                    <?php
+                    $tipoTalento = $talent['tipo_talento'] ?? 'interno';
+                    $tipoClass = $tipoTalento === 'externo' ? 'status-info' : ($tipoTalento === 'otro' ? 'status-warning' : 'status-muted');
+                    $requiresReport = !empty($talent['requiere_reporte_horas']);
+                    $requiresApproval = !empty($talent['requiere_aprobacion_horas']);
+                    ?>
+                    <article class="talent-card">
+                        <header class="talent-card__header">
+                            <div>
+                                <span class="talent-card__name"><?= htmlspecialchars($talent['name'] ?? '') ?></span>
+                                <span class="talent-card__role">
+                                    <span class="icon" aria-hidden="true">🧩</span>
+                                    <?= htmlspecialchars($talent['role'] ?? '') ?>
+                                </span>
+                            </div>
                             <span class="status-badge <?= $tipoClass ?>">
+                                <span class="icon" aria-hidden="true">🏷️</span>
                                 <?= htmlspecialchars(ucfirst((string) $tipoTalento)) ?>
                             </span>
+                        </header>
+
+                        <div class="talent-card__body">
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">🏢</span>
+                                <div>
+                                    <span class="talent-card__label">Tipo</span>
+                                    <strong><?= htmlspecialchars($talent['tipo_talento'] ?? 'interno') ?></strong>
+                                </div>
+                            </div>
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">⭐</span>
+                                <div>
+                                    <span class="talent-card__label">Seniority</span>
+                                    <strong><?= htmlspecialchars($talent['seniority'] ?? 'N/A') ?></strong>
+                                </div>
+                            </div>
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">📊</span>
+                                <div>
+                                    <span class="talent-card__label">Disponibilidad</span>
+                                    <strong><?= htmlspecialchars((string) ($talent['availability'] ?? 0)) ?>%</strong>
+                                </div>
+                            </div>
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">⏱️</span>
+                                <div>
+                                    <span class="talent-card__label">Capacidad</span>
+                                    <strong><?= htmlspecialchars((string) ($talent['capacidad_horaria'] ?? 0)) ?>h/sem</strong>
+                                </div>
+                            </div>
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">💲</span>
+                                <div>
+                                    <span class="talent-card__label">Costo / Tarifa</span>
+                                    <strong>$<?= number_format((float) ($talent['hourly_cost'] ?? 0), 0, ',', '.') ?> · $<?= number_format((float) ($talent['hourly_rate'] ?? 0), 0, ',', '.') ?></strong>
+                                </div>
+                            </div>
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">✉️</span>
+                                <div>
+                                    <span class="talent-card__label">Contacto</span>
+                                    <strong><?= htmlspecialchars($talent['user_email'] ?? 'Sin usuario') ?></strong>
+                                </div>
+                            </div>
                         </div>
-                        <p class="section-muted">Rol: <?= htmlspecialchars($talent['role'] ?? '') ?> · Seniority: <?= htmlspecialchars($talent['seniority'] ?? 'N/A') ?></p>
-                        <p class="section-muted">Tipo: <?= htmlspecialchars($talent['tipo_talento'] ?? 'interno') ?> · Capacidad: <?= htmlspecialchars((string) ($talent['capacidad_horaria'] ?? 0)) ?>h · Disponibilidad <?= htmlspecialchars((string) ($talent['availability'] ?? 0)) ?>%</p>
-                        <p class="section-muted">Reporte: <?= !empty($talent['requiere_reporte_horas']) ? 'Sí' : 'No' ?> · Aprobación: <?= !empty($talent['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?></p>
-                        <p class="section-muted">Costo: $<?= number_format((float) ($talent['hourly_cost'] ?? 0), 0, ',', '.') ?> · Tarifa: $<?= number_format((float) ($talent['hourly_rate'] ?? 0), 0, ',', '.') ?></p>
-                        <p class="section-muted">Skills: <?= htmlspecialchars($talent['skills'] ?? 'n/a') ?></p>
-                        <p class="section-muted">Email: <?= htmlspecialchars($talent['user_email'] ?? 'Sin usuario') ?></p>
-                        <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
-                    </div>
+
+                        <div class="talent-card__indicators">
+                            <span class="pill <?= $requiresReport ? 'pill-success' : 'pill-muted' ?>">
+                                <span class="icon" aria-hidden="true">📝</span>
+                                <?= $requiresReport ? 'Reporta horas' : 'Sin reporte' ?>
+                            </span>
+                            <span class="pill <?= $requiresApproval ? 'pill-warning' : 'pill-muted' ?>">
+                                <span class="icon" aria-hidden="true">✅</span>
+                                <?= $requiresApproval ? 'Requiere aprobación' : 'Sin aprobación' ?>
+                            </span>
+                            <span class="pill pill-muted">
+                                <span class="icon" aria-hidden="true">🧠</span>
+                                <?= htmlspecialchars($talent['skills'] ?? 'Skills n/a') ?>
+                            </span>
+                        </div>
+
+                        <footer class="talent-card__footer">
+                            <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
+                            <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
+                        </footer>
+                    </article>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </section>
 
-    <section class="talent-tracking">
+    <section class="talent-tracking" id="talent-tracking">
         <div class="section-head">
-            <div>
-                <h3>Seguimiento por talento y servicio</h3>
-                <small class="section-muted">Estado actual, último seguimiento y evidencias asociadas.</small>
+            <div class="section-title">
+                <span class="section-icon" aria-hidden="true">📌</span>
+                <div>
+                    <h3>Seguimiento por talento y servicio</h3>
+                    <small class="section-muted">Estado actual, último seguimiento y evidencias asociadas.</small>
+                </div>
             </div>
         </div>
         <?php if (empty($services)): ?>
@@ -249,22 +325,38 @@ $flashMessageText = match ($flashMessage) {
 
 <style>
     .talent-shell { display:flex; flex-direction:column; gap:18px; }
-    .talent-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
-    .talent-form-section, .talent-grid, .talent-tracking { border:1px solid var(--border); border-radius:16px; padding:16px; background:var(--surface); display:flex; flex-direction:column; gap:12px; }
+    .talent-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06); }
+    .talent-form-section, .talent-grid, .talent-tracking { border:1px solid var(--border); border-radius:18px; padding:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05); }
     .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .section-title { display:flex; align-items:flex-start; gap:12px; }
+    .section-icon { width:36px; height:36px; border-radius:12px; background:color-mix(in srgb, var(--primary) 15%, var(--surface)); display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; }
     .checkbox { flex-direction:row; align-items:center; gap:8px; }
     .divider { border-top:1px dashed var(--border); margin:8px 0; }
-    .card { border:1px solid var(--border); border-radius:14px; padding:14px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:6px; }
-    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+    .talent-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+    .talent-card { border:1px solid color-mix(in srgb, var(--border) 70%, var(--surface) 30%); border-radius:18px; padding:16px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:14px; }
+    .talent-card__header { display:flex; justify-content:space-between; gap:12px; }
+    .talent-card__name { display:block; font-size:16px; font-weight:700; color:var(--text-primary); }
+    .talent-card__role { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary); }
+    .talent-card__body { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .talent-card__item { display:flex; gap:10px; align-items:center; background: var(--surface); border-radius:12px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--border) 65%, var(--surface) 35%); }
+    .talent-card__label { display:block; font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; }
+    .talent-card__indicators { display:flex; flex-wrap:wrap; gap:8px; }
+    .talent-card__footer { display:flex; justify-content:space-between; gap:10px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
+    .icon { font-size:15px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent; }
+    .pill-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); }
+    .pill-success { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--surface) 65%); }
+    .pill-warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 35%, var(--surface) 65%); }
+    .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color:var(--text-primary); border-color: var(--primary); }
     .action-btn.small { padding:6px 10px; font-size:12px; width:max-content; }
+    .action-btn.ghost { background:transparent; }
     .badge.neutral { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
-    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; }
+    .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; align-items:center; gap:6px; }
     .status-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 40%, var(--surface) 60%); }
     .status-success { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color:color-mix(in srgb, var(--success) 40%, var(--surface) 60%); }
     .status-warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); }
