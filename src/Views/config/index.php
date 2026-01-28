@@ -281,20 +281,18 @@ if (!array_key_exists($activeTab, $tabs)) {
         color: var(--text-primary);
     }
     .permission-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-        gap: 8px 16px;
-        justify-items: start;
-        align-items: start;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
     .permission-item {
         display: flex;
-        align-items: flex-start;
-        gap: 8px;
+        align-items: center;
+        gap: 10px;
         font-size: 14px;
         color: var(--text-primary);
         margin: 0;
-        line-height: 1.2;
+        line-height: 1.4;
         white-space: normal;
     }
     .permission-item input {
