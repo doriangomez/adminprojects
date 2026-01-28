@@ -291,30 +291,37 @@ if (!array_key_exists($activeTab, $tabs)) {
         letter-spacing: 0.04em;
     }
     .permission-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
     }
     .permission-item {
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 16px;
+        gap: 10px;
         font-size: 14px;
         color: var(--text-primary);
         margin: 0;
         line-height: 1.4;
-        padding: 8px 0;
+        padding: 12px;
         white-space: normal;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--background);
+        min-height: 76px;
     }
     .permission-item + .permission-item {
-        border-top: 1px solid color-mix(in srgb, var(--border) 75%, var(--background) 25%);
+        border-top: none;
     }
     .permission-name {
         flex: 1;
+        font-weight: 600;
     }
     .permission-toggle {
         margin-left: auto;
+        align-self: flex-end;
     }
     .toggle-switch--compact .toggle-track {
         width: 34px;
