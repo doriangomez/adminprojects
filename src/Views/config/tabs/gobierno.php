@@ -192,7 +192,7 @@
                                                                     <?php $isChecked = in_array((int) $permission['id'], $role['permissions'] ?? [], true); ?>
                                                                     <label class="permission-item">
                                                                         <span class="permission-name"><?= htmlspecialchars($permission['name']) ?></span>
-                                                                        <span class="toggle-switch toggle-switch--compact permission-toggle">
+                                                                        <span class="toggle-switch toggle-switch--compact permission-toggle <?= $isChecked ? 'is-checked' : '' ?>">
                                                                             <input type="checkbox" name="permissions[]" value="<?= (int) $permission['id'] ?>" <?= $isChecked ? 'checked' : '' ?>>
                                                                             <span class="toggle-track"></span>
                                                                         </span>
