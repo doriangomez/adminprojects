@@ -2,16 +2,14 @@
     <form id="governance-config-form" method="POST" action="/project/public/config/theme" enctype="multipart/form-data"></form>
     <?php
     $permissionGroups = [
-        'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo'],
+        'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo', 'timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
         'Visualización' => ['ver', 'visualizar', 'dashboard', 'reporte', 'report'],
-        'Operación' => ['timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
     ];
     $groupPermissions = function(array $permissions) use ($permissionGroups): array {
         $grouped = [];
         foreach ($permissionGroups as $group => $keywords) {
             $grouped[$group] = [];
         }
-        $grouped['Otros'] = [];
         foreach ($permissions as $permission) {
             $name = mb_strtolower($permission['name'] ?? '');
             $matched = false;
@@ -25,7 +23,7 @@
                 }
             }
             if (!$matched) {
-                $grouped['Otros'][] = $permission;
+                $grouped['Gestión'][] = $permission;
             }
         }
         return array_filter($grouped);
