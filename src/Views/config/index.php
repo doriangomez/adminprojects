@@ -264,41 +264,64 @@ if (!array_key_exists($activeTab, $tabs)) {
     .permission-groups {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
     }
     .permission-group {
-        border-radius: 14px;
-        border: 1px dashed var(--border);
-        padding: 14px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%);
+        gap: 10px;
+    }
+    .permission-group + .permission-group {
+        border-top: 1px solid var(--border);
+        padding-top: 12px;
+        margin-top: 4px;
     }
     .permission-group-title {
         margin: 0;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
-        color: var(--text-primary);
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
     }
     .permission-list {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 0;
     }
     .permission-item {
         display: flex;
         align-items: center;
-        gap: 10px;
+        justify-content: space-between;
+        gap: 16px;
         font-size: 14px;
         color: var(--text-primary);
         margin: 0;
         line-height: 1.4;
+        padding: 8px 0;
         white-space: normal;
     }
-    .permission-item input {
-        margin: 0;
-        flex: 0 0 auto;
+    .permission-item + .permission-item {
+        border-top: 1px solid color-mix(in srgb, var(--border) 75%, var(--background) 25%);
+    }
+    .permission-name {
+        flex: 1;
+    }
+    .permission-toggle {
+        margin-left: auto;
+    }
+    .toggle-switch--compact .toggle-track {
+        width: 34px;
+        height: 20px;
+    }
+    .toggle-switch--compact .toggle-track::after {
+        width: 14px;
+        height: 14px;
+        top: 2px;
+        left: 2px;
+    }
+    .toggle-switch--compact input:checked + .toggle-track::after {
+        transform: translateX(14px);
     }
     .role-accordion {
         display: flex;
