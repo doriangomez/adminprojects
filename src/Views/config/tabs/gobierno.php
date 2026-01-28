@@ -500,43 +500,74 @@
             </div>
         </div>
 
-        <div class="card config-card governance-block">
+        <div class="card config-card governance-block governance-document-block">
             <div class="card-content">
                 <header class="governance-block-header">
                     <div class="governance-block-title-line">
-                        <span class="governance-block-icon" aria-hidden="true">📄</span>
+                        <span class="governance-block-icon" aria-hidden="true">🔁</span>
                         <h3 class="governance-block-title">Flujo documental</h3>
                     </div>
                     <p class="governance-block-subtitle">(cómo pasan los documentos por revisión)</p>
                 </header>
                 <div class="governance-document-section">
-                    <div class="config-form-grid tight">
-                        <div class="input-stack">
-                            <label>Roles habilitados para Revisores (coma)</label>
-                            <input name="document_reviewer_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['reviewer_roles'] ?? [])) ?>">
+                    <div class="governance-flow-roles">
+                        <div class="governance-flow-role-card">
+                            <div class="governance-flow-role-header">
+                                <span class="governance-flow-role-icon" aria-hidden="true">🕵️</span>
+                                <span class="governance-flow-role-title">Revisores</span>
+                            </div>
+                            <div class="input-stack">
+                                <label>Roles habilitados para Revisores (coma)</label>
+                                <input name="document_reviewer_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['reviewer_roles'] ?? [])) ?>">
+                            </div>
                         </div>
-                        <div class="input-stack">
-                            <label>Roles habilitados para Validadores (coma)</label>
-                            <input name="document_validator_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['validator_roles'] ?? [])) ?>">
+                        <div class="governance-flow-role-card">
+                            <div class="governance-flow-role-header">
+                                <span class="governance-flow-role-icon" aria-hidden="true">✅</span>
+                                <span class="governance-flow-role-title">Validadores</span>
+                            </div>
+                            <div class="input-stack">
+                                <label>Roles habilitados para Validadores (coma)</label>
+                                <input name="document_validator_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['validator_roles'] ?? [])) ?>">
+                            </div>
                         </div>
-                        <div class="input-stack">
-                            <label>Roles habilitados para Aprobadores (coma)</label>
-                            <input name="document_approver_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['approver_roles'] ?? [])) ?>">
+                        <div class="governance-flow-role-card">
+                            <div class="governance-flow-role-header">
+                                <span class="governance-flow-role-icon" aria-hidden="true">🛡️</span>
+                                <span class="governance-flow-role-title">Aprobadores</span>
+                            </div>
+                            <div class="input-stack">
+                                <label>Roles habilitados para Aprobadores (coma)</label>
+                                <input name="document_approver_roles" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['default']['approver_roles'] ?? [])) ?>">
+                            </div>
                         </div>
                     </div>
                     <details class="json-collapse">
-                        <summary>Catálogo de documentos esperados (JSON por metodología/fase/subfase)</summary>
+                        <summary>
+                            <span class="governance-inline-icon" aria-hidden="true">🧬</span>
+                            Catálogo de documentos esperados (JSON por metodología/fase/subfase)
+                        </summary>
                         <div class="input-stack">
-                            <textarea name="document_expected_docs_json" form="governance-config-form" rows="6"><?= htmlspecialchars(json_encode($configData['document_flow']['expected_docs'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
+                            <textarea class="governance-json-textarea" name="document_expected_docs_json" form="governance-config-form" rows="10"><?= htmlspecialchars(json_encode($configData['document_flow']['expected_docs'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea>
                             <small class="subtext">Estructura: {"cascada": {"02-PLANIFICACION": {"01-ENTRADAS": ["..."]}}}</small>
                         </div>
                     </details>
                     <div class="input-stack">
-                        <label>Tags sugeridos para documentos (separados por coma)</label>
+                        <label><span class="governance-inline-icon" aria-hidden="true">🏷️</span> Tags sugeridos para documentos (separados por coma)</label>
                         <input name="document_tag_options" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['tag_options'] ?? [])) ?>">
+                        <?php
+                            $tagOptions = array_filter(array_map('trim', $configData['document_flow']['tag_options'] ?? []));
+                        ?>
+                        <?php if (!empty($tagOptions)): ?>
+                            <div class="governance-tag-chips" aria-hidden="true">
+                                <?php foreach ($tagOptions as $tag): ?>
+                                    <span class="governance-tag-chip"><?= htmlspecialchars($tag) ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <div class="form-footer">
+                <div class="form-footer governance-document-footer">
                     <span class="text-muted">Mantén coherencia en permisos y aprobaciones.</span>
                     <button class="btn primary" type="submit" form="governance-config-form">Guardar y aplicar</button>
                 </div>
