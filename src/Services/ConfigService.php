@@ -166,6 +166,13 @@ class ConfigService
                 'allow_self_registration' => false,
                 'require_approval' => true,
             ],
+            'google_workspace' => [
+                'enabled' => false,
+                'corporate_domain' => 'aossas.com',
+                'client_id' => '',
+                'client_secret' => '',
+                'project_id' => '',
+            ],
         ],
         'operational_rules' => [
             'semaforization' => [
@@ -247,6 +254,10 @@ class ConfigService
                     $this->defaults['access']['user_management'],
                     $stored['access']['user_management'] ?? []
                 ),
+                'google_workspace' => array_merge(
+                    $this->defaults['access']['google_workspace'],
+                    $stored['access']['google_workspace'] ?? []
+                ),
             ],
             'operational_rules' => [
                 'semaforization' => [
@@ -307,6 +318,10 @@ class ConfigService
                 'user_management' => array_merge(
                     $current['access']['user_management'],
                     $payload['access']['user_management'] ?? []
+                ),
+                'google_workspace' => array_merge(
+                    $current['access']['google_workspace'] ?? [],
+                    $payload['access']['google_workspace'] ?? []
                 ),
             ],
             'operational_rules' => [

@@ -34,6 +34,7 @@ CREATE TABLE users (
     name VARCHAR(120) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    auth_type ENUM('manual', 'google') NOT NULL DEFAULT 'manual',
     role_id INT NOT NULL,
     active TINYINT(1) DEFAULT 1,
     can_review_documents TINYINT(1) DEFAULT 0,
@@ -620,9 +621,9 @@ INSERT INTO risk_catalog (code, category, label, applies_to, impact_scope, impac
 ('deuda_backlog_defectos', 'Metodología Ágil', 'Acumulación de defectos en backlog', 'scrum', 0, 1, 1, 1, 0, 3, 1),
 ('dependencia_equipos_externos', 'Metodología Ágil', 'Dependencia de equipos externos para completar historias', 'scrum', 1, 1, 1, 0, 0, 3, 1);
 
-INSERT INTO users (name, email, password_hash, role_id) VALUES
-('Admin', 'admin@example.com', '$2y$12$TEU2ChKY7WJdBOxzBaU52envKOeRT8vosBZZQXAfx/Qm/TLoRHDl.', 1),
-('Usuario Demo', 'usuario.demo@example.com', '$2y$12$aKNSIj0oDylU1ZEAcSDMEesIt8xtQWYEzzYBOnCzwKCFKFyThAfTW', 2);
+INSERT INTO users (name, email, password_hash, auth_type, role_id) VALUES
+('Admin', 'admin@example.com', '$2y$12$TEU2ChKY7WJdBOxzBaU52envKOeRT8vosBZZQXAfx/Qm/TLoRHDl.', 'manual', 1),
+('Usuario Demo', 'usuario.demo@example.com', '$2y$12$aKNSIj0oDylU1ZEAcSDMEesIt8xtQWYEzzYBOnCzwKCFKFyThAfTW', 'manual', 2);
 
 INSERT INTO priorities (code, label) VALUES ('high', 'Alta'), ('medium', 'Media'), ('low', 'Baja');
 INSERT INTO project_status (code, label) VALUES ('ideation', 'Ideación'), ('execution', 'Ejecución'), ('closed', 'Cerrado');

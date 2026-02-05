@@ -239,7 +239,11 @@
                                 <div class="config-form-grid">
                                     <input name="name" placeholder="Nombre" required>
                                     <input name="email" type="email" placeholder="Correo" required>
-                                    <input name="password" type="password" placeholder="Contraseña" required>
+                                    <select name="auth_type" data-auth-type-selector>
+                                        <option value="manual">Manual (usuario + contraseña)</option>
+                                        <option value="google">Google Workspace</option>
+                                    </select>
+                                    <input name="password" type="password" placeholder="Contraseña (solo manual)" data-password-field required>
                                     <select name="role_id" required>
                                         <?php foreach($roles as $role): ?>
                                             <option value="<?= (int) $role['id'] ?>"><?= htmlspecialchars($role['nombre']) ?></option>
@@ -369,6 +373,7 @@
                                     <span><?= htmlspecialchars($user['name']) ?></span>
                                     <span><?= htmlspecialchars($user['email']) ?></span>
                                     <span><?= htmlspecialchars($user['role_name']) ?></span>
+                                    <span class="pill soft-slate"><?= htmlspecialchars(strtoupper((string) ($user['auth_type'] ?? 'manual'))) ?></span>
                                     <span class="pill soft-slate"><?= $activePermissionsCount ?> permisos activos</span>
                                     <span>
                                         <?php if((int)$user['active'] === 1): ?>
@@ -392,7 +397,13 @@
                                                     <?php endforeach; ?>
                                                 </select>
                                             </label>
-                                            <label>Contraseña nueva<input name="password" type="password" placeholder="Nueva contraseña"></label>
+                                            <label>Tipo de autenticación
+                                                <select name="auth_type" data-auth-type-selector>
+                                                    <option value="manual" <?= (($user['auth_type'] ?? 'manual') === 'manual') ? 'selected' : '' ?>>Manual</option>
+                                                    <option value="google" <?= (($user['auth_type'] ?? 'manual') === 'google') ? 'selected' : '' ?>>Google Workspace</option>
+                                                </select>
+                                            </label>
+                                            <label>Contraseña nueva<input name="password" type="password" placeholder="Nueva contraseña (solo manual)" data-password-field></label>
                                             <label class="toggle-switch toggle-switch--state">
                                                 <span class="toggle-label">Activo</span>
                                                 <input type="checkbox" name="active" <?= ((int)$user['active'] === 1) ? 'checked' : '' ?>>
@@ -579,3 +590,28 @@
         </div>
     </div>
 </section>
+
+<script>
+(function initAuthTypeFields() {
+    const forms = document.querySelectorAll('form[action="/project/public/config/users/create"], form[action="/project/public/config/users/update"]');
+    forms.forEach((form) => {
+        const selector = form.querySelector('[data-auth-type-selector]');
+        const passwordField = form.querySelector('[data-password-field]');
+        if (!selector || !passwordField) {
+            return;
+        }
+
+        const sync = () => {
+            const isManual = selector.value === 'manual';
+            passwordField.required = isManual && form.action.endsWith('/create');
+            passwordField.disabled = !isManual;
+            if (!isManual) {
+                passwordField.value = '';
+            }
+        };
+
+        selector.addEventListener('change', sync);
+        sync();
+    });
+})();
+</script>
