@@ -26,13 +26,63 @@ class AuthController extends Controller
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
 
-        $email = $_POST['email'] ?? '';
-        $password = $_POST['password'] ?? '';
+        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+        $password = (string) ($_POST['password'] ?? '');
+
         if (!$this->auth->attempt($email, $password)) {
+            (new AuditLogRepository($this->db))->log(null, 'google_login', 0, 'rejected_manual_login', ['email' => $email]);
             $error = 'Credenciales inválidas';
             include __DIR__ . '/../Views/auth/login.php';
             return;
         }
+
+        header('Location: /project/public/dashboard');
+    }
+
+    public function loginWithGoogle(): void
+    {
+        $theme = (new ThemeRepository($this->db))->getActiveTheme();
+        $configService = new ConfigService($this->db);
+        $configData = $configService->getConfig();
+        $appName = $this->getAppName();
+
+        $email = strtolower(trim((string) ($_POST['google_email'] ?? '')));
+        $googleConfig = $configData['access']['google_workspace'] ?? [];
+        $domain = strtolower(trim((string) ($googleConfig['corporate_domain'] ?? '')));
+
+        if (!(bool) ($googleConfig['enabled'] ?? false)) {
+            (new AuditLogRepository($this->db))->log(null, 'google_login', 0, 'rejected_google_disabled', ['email' => $email]);
+            $error = 'El acceso con Google Workspace está deshabilitado.';
+            include __DIR__ . '/../Views/auth/login.php';
+            return;
+        }
+
+        if ($email === '' || $domain === '' || !str_ends_with($email, '@' . $domain)) {
+            (new AuditLogRepository($this->db))->log(null, 'google_login', 0, 'rejected_invalid_domain', ['email' => $email, 'domain' => $domain]);
+            $error = 'Correo no permitido para acceso corporativo.';
+            include __DIR__ . '/../Views/auth/login.php';
+            return;
+        }
+
+        if (!$this->auth->attemptGoogle($email)) {
+            (new AuditLogRepository($this->db))->log(null, 'google_login', 0, 'rejected_not_enrolled_or_inactive', ['email' => $email]);
+            $error = 'Usuario no enrolado, inactivo o no configurado para Google.';
+            include __DIR__ . '/../Views/auth/login.php';
+            return;
+        }
+
+        $current = $this->auth->user();
+        (new AuditLogRepository($this->db))->log(
+            (int) ($current['id'] ?? 0),
+            'google_login',
+            (int) ($current['id'] ?? 0),
+            'success',
+            [
+                'email' => $email,
+                'auth_type' => 'google',
+            ]
+        );
+
         header('Location: /project/public/dashboard');
     }
 

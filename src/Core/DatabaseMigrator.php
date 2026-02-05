@@ -129,6 +129,21 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureUserAuthTypeColumn(): void
+    {
+        if (!$this->db->tableExists('users') || $this->db->columnExists('users', 'auth_type')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                "ALTER TABLE users ADD COLUMN auth_type ENUM('manual', 'google') NOT NULL DEFAULT 'manual' AFTER password_hash"
+            );
+        } catch (\PDOException $e) {
+            error_log('Error agregando columna auth_type a users: ' . $e->getMessage());
+        }
+    }
+
     public function ensureUserTimesheetPermissionColumns(): void
     {
         if (!$this->db->tableExists('users')) {

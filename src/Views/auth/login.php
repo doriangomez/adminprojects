@@ -130,6 +130,22 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                         <div class="link"><a href="#">¿Olvidaste tu contraseña?</a></div>
                     </div>
                 </form>
+
+                <?php $googleSettings = $configData['access']['google_workspace'] ?? []; ?>
+                <?php if ((bool) ($googleSettings['enabled'] ?? false)): ?>
+                    <div class="field" style="margin-top:8px; border-top:1px solid var(--border); padding-top:14px;">
+                        <label for="google_email">Acceso Google Workspace</label>
+                        <form method="POST" action="/project/public/login/google" class="form" style="padding:0; margin-top:8px;" data-google-login-form>
+                            <div class="input-wrapper">
+                                <span class="input-icon" aria-hidden="true">G</span>
+                                <input type="email" name="google_email" id="google_email" placeholder="usuario@<?= htmlspecialchars($googleSettings['corporate_domain'] ?? 'aossas.com') ?>" autocomplete="email" required>
+                            </div>
+                            <button type="submit" class="primary-btn" style="margin-top:10px;">
+                                <span class="btn-text">Ingresar con Google</span>
+                            </button>
+                        </form>
+                    </div>
+                <?php endif; ?>
             </div>
         </section>
     </div>

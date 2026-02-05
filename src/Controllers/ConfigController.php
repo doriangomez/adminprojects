@@ -255,18 +255,32 @@ class ConfigController extends Controller
         $this->ensureNotImpersonating();
 
         $repo = new UsersRepository($this->db);
-        $password = $_POST['password'] ?? '';
+        $password = (string) ($_POST['password'] ?? '');
+        $authType = $this->normalizeAuthType((string) ($_POST['auth_type'] ?? 'manual'));
         $isAdmin = $this->auth->hasRole('Administrador');
         $documentRoles = $this->documentRolePayload($isAdmin);
         $progressPermission = $this->progressPermissionPayload($isAdmin);
         $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin);
         $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin);
         $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin);
-        $repo->create([
+        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+
+        if ($authType === 'manual' && $password === '') {
+            http_response_code(422);
+            exit('La contraseña es obligatoria para usuarios manuales.');
+        }
+
+        if ($authType === 'google' && !$this->isCorporateEmailAllowed($email)) {
+            http_response_code(422);
+            exit('El correo corporativo no pertenece al dominio permitido.');
+        }
+
+        $userId = $repo->create([
             'name' => $_POST['name'],
-            'email' => $_POST['email'],
+            'email' => $email,
             'role_id' => (int) $_POST['role_id'],
-            'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+            'auth_type' => $authType,
+            'password_hash' => $authType === 'manual' ? password_hash($password, PASSWORD_BCRYPT) : '',
             'active' => isset($_POST['active']) ? 1 : 0,
             'can_review_documents' => $documentRoles['can_review_documents'],
             'can_validate_documents' => $documentRoles['can_validate_documents'],
@@ -277,6 +291,19 @@ class ConfigController extends Controller
             'can_approve_timesheets' => $timesheetApprovalPermission,
         ]);
 
+        if ($authType === 'google') {
+            (new AuditLogRepository($this->db))->log(
+                (int) (($this->auth->user()['id'] ?? 0) ?: 0),
+                'user_google_enrollment',
+                (int) $userId,
+                'create',
+                [
+                    'email' => $email,
+                    'auth_type' => $authType,
+                ]
+            );
+        }
+
         header('Location: /project/public/config?saved=1');
     }
 
@@ -286,20 +313,38 @@ class ConfigController extends Controller
         $this->ensureNotImpersonating();
 
         $repo = new UsersRepository($this->db);
-        $password = $_POST['password'] ?? '';
+        $password = (string) ($_POST['password'] ?? '');
         $isAdmin = $this->auth->hasRole('Administrador');
         $userId = (int) $_POST['id'];
         $current = $repo->find($userId) ?? [];
+        $authType = $this->normalizeAuthType((string) ($_POST['auth_type'] ?? ($current['auth_type'] ?? 'manual')));
+        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
         $documentRoles = $this->documentRolePayload($isAdmin, $current);
         $progressPermission = $this->progressPermissionPayload($isAdmin, $current);
         $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin, $current);
         $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin, $current);
         $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin, $current);
+
+        if ($authType === 'google' && !$this->isCorporateEmailAllowed($email)) {
+            http_response_code(422);
+            exit('El correo corporativo no pertenece al dominio permitido.');
+        }
+
+        $passwordHash = null;
+        if ($authType === 'manual') {
+            if ($password !== '') {
+                $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+            }
+        } else {
+            $passwordHash = '';
+        }
+
         $repo->update($userId, [
             'name' => $_POST['name'],
-            'email' => $_POST['email'],
+            'email' => $email,
             'role_id' => (int) $_POST['role_id'],
-            'password_hash' => $password ? password_hash($password, PASSWORD_BCRYPT) : null,
+            'auth_type' => $authType,
+            'password_hash' => $passwordHash,
             'active' => isset($_POST['active']) ? 1 : 0,
             'can_review_documents' => $documentRoles['can_review_documents'],
             'can_validate_documents' => $documentRoles['can_validate_documents'],
@@ -432,6 +477,38 @@ class ConfigController extends Controller
         header('Location: /project/public/config?saved=1');
     }
 
+
+    public function updateGoogleWorkspace(): void
+    {
+        $this->ensureConfigAccess();
+        $this->ensureNotImpersonating();
+
+        $configService = new ConfigService($this->db);
+        $payload = [
+            'access' => [
+                'google_workspace' => [
+                    'enabled' => isset($_POST['google_enabled']),
+                    'corporate_domain' => strtolower(trim((string) ($_POST['google_corporate_domain'] ?? ''))),
+                    'client_id' => trim((string) ($_POST['google_client_id'] ?? '')),
+                    'client_secret' => trim((string) ($_POST['google_client_secret'] ?? '')),
+                    'project_id' => trim((string) ($_POST['google_project_id'] ?? '')),
+                ],
+            ],
+        ];
+
+        $updated = $configService->updateConfig($payload);
+
+        (new AuditLogRepository($this->db))->log(
+            (int) (($this->auth->user()['id'] ?? 0) ?: 0),
+            'google_workspace_config',
+            0,
+            'update',
+            $updated['access']['google_workspace'] ?? []
+        );
+
+        header('Location: /project/public/config?tab=autenticacion&saved=1');
+    }
+
     private function parseList(string $value): array
     {
         $parts = array_map('trim', explode(',', $value));
@@ -508,6 +585,27 @@ class ConfigController extends Controller
         }
 
         return $this->checkboxValue(['can_approve_timesheets']) ? 1 : 0;
+    }
+
+
+    private function normalizeAuthType(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+
+        return in_array($normalized, ['manual', 'google'], true) ? $normalized : 'manual';
+    }
+
+    private function isCorporateEmailAllowed(string $email): bool
+    {
+        $config = (new ConfigService($this->db))->getConfig();
+        $google = $config['access']['google_workspace'] ?? [];
+        $domain = strtolower(trim((string) ($google['corporate_domain'] ?? '')));
+
+        if ($domain === '' || $email === '') {
+            return false;
+        }
+
+        return str_ends_with(strtolower($email), '@' . $domain);
     }
 
     private function checkboxValue(array $keys): bool

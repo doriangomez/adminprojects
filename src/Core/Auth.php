@@ -19,17 +19,48 @@ class Auth
             ':email' => $email,
         ]);
 
-        if (!$user || !password_verify($password, $user['password_hash'])) {
+        if (!$user || ($user['auth_type'] ?? 'manual') !== 'manual') {
             return false;
         }
 
-        $_SESSION['user'] = [
-            'id' => (int) $user['id'],
-            'name' => $user['name'],
-            'email' => $user['email'] ?? null,
-            'role' => $user['rol_nombre'],
-            'role_id' => (int) $user['role_id'],
-        ];
+        if (!password_verify($password, (string) ($user['password_hash'] ?? ''))) {
+            return false;
+        }
+
+        $this->hydrateSession($user);
+
+        return true;
+    }
+
+    public function attemptGoogle(string $email): bool
+    {
+        $config = $this->googleWorkspaceConfig();
+        if (!(bool) ($config['enabled'] ?? false)) {
+            return false;
+        }
+
+        $domain = strtolower(trim((string) ($config['corporate_domain'] ?? '')));
+        $normalizedEmail = strtolower(trim($email));
+        if ($normalizedEmail === '' || $domain === '' || !str_ends_with($normalizedEmail, '@' . $domain)) {
+            return false;
+        }
+
+        $user = $this->db->fetchOne(
+            'SELECT u.*, r.nombre AS rol_nombre
+             FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE u.email = :email AND u.active = 1 AND u.auth_type = :auth_type',
+            [
+                ':email' => $normalizedEmail,
+                ':auth_type' => 'google',
+            ]
+        );
+
+        if (!$user) {
+            return false;
+        }
+
+        $this->hydrateSession($user);
 
         return true;
     }
@@ -80,13 +111,7 @@ class Auth
             $_SESSION['impersonator'] = $this->user();
         }
 
-        $_SESSION['user'] = [
-            'id' => (int) $target['id'],
-            'name' => $target['name'],
-            'email' => $target['email'] ?? null,
-            'role' => $target['rol_nombre'],
-            'role_id' => (int) $target['role_id'],
-        ];
+        $this->hydrateSession($target);
 
         $_SESSION['impersonation'] = [
             'user_id' => (int) $target['id'],
@@ -235,6 +260,25 @@ class Auth
     public function isTimesheetsEnabled(): bool
     {
         return $this->timesheetsEnabled();
+    }
+
+    private function hydrateSession(array $user): void
+    {
+        $_SESSION['user'] = [
+            'id' => (int) $user['id'],
+            'name' => $user['name'],
+            'email' => $user['email'] ?? null,
+            'role' => $user['rol_nombre'],
+            'role_id' => (int) $user['role_id'],
+            'auth_type' => $user['auth_type'] ?? 'manual',
+        ];
+    }
+
+    private function googleWorkspaceConfig(): array
+    {
+        $config = $this->loadConfig();
+
+        return $config['access']['google_workspace'] ?? [];
     }
 
     private function timesheetsEnabled(): bool

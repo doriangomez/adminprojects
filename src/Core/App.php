@@ -19,6 +19,7 @@ class App
         $migrator->ensureProjectActiveColumn();
         $migrator->ensureUserProgressPermissionColumn();
         $migrator->ensureUserOutsourcingPermissionColumn();
+        $migrator->ensureUserAuthTypeColumn();
         $migrator->ensureUserTimesheetPermissionColumns();
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
@@ -49,6 +50,10 @@ class App
         }
         if ($path === '/login' && $method === 'POST') {
             (new AuthController($this->db, $this->auth))->login();
+            return;
+        }
+        if ($path === '/login/google' && $method === 'POST') {
+            (new AuthController($this->db, $this->auth))->loginWithGoogle();
             return;
         }
         if ($path === '/logout') {
@@ -409,6 +414,11 @@ class App
 
             if ($path === '/config/notifications' && $method === 'POST') {
                 $controller->updateNotifications();
+                return;
+            }
+
+            if ($path === '/config/google-workspace' && $method === 'POST') {
+                $controller->updateGoogleWorkspace();
                 return;
             }
 

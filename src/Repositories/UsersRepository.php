@@ -50,12 +50,13 @@ class UsersRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO users (name, email, password_hash, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, can_update_project_progress, can_access_outsourcing, can_access_timesheets, can_approve_timesheets, created_at, updated_at)
-             VALUES (:name, :email, :password_hash, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, :can_update_project_progress, :can_access_outsourcing, :can_access_timesheets, :can_approve_timesheets, NOW(), NOW())',
+            'INSERT INTO users (name, email, password_hash, auth_type, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, can_update_project_progress, can_access_outsourcing, can_access_timesheets, can_approve_timesheets, created_at, updated_at)
+             VALUES (:name, :email, :password_hash, :auth_type, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, :can_update_project_progress, :can_access_outsourcing, :can_access_timesheets, :can_approve_timesheets, NOW(), NOW())',
             [
                 ':name' => $payload['name'],
                 ':email' => $payload['email'],
                 ':password_hash' => $payload['password_hash'],
+                ':auth_type' => $payload['auth_type'] ?? 'manual',
                 ':role_id' => $payload['role_id'],
                 ':active' => $payload['active'] ?? 1,
                 ':can_review_documents' => $payload['can_review_documents'] ?? 0,
@@ -75,6 +76,7 @@ class UsersRepository
             ':name' => $payload['name'],
             ':email' => $payload['email'],
             ':role_id' => $payload['role_id'],
+            ':auth_type' => $payload['auth_type'] ?? 'manual',
             ':active' => $payload['active'] ?? 1,
             ':can_review_documents' => $payload['can_review_documents'] ?? 0,
             ':can_validate_documents' => $payload['can_validate_documents'] ?? 0,
@@ -90,6 +92,7 @@ class UsersRepository
             'name = :name',
             'email = :email',
             'role_id = :role_id',
+            'auth_type = :auth_type',
             'active = :active',
             'can_review_documents = :can_review_documents',
             'can_validate_documents = :can_validate_documents',
@@ -107,6 +110,22 @@ class UsersRepository
 
         $sql = 'UPDATE users SET ' . implode(', ', $setParts) . ', updated_at = NOW() WHERE id = :id';
         $this->db->execute($sql, $params);
+    }
+
+
+    public function findGoogleEligibleByEmail(string $email): ?array
+    {
+        return $this->db->fetchOne(
+            'SELECT u.*, r.nombre AS role_name
+             FROM users u
+             JOIN roles r ON r.id = u.role_id
+             WHERE u.email = :email AND u.active = 1 AND u.auth_type = :auth_type
+             LIMIT 1',
+            [
+                ':email' => strtolower(trim($email)),
+                ':auth_type' => 'google',
+            ]
+        );
     }
 
     public function deactivate(int $id): void

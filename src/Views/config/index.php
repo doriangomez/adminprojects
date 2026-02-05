@@ -6,6 +6,7 @@ $tabs = [
     'gobierno' => 'Gobierno',
     'catalogos' => 'Catálogos',
     'notificaciones' => 'Notificaciones',
+    'autenticacion' => 'Autenticación',
 ];
 $activeTab = $_GET['tab'] ?? 'identidad';
 if (!array_key_exists($activeTab, $tabs)) {
@@ -930,6 +931,9 @@ if (!array_key_exists($activeTab, $tabs)) {
                     break;
                 case 'notificaciones':
                     include __DIR__ . '/tabs/notificaciones.php';
+                    break;
+                case 'autenticacion':
+                    include __DIR__ . '/tabs/autenticacion.php';
                     break;
             }
             ?>
