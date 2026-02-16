@@ -87,7 +87,7 @@ $domainCounts['sistema'] = ($domainCounts['sistema'] ?? 0) + 2;
                                     </div>
                                 </div>
                                 <div class="card-content">
-                                    <form method="POST" action="/project/public/config/risk-catalog/create" class="config-form-grid compact-grid">
+                                    <form method="POST" action="/config/risk-catalog/create" class="config-form-grid compact-grid">
                                         <input name="code" placeholder="Código (único)" required>
                                         <input name="category" placeholder="Categoría" required>
                                         <input name="label" placeholder="Nombre del riesgo" required>
@@ -161,8 +161,8 @@ $domainCounts['sistema'] = ($domainCounts['sistema'] ?? 0) + 2;
                                                 <span>Acciones</span>
                                             </div>
                                             <?php foreach ($risks as $risk): ?>
-                                                <form id="risk-update-<?= htmlspecialchars($risk['code']) ?>" method="POST" action="/project/public/config/risk-catalog/update"></form>
-                                                <form id="risk-delete-<?= htmlspecialchars($risk['code']) ?>" method="POST" action="/project/public/config/risk-catalog/delete" onsubmit="return confirm('¿Eliminar riesgo del catálogo? Esta acción no se puede deshacer.');">
+                                                <form id="risk-update-<?= htmlspecialchars($risk['code']) ?>" method="POST" action="/config/risk-catalog/update"></form>
+                                                <form id="risk-delete-<?= htmlspecialchars($risk['code']) ?>" method="POST" action="/config/risk-catalog/delete" onsubmit="return confirm('¿Eliminar riesgo del catálogo? Esta acción no se puede deshacer.');">
                                                     <input type="hidden" name="code" value="<?= htmlspecialchars($risk['code']) ?>">
                                                 </form>
                                                 <div class="risk-matrix-row">
@@ -264,7 +264,7 @@ $domainCounts['sistema'] = ($domainCounts['sistema'] ?? 0) + 2;
                                     <small style="color: var(--text-secondary);">Archivos de referencia y esquema base del sistema.</small>
                                 </div>
                                 <div class="card-content">
-                                    <form method="POST" action="/project/public/config/theme" enctype="multipart/form-data" class="config-form-grid compact-grid">
+                                    <form method="POST" action="/config/theme" enctype="multipart/form-data" class="config-form-grid compact-grid">
                                         <div class="input-stack">
                                             <label>Archivo de datos principal</label>
                                             <input name="data_file" value="<?= htmlspecialchars($configData['master_files']['data_file']) ?>" required>
@@ -294,7 +294,7 @@ $domainCounts['sistema'] = ($domainCounts['sistema'] ?? 0) + 2;
                                             </div>
                                             <span class="badge neutral"><?= count($tableData['items']) ?> ítems</span>
                                         </div>
-                                        <form method="POST" action="/project/public/config/master-files/create" class="catalog-table-form">
+                                        <form method="POST" action="/config/master-files/create" class="catalog-table-form">
                                             <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>">
                                             <input name="code" placeholder="Código" required>
                                             <input name="label" placeholder="Etiqueta" required>
@@ -308,8 +308,8 @@ $domainCounts['sistema'] = ($domainCounts['sistema'] ?? 0) + 2;
                                                 <span>Acciones</span>
                                             </div>
                                             <?php foreach($tableData['items'] as $item): ?>
-                                                <form id="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/project/public/config/master-files/update"></form>
-                                                <form id="base-delete-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/project/public/config/master-files/delete" onsubmit="return confirm('Eliminar entrada?');">
+                                                <form id="base-update-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/config/master-files/update"></form>
+                                                <form id="base-delete-<?= htmlspecialchars($table) ?>-<?= (int) $item['id'] ?>" method="POST" action="/config/master-files/delete" onsubmit="return confirm('Eliminar entrada?');">
                                                     <input type="hidden" name="table" value="<?= htmlspecialchars($table) ?>">
                                                     <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
                                                 </form>

@@ -48,7 +48,7 @@ class TalentsController extends Controller
             );
 
             $flashKey = !empty($payload['is_outsourcing']) ? 'created_outsourcing' : 'created';
-            header('Location: /project/public/talents?saved=' . $flashKey);
+            header('Location: /talents?saved=' . $flashKey);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -85,7 +85,7 @@ class TalentsController extends Controller
                 ]
             );
 
-            header('Location: /project/public/talents?edit=' . $talentId . '&saved=updated');
+            header('Location: /talents?edit=' . $talentId . '&saved=updated');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());

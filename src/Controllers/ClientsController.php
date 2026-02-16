@@ -96,7 +96,7 @@ class ClientsController extends Controller
 
         try {
             $repo->create($this->collectPayload());
-            header('Location: /project/public/clients');
+            header('Location: /clients');
         } catch (\PDOException $e) {
             error_log('Error al crear cliente: ' . $e->getMessage());
             http_response_code(500);
@@ -114,7 +114,7 @@ class ClientsController extends Controller
 
         try {
             $repo->update($id, $this->collectPayload($_POST['current_logo'] ?? ''));
-            header('Location: /project/public/clients');
+            header('Location: /clients');
         } catch (\PDOException $e) {
             error_log('Error al actualizar cliente: ' . $e->getMessage());
             http_response_code(500);

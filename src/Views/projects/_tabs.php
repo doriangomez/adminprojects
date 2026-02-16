@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $project = $project ?? [];
 $activeTab = $activeTab ?? 'documents';
 $projectId = (int) ($project['id'] ?? 0);

@@ -12,7 +12,7 @@ class AuthController extends Controller
         $appName = $this->getAppName();
 
         if ($this->auth->check()) {
-            header('Location: /project/public/dashboard');
+            header('Location: /dashboard');
             return;
         }
 
@@ -36,7 +36,7 @@ class AuthController extends Controller
             return;
         }
 
-        header('Location: /project/public/dashboard');
+        header('Location: /dashboard');
     }
 
     public function loginWithGoogle(): void
@@ -83,13 +83,13 @@ class AuthController extends Controller
             ]
         );
 
-        header('Location: /project/public/dashboard');
+        header('Location: /dashboard');
     }
 
     public function logout(): void
     {
         $this->auth->logout();
-        header('Location: /project/public/login');
+        header('Location: /login');
     }
 
     public function startImpersonation(): void
@@ -113,7 +113,7 @@ class AuthController extends Controller
             ]
         );
 
-        header('Location: /project/public/dashboard');
+        header('Location: /dashboard');
     }
 
     public function stopImpersonation(): void
@@ -133,6 +133,6 @@ class AuthController extends Controller
         );
 
         $this->auth->stopImpersonation();
-        header('Location: /project/public/dashboard');
+        header('Location: /dashboard');
     }
 }

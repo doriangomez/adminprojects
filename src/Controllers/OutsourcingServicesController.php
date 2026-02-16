@@ -132,7 +132,7 @@ class OutsourcingServicesController extends Controller
                 ]
             );
 
-            header('Location: /project/public/outsourcing/' . $serviceId);
+            header('Location: /outsourcing/' . $serviceId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -156,7 +156,7 @@ class OutsourcingServicesController extends Controller
                 ['service_status' => $_POST['service_status'] ?? 'active']
             );
 
-            header('Location: /project/public/outsourcing/' . $serviceId);
+            header('Location: /outsourcing/' . $serviceId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -195,7 +195,7 @@ class OutsourcingServicesController extends Controller
                 ]
             );
 
-            header('Location: /project/public/outsourcing?selected_talent_id=' . $userId . '&talent_created=1');
+            header('Location: /outsourcing?selected_talent_id=' . $userId . '&talent_created=1');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -223,7 +223,7 @@ class OutsourcingServicesController extends Controller
                 ['followup_frequency' => $_POST['followup_frequency'] ?? 'monthly']
             );
 
-            header('Location: /project/public/outsourcing/' . $serviceId);
+            header('Location: /outsourcing/' . $serviceId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -332,7 +332,7 @@ class OutsourcingServicesController extends Controller
                 ]
             );
 
-            header('Location: /project/public/outsourcing/' . $serviceId);
+            header('Location: /outsourcing/' . $serviceId);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -371,7 +371,7 @@ class OutsourcingServicesController extends Controller
             );
         }
 
-        header('Location: /project/public/outsourcing/' . $serviceId);
+        header('Location: /outsourcing/' . $serviceId);
     }
 
     private function requireOutsourcingAccess(): void

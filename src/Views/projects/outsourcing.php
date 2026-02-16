@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $project = $project ?? [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $talents = is_array($talents ?? null) ? $talents : [];

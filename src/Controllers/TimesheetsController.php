@@ -131,7 +131,7 @@ class TimesheetsController extends Controller
                 error_log('Error al notificar timesheet: ' . $e->getMessage());
             }
 
-            header('Location: /project/public/timesheets');
+            header('Location: /timesheets');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -191,7 +191,7 @@ class TimesheetsController extends Controller
                 error_log('Error al notificar aprobación de timesheet: ' . $e->getMessage());
             }
 
-            header('Location: /project/public/timesheets');
+            header('Location: /timesheets');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());

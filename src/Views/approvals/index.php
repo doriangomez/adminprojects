@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $reviewQueue = is_array($reviewQueue ?? null) ? $reviewQueue : [];
 $validationQueue = is_array($validationQueue ?? null) ? $validationQueue : [];
 $approvalQueue = is_array($approvalQueue ?? null) ? $approvalQueue : [];

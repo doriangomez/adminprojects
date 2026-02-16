@@ -139,7 +139,7 @@ class ProjectsController extends Controller
                 (new ProjectNodesRepository($this->db))->markTreeOutdated($id);
             }
 
-            header('Location: /project/public/projects/' . $id);
+            header('Location: /projects/' . $id);
             return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -207,7 +207,7 @@ class ProjectsController extends Controller
             } catch (\Throwable $e) {
                 error_log('Error al notificar creación de proyecto: ' . $e->getMessage());
             }
-            header('Location: /project/public/projects/' . $projectId);
+            header('Location: /projects/' . $projectId);
             return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -351,7 +351,7 @@ class ProjectsController extends Controller
             'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
         ]);
 
-        header('Location: /project/public/projects/' . $id . '/tasks');
+        header('Location: /projects/' . $id . '/tasks');
     }
 
     public function outsourcing(int $id): void
@@ -439,7 +439,7 @@ class ProjectsController extends Controller
                 ['followup_frequency' => $frequency]
             );
 
-            header('Location: /project/public/projects/' . $id . '/outsourcing');
+            header('Location: /projects/' . $id . '/outsourcing');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -534,7 +534,7 @@ class ProjectsController extends Controller
                 ]
             );
 
-            header('Location: /project/public/projects/' . $id . '/outsourcing');
+            header('Location: /projects/' . $id . '/outsourcing');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -575,7 +575,7 @@ class ProjectsController extends Controller
                 ['status' => $status]
             );
 
-            header('Location: /project/public/projects/' . $projectId . '/outsourcing');
+            header('Location: /projects/' . $projectId . '/outsourcing');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -614,7 +614,7 @@ class ProjectsController extends Controller
 
         $confirm = (string) ($_POST['confirm'] ?? '');
         if ($confirm !== 'yes') {
-            header('Location: /project/public/projects/' . $id . '/close');
+            header('Location: /projects/' . $id . '/close');
             return;
         }
 
@@ -657,7 +657,7 @@ class ProjectsController extends Controller
             } catch (\Throwable $e) {
                 error_log('Error al notificar cierre de proyecto: ' . $e->getMessage());
             }
-            header('Location: /project/public/projects/' . $id);
+            header('Location: /projects/' . $id);
             return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -716,7 +716,7 @@ class ProjectsController extends Controller
             ]
         );
 
-        header('Location: /project/public/projects/' . $id . '?progress=updated');
+        header('Location: /projects/' . $id . '?progress=updated');
     }
 
     public function createNote(int $id): void
@@ -749,7 +749,7 @@ class ProjectsController extends Controller
             ]
         );
 
-        header('Location: /project/public/projects/' . $id . '?view=seguimiento');
+        header('Location: /projects/' . $id . '?view=seguimiento');
     }
 
     public function destroy(): void
@@ -919,7 +919,7 @@ class ProjectsController extends Controller
             if ($requestedRedirect !== '') {
                 $destination = $requestedRedirect;
             } else {
-                $destination = $redirectId > 0 ? '/project/public/projects/' . $redirectId . '/talent' : '/project/public/projects';
+                $destination = $redirectId > 0 ? '/projects/' . $redirectId . '/talent' : '/projects';
             }
             header('Location: ' . $destination);
             return;
@@ -1073,7 +1073,7 @@ class ProjectsController extends Controller
                 $description !== '' ? $description : null,
                 (int) ($this->auth->user()['id'] ?? 0)
             );
-            header('Location: /project/public/projects/' . $projectId);
+            header('Location: /projects/' . $projectId);
             return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -1140,7 +1140,7 @@ class ProjectsController extends Controller
 
             $nextNumber = count($sprintsContainer['children'] ?? []) + 1;
             $treeService->createSprintNodes($projectId, (int) ($sprintsContainer['id'] ?? 0), $nextNumber, (int) ($this->auth->user()['id'] ?? 0));
-            header('Location: /project/public/projects/' . $projectId);
+            header('Location: /projects/' . $projectId);
             return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -1173,7 +1173,7 @@ class ProjectsController extends Controller
                 return;
             }
 
-            header('Location: /project/public/projects/' . $projectId);
+            header('Location: /projects/' . $projectId);
             return;
         } catch (\Throwable $e) {
             error_log('Error al eliminar nodo documental: ' . $e->getMessage());

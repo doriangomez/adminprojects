@@ -941,7 +941,7 @@ if (!array_key_exists($activeTab, $tabs)) {
     </div>
 </section>
 <script>
-    const themeForms = document.querySelectorAll('form[action="/project/public/config/theme"]');
+    const themeForms = document.querySelectorAll('form[action="/config/theme"]');
     themeForms.forEach((form) => {
         form.addEventListener('submit', async (event) => {
             event.preventDefault();

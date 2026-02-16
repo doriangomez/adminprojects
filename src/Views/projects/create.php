@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $clientsList = is_array($clients ?? null) ? $clients : [];
 $projectManagersList = is_array($projectManagers ?? null) ? $projectManagers : [];
 $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];

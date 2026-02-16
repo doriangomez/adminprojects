@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $project = $project ?? [];
 $budget = (float) ($project['budget'] ?? 0);
 $actualCost = (float) ($project['actual_cost'] ?? 0);

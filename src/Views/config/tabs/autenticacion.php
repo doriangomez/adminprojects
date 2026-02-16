@@ -17,7 +17,7 @@ $isConfigured = trim((string) ($google['client_id'] ?? '')) !== ''
             </div>
             <p class="governance-block-subtitle">Controla el acceso corporativo sin tocar código.</p>
         </header>
-        <form method="POST" action="/project/public/config/google-workspace" class="governance-card-body">
+        <form method="POST" action="/config/google-workspace" class="governance-card-body">
             <div class="governance-rules">
                 <div class="governance-rule">
                     <div class="governance-rule-info">

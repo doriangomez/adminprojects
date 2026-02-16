@@ -71,7 +71,7 @@ class TasksController extends Controller
             'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
         ]);
 
-        header('Location: /project/public/tasks');
+        header('Location: /tasks');
     }
 
     public function updateStatus(int $taskId): void
@@ -85,6 +85,6 @@ class TasksController extends Controller
         }
 
         (new TasksRepository($this->db))->updateStatus($taskId, $status);
-        header('Location: /project/public/tasks');
+        header('Location: /tasks');
     }
 }

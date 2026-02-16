@@ -59,7 +59,7 @@
         $groupedNotifications[$selectedGroup]['events'][$code] = $meta;
     }
     ?>
-    <form method="POST" action="/project/public/config/notifications">
+    <form method="POST" action="/config/notifications">
         <div class="notification-stack">
             <div class="card config-card notification-smtp-card">
                 <div class="card-content">
