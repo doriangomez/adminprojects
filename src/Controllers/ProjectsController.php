@@ -23,6 +23,16 @@ class ProjectsController extends Controller
         'aprobado',
         'rechazado',
     ];
+    private const STAGE_GATES = [
+        'Discovery',
+        'Ideación',
+        'Definición',
+        'Prototipo',
+        'Prueba/Validación',
+        'MVP',
+        'Implementación',
+        'Scale',
+    ];
 
     public function index(): void
     {
@@ -32,6 +42,7 @@ class ProjectsController extends Controller
         $filters = [
             'client_id' => isset($_GET['client_id']) ? (int) $_GET['client_id'] : null,
             'status' => trim((string) ($_GET['status'] ?? '')),
+            'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
             'methodology' => trim((string) ($_GET['methodology'] ?? '')),
             'start_date' => $_GET['start_date'] ?? '',
             'end_date' => $_GET['end_date'] ?? '',
@@ -47,6 +58,7 @@ class ProjectsController extends Controller
             'filters' => $filters,
             'clients' => $clientsRepo->listForUser($user),
             'delivery' => $config['delivery'] ?? [],
+            'stageOptions' => self::STAGE_GATES,
         ]);
     }
 
@@ -75,6 +87,7 @@ class ProjectsController extends Controller
         $this->render('projects/edit', array_merge([
             'title' => 'Editar proyecto',
             'project' => $project,
+            'stageOptions' => self::STAGE_GATES,
             'delivery' => array_merge(
                 $config['delivery'] ?? [],
                 [
@@ -145,6 +158,7 @@ class ProjectsController extends Controller
                 ),
                 'error' => $e->getMessage(),
                 'hasTasks' => $hasTasks,
+                'stageOptions' => self::STAGE_GATES,
             ]);
             return;
         }
@@ -2104,6 +2118,7 @@ class ProjectsController extends Controller
             'end_date' => $endDate,
             'methodology' => $methodology,
             'phase' => $phase,
+            'project_stage' => $this->validatedProjectStage((string) ($_POST['project_stage'] ?? ($current['project_stage'] ?? 'Discovery'))),
             'scope' => $scope,
             'risks' => $riskAssessment['selected'],
             'risk_evaluations' => $riskAssessment['evaluations'],
@@ -2388,7 +2403,7 @@ class ProjectsController extends Controller
 
     private function logProjectChange(AuditLogRepository $auditRepo, array $before, array $after): void
     {
-        $fields = ['scope', 'budget', 'start_date', 'end_date', 'methodology', 'phase'];
+        $fields = ['scope', 'budget', 'start_date', 'end_date', 'methodology', 'phase', 'project_stage'];
         $beforePayload = [];
         $afterPayload = [];
 
@@ -2527,6 +2542,7 @@ class ProjectsController extends Controller
             'defaults' => [
                 'status' => $initialStatus,
                 'health' => $initialHealth,
+                'project_stage' => 'Discovery',
                 'priority' => $catalogs['priorities'][0]['code'] ?? 'medium',
                 'methodology' => $defaultMethodology,
                 'phase' => $defaultPhase,
@@ -2536,6 +2552,7 @@ class ProjectsController extends Controller
                 'design_inputs' => '',
                 'client_participation' => 'media',
             ],
+            'stageOptions' => self::STAGE_GATES,
             'canCreate' => !empty($clients) && !empty($projectManagers),
         ];
     }
@@ -2653,6 +2670,7 @@ class ProjectsController extends Controller
             'project_type' => $projectType,
             'methodology' => $methodology,
             'phase' => $this->phaseForMethodology($methodology, $phase),
+            'project_stage' => $this->validatedProjectStage((string) ($_POST['project_stage'] ?? 'Discovery')),
             'scope' => $scope,
             'design_inputs' => $designInputs,
             'client_participation' => $clientParticipation,
@@ -2674,6 +2692,16 @@ class ProjectsController extends Controller
         $payload['health'] = $health;
 
         return $payload;
+    }
+
+    private function validatedProjectStage(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed !== '' && in_array($trimmed, self::STAGE_GATES, true)) {
+            return $trimmed;
+        }
+
+        return 'Discovery';
     }
 
     private function validatedCatalogValue(string $value, array $catalog, string $fieldLabel, string $default): string

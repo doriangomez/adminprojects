@@ -4,6 +4,7 @@ $basePath = $basePath ?? '/project/public';
 $filters = is_array($filters ?? null) ? $filters : [];
 $clientsList = is_array($clients ?? null) ? $clients : [];
 $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];
+$stageOptions = is_array($stageOptions ?? null) ? $stageOptions : [];
 
 $activeStatuses = ['active', 'activo', 'en_ejecucion', 'en_progreso', 'in_progress', 'running', 'ejecucion'];
 $completedStatuses = ['completed', 'completado', 'cerrado', 'closed', 'finalizado', 'archivado', 'archived'];
@@ -511,6 +512,17 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                 <?php endforeach; ?>
             </select>
         </label>
+        <label>
+            Stage-gate
+            <select name="project_stage">
+                <option value="">Todas</option>
+                <?php foreach ($stageOptions as $stageOption): ?>
+                    <option value="<?= htmlspecialchars($stageOption) ?>" <?= ($filters['project_stage'] ?? '') === $stageOption ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($stageOption) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
         <button type="button" class="button ghost filter-toggle" data-filter-toggle>
             <span aria-hidden="true">⚙️</span>
             Filtros
@@ -601,6 +613,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                 <tr>
                     <th>Proyecto</th>
                     <th>Metodología</th>
+                    <th>Stage-gate</th>
                     <th>Estado</th>
                     <th>Riesgo</th>
                     <th>Avance</th>
@@ -631,6 +644,9 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         </td>
                         <td>
                             <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
+                        </td>
+                        <td>
+                            <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
                         </td>
                         <td>
                             <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
@@ -718,6 +734,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
+                        <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
                         <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                         <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
                     </div>

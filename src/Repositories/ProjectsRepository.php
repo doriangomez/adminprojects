@@ -44,6 +44,11 @@ class ProjectsRepository
             $params[':status'] = $filters['status'];
         }
 
+        if (!empty($filters['project_stage'])) {
+            $conditions[] = 'p.project_stage = :projectStage';
+            $params[':projectStage'] = $filters['project_stage'];
+        }
+
         if (!empty($filters['methodology'])) {
             $conditions[] = 'p.methodology = :methodology';
             $params[':methodology'] = $filters['methodology'];
@@ -75,6 +80,7 @@ class ProjectsRepository
             'p.actual_hours',
             'p.methodology',
             'p.phase',
+            'p.project_stage',
             'prisk.risks AS risk_codes',
             'c.name AS client',
         ];
@@ -192,6 +198,7 @@ class ProjectsRepository
             'u.name AS pm_name',
             'p.methodology',
             'p.phase',
+            'p.project_stage',
             'prisk.risks AS risk_codes',
             'c.name AS client_name',
         ];
@@ -384,6 +391,7 @@ class ProjectsRepository
             'p.project_type',
             'p.methodology',
             'p.phase',
+            'p.project_stage',
             'p.budget',
             'p.actual_cost',
             'p.pm_id',
@@ -839,6 +847,12 @@ class ProjectsRepository
                 $params[':phase'] = $phase;
             }
 
+            if ($this->db->columnExists('projects', 'project_stage')) {
+                $columns[] = 'project_stage';
+                $placeholders[] = ':project_stage';
+                $params[':project_stage'] = $payload['project_stage'] ?? 'Discovery';
+            }
+
             if ($this->db->columnExists('projects', 'status_code')) {
                 $columns[] = 'status_code';
                 $placeholders[] = ':status';
@@ -1008,6 +1022,11 @@ class ProjectsRepository
         if ($this->db->columnExists('projects', 'phase')) {
             $fields[] = 'phase = :phase';
             $params[':phase'] = $payload['phase'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'project_stage')) {
+            $fields[] = 'project_stage = :project_stage';
+            $params[':project_stage'] = $payload['project_stage'] ?? 'Discovery';
         }
 
         if ($this->db->columnExists('projects', 'budget')) {
