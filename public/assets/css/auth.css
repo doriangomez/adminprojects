@@ -5,7 +5,7 @@
 body {
     margin: 0;
     min-height: 100vh;
-    font-family: var(--font-family);
+    font-family: var(--font-family, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
     color: var(--text-secondary);
     background: var(--background);
 }

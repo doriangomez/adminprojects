@@ -1,7 +1,7 @@
 <?php
 $theme = $theme ?? [];
 $loginHero = $theme['login_hero'] ?? 'Orquesta tus operaciones críticas';
-$loginSubtitle = $theme['login_subtitle'] ?? 'Controla proyectos, recursos y decisiones clave desde una sola plataforma.';
+$loginSubtitle = $theme['login_message'] ?? $theme['login_subtitle'] ?? 'Controla proyectos, recursos y decisiones clave desde una sola plataforma.';
 $logoUrl = $theme['logo_url'] ?? '';
 $logoCss = $logoUrl !== '' ? "url('{$logoUrl}')" : 'none';
 $themeVariables = [
