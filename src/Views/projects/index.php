@@ -1,6 +1,6 @@
 <?php
 $projectsList = is_array($projects ?? null) ? $projects : [];
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $filters = is_array($filters ?? null) ? $filters : [];
 $clientsList = is_array($clients ?? null) ? $clients : [];
 $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];

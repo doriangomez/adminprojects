@@ -1,12 +1,12 @@
 <div class="toolbar">
     <div>
-        <a href="/project/public/clients" class="btn ghost">← Volver</a>
+        <a href="/clients" class="btn ghost">← Volver</a>
         <h3 style="margin:8px 0 0 0;">Detalle del cliente</h3>
         <p style="margin:4px 0 0 0; color: var(--text-secondary);">Gobierno y contexto de la relación. La información contractual permanece en los proyectos.</p>
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
         <?php if($canManage): ?>
-            <a class="btn secondary" href="/project/public/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
+            <a class="btn secondary" href="/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
         <?php endif; ?>
         <?php if($auth->canDeleteClients()): ?>
             <button type="button" class="btn ghost danger" data-open-action="delete">
@@ -173,7 +173,7 @@
                 </div>
                 <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--text-secondary);">✕</button>
             </div>
-            <form method="POST" action="/project/public/clients/delete" class="grid" style="gap:12px;" id="delete-form">
+            <form method="POST" action="/clients/delete" class="grid" style="gap:12px;" id="delete-form">
                 <input type="hidden" name="id" value="<?= (int) $client['id'] ?>">
                 <input type="hidden" name="math_operand1" id="math_operand1" value="<?= $mathOperand1 ?>">
                 <input type="hidden" name="math_operand2" id="math_operand2" value="<?= $mathOperand2 ?>">
@@ -229,7 +229,7 @@
                         title: 'Eliminar cliente',
                         subtitle: 'Esta acción elimina definitivamente la ficha. Los administradores pueden forzar la eliminación incluso con dependencias activas.',
                         context: 'Acción crítica',
-                        actionUrl: '/project/public/clients/delete',
+                        actionUrl: '/clients/delete',
                     buttonLabel: 'Eliminar permanentemente',
                     buttonStyle: 'color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%);'
                 },
@@ -237,7 +237,7 @@
                     title: 'Inactivar cliente',
                     subtitle: 'Se deshabilita el cliente y se conserva la información asociada.',
                     context: 'Acción segura',
-                    actionUrl: `/project/public/clients/${clientId}/inactivate`,
+                    actionUrl: `/clients/${clientId}/inactivate`,
                     buttonLabel: 'Inactivar cliente',
                     buttonStyle: 'color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--warning) 12%, var(--surface) 88%);'
                 }
@@ -334,7 +334,7 @@
 
                 if (responseData?.success) {
                     alert(responseData.message || 'Acción completada.');
-                    window.location.href = '/project/public/clients';
+                    window.location.href = '/clients';
                     return;
                 }
 

@@ -177,7 +177,7 @@
     </div>
     <?php if($canManage): ?>
         <div>
-            <a href="/project/public/clients/create" class="btn primary" style="display:inline-flex; gap:8px; align-items:center;">
+            <a href="/clients/create" class="btn primary" style="display:inline-flex; gap:8px; align-items:center;">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 5v14M5 12h14" />
                 </svg>
@@ -258,9 +258,9 @@
                     </div>
                 </div>
                 <div class="client-actions">
-                    <a class="btn secondary" href="/project/public/clients/<?= (int) $client['id'] ?>">Ver detalle</a>
+                    <a class="btn secondary" href="/clients/<?= (int) $client['id'] ?>">Ver detalle</a>
                     <?php if($canManage): ?>
-                        <a class="btn ghost" href="/project/public/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
+                        <a class="btn ghost" href="/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
                     <?php endif; ?>
                 </div>
             </article>

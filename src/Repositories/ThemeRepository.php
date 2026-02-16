@@ -36,18 +36,17 @@ class ThemeRepository
             return $logoUrl;
         }
 
-        $basePublicPath = '/project/public';
-        $uploadsPrefix = $basePublicPath . '/uploads/logos/';
+        $legacyBasePublicPath = '/project/public';
 
-        if (str_starts_with($logoUrl, '/uploads/logos/')) {
-            $logoUrl = $basePublicPath . $logoUrl;
+        if (str_starts_with($logoUrl, $legacyBasePublicPath . '/')) {
+            $logoUrl = substr($logoUrl, strlen($legacyBasePublicPath));
         }
 
-        if (!str_starts_with($logoUrl, $uploadsPrefix)) {
+        if (!str_starts_with($logoUrl, '/uploads/logos/')) {
             return $fallback;
         }
 
-        $logoPath = $this->publicPathFromUrl($logoUrl, $basePublicPath);
+        $logoPath = $this->publicPathFromUrl($logoUrl);
         if (!$logoPath || !is_file($logoPath)) {
             return $fallback;
         }
@@ -55,15 +54,13 @@ class ThemeRepository
         return $logoUrl;
     }
 
-    private function publicPathFromUrl(string $url, string $basePublicPath): ?string
+    private function publicPathFromUrl(string $url): ?string
     {
-        if (!str_starts_with($url, $basePublicPath)) {
+        if (!str_starts_with($url, '/uploads/')) {
             return null;
         }
 
-        $relativePath = substr($url, strlen($basePublicPath));
-
-        return __DIR__ . '/../../public' . $relativePath;
+        return __DIR__ . '/../../public' . $url;
     }
 
     private function normalizeTheme(array $theme, array $defaultTheme): array

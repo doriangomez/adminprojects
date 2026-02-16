@@ -391,7 +391,7 @@ class ConfigService
             return null;
         }
 
-        return '/project/public/uploads/logos/' . $safeName;
+        return '/uploads/logos/' . $safeName;
     }
 
     public function getDefaults(): array

@@ -1,6 +1,6 @@
 <div class="toolbar">
     <div>
-        <a href="/project/public/clients/<?= (int) $client['id'] ?>" class="btn ghost">← Volver</a>
+        <a href="/clients/<?= (int) $client['id'] ?>" class="btn ghost">← Volver</a>
         <h3 style="margin:8px 0 0 0;">Editar cliente</h3>
         <p style="margin:4px 0 0 0; color: var(--text-secondary);">Actualiza la ficha sin mezclarla con el listado ni el detalle.</p>
     </div>
@@ -10,7 +10,7 @@
     <?php if (!empty($error)): ?>
         <div class="alert error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
-    <form class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;" method="POST" action="/project/public/clients/<?= (int) $client['id'] ?>/edit" enctype="multipart/form-data">
+    <form class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;" method="POST" action="/clients/<?= (int) $client['id'] ?>/edit" enctype="multipart/form-data">
         <input type="hidden" name="current_logo" value="<?= htmlspecialchars($client['logo_path'] ?? '') ?>">
         <label class="input">
             <span>Nombre</span>
@@ -124,7 +124,7 @@
             <textarea name="operational_context" rows="2"><?= htmlspecialchars($client['operational_context'] ?? '') ?></textarea>
         </label>
         <div style="grid-column:1 / -1; display:flex; justify-content:flex-end; gap:8px;">
-            <a class="btn ghost" href="/project/public/clients/<?= (int) $client['id'] ?>">Cancelar</a>
+            <a class="btn ghost" href="/clients/<?= (int) $client['id'] ?>">Cancelar</a>
             <button type="submit" class="btn primary">Guardar cambios</button>
         </div>
     </form>

@@ -1,7 +1,7 @@
 <?php
 $theme = $theme ?? (new ThemeRepository())->getActiveTheme();
 $timesheetsEnabled = $timesheetsEnabled ?? false;
-$basePath = '/project/public';
+$basePath = '';
 $appDisplayName = $appName ?? 'PMO';
 $logoUrl = !empty($theme['logo_url']) ? $theme['logo_url'] : '';
 $logoCss = $logoUrl !== '' ? "url('{$logoUrl}')" : 'none';

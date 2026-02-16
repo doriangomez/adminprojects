@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $tasks = is_array($tasks ?? null) ? $tasks : [];
 $canManageTasks = isset($auth) ? $auth->can('projects.manage') : false;
 

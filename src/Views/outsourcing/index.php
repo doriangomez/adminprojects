@@ -1,5 +1,5 @@
 <?php
-$basePath = $basePath ?? '/project/public';
+$basePath = $basePath ?? '';
 $services = is_array($services ?? null) ? $services : [];
 $clients = is_array($clients ?? null) ? $clients : [];
 $projects = is_array($projects ?? null) ? $projects : [];

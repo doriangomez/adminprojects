@@ -1,5 +1,5 @@
 <section id="panel-gobierno" class="tab-panel governance-panel">
-    <form id="governance-config-form" method="POST" action="/project/public/config/theme" enctype="multipart/form-data"></form>
+    <form id="governance-config-form" method="POST" action="/config/theme" enctype="multipart/form-data"></form>
     <?php
     $permissionGroups = [
         'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo', 'timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
@@ -138,7 +138,7 @@
                     </div>
                     <div class="governance-access-section">
                         <span class="section-label">Permisos por rol</span>
-                        <form method="POST" action="/project/public/config/roles/create" class="config-form-grid">
+                        <form method="POST" action="/config/roles/create" class="config-form-grid">
                             <input name="nombre" placeholder="Nombre del rol" required>
                             <input name="descripcion" placeholder="Descripción">
                             <div class="permission-groups full-span">
@@ -172,7 +172,7 @@
                                         <span class="pill soft-slate"><?= count($role['permissions'] ?? []) ?> permisos</span>
                                     </summary>
                                     <div class="role-panel-body">
-                                        <form method="POST" action="/project/public/config/roles/update">
+                                        <form method="POST" action="/config/roles/update">
                                             <input type="hidden" name="id" value="<?= (int) $role['id'] ?>">
                                             <?php $rolePermissionIds = array_map('intval', array_column($role['permissions'] ?? [], 'id')); ?>
                                             <div class="config-form-grid tight">
@@ -229,7 +229,7 @@
             </header>
             <div class="governance-card-body">
                 <div class="governance-access-section">
-                    <form method="POST" action="/project/public/config/users/create">
+                    <form method="POST" action="/config/users/create">
                         <div class="user-section-grid">
                             <div class="user-section-card">
                                 <div class="user-section-header">
@@ -385,7 +385,7 @@
                                     <span class="user-expand">Ver permisos</span>
                                 </summary>
                                 <div class="user-details">
-                                    <form method="POST" action="/project/public/config/users/update">
+                                    <form method="POST" action="/config/users/update">
                                         <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
                                         <div class="config-form-grid">
                                             <label>Nombre<input name="name" value="<?= htmlspecialchars($user['name']) ?>"></label>
@@ -496,12 +496,12 @@
                                     </form>
                                     <div class="user-actions">
                                         <?php if ($isAdmin): ?>
-                                            <form method="POST" action="/project/public/impersonate/start" class="inline">
+                                            <form method="POST" action="/impersonate/start" class="inline">
                                                 <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
                                                 <button class="btn secondary" type="submit">Ver como usuario</button>
                                             </form>
                                         <?php endif; ?>
-                                        <form method="POST" action="/project/public/config/users/deactivate" onsubmit="return confirm('Desactivar usuario?');">
+                                        <form method="POST" action="/config/users/deactivate" onsubmit="return confirm('Desactivar usuario?');">
                                             <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
                                             <button class="btn ghost" type="submit">Desactivar</button>
                                         </form>
@@ -593,7 +593,7 @@
 
 <script>
 (function initAuthTypeFields() {
-    const forms = document.querySelectorAll('form[action="/project/public/config/users/create"], form[action="/project/public/config/users/update"]');
+    const forms = document.querySelectorAll('form[action="/config/users/create"], form[action="/config/users/update"]');
     forms.forEach((form) => {
         const selector = form.querySelector('[data-auth-type-selector]');
         const passwordField = form.querySelector('[data-password-field]');

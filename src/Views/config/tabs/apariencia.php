@@ -1,5 +1,5 @@
 <section id="panel-apariencia" class="tab-panel">
-    <form method="POST" action="/project/public/config/theme" enctype="multipart/form-data">
+    <form method="POST" action="/config/theme" enctype="multipart/form-data">
         <div class="section-grid-two">
             <div class="card config-card">
                 <div class="card-content">

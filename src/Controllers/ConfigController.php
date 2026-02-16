@@ -177,7 +177,7 @@ class ConfigController extends Controller
             return;
         }
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function updateNotifications(): void
@@ -242,11 +242,11 @@ class ConfigController extends Controller
             $smtpConfig = $updated['notifications']['smtp'] ?? [];
             $result = $service->sendTestEmail($smtpConfig, (string) ($smtpConfig['test_email'] ?? ''));
             $status = $result['success'] ? 'sent' : 'failed';
-            header('Location: /project/public/config?notifications=' . $status);
+            header('Location: /config?notifications=' . $status);
             return;
         }
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function storeUser(): void
@@ -304,7 +304,7 @@ class ConfigController extends Controller
             );
         }
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function updateUser(): void
@@ -355,7 +355,7 @@ class ConfigController extends Controller
             'can_approve_timesheets' => $timesheetApprovalPermission,
         ]);
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function deactivateUser(): void
@@ -366,7 +366,7 @@ class ConfigController extends Controller
         $repo = new UsersRepository($this->db);
         $repo->deactivate((int) $_POST['id']);
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function storeRole(): void
@@ -383,7 +383,7 @@ class ConfigController extends Controller
         $permissionIds = array_map('intval', $_POST['permissions'] ?? []);
         $repo->syncPermissions($roleId, $permissionIds);
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function updateRole(): void
@@ -401,7 +401,7 @@ class ConfigController extends Controller
         $permissionIds = array_map('intval', $_POST['permissions'] ?? []);
         $repo->syncPermissions($roleId, $permissionIds);
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function manageMasterFile(string $action): void
@@ -429,7 +429,7 @@ class ConfigController extends Controller
             $repo->delete($table, (int) $_POST['id']);
         }
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function storeRisk(): void
@@ -445,7 +445,7 @@ class ConfigController extends Controller
         $payload = $this->riskPayload();
         $repo->create(array_merge(['code' => $code], $payload));
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function updateRisk(): void
@@ -461,7 +461,7 @@ class ConfigController extends Controller
         $repo = new RiskCatalogRepository($this->db);
         $repo->update($code, $this->riskPayload());
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
     public function deleteRisk(): void
@@ -474,7 +474,7 @@ class ConfigController extends Controller
             $repo->delete($code);
         }
 
-        header('Location: /project/public/config?saved=1');
+        header('Location: /config?saved=1');
     }
 
 
@@ -506,7 +506,7 @@ class ConfigController extends Controller
             $updated['access']['google_workspace'] ?? []
         );
 
-        header('Location: /project/public/config?tab=autenticacion&saved=1');
+        header('Location: /config?tab=autenticacion&saved=1');
     }
 
     private function parseList(string $value): array
