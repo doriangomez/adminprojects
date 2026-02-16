@@ -280,6 +280,7 @@ $projectStatusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado 
 $projectClient = $project['client_name'] ?? $project['client'] ?? '';
 $projectMethodLabel = $badgeLabel;
 $projectPmName = $project['pm_name'] ?? 'Sin PM asignado';
+$projectStage = (string) ($project['project_stage'] ?? 'Discovery');
 $projectRiskLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
 $projectRiskLevel = strtolower((string) ($project['risk_level'] ?? ''));
 $riskClass = match ($projectRiskLevel) {
@@ -335,6 +336,7 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
                 <span class="<?= $badgeClass ?>"><?= htmlspecialchars($badgeLabel) ?></span>
                 <span class="pill neutral">Cliente: <?= htmlspecialchars($projectClient) ?></span>
                 <span class="pill neutral">Estado: <?= htmlspecialchars((string) $projectStatusLabel) ?></span>
+                <span class="pill neutral">Stage-gate: <?= htmlspecialchars($projectStage) ?></span>
             </div>
         </div>
         <div class="project-actions">
@@ -373,6 +375,10 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
                     <div>
                         <span>Estado</span>
                         <strong><?= htmlspecialchars((string) $projectStatusLabel) ?></strong>
+                    </div>
+                    <div>
+                        <span>Stage-gate</span>
+                        <strong><?= htmlspecialchars($projectStage) ?></strong>
                     </div>
                     <div>
                         <span>PM</span>

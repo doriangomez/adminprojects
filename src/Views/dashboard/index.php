@@ -85,6 +85,7 @@
     $statusCounts = $projects['status_counts'] ?? ['planning' => 0, 'en_curso' => 0, 'en_riesgo' => 0, 'cerrado' => 0];
     $progressByClient = $projects['progress_by_client'] ?? [];
     $staleProjects = $projects['stale_projects'] ?? [];
+    $stageDistribution = $projects['stage_distribution'] ?? [];
     ?>
 
     <div>
@@ -154,6 +155,19 @@
                 <h4>Avance promedio por cliente</h4>
                 <canvas id="progressChart" height="150"></canvas>
                 <p class="chart-legend">Promedio de avance consolidado.</p>
+            </div>
+            <div class="card chart-card">
+                <h4>Proyectos por Stage-gate</h4>
+                <?php if ($stageDistribution): ?>
+                    <ul class="list">
+                        <?php foreach ($stageDistribution as $stageRow): ?>
+                            <li><?= htmlspecialchars((string) ($stageRow['stage'] ?? 'Discovery')) ?>: <strong><?= (int) ($stageRow['total'] ?? 0) ?></strong></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php else: ?>
+                    <p class="muted">Sin datos de Stage-gate para mostrar.</p>
+                <?php endif; ?>
+                <p class="chart-legend">Dimensión opcional para análisis ejecutivo por fase de innovación.</p>
             </div>
             <div class="card chart-card">
                 <h4>Proyectos sin avance reciente</h4>

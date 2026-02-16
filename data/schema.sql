@@ -130,6 +130,7 @@ CREATE TABLE projects (
     project_type VARCHAR(20) NOT NULL DEFAULT 'convencional',
     methodology VARCHAR(40) NOT NULL DEFAULT 'scrum',
     phase VARCHAR(80) NULL,
+    project_stage VARCHAR(40) NOT NULL DEFAULT 'Discovery',
     design_inputs_defined TINYINT(1) DEFAULT 0,
     design_review_done TINYINT(1) DEFAULT 0,
     design_verification_done TINYINT(1) DEFAULT 0,
@@ -638,8 +639,8 @@ INSERT INTO client_areas (code, label) VALUES ('digital_transformation', 'Transf
 INSERT INTO clients (name, sector_code, category_code, priority, health, status_code, pm_id, satisfaction, nps, risk_level, tags, area, logo_path, feedback_notes, feedback_history, operational_context)
 VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'on_track', 'active', 1, 85, 70, 'moderate', 'innovación,cloud', 'digital_transformation', NULL, 'Cliente satisfecho con avances del roadmap.', 'Reunión trimestral positiva, solicita roadmap Q4.', 'Opera en múltiples países, foco en integración omnicanal.');
 
-INSERT INTO projects (client_id, pm_id, name, status, health, priority, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
-VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 120000, 45000, 800, 320, 40, CURDATE());
+INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_stage, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
+VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 'Discovery', 120000, 45000, 800, 320, 40, CURDATE());
 
 INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, requiere_reporte_horas, requiere_aprobacion_horas, capacidad_horaria, tipo_talento, hourly_cost, hourly_rate)
 VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 1, 1, 40, 'interno', 35, 70);

@@ -6,6 +6,7 @@ $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => 
 $prioritiesCatalog = is_array($priorities ?? null) ? $priorities : [];
 $statusesCatalog = is_array($statuses ?? null) ? $statuses : [];
 $healthCatalog = is_array($healthCatalog ?? null) ? $healthCatalog : [];
+$stageOptions = is_array($stageOptions ?? null) ? $stageOptions : [];
 $defaults = is_array($defaults ?? null) ? $defaults : [];
 $oldInput = is_array($old ?? null) ? $old : [];
 
@@ -45,6 +46,7 @@ $selectedPmId = (int) ($oldInput['pm_id'] ?? $defaults['pm_id'] ?? ($projectMana
 $selectedStatus = (string) ($oldInput['status'] ?? $defaults['status'] ?? ($statusesCatalog[0]['code'] ?? ''));
 $selectedHealth = (string) ($oldInput['health'] ?? $defaults['health'] ?? ($healthCatalog[0]['code'] ?? ''));
 $selectedPriority = (string) ($oldInput['priority'] ?? $defaults['priority'] ?? ($prioritiesCatalog[0]['code'] ?? ''));
+$selectedStage = (string) ($oldInput['project_stage'] ?? $defaults['project_stage'] ?? 'Discovery');
 $selectedProjectType = (string) ($oldInput['project_type'] ?? $defaults['project_type'] ?? 'convencional');
 $clientParticipation = (string) ($oldInput['client_participation'] ?? $defaults['client_participation'] ?? 'media');
 
@@ -243,6 +245,19 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <?php endif; ?>
                         </select>
                         <input type="hidden" name="methodology" id="methodologyHidden" value="<?= htmlspecialchars($selectedMethodology) ?>">
+                    </label>
+                    <label class="input">
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧪</span>Stage-gate</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <select name="project_stage" required <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <?php foreach ($stageOptions as $stageOption): ?>
+                                <option value="<?= htmlspecialchars($stageOption) ?>" <?= $selectedStage === $stageOption ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($stageOption) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </label>
                     <label class="input">
                         <span class="field-label">

@@ -152,11 +152,25 @@ class DashboardService
             $params
         );
 
+        $stageDistribution = [];
+        if ($this->db->columnExists('projects', 'project_stage')) {
+            $stageDistribution = $this->db->fetchAll(
+                "SELECT COALESCE(NULLIF(TRIM(p.project_stage), ''), 'Discovery') AS stage, COUNT(*) AS total
+                 FROM projects p
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 GROUP BY stage
+                 ORDER BY total DESC, stage ASC",
+                $params
+            );
+        }
+
         return [
             'status_counts' => $statusCounts,
             'progress_by_client' => $progressByClient,
             'stale_projects' => $staleProjects,
             'stale_count' => count($staleProjects),
+            'stage_distribution' => $stageDistribution,
         ];
     }
 

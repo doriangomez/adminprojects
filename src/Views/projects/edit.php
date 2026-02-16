@@ -2,6 +2,7 @@
 $basePath = $basePath ?? '/project/public';
 $project = $project ?? [];
 $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];
+$stageOptions = is_array($stageOptions ?? null) ? $stageOptions : [];
 $methodologies = $deliveryConfig['methodologies'] ?? [];
 $phasesByMethodology = $deliveryConfig['phases'] ?? [];
 $riskCatalog = $deliveryConfig['risks'] ?? [];
@@ -62,6 +63,15 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 </label>
                 <label>Prioridad
                     <input name="priority" value="<?= htmlspecialchars($project['priority'] ?? '') ?>">
+                </label>
+                <label>Stage-gate
+                    <select name="project_stage">
+                        <?php foreach ($stageOptions as $stageOption): ?>
+                            <option value="<?= htmlspecialchars($stageOption) ?>" <?= (($project['project_stage'] ?? 'Discovery') === $stageOption) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($stageOption) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </label>
                 <label>PM (ID)
                     <input type="number" name="pm_id" value="<?= (int) ($project['pm_id'] ?? 0) ?>">
