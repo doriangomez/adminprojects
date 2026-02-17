@@ -41,6 +41,7 @@ $flashMessageText = match ($flashMessage) {
     'created' => 'Talento registrado y listo para asignaciones de outsourcing.',
     'created_outsourcing' => 'Talento registrado. Asígnalo a un servicio desde el módulo Outsourcing.',
     'updated' => 'Talento actualizado. Gestiona sus asignaciones desde Outsourcing.',
+    'deleted' => 'Talento eliminado en cascada correctamente.',
     default => '',
 };
 ?>
@@ -237,6 +238,21 @@ $flashMessageText = match ($flashMessage) {
                             <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
                             <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
                         </footer>
+                        <?php
+                        $operand1 = random_int(1, 10);
+                        $operand2 = random_int(1, 10);
+                        $operator = random_int(0, 1) === 1 ? '+' : '-';
+                        ?>
+                        <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                            <input type="hidden" name="talent_id" value="<?= (int) ($talent['id'] ?? 0) ?>">
+                            <input type="hidden" name="math_operand1" value="<?= $operand1 ?>">
+                            <input type="hidden" name="math_operand2" value="<?= $operand2 ?>">
+                            <input type="hidden" name="math_operator" value="<?= $operator ?>">
+                            <label>Confirmación matemática: <?= $operand1 . ' ' . $operator . ' ' . $operand2 ?> = ?
+                                <input type="number" name="math_result" required>
+                            </label>
+                            <button type="submit" class="action-btn ghost small danger">Eliminar en cascada</button>
+                        </form>
                     </article>
                 <?php endforeach; ?>
             </div>
@@ -355,6 +371,11 @@ $flashMessageText = match ($flashMessage) {
     .action-btn.primary { background: var(--primary); color:var(--text-primary); border-color: var(--primary); }
     .action-btn.small { padding:6px 10px; font-size:12px; width:max-content; }
     .action-btn.ghost { background:transparent; }
+
+    .action-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--surface) 50%); }
+    .talent-delete-form { display:grid; gap:8px; border-top:1px dashed var(--border); padding-top:10px; }
+    .talent-delete-form label { font-size:12px; color:var(--text-secondary); font-weight:600; }
+    .talent-delete-form input { width:100%; }
     .badge.neutral { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
     .status-badge { font-size:12px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid var(--background); display:inline-flex; align-items:center; gap:6px; }
     .status-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 40%, var(--surface) 60%); }
