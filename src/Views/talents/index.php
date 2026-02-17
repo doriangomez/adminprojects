@@ -236,7 +236,10 @@ $flashMessageText = match ($flashMessage) {
 
                         <footer class="talent-card__footer">
                             <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
-                            <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
+                            <div class="talent-card__footer-actions">
+                                <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
+                                <span class="delete-hint">↓ Eliminar talento</span>
+                            </div>
                         </footer>
                         <?php
                         $operand1 = random_int(1, 10);
@@ -248,10 +251,10 @@ $flashMessageText = match ($flashMessage) {
                             <input type="hidden" name="math_operand1" value="<?= $operand1 ?>">
                             <input type="hidden" name="math_operand2" value="<?= $operand2 ?>">
                             <input type="hidden" name="math_operator" value="<?= $operator ?>">
-                            <label>Confirmación matemática: <?= $operand1 . ' ' . $operator . ' ' . $operand2 ?> = ?
+                            <label>Confirmación matemática (obligatoria): <?= $operand1 . ' ' . $operator . ' ' . $operand2 ?> = ?
                                 <input type="number" name="math_result" required>
                             </label>
-                            <button type="submit" class="action-btn ghost small danger">Eliminar en cascada</button>
+                            <button type="submit" class="action-btn small danger solid">🗑️ Eliminar en cascada</button>
                         </form>
                     </article>
                 <?php endforeach; ?>
@@ -362,6 +365,8 @@ $flashMessageText = match ($flashMessage) {
     .talent-card__label { display:block; font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; }
     .talent-card__indicators { display:flex; flex-wrap:wrap; gap:8px; }
     .talent-card__footer { display:flex; justify-content:space-between; gap:10px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
+    .talent-card__footer-actions { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+    .delete-hint { font-size:11px; color:var(--danger); font-weight:700; letter-spacing:0.02em; }
     .icon { font-size:15px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent; }
     .pill-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); }
@@ -373,6 +378,8 @@ $flashMessageText = match ($flashMessage) {
     .action-btn.ghost { background:transparent; }
 
     .action-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--surface) 50%); }
+    .action-btn.danger.solid { background:var(--danger); color:#fff; border-color:var(--danger); width:100%; justify-content:center; }
+    .action-btn.danger.solid:hover { filter:brightness(0.95); }
     .talent-delete-form { display:grid; gap:8px; border-top:1px dashed var(--border); padding-top:10px; }
     .talent-delete-form label { font-size:12px; color:var(--text-secondary); font-weight:600; }
     .talent-delete-form input { width:100%; }
