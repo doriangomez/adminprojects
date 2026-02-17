@@ -162,6 +162,73 @@ class TalentsRepository
         );
     }
 
+
+    public function deleteTalentCascade(int $talentId): array
+    {
+        $pdo = $this->db->connection();
+        $deleted = [
+            'timesheets' => 0,
+            'assignments' => 0,
+            'skills' => 0,
+            'talent' => 0,
+        ];
+
+        try {
+            $pdo->beginTransaction();
+
+            if ($this->db->tableExists('timesheets') && $this->db->columnExists('timesheets', 'talent_id')) {
+                $deleted['timesheets'] = $this->db->execute(
+                    'DELETE FROM timesheets WHERE talent_id = :id',
+                    [':id' => $talentId]
+                ) ? $this->countAffectedRows() : 0;
+            }
+
+            if ($this->db->tableExists('project_talent_assignments') && $this->db->columnExists('project_talent_assignments', 'talent_id')) {
+                $deleted['assignments'] = $this->db->execute(
+                    'DELETE FROM project_talent_assignments WHERE talent_id = :id',
+                    [':id' => $talentId]
+                ) ? $this->countAffectedRows() : 0;
+            }
+
+            if ($this->db->tableExists('talent_skills') && $this->db->columnExists('talent_skills', 'talent_id')) {
+                $deleted['skills'] = $this->db->execute(
+                    'DELETE FROM talent_skills WHERE talent_id = :id',
+                    [':id' => $talentId]
+                ) ? $this->countAffectedRows() : 0;
+            }
+
+            $deleted['talent'] = $this->db->execute(
+                'DELETE FROM talents WHERE id = :id',
+                [':id' => $talentId]
+            ) ? $this->countAffectedRows() : 0;
+
+            $pdo->commit();
+
+            return [
+                'success' => $deleted['talent'] > 0,
+                'deleted' => $deleted,
+            ];
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'deleted' => $deleted,
+            ];
+        }
+    }
+
+    private function countAffectedRows(): int
+    {
+        $statement = $this->db->connection()->query('SELECT ROW_COUNT() AS affected_rows');
+        $row = $statement ? $statement->fetch() : false;
+
+        return (int) ($row['affected_rows'] ?? 0);
+    }
+
     private function hasOutsourcingFlag(): bool
     {
         return $this->db->tableExists('talents') && $this->db->columnExists('talents', 'is_outsourcing');

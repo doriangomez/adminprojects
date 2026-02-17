@@ -385,6 +385,10 @@ class App
                 $controller->update();
                 return;
             }
+            if ($path === '/talents/delete' && $method === 'POST') {
+                $controller->destroy();
+                return;
+            }
 
             $controller->index();
             return;
