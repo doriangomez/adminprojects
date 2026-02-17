@@ -6,6 +6,8 @@ $progressPhases = is_array($progressPhases ?? null) ? $progressPhases : [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $currentUser = is_array($currentUser ?? null) ? $currentUser : [];
 $canManage = !empty($canManage);
+$canDelete = !empty($canDelete);
+$canInactivate = !empty($canInactivate);
 $isManualProgress = ($project['progress_mode'] ?? $project['progress_type'] ?? 'manual') !== 'automatic';
 $canUpdateProgress = !empty($canUpdateProgress) && $isManualProgress;
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
@@ -342,6 +344,11 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
         <div class="project-actions">
             <a class="action-btn" href="<?= htmlspecialchars($returnUrl) ?>">Volver al listado</a>
             <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit">Editar proyecto</a>
+            <?php if ($canDelete || $canInactivate): ?>
+                <a class="action-btn danger" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit#zona-critica">
+                    <?= $canDelete ? 'Eliminar proyecto' : 'Inactivar proyecto' ?>
+                </a>
+            <?php endif; ?>
         </div>
     </header>
 
