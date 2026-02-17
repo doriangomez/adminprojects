@@ -261,7 +261,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 <div id="delete-feedback" class="danger-feedback"></div>
 
                 <div class="danger-actions">
-                    <button type="submit" class="btn danger" id="confirm-delete-btn" disabled><?= htmlspecialchars($dangerButtonLabel) ?></button>
+                    <button type="submit" class="btn danger" id="confirm-delete-btn"><?= htmlspecialchars($dangerButtonLabel) ?></button>
                 </div>
             </form>
         </div>
@@ -312,7 +312,9 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .danger-feedback { display:none; padding:10px 12px; border:1px solid color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); color: var(--danger); border-radius:10px; font-weight:600; }
     .danger-actions { display:flex; justify-content:flex-start; gap:8px; }
     .danger-actions .btn { min-width: 240px; }
-    .danger-actions .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .danger-actions .btn.danger { min-width: 240px; color: #7f1d1d; border-color: #b91c1c; background: #fee2e2; }
+    .danger-actions .btn.danger:hover { color:#fff; border-color:#991b1b; background:#b91c1c; }
+    .danger-actions .btn.danger.is-ready { color:#fff; border-color:#991b1b; background:#b91c1c; }
     .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
@@ -420,15 +422,13 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         const syncDeleteState = () => {
             const current = Number(deleteResult.value.trim());
             const isValid = !Number.isNaN(current) && current === expected;
-            deleteButton.disabled = !isValid;
+            deleteButton.classList.toggle('is-ready', isValid);
         };
 
         deleteResult.addEventListener('input', syncDeleteState);
 
         deleteForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (deleteButton.disabled) return;
-
             deleteFeedback.style.display = 'none';
             deleteFeedback.textContent = '';
 
