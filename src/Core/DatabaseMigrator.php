@@ -85,6 +85,7 @@ class DatabaseMigrator
             $this->ensureCascade('costs', 'project_id', 'projects', 'fk_costs_project_id_projects');
             $this->ensureCascade('revenues', 'project_id', 'projects', 'fk_revenues_project_id_projects');
             $this->ensureCascade('contracts', 'client_id', 'clients', 'fk_contracts_client_id_clients');
+            $this->ensureCascade('outsourcing_services', 'client_id', 'clients', 'fk_outsourcing_services_client_id_clients');
         } catch (\PDOException $e) {
             error_log('Error asegurando eliminaciones en cascada de clientes: ' . $e->getMessage());
         }
