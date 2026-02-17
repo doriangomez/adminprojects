@@ -42,6 +42,7 @@ $flashMessageText = match ($flashMessage) {
     'created_outsourcing' => 'Talento registrado. Asígnalo a un servicio desde el módulo Outsourcing.',
     'updated' => 'Talento actualizado. Gestiona sus asignaciones desde Outsourcing.',
     'deleted' => 'Talento eliminado en cascada correctamente.',
+    'inactivated' => 'Talento inactivado correctamente.',
     default => '',
 };
 ?>
@@ -136,6 +137,44 @@ $flashMessageText = match ($flashMessage) {
             </div>
             <button type="submit" class="action-btn primary"><?= $isEditing ? 'Actualizar talento' : 'Guardar talento' ?></button>
         </form>
+
+        <?php if ($isEditing): ?>
+            <?php
+            $dangerOp1 = random_int(1, 10);
+            $dangerOp2 = random_int(1, 10);
+            $dangerOperator = random_int(0, 1) === 1 ? '+' : '-';
+            $inactiveOp1 = random_int(1, 10);
+            $inactiveOp2 = random_int(1, 10);
+            $inactiveOperator = random_int(0, 1) === 1 ? '+' : '-';
+            ?>
+            <div class="talent-danger-zone">
+                <h4>Zona de riesgo (edición de talento)</h4>
+                <p class="section-muted">Desde aquí puedes inactivar o eliminar en cascada el talento que estás editando.</p>
+                <div class="talent-danger-zone__actions">
+                    <form method="POST" action="<?= $basePath ?>/talents/inactivate" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas inactivar este talento?');">
+                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
+                        <input type="hidden" name="math_operand1" value="<?= $inactiveOp1 ?>">
+                        <input type="hidden" name="math_operand2" value="<?= $inactiveOp2 ?>">
+                        <input type="hidden" name="math_operator" value="<?= $inactiveOperator ?>">
+                        <label>Confirmación matemática para inactivar: <?= $inactiveOp1 . ' ' . $inactiveOperator . ' ' . $inactiveOp2 ?> = ?
+                            <input type="number" name="math_result" required>
+                        </label>
+                        <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
+                    </form>
+
+                    <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
+                        <input type="hidden" name="math_operand1" value="<?= $dangerOp1 ?>">
+                        <input type="hidden" name="math_operand2" value="<?= $dangerOp2 ?>">
+                        <input type="hidden" name="math_operator" value="<?= $dangerOperator ?>">
+                        <label>Confirmación matemática para eliminar: <?= $dangerOp1 . ' ' . $dangerOperator . ' ' . $dangerOp2 ?> = ?
+                            <input type="number" name="math_result" required>
+                        </label>
+                        <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento en cascada</button>
+                    </form>
+                </div>
+            </div>
+        <?php endif; ?>
     </section>
 
     <section class="talent-grid" id="talent-list">
@@ -380,6 +419,11 @@ $flashMessageText = match ($flashMessage) {
     .action-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--surface) 50%); }
     .action-btn.danger.solid { background:var(--danger); color:#fff; border-color:var(--danger); width:100%; justify-content:center; }
     .action-btn.danger.solid:hover { filter:brightness(0.95); }
+    .action-btn.warning.solid { background:var(--warning); color:#fff; border-color:var(--warning); width:100%; justify-content:center; }
+
+    .talent-danger-zone { margin-top:14px; border:1px solid color-mix(in srgb, var(--danger) 35%, var(--border) 65%); border-radius:14px; padding:14px; background:color-mix(in srgb, var(--danger) 6%, var(--surface) 94%); }
+    .talent-danger-zone h4 { margin:0 0 6px 0; color:var(--danger); }
+    .talent-danger-zone__actions { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px; }
     .talent-delete-form { display:grid; gap:8px; border-top:1px dashed var(--border); padding-top:10px; }
     .talent-delete-form label { font-size:12px; color:var(--text-secondary); font-weight:600; }
     .talent-delete-form input { width:100%; }

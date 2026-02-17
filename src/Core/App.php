@@ -389,6 +389,10 @@ class App
                 $controller->destroy();
                 return;
             }
+            if ($path === '/talents/inactivate' && $method === 'POST') {
+                $controller->inactivate();
+                return;
+            }
 
             $controller->index();
             return;

@@ -163,6 +163,42 @@ class TalentsRepository
     }
 
 
+
+    public function inactivateTalent(int $talentId): bool
+    {
+        $pdo = $this->db->connection();
+
+        try {
+            $pdo->beginTransaction();
+
+            if ($this->db->tableExists('talents') && $this->db->columnExists('talents', 'active')) {
+                $this->db->execute(
+                    'UPDATE talents SET active = 0, updated_at = NOW() WHERE id = :id',
+                    [':id' => $talentId]
+                );
+            }
+
+            $talent = $this->find($talentId);
+            $userId = (int) ($talent['user_id'] ?? 0);
+            if ($userId > 0 && $this->db->tableExists('users') && $this->db->columnExists('users', 'active')) {
+                $this->db->execute(
+                    'UPDATE users SET active = 0, updated_at = NOW() WHERE id = :user_id',
+                    [':user_id' => $userId]
+                );
+            }
+
+            $pdo->commit();
+
+            return true;
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return false;
+        }
+    }
+
     public function deleteTalentCascade(int $talentId): array
     {
         $pdo = $this->db->connection();
