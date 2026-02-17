@@ -96,6 +96,117 @@ class TalentsController extends Controller
         }
     }
 
+
+    public function inactivate(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $user = $this->auth->user() ?? [];
+        $talentId = (int) ($_POST['talent_id'] ?? 0);
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+
+        $repo = new TalentsRepository($this->db);
+        $talent = $repo->find($talentId);
+
+        if ($talentId <= 0 || !$talent) {
+            http_response_code(404);
+            exit('Talento no encontrado.');
+        }
+
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
+            http_response_code(400);
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
+        }
+
+        try {
+            if (!$repo->inactivateTalent($talentId)) {
+                http_response_code(500);
+                exit('No se pudo inactivar el talento.');
+            }
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'talent',
+                $talentId,
+                'inactivated',
+                [
+                    'name' => $talent['name'] ?? null,
+                ]
+            );
+
+            header('Location: /talents?edit=' . $talentId . '&saved=inactivated');
+        } catch (\Throwable $e) {
+            error_log('Error al inactivar talento: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo inactivar el talento. Intenta nuevamente o contacta al administrador.');
+        }
+    }
+
+    public function destroy(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $user = $this->auth->user() ?? [];
+        $talentId = (int) ($_POST['talent_id'] ?? 0);
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+
+        $repo = new TalentsRepository($this->db);
+        $talent = $repo->find($talentId);
+
+        if ($talentId <= 0 || !$talent) {
+            http_response_code(404);
+            exit('Talento no encontrado.');
+        }
+
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
+            http_response_code(400);
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
+        }
+
+        try {
+            $deleted = $repo->deleteTalentCascade($talentId);
+            if (!$deleted['success']) {
+                http_response_code(500);
+                exit('No se pudo eliminar el talento.');
+            }
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'talent',
+                $talentId,
+                'deleted',
+                [
+                    'name' => $talent['name'] ?? null,
+                    'deleted' => $deleted['deleted'] ?? [],
+                ]
+            );
+
+            header('Location: /talents?saved=deleted');
+        } catch (\Throwable $e) {
+            error_log('Error al eliminar talento: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo eliminar el talento. Intenta nuevamente o contacta al administrador.');
+        }
+    }
+
     private function talentPayload(array $payload): array
     {
         return [
