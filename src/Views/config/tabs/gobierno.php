@@ -5,17 +5,29 @@
         'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo', 'timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
         'Visualización' => ['ver', 'visualizar', 'dashboard', 'reporte', 'report'],
     ];
-    $groupPermissions = function(array $permissions) use ($permissionGroups): array {
+    $normalizeText = static function(string $value): string {
+        return function_exists('mb_strtolower')
+            ? mb_strtolower($value)
+            : strtolower($value);
+    };
+    $containsText = static function(string $haystack, string $needle): bool {
+        if (function_exists('mb_strpos')) {
+            return mb_strpos($haystack, $needle) !== false;
+        }
+
+        return strpos($haystack, $needle) !== false;
+    };
+    $groupPermissions = function(array $permissions) use ($permissionGroups, $normalizeText, $containsText): array {
         $grouped = [];
         foreach ($permissionGroups as $group => $keywords) {
             $grouped[$group] = [];
         }
         foreach ($permissions as $permission) {
-            $name = mb_strtolower($permission['name'] ?? '');
+            $name = $normalizeText((string) ($permission['name'] ?? ''));
             $matched = false;
             foreach ($permissionGroups as $group => $keywords) {
                 foreach ($keywords as $keyword) {
-                    if (mb_strpos($name, $keyword) !== false) {
+                    if ($containsText($name, $keyword)) {
                         $grouped[$group][] = $permission;
                         $matched = true;
                         break 2;
