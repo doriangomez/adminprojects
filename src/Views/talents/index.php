@@ -147,7 +147,7 @@ $flashMessageText = match ($flashMessage) {
             $inactiveOp2 = random_int(1, 10);
             $inactiveOperator = random_int(0, 1) === 1 ? '+' : '-';
             ?>
-            <div class="talent-danger-zone">
+            <div class="talent-danger-zone" id="danger-zone">
                 <h4>Zona de riesgo (edición de talento)</h4>
                 <p class="section-muted">Desde aquí puedes inactivar o eliminar en cascada el talento que estás editando.</p>
                 <div class="talent-danger-zone__actions">
@@ -184,6 +184,7 @@ $flashMessageText = match ($flashMessage) {
                 <div>
                     <h3>Talentos registrados</h3>
                     <small class="section-muted">Gestiona perfiles y disponibilidad.</small>
+                    <small class="section-muted danger-text">Para eliminar o inactivar: clic en <strong>Editar</strong> y usa la <strong>Zona de riesgo</strong>.</small>
                 </div>
             </div>
         </div>
@@ -276,6 +277,7 @@ $flashMessageText = match ($flashMessage) {
                         <footer class="talent-card__footer">
                             <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
                             <div class="talent-card__footer-actions">
+                                <a class="action-btn ghost small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>#danger-zone">🗑️ Eliminar / ⏸️ Inactivar</a>
                                 <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
                                 <span class="delete-hint">↓ Eliminar talento</span>
                             </div>
@@ -405,6 +407,7 @@ $flashMessageText = match ($flashMessage) {
     .talent-card__indicators { display:flex; flex-wrap:wrap; gap:8px; }
     .talent-card__footer { display:flex; justify-content:space-between; gap:10px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
     .talent-card__footer-actions { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+    .danger-text { color: var(--danger); font-weight:600; display:block; margin-top:4px; }
     .delete-hint { font-size:11px; color:var(--danger); font-weight:700; letter-spacing:0.02em; }
     .icon { font-size:15px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent; }
