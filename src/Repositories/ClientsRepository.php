@@ -295,12 +295,24 @@ class ClientsRepository
     private function forceDeleteWithCascade(int $clientId, ?string $clientLogoPath = null): array
     {
         try {
-            if ($this->db->tableExists('outsourcing_services') && $this->db->columnExists('outsourcing_services', 'client_id')) {
+            $pdo = $this->db->connection();
+            $pdo->beginTransaction();
+
+            try {
                 $this->db->execute('DELETE FROM outsourcing_services WHERE client_id = :clientId', [':clientId' => $clientId]);
+            } catch (\PDOException $e) {
+                $sqlState = (string) ($e->errorInfo[0] ?? '');
+                if ($sqlState !== '42S02' && $sqlState !== '42S22') {
+                    throw $e;
+                }
             }
 
             $this->db->execute('DELETE FROM clients WHERE id = :id', [':id' => $clientId]);
+            $pdo->commit();
         } catch (\PDOException $e) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
