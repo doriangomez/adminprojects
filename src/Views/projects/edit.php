@@ -261,7 +261,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 <div id="delete-feedback" class="danger-feedback"></div>
 
                 <div class="danger-actions">
-                    <button type="submit" class="btn danger" id="confirm-delete-btn"><?= htmlspecialchars($dangerButtonLabel) ?></button>
+                    <button type="submit" class="btn danger" id="confirm-delete-btn" style="display:inline-flex;align-items:center;justify-content:center;min-width:260px;padding:12px 16px;font-weight:700;color:#ffffff;background:#b42318;border:1px solid #7a271a;opacity:1;visibility:visible;"><?= htmlspecialchars($dangerButtonLabel) ?></button>
                 </div>
             </form>
         </div>
@@ -310,11 +310,11 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); font-weight:700; }
     .danger-form { display:flex; flex-direction:column; gap:12px; }
     .danger-feedback { display:none; padding:10px 12px; border:1px solid color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); color: var(--danger); border-radius:10px; font-weight:600; }
-    .danger-actions { display:flex; justify-content:flex-start; gap:8px; }
-    .danger-actions .btn { min-width: 240px; }
-    .danger-actions .btn.danger { min-width: 240px; color: #7f1d1d; border-color: #b91c1c; background: #fee2e2; }
-    .danger-actions .btn.danger:hover { color:#fff; border-color:#991b1b; background:#b91c1c; }
-    .danger-actions .btn.danger.is-ready { color:#fff; border-color:#991b1b; background:#b91c1c; }
+    .danger-actions { display:flex; justify-content:flex-start; align-items:center; gap:8px; margin-top:8px; }
+    #confirm-delete-btn { display:inline-flex !important; align-items:center; justify-content:center; min-width:260px; min-height:44px; opacity:1 !important; visibility:visible !important; color:#fff !important; background:#b42318 !important; border:1px solid #7a271a !important; }
+    #confirm-delete-btn:hover { background:#8f1f13 !important; border-color:#60170f !important; }
+    #confirm-delete-btn.is-ready { background:#7a271a !important; border-color:#60170f !important; }
+    #confirm-delete-btn:disabled { opacity:1 !important; color:#fff !important; background:#b42318 !important; }
     .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
