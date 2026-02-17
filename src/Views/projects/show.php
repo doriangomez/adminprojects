@@ -352,6 +352,20 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
         </div>
     </header>
 
+
+    <?php if ($canDelete || $canInactivate): ?>
+        <section class="danger-shortcut" aria-label="Acción crítica del proyecto">
+            <p>
+                <?= $canDelete
+                    ? '¿Necesitas eliminar el proyecto con todas sus dependencias? Usa el acceso directo a Zona crítica.'
+                    : '¿Necesitas inactivar este proyecto? Usa el acceso directo a Zona crítica.' ?>
+            </p>
+            <a class="action-btn danger" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit#zona-critica">
+                <?= $canDelete ? 'Ir a eliminar proyecto' : 'Ir a inactivar proyecto' ?>
+            </a>
+        </section>
+    <?php endif; ?>
+
     <?php
     $activeTab = match ($view) {
         'resumen' => 'resumen',
@@ -811,6 +825,8 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
     .project-title-block h2 { margin:0; color: var(--text-primary); }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .danger-shortcut { margin-top:12px; border:1px solid color-mix(in srgb, var(--danger) 30%, var(--background)); background: color-mix(in srgb, var(--danger) 10%, var(--surface) 90%); border-radius:12px; padding:12px; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .danger-shortcut p { margin:0; color: var(--text-primary); font-weight:600; }
     .project-badges { display:flex; gap:8px; flex-wrap:wrap; }
     .pill.neutral { background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); border-color: var(--border); color: var(--text-primary); }
     .summary-layout { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
