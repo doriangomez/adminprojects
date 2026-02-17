@@ -13,6 +13,11 @@ $hasDependencies = !empty($hasDependencies);
 $mathOperand1 = (int) ($mathOperand1 ?? 0);
 $mathOperand2 = (int) ($mathOperand2 ?? 0);
 $mathOperator = $mathOperator ?? '+';
+$dangerActionUrl = $canDelete
+    ? ($basePath . '/projects/delete')
+    : ($basePath . '/projects/' . (int) ($project['id'] ?? 0) . '/inactivate');
+$dangerButtonLabel = $canDelete ? 'Eliminar permanentemente' : 'Inactivar proyecto';
+$dangerActionText = $canDelete ? 'eliminación definitiva' : 'inactivación';
 $riskGroups = [];
 foreach ($riskCatalog as $risk) {
     $category = $risk['category'] ?? 'Otros';
@@ -236,33 +241,29 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 <?php endif; ?>
             </div>
 
-            <?php if ($canDelete): ?>
-                <form method="POST" action="<?= $basePath ?>/projects/delete" id="danger-delete-form" class="grid">
-                    <input type="hidden" name="id" value="<?= (int) ($project['id'] ?? 0) ?>">
-                    <input type="hidden" name="math_operand1" value="<?= (int) $mathOperand1 ?>">
-                    <input type="hidden" name="math_operand2" value="<?= (int) $mathOperand2 ?>">
-                    <input type="hidden" name="math_operator" value="<?= htmlspecialchars($mathOperator) ?>">
-                    <input type="hidden" name="force_delete" value="1">
-                    <div>
-                        <p class="danger-title">Confirmación obligatoria</p>
-                        <p class="section-muted">Resuelve la operación para habilitar la eliminación definitiva.</p>
-                        <div class="danger-math">
-                            <div class="danger-math__operand">
-                                <?= (int) $mathOperand1 ?> <?= htmlspecialchars($mathOperator) ?> <?= (int) $mathOperand2 ?> =
-                            </div>
-                            <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado">
+            <form method="POST" action="<?= htmlspecialchars($dangerActionUrl) ?>" id="danger-delete-form" class="grid">
+                <input type="hidden" name="id" value="<?= (int) ($project['id'] ?? 0) ?>">
+                <input type="hidden" name="math_operand1" value="<?= (int) $mathOperand1 ?>">
+                <input type="hidden" name="math_operand2" value="<?= (int) $mathOperand2 ?>">
+                <input type="hidden" name="math_operator" value="<?= htmlspecialchars($mathOperator) ?>">
+                <input type="hidden" name="force_delete" value="<?= $canDelete ? '1' : '0' ?>">
+                <div>
+                    <p class="danger-title">Confirmación obligatoria</p>
+                    <p class="section-muted">Resuelve la operación para habilitar la <?= htmlspecialchars($dangerActionText) ?>.</p>
+                    <div class="danger-math">
+                        <div class="danger-math__operand">
+                            <?= (int) $mathOperand1 ?> <?= htmlspecialchars($mathOperator) ?> <?= (int) $mathOperand2 ?> =
                         </div>
+                        <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado">
                     </div>
+                </div>
 
-                    <div id="delete-feedback" class="danger-feedback"></div>
+                <div id="delete-feedback" class="danger-feedback"></div>
 
-                    <div class="danger-actions">
-                        <button type="submit" class="btn danger" id="confirm-delete-btn" disabled>Eliminar permanentemente</button>
-                    </div>
-                </form>
-            <?php else: ?>
-                <p class="section-muted">Solo administradores o PMO pueden eliminar definitivamente un proyecto. Solicita asistencia a un administrador.</p>
-            <?php endif; ?>
+                <div class="danger-actions">
+                    <button type="submit" class="btn danger" id="confirm-delete-btn" disabled><?= htmlspecialchars($dangerButtonLabel) ?></button>
+                </div>
+            </form>
         </div>
     </details>
 <?php endif; ?>
@@ -440,15 +441,15 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 const data = await response.json();
 
                 if (data?.success) {
-                    alert(data.message || 'Proyecto eliminado correctamente.');
+                    alert(data.message || 'Operación completada correctamente.');
                     window.location.href = '<?= $basePath ?>/projects';
                     return;
                 }
 
-                deleteFeedback.textContent = data?.message || 'No se pudo completar la eliminación.';
+                deleteFeedback.textContent = data?.message || 'No se pudo completar la operación.';
                 deleteFeedback.style.display = 'block';
             } catch (error) {
-                deleteFeedback.textContent = 'No se pudo completar la eliminación. Intenta nuevamente o contacta al administrador.';
+                deleteFeedback.textContent = 'No se pudo completar la operación. Intenta nuevamente o contacta al administrador.';
                 deleteFeedback.style.display = 'block';
             }
         });
