@@ -241,7 +241,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                 <?php endif; ?>
             </div>
 
-            <form method="POST" action="<?= htmlspecialchars($dangerActionUrl) ?>" id="danger-delete-form" class="grid">
+            <form method="POST" action="<?= htmlspecialchars($dangerActionUrl) ?>" id="danger-delete-form" class="danger-form">
                 <input type="hidden" name="id" value="<?= (int) ($project['id'] ?? 0) ?>">
                 <input type="hidden" name="math_operand1" value="<?= (int) $mathOperand1 ?>">
                 <input type="hidden" name="math_operand2" value="<?= (int) $mathOperand2 ?>">
@@ -308,8 +308,11 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .danger-note { margin:8px 0 0 0; color: color-mix(in srgb, var(--warning) 80%, var(--text-primary) 20%); font-size:14px; }
     .danger-math { display:flex; align-items:center; gap:10px; }
     .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); font-weight:700; }
+    .danger-form { display:flex; flex-direction:column; gap:12px; }
     .danger-feedback { display:none; padding:10px 12px; border:1px solid color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); color: var(--danger); border-radius:10px; font-weight:600; }
-    .danger-actions { display:flex; justify-content:flex-end; gap:8px; }
+    .danger-actions { display:flex; justify-content:flex-start; gap:8px; }
+    .danger-actions .btn { min-width: 240px; }
+    .danger-actions .btn:disabled { opacity: 0.65; cursor: not-allowed; }
     .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
