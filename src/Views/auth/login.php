@@ -29,7 +29,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingreso | <?= htmlspecialchars($appName ?? 'PMO') ?></title>
-    <link rel="stylesheet" href="/assets/css/auth.css">
+    <link rel="stylesheet" href="assets/css/auth.css">
     <script>
         window.applyTheme = function(theme) {
             if (!theme || typeof theme !== 'object') {
@@ -94,7 +94,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                 <div class="pill">Acceso seguro · PMO</div>
                 <h1>Acceso a la plataforma</h1>
                 <p class="subtitle-card">Sistema de Gestión de Proyectos</p>
-                <form method="POST" action="/login" class="form" data-login-form>
+                <form method="POST" action="login" class="form" data-login-form>
                     <div class="field">
                         <label for="email">Correo</label>
                         <div class="input-wrapper">
@@ -135,7 +135,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                 <?php if ((bool) ($googleSettings['enabled'] ?? false)): ?>
                     <div class="field" style="margin-top:8px; border-top:1px solid var(--border); padding-top:14px;">
                         <label for="google_email">Acceso Google Workspace</label>
-                        <form method="POST" action="/login/google" class="form" style="padding:0; margin-top:8px;" data-google-login-form>
+                        <form method="POST" action="login/google" class="form" style="padding:0; margin-top:8px;" data-google-login-form>
                             <div class="input-wrapper">
                                 <span class="input-icon" aria-hidden="true">G</span>
                                 <input type="email" name="google_email" id="google_email" placeholder="usuario@<?= htmlspecialchars($googleSettings['corporate_domain'] ?? 'aossas.com') ?>" autocomplete="email" required>
