@@ -329,7 +329,7 @@ CREATE TABLE talent_skills (
     talent_id INT NOT NULL,
     skill_id INT NOT NULL,
     PRIMARY KEY (talent_id, skill_id),
-    FOREIGN KEY (talent_id) REFERENCES talents(id),
+    FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
     FOREIGN KEY (skill_id) REFERENCES skills(id)
 );
 
@@ -359,7 +359,7 @@ CREATE TABLE project_talent_assignments (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (talent_id) REFERENCES talents(id)
+    FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE timesheets (
@@ -383,7 +383,7 @@ CREATE TABLE timesheets (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (project_id) REFERENCES projects(id),
-    FOREIGN KEY (talent_id) REFERENCES talents(id),
+    FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (assignment_id) REFERENCES project_talent_assignments(id),
     FOREIGN KEY (approved_by) REFERENCES users(id),

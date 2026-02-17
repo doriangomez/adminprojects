@@ -190,6 +190,7 @@ class DatabaseMigrator
             $this->ensureTalentTimesheetFlags();
             $this->ensureTalentCapacityColumn();
             $this->ensureTalentTypeColumn();
+            $this->ensureTalentDeletionCascades();
         } catch (\PDOException $e) {
             error_log('Error asegurando columnas de talentos: ' . $e->getMessage());
         }
@@ -568,6 +569,13 @@ class DatabaseMigrator
                 ]
             );
         }
+    }
+
+    private function ensureTalentDeletionCascades(): void
+    {
+        $this->ensureCascade('talent_skills', 'talent_id', 'talents', 'fk_talent_skills_talent_id_talents');
+        $this->ensureCascade('project_talent_assignments', 'talent_id', 'talents', 'fk_project_talent_assignments_talent_id_talents');
+        $this->ensureCascade('timesheets', 'talent_id', 'talents', 'fk_timesheets_talent_id_talents');
     }
 
     private function ensurePmIntegrity(string $table, string $afterColumn): void

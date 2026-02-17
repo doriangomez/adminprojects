@@ -274,6 +274,14 @@ $flashMessageText = match ($flashMessage) {
                             </span>
                         </div>
 
+                        <div class="talent-pmo-health">
+                            <span class="pmo-chip">📁 Proyectos activos: <strong><?= (int) ($talent['active_projects'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip">🧩 Asignaciones: <strong><?= (int) ($talent['total_assignments'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip">⏳ Timesheets pendientes: <strong><?= (int) ($talent['pending_timesheets'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip">🕒 Horas reportadas: <strong><?= number_format((float) ($talent['reported_hours'] ?? 0), 1, ',', '.') ?>h</strong></span>
+                            <span class="pmo-chip">📌 Servicios outsourcing: <strong><?= (int) ($talent['outsourcing_services'] ?? 0) ?></strong></span>
+                        </div>
+
                         <footer class="talent-card__footer">
                             <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
                             <div class="talent-card__footer-actions">
@@ -370,8 +378,9 @@ $flashMessageText = match ($flashMessage) {
                                             <small class="section-muted">+<?= count($documents) - 3 ?> documentos adicionales</small>
                                         <?php endif; ?>
                                     <?php endif; ?>
-                                    <div>
+                                    <div class="service-actions">
                                         <a class="link" href="<?= $basePath ?>/outsourcing/<?= $serviceId ?>">Ver servicio</a>
+                                        <a class="link" href="<?= $basePath ?>/outsourcing/<?= $serviceId ?>#nuevo-seguimiento">Agregar seguimiento</a>
                                     </div>
                                 </td>
                             </tr>
@@ -405,6 +414,8 @@ $flashMessageText = match ($flashMessage) {
     .talent-card__item { display:flex; gap:10px; align-items:center; background: var(--surface); border-radius:12px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--border) 65%, var(--surface) 35%); }
     .talent-card__label { display:block; font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; }
     .talent-card__indicators { display:flex; flex-wrap:wrap; gap:8px; }
+    .talent-pmo-health { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; }
+    .pmo-chip { display:inline-flex; align-items:center; justify-content:space-between; gap:8px; border:1px solid color-mix(in srgb, var(--info) 28%, var(--border) 72%); background:color-mix(in srgb, var(--info) 8%, var(--surface) 92%); border-radius:10px; padding:7px 9px; font-size:12px; color:var(--text-primary); }
     .talent-card__footer { display:flex; justify-content:space-between; gap:10px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
     .talent-card__footer-actions { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
     .danger-text { color: var(--danger); font-weight:600; display:block; margin-top:4px; }
@@ -444,5 +455,6 @@ $flashMessageText = match ($flashMessage) {
     .doc-list { margin:6px 0; padding-left:18px; color: var(--text-primary); }
     .link { color: var(--primary); font-weight:600; text-decoration:none; }
     .link:hover { text-decoration:underline; }
+    .service-actions { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
     .alert.success { padding:10px 12px; border-radius:12px; background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border:1px solid color-mix(in srgb, var(--success) 40%, var(--surface) 60%); font-weight:600; }
 </style>
