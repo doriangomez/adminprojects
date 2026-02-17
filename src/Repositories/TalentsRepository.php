@@ -25,6 +25,11 @@ class TalentsRepository
             't.requiere_reporte_horas',
             't.requiere_aprobacion_horas',
             't.tipo_talento',
+            'COALESCE(pmo.active_projects, 0) AS active_projects',
+            'COALESCE(pmo.total_assignments, 0) AS total_assignments',
+            'COALESCE(pmo.pending_timesheets, 0) AS pending_timesheets',
+            'COALESCE(pmo.reported_hours, 0) AS reported_hours',
+            'COALESCE(pmo.outsourcing_services, 0) AS outsourcing_services',
         ];
 
         if ($this->hasOutsourcingFlag()) {
@@ -39,6 +44,38 @@ class TalentsRepository
              LEFT JOIN users u ON u.id = t.user_id
              LEFT JOIN talent_skills ts ON ts.talent_id = t.id
              LEFT JOIN skills s ON s.id = ts.skill_id
+             LEFT JOIN (
+                SELECT
+                    ta.id AS talent_id,
+                    COALESCE(pa.active_projects, 0) AS active_projects,
+                    COALESCE(pa.total_assignments, 0) AS total_assignments,
+                    COALESCE(ts.pending_timesheets, 0) AS pending_timesheets,
+                    COALESCE(ts.reported_hours, 0) AS reported_hours,
+                    COALESCE(os.outsourcing_services, 0) AS outsourcing_services
+                FROM talents ta
+                LEFT JOIN (
+                    SELECT
+                        a.talent_id,
+                        COUNT(DISTINCT CASE WHEN p.active = 1 THEN p.id END) AS active_projects,
+                        COUNT(DISTINCT a.id) AS total_assignments
+                    FROM project_talent_assignments a
+                    LEFT JOIN projects p ON p.id = a.project_id
+                    GROUP BY a.talent_id
+                ) pa ON pa.talent_id = ta.id
+                LEFT JOIN (
+                    SELECT
+                        tms.talent_id,
+                        SUM(CASE WHEN tms.status IN (\'submitted\', \'pending\') THEN 1 ELSE 0 END) AS pending_timesheets,
+                        SUM(COALESCE(tms.hours, 0)) AS reported_hours
+                    FROM timesheets tms
+                    GROUP BY tms.talent_id
+                ) ts ON ts.talent_id = ta.id
+                LEFT JOIN (
+                    SELECT talent_id, COUNT(*) AS outsourcing_services
+                    FROM outsourcing_services
+                    GROUP BY talent_id
+                ) os ON os.talent_id = ta.user_id
+             ) pmo ON pmo.talent_id = t.id
              GROUP BY t.id
              ORDER BY t.name'
         );
@@ -202,10 +239,13 @@ class TalentsRepository
     public function deleteTalentCascade(int $talentId): array
     {
         $pdo = $this->db->connection();
+        $talent = $this->find($talentId);
+        $userId = (int) ($talent['user_id'] ?? 0);
         $deleted = [
             'timesheets' => 0,
             'assignments' => 0,
             'skills' => 0,
+            'outsourcing_services' => 0,
             'talent' => 0,
         ];
 
@@ -230,6 +270,13 @@ class TalentsRepository
                 $deleted['skills'] = $this->db->execute(
                     'DELETE FROM talent_skills WHERE talent_id = :id',
                     [':id' => $talentId]
+                ) ? $this->countAffectedRows() : 0;
+            }
+
+            if ($userId > 0 && $this->db->tableExists('outsourcing_services') && $this->db->columnExists('outsourcing_services', 'talent_id')) {
+                $deleted['outsourcing_services'] = $this->db->execute(
+                    'DELETE FROM outsourcing_services WHERE talent_id = :user_id',
+                    [':user_id' => $userId]
                 ) ? $this->countAffectedRows() : 0;
             }
 
