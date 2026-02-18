@@ -73,6 +73,46 @@ $flashMessageText = match ($flashMessage) {
         <?php if ($flashMessageText): ?>
             <div class="alert success"><?= htmlspecialchars($flashMessageText) ?></div>
         <?php endif; ?>
+
+
+        <?php if ($isEditing): ?>
+            <?php
+            $dangerOp1 = random_int(1, 10);
+            $dangerOp2 = random_int(1, 10);
+            $dangerOperator = random_int(0, 1) === 1 ? '+' : '-';
+            $inactiveOp1 = random_int(1, 10);
+            $inactiveOp2 = random_int(1, 10);
+            $inactiveOperator = random_int(0, 1) === 1 ? '+' : '-';
+            ?>
+            <div class="talent-danger-zone" id="danger-zone">
+                <h4>Zona de riesgo (edición de talento)</h4>
+                <p class="section-muted">Desde aquí puedes inactivar o eliminar en cascada el talento que estás editando.</p>
+                <div class="talent-danger-zone__actions">
+                    <form method="POST" action="<?= $basePath ?>/talents/inactivate" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas inactivar este talento?');">
+                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
+                        <input type="hidden" name="math_operand1" value="<?= $inactiveOp1 ?>">
+                        <input type="hidden" name="math_operand2" value="<?= $inactiveOp2 ?>">
+                        <input type="hidden" name="math_operator" value="<?= $inactiveOperator ?>">
+                        <label>Confirmación matemática para inactivar: <?= $inactiveOp1 . ' ' . $inactiveOperator . ' ' . $inactiveOp2 ?> = ?
+                            <input type="number" name="math_result" required>
+                        </label>
+                        <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
+                    </form>
+
+                    <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
+                        <input type="hidden" name="math_operand1" value="<?= $dangerOp1 ?>">
+                        <input type="hidden" name="math_operand2" value="<?= $dangerOp2 ?>">
+                        <input type="hidden" name="math_operator" value="<?= $dangerOperator ?>">
+                        <label>Confirmación matemática para eliminar: <?= $dangerOp1 . ' ' . $dangerOperator . ' ' . $dangerOp2 ?> = ?
+                            <input type="number" name="math_result" required>
+                        </label>
+                        <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento en cascada</button>
+                    </form>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <form method="POST" action="<?= $basePath ?>/talents/<?= $isEditing ? 'update' : 'create' ?>" class="talent-form">
             <?php if ($isEditing): ?>
                 <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
@@ -138,43 +178,6 @@ $flashMessageText = match ($flashMessage) {
             <button type="submit" class="action-btn primary"><?= $isEditing ? 'Actualizar talento' : 'Guardar talento' ?></button>
         </form>
 
-        <?php if ($isEditing): ?>
-            <?php
-            $dangerOp1 = random_int(1, 10);
-            $dangerOp2 = random_int(1, 10);
-            $dangerOperator = random_int(0, 1) === 1 ? '+' : '-';
-            $inactiveOp1 = random_int(1, 10);
-            $inactiveOp2 = random_int(1, 10);
-            $inactiveOperator = random_int(0, 1) === 1 ? '+' : '-';
-            ?>
-            <div class="talent-danger-zone" id="danger-zone">
-                <h4>Zona de riesgo (edición de talento)</h4>
-                <p class="section-muted">Desde aquí puedes inactivar o eliminar en cascada el talento que estás editando.</p>
-                <div class="talent-danger-zone__actions">
-                    <form method="POST" action="<?= $basePath ?>/talents/inactivate" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas inactivar este talento?');">
-                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
-                        <input type="hidden" name="math_operand1" value="<?= $inactiveOp1 ?>">
-                        <input type="hidden" name="math_operand2" value="<?= $inactiveOp2 ?>">
-                        <input type="hidden" name="math_operator" value="<?= $inactiveOperator ?>">
-                        <label>Confirmación matemática para inactivar: <?= $inactiveOp1 . ' ' . $inactiveOperator . ' ' . $inactiveOp2 ?> = ?
-                            <input type="number" name="math_result" required>
-                        </label>
-                        <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
-                    </form>
-
-                    <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
-                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
-                        <input type="hidden" name="math_operand1" value="<?= $dangerOp1 ?>">
-                        <input type="hidden" name="math_operand2" value="<?= $dangerOp2 ?>">
-                        <input type="hidden" name="math_operator" value="<?= $dangerOperator ?>">
-                        <label>Confirmación matemática para eliminar: <?= $dangerOp1 . ' ' . $dangerOperator . ' ' . $dangerOp2 ?> = ?
-                            <input type="number" name="math_result" required>
-                        </label>
-                        <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento en cascada</button>
-                    </form>
-                </div>
-            </div>
-        <?php endif; ?>
     </section>
 
     <section class="talent-grid" id="talent-list">
