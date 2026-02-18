@@ -398,6 +398,12 @@ class App
             return;
         }
 
+        if (str_starts_with($path, '/talent-capacity')) {
+            $controller = new TalentCapacityController($this->db, $this->auth);
+            $controller->index();
+            return;
+        }
+
         if (str_starts_with($path, '/timesheets')) {
             $controller = new TimesheetsController($this->db, $this->auth);
             if ($path === '/timesheets/create' && $method === 'POST') {
