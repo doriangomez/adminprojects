@@ -285,9 +285,10 @@ $flashMessageText = match ($flashMessage) {
                         <footer class="talent-card__footer">
                             <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
                             <div class="talent-card__footer-actions">
-                                <a class="action-btn ghost small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>#danger-zone">🗑️ Eliminar / ⏸️ Inactivar</a>
+                                <a class="action-btn ghost small" href="#delete-talent-<?= (int) ($talent['id'] ?? 0) ?>">🗑️ Ir a eliminar</a>
+                                <a class="action-btn ghost small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>#danger-zone">⏸️ Ir a inactivar</a>
                                 <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
-                                <span class="delete-hint">↓ Eliminar talento</span>
+                                <span class="delete-hint">↓ Opción de eliminar visible aquí</span>
                             </div>
                         </footer>
                         <?php
@@ -295,7 +296,8 @@ $flashMessageText = match ($flashMessage) {
                         $operand2 = random_int(1, 10);
                         $operator = random_int(0, 1) === 1 ? '+' : '-';
                         ?>
-                        <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                        <form id="delete-talent-<?= (int) ($talent['id'] ?? 0) ?>" method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                            <strong class="danger-zone-title">🗑️ Eliminar talento en cascada</strong>
                             <input type="hidden" name="talent_id" value="<?= (int) ($talent['id'] ?? 0) ?>">
                             <input type="hidden" name="math_operand1" value="<?= $operand1 ?>">
                             <input type="hidden" name="math_operand2" value="<?= $operand2 ?>">
@@ -420,6 +422,7 @@ $flashMessageText = match ($flashMessage) {
     .talent-card__footer-actions { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
     .danger-text { color: var(--danger); font-weight:600; display:block; margin-top:4px; }
     .delete-hint { font-size:11px; color:var(--danger); font-weight:700; letter-spacing:0.02em; }
+    .danger-zone-title { color:var(--danger); font-size:13px; }
     .icon { font-size:15px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent; }
     .pill-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); }

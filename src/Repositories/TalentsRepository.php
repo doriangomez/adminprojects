@@ -245,6 +245,8 @@ class TalentsRepository
             'timesheets' => 0,
             'assignments' => 0,
             'skills' => 0,
+            'fk_dependents' => 0,
+            'outsourcing_followups' => 0,
             'outsourcing_services' => 0,
             'talent' => 0,
         ];
@@ -273,10 +275,37 @@ class TalentsRepository
                 ) ? $this->countAffectedRows() : 0;
             }
 
-            if ($userId > 0 && $this->db->tableExists('outsourcing_services') && $this->db->columnExists('outsourcing_services', 'talent_id')) {
+            $deleted['fk_dependents'] = $this->deleteTalentForeignKeyDependents($talentId);
+
+            if ($this->db->tableExists('outsourcing_followups') && $this->db->tableExists('outsourcing_services') && $this->db->columnExists('outsourcing_services', 'talent_id')) {
+                $serviceIdsByTalent = $this->db->fetchAll(
+                    'SELECT id FROM outsourcing_services WHERE talent_id = :talent_id',
+                    [':talent_id' => $talentId]
+                );
+                foreach ($serviceIdsByTalent as $serviceRow) {
+                    $serviceId = (int) ($serviceRow['id'] ?? 0);
+                    if ($serviceId > 0) {
+                        $this->db->execute(
+                            'DELETE FROM outsourcing_followups WHERE service_id = :service_id',
+                            [':service_id' => $serviceId]
+                        );
+                        $deleted['outsourcing_followups'] += $this->countAffectedRows();
+                    }
+                }
+            }
+
+            if ($this->db->tableExists('outsourcing_services') && $this->db->columnExists('outsourcing_services', 'talent_id')) {
+                $outsourcingParams = [':talent_id' => $talentId];
+                $outsourcingWhere = 'talent_id = :talent_id';
+
+                if ($userId > 0) {
+                    $outsourcingWhere .= ' OR talent_id = :user_id';
+                    $outsourcingParams[':user_id'] = $userId;
+                }
+
                 $deleted['outsourcing_services'] = $this->db->execute(
-                    'DELETE FROM outsourcing_services WHERE talent_id = :user_id',
-                    [':user_id' => $userId]
+                    'DELETE FROM outsourcing_services WHERE ' . $outsourcingWhere,
+                    $outsourcingParams
                 ) ? $this->countAffectedRows() : 0;
             }
 
@@ -315,5 +344,44 @@ class TalentsRepository
     private function hasOutsourcingFlag(): bool
     {
         return $this->db->tableExists('talents') && $this->db->columnExists('talents', 'is_outsourcing');
+    }
+
+    private function deleteTalentForeignKeyDependents(int $talentId): int
+    {
+        $databaseName = (string) ($this->db->connection()->query('SELECT DATABASE()')->fetchColumn() ?: '');
+        if ($databaseName === '') {
+            return 0;
+        }
+
+        $dependents = $this->db->fetchAll(
+            'SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE REFERENCED_TABLE_SCHEMA = :schema
+               AND REFERENCED_TABLE_NAME = "talents"
+               AND REFERENCED_COLUMN_NAME = "id"',
+            [':schema' => $databaseName]
+        );
+
+        $deletedRows = 0;
+        foreach ($dependents as $dependent) {
+            $table = (string) ($dependent['table_name'] ?? '');
+            $column = (string) ($dependent['column_name'] ?? '');
+
+            if ($table === '' || $table === 'talents' || $column === '') {
+                continue;
+            }
+
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $table) || !preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+                continue;
+            }
+
+            $this->db->execute(
+                sprintf('DELETE FROM `%s` WHERE `%s` = :talent_id', $table, $column),
+                [':talent_id' => $talentId]
+            );
+            $deletedRows += $this->countAffectedRows();
+        }
+
+        return $deletedRows;
     }
 }
