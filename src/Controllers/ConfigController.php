@@ -112,7 +112,7 @@ class ConfigController extends Controller
         }
 
         $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
-        $name = mb_strtolower($name);
+        $name = function_exists('mb_strtolower') ? mb_strtolower($name) : strtolower($name);
 
         return preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $name) ?? $name;
     }
