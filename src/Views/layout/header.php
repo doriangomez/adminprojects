@@ -587,6 +587,10 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
+            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 18h16"/><path d="M7 18v-5"/><path d="M12 18V6"/><path d="M17 18v-9"/></svg></span>
+                <span class="nav-label">Carga talento</span>
+            </a>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
