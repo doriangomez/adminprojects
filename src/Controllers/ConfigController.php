@@ -17,14 +17,7 @@ class ConfigController extends Controller
         $masterRepo = new MasterFilesRepository($this->db);
         $riskRepo = new RiskCatalogRepository($this->db);
 
-        $roles = $rolesRepo->all();
-        $rolesWithPermissions = array_map(
-            fn ($role) => array_merge(
-                $role,
-                ['permissions' => $rolesRepo->permissionsByRole((int) $role['id'])]
-            ),
-            $roles
-        );
+        $rolesWithPermissions = $this->uniqueRolesWithMergedPermissions($rolesRepo);
 
         $masterData = [];
         foreach ($masterRepo->allowedTables() as $table) {
@@ -59,6 +52,69 @@ class ConfigController extends Controller
             'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
             'notificationMessage' => $_GET['notifications'] ?? null,
         ]);
+    }
+
+    private function uniqueRolesWithMergedPermissions(RolesRepository $rolesRepo): array
+    {
+        $groupedRoles = [];
+
+        foreach ($rolesRepo->all() as $role) {
+            $key = $this->normalizeRoleName((string) ($role['nombre'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+
+            if (!isset($groupedRoles[$key])) {
+                $groupedRoles[$key] = [
+                    'role' => $role,
+                    'ids' => [(int) $role['id']],
+                ];
+                continue;
+            }
+
+            $groupedRoles[$key]['ids'][] = (int) $role['id'];
+            if ((int) $role['id'] < (int) $groupedRoles[$key]['role']['id']) {
+                $groupedRoles[$key]['role'] = $role;
+            }
+        }
+
+        $uniqueRoles = [];
+        foreach ($groupedRoles as $group) {
+            $permissionsById = [];
+            foreach ($group['ids'] as $roleId) {
+                foreach ($rolesRepo->permissionsByRole($roleId) as $permission) {
+                    $permissionsById[(int) $permission['id']] = $permission;
+                }
+            }
+
+            $permissions = array_values($permissionsById);
+            usort(
+                $permissions,
+                fn (array $a, array $b): int => strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''))
+            );
+
+            $uniqueRoles[] = array_merge($group['role'], ['permissions' => $permissions]);
+        }
+
+        usort(
+            $uniqueRoles,
+            fn (array $a, array $b): int => strcmp((string) ($a['nombre'] ?? ''), (string) ($b['nombre'] ?? ''))
+        );
+
+        return $uniqueRoles;
+    }
+
+    private function normalizeRoleName(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+
+        $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
+        $name = function_exists('mb_strtolower') ? mb_strtolower($name) : strtolower($name);
+
+        return preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $name) ?? $name;
     }
 
     public function updateTheme(): void
