@@ -17,7 +17,7 @@ class ConfigController extends Controller
         $masterRepo = new MasterFilesRepository($this->db);
         $riskRepo = new RiskCatalogRepository($this->db);
 
-        $roles = $rolesRepo->all();
+        $roles = $this->deduplicateRolesByName($rolesRepo->all());
         $rolesWithPermissions = array_map(
             fn ($role) => array_merge(
                 $role,
@@ -59,6 +59,24 @@ class ConfigController extends Controller
             'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
             'notificationMessage' => $_GET['notifications'] ?? null,
         ]);
+    }
+
+    private function deduplicateRolesByName(array $roles): array
+    {
+        $unique = [];
+        $seen = [];
+
+        foreach ($roles as $role) {
+            $normalizedName = mb_strtolower(trim((string) ($role['nombre'] ?? '')));
+            if ($normalizedName === '' || isset($seen[$normalizedName])) {
+                continue;
+            }
+
+            $seen[$normalizedName] = true;
+            $unique[] = $role;
+        }
+
+        return $unique;
     }
 
     public function updateTheme(): void
