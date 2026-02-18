@@ -73,6 +73,46 @@ $flashMessageText = match ($flashMessage) {
         <?php if ($flashMessageText): ?>
             <div class="alert success"><?= htmlspecialchars($flashMessageText) ?></div>
         <?php endif; ?>
+
+
+        <?php if ($isEditing): ?>
+            <?php
+            $dangerOp1 = random_int(1, 10);
+            $dangerOp2 = random_int(1, 10);
+            $dangerOperator = random_int(0, 1) === 1 ? '+' : '-';
+            $inactiveOp1 = random_int(1, 10);
+            $inactiveOp2 = random_int(1, 10);
+            $inactiveOperator = random_int(0, 1) === 1 ? '+' : '-';
+            ?>
+            <div class="talent-danger-zone" id="danger-zone">
+                <h4>Zona de riesgo (edición de talento)</h4>
+                <p class="section-muted">Desde aquí puedes inactivar o eliminar en cascada el talento que estás editando.</p>
+                <div class="talent-danger-zone__actions">
+                    <form method="POST" action="<?= $basePath ?>/talents/inactivate" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas inactivar este talento?');">
+                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
+                        <input type="hidden" name="math_operand1" value="<?= $inactiveOp1 ?>">
+                        <input type="hidden" name="math_operand2" value="<?= $inactiveOp2 ?>">
+                        <input type="hidden" name="math_operator" value="<?= $inactiveOperator ?>">
+                        <label>Confirmación matemática para inactivar: <?= $inactiveOp1 . ' ' . $inactiveOperator . ' ' . $inactiveOp2 ?> = ?
+                            <input type="number" name="math_result" required>
+                        </label>
+                        <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
+                    </form>
+
+                    <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
+                        <input type="hidden" name="math_operand1" value="<?= $dangerOp1 ?>">
+                        <input type="hidden" name="math_operand2" value="<?= $dangerOp2 ?>">
+                        <input type="hidden" name="math_operator" value="<?= $dangerOperator ?>">
+                        <label>Confirmación matemática para eliminar: <?= $dangerOp1 . ' ' . $dangerOperator . ' ' . $dangerOp2 ?> = ?
+                            <input type="number" name="math_result" required>
+                        </label>
+                        <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento en cascada</button>
+                    </form>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <form method="POST" action="<?= $basePath ?>/talents/<?= $isEditing ? 'update' : 'create' ?>" class="talent-form">
             <?php if ($isEditing): ?>
                 <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
@@ -138,43 +178,6 @@ $flashMessageText = match ($flashMessage) {
             <button type="submit" class="action-btn primary"><?= $isEditing ? 'Actualizar talento' : 'Guardar talento' ?></button>
         </form>
 
-        <?php if ($isEditing): ?>
-            <?php
-            $dangerOp1 = random_int(1, 10);
-            $dangerOp2 = random_int(1, 10);
-            $dangerOperator = random_int(0, 1) === 1 ? '+' : '-';
-            $inactiveOp1 = random_int(1, 10);
-            $inactiveOp2 = random_int(1, 10);
-            $inactiveOperator = random_int(0, 1) === 1 ? '+' : '-';
-            ?>
-            <div class="talent-danger-zone" id="danger-zone">
-                <h4>Zona de riesgo (edición de talento)</h4>
-                <p class="section-muted">Desde aquí puedes inactivar o eliminar en cascada el talento que estás editando.</p>
-                <div class="talent-danger-zone__actions">
-                    <form method="POST" action="<?= $basePath ?>/talents/inactivate" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas inactivar este talento?');">
-                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
-                        <input type="hidden" name="math_operand1" value="<?= $inactiveOp1 ?>">
-                        <input type="hidden" name="math_operand2" value="<?= $inactiveOp2 ?>">
-                        <input type="hidden" name="math_operator" value="<?= $inactiveOperator ?>">
-                        <label>Confirmación matemática para inactivar: <?= $inactiveOp1 . ' ' . $inactiveOperator . ' ' . $inactiveOp2 ?> = ?
-                            <input type="number" name="math_result" required>
-                        </label>
-                        <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
-                    </form>
-
-                    <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
-                        <input type="hidden" name="talent_id" value="<?= (int) ($editingTalent['id'] ?? 0) ?>">
-                        <input type="hidden" name="math_operand1" value="<?= $dangerOp1 ?>">
-                        <input type="hidden" name="math_operand2" value="<?= $dangerOp2 ?>">
-                        <input type="hidden" name="math_operator" value="<?= $dangerOperator ?>">
-                        <label>Confirmación matemática para eliminar: <?= $dangerOp1 . ' ' . $dangerOperator . ' ' . $dangerOp2 ?> = ?
-                            <input type="number" name="math_result" required>
-                        </label>
-                        <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento en cascada</button>
-                    </form>
-                </div>
-            </div>
-        <?php endif; ?>
     </section>
 
     <section class="talent-grid" id="talent-list">
@@ -282,29 +285,36 @@ $flashMessageText = match ($flashMessage) {
                             <span class="pmo-chip">📌 Servicios outsourcing: <strong><?= (int) ($talent['outsourcing_services'] ?? 0) ?></strong></span>
                         </div>
 
+                        <?php
+                        $deleteOp1 = random_int(1, 10);
+                        $deleteOp2 = random_int(1, 10);
+                        $deleteOperator = random_int(0, 1) === 1 ? '+' : '-';
+                        $inactivateOp1 = random_int(1, 10);
+                        $inactivateOp2 = random_int(1, 10);
+                        $inactivateOperator = random_int(0, 1) === 1 ? '+' : '-';
+                        ?>
                         <footer class="talent-card__footer">
                             <a class="action-btn small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>">Editar</a>
-                            <div class="talent-card__footer-actions">
-                                <a class="action-btn ghost small" href="<?= $basePath ?>/talents?edit=<?= (int) ($talent['id'] ?? 0) ?>#danger-zone">🗑️ Eliminar / ⏸️ Inactivar</a>
-                                <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
-                                <span class="delete-hint">↓ Eliminar talento</span>
-                            </div>
+                            <a class="action-btn ghost small" href="#talent-tracking">Ver seguimiento</a>
+
+                            <form method="POST" action="<?= $basePath ?>/talents/inactivate" class="talent-inline-action-form" onsubmit="return talentInlineMathConfirm(this, 'inactivar', '¿Seguro que deseas inactivar este talento?');">
+                                <input type="hidden" name="talent_id" value="<?= (int) ($talent['id'] ?? 0) ?>">
+                                <input type="hidden" name="math_operand1" value="<?= $inactivateOp1 ?>">
+                                <input type="hidden" name="math_operand2" value="<?= $inactivateOp2 ?>">
+                                <input type="hidden" name="math_operator" value="<?= $inactivateOperator ?>">
+                                <input type="hidden" name="math_result" value="">
+                                <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
+                            </form>
+
+                            <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-inline-action-form" onsubmit="return talentInlineMathConfirm(this, 'eliminar', '¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
+                                <input type="hidden" name="talent_id" value="<?= (int) ($talent['id'] ?? 0) ?>">
+                                <input type="hidden" name="math_operand1" value="<?= $deleteOp1 ?>">
+                                <input type="hidden" name="math_operand2" value="<?= $deleteOp2 ?>">
+                                <input type="hidden" name="math_operator" value="<?= $deleteOperator ?>">
+                                <input type="hidden" name="math_result" value="">
+                                <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento</button>
+                            </form>
                         </footer>
-                        <?php
-                        $operand1 = random_int(1, 10);
-                        $operand2 = random_int(1, 10);
-                        $operator = random_int(0, 1) === 1 ? '+' : '-';
-                        ?>
-                        <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
-                            <input type="hidden" name="talent_id" value="<?= (int) ($talent['id'] ?? 0) ?>">
-                            <input type="hidden" name="math_operand1" value="<?= $operand1 ?>">
-                            <input type="hidden" name="math_operand2" value="<?= $operand2 ?>">
-                            <input type="hidden" name="math_operator" value="<?= $operator ?>">
-                            <label>Confirmación matemática (obligatoria): <?= $operand1 . ' ' . $operator . ' ' . $operand2 ?> = ?
-                                <input type="number" name="math_result" required>
-                            </label>
-                            <button type="submit" class="action-btn small danger solid">🗑️ Eliminar en cascada</button>
-                        </form>
                     </article>
                 <?php endforeach; ?>
             </div>
@@ -392,6 +402,34 @@ $flashMessageText = match ($flashMessage) {
     </section>
 </section>
 
+
+<script>
+function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
+    if (!window.confirm(confirmMessage)) {
+        return false;
+    }
+
+    const operand1 = parseInt(form.querySelector('input[name="math_operand1"]').value || '0', 10);
+    const operand2 = parseInt(form.querySelector('input[name="math_operand2"]').value || '0', 10);
+    const operator = String(form.querySelector('input[name="math_operator"]').value || '+');
+    const expected = operator === '+' ? operand1 + operand2 : operand1 - operand2;
+    const answer = window.prompt(`Confirmación matemática para ${actionLabel}: ${operand1} ${operator} ${operand2} = ?`);
+
+    if (answer === null || answer.trim() === '') {
+        return false;
+    }
+
+    const parsed = parseInt(answer, 10);
+    if (Number.isNaN(parsed) || parsed !== expected) {
+        window.alert('La confirmación matemática es incorrecta.');
+        return false;
+    }
+
+    form.querySelector('input[name="math_result"]').value = String(parsed);
+    return true;
+}
+</script>
+
 <style>
     .talent-shell { display:flex; flex-direction:column; gap:18px; }
     .talent-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06); }
@@ -416,10 +454,8 @@ $flashMessageText = match ($flashMessage) {
     .talent-card__indicators { display:flex; flex-wrap:wrap; gap:8px; }
     .talent-pmo-health { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; }
     .pmo-chip { display:inline-flex; align-items:center; justify-content:space-between; gap:8px; border:1px solid color-mix(in srgb, var(--info) 28%, var(--border) 72%); background:color-mix(in srgb, var(--info) 8%, var(--surface) 92%); border-radius:10px; padding:7px 9px; font-size:12px; color:var(--text-primary); }
-    .talent-card__footer { display:flex; justify-content:space-between; gap:10px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
-    .talent-card__footer-actions { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+    .talent-card__footer { display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
     .danger-text { color: var(--danger); font-weight:600; display:block; margin-top:4px; }
-    .delete-hint { font-size:11px; color:var(--danger); font-weight:700; letter-spacing:0.02em; }
     .icon { font-size:15px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent; }
     .pill-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); }
@@ -429,6 +465,11 @@ $flashMessageText = match ($flashMessage) {
     .action-btn.primary { background: var(--primary); color:var(--text-primary); border-color: var(--primary); }
     .action-btn.small { padding:6px 10px; font-size:12px; width:max-content; }
     .action-btn.ghost { background:transparent; }
+
+    .talent-inline-action-form { display:inline-flex; margin:0; }
+    .talent-inline-action-form .action-btn.small { width:auto; }
+    .talent-inline-action-form .action-btn.danger.solid,
+    .talent-inline-action-form .action-btn.warning.solid { width:auto; }
 
     .action-btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--surface) 50%); }
     .action-btn.danger.solid { background:var(--danger); color:#fff; border-color:var(--danger); width:100%; justify-content:center; }
