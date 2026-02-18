@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 class AuthController extends Controller
 {
+    private function resolveBasePath(): string
+    {
+        $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+
+        return str_starts_with($requestPath, '/project/public') ? '/project/public' : '';
+    }
+
     public function showLogin(): void
     {
         $theme = (new ThemeRepository($this->db))->getActiveTheme();
         $configService = new ConfigService($this->db);
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
+        $basePath = $this->resolveBasePath();
 
         if ($this->auth->check()) {
             header('Location: /dashboard');
@@ -25,6 +33,7 @@ class AuthController extends Controller
         $configService = new ConfigService($this->db);
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
+        $basePath = $this->resolveBasePath();
 
         $email = strtolower(trim((string) ($_POST['email'] ?? '')));
         $password = (string) ($_POST['password'] ?? '');
@@ -45,6 +54,7 @@ class AuthController extends Controller
         $configService = new ConfigService($this->db);
         $configData = $configService->getConfig();
         $appName = $this->getAppName();
+        $basePath = $this->resolveBasePath();
 
         $email = strtolower(trim((string) ($_POST['google_email'] ?? '')));
         $googleConfig = $configData['access']['google_workspace'] ?? [];
