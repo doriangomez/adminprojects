@@ -36,10 +36,14 @@ class DatabaseMigrator
         }
 
         try {
-            $this->addClientPriorityColumn();
-            $this->addClientHealthColumn();
+            $this->ensureClientPriorityCode();
+            $this->ensureClientStatusCode();
+            $this->ensureClientRiskCode();
+            $this->ensureClientAreaCode();
+            $this->dropLegacyClientColumns();
+            $this->relaxLegacyClientColumns();
         } catch (\PDOException $e) {
-            error_log('Error ejecutando migración de clients.priority/health: ' . $e->getMessage());
+            error_log('Error ejecutando normalización de clients: ' . $e->getMessage());
         }
     }
 
@@ -653,24 +657,100 @@ class DatabaseMigrator
         }
     }
 
-    private function addClientPriorityColumn(): void
+    private function ensureClientPriorityCode(): void
     {
-        if ($this->db->columnExists('clients', 'priority')) {
+        if ($this->db->columnExists('clients', 'priority_code')) {
             return;
         }
 
-        $this->db->execute("ALTER TABLE clients ADD COLUMN priority VARCHAR(20) NOT NULL DEFAULT '' AFTER category_code");
+        if ($this->db->columnExists('clients', 'priority')) {
+            $this->db->execute('ALTER TABLE clients CHANGE COLUMN priority priority_code VARCHAR(20) NOT NULL');
+        } else {
+            $this->db->execute("ALTER TABLE clients ADD COLUMN priority_code VARCHAR(20) NOT NULL AFTER category_code");
+        }
+
         $this->db->clearColumnCache();
     }
 
-    private function addClientHealthColumn(): void
+    private function ensureClientStatusCode(): void
     {
-        if ($this->db->columnExists('clients', 'health')) {
+        if ($this->db->columnExists('clients', 'status_code')) {
             return;
         }
 
-        $this->db->execute("ALTER TABLE clients ADD COLUMN health VARCHAR(20) NOT NULL DEFAULT '' AFTER priority");
+        if ($this->db->columnExists('clients', 'status')) {
+            $this->db->execute('ALTER TABLE clients CHANGE COLUMN status status_code VARCHAR(50) NOT NULL');
+        } else {
+            $this->db->execute("ALTER TABLE clients ADD COLUMN status_code VARCHAR(50) NOT NULL AFTER priority_code");
+        }
+
         $this->db->clearColumnCache();
+    }
+
+    private function ensureClientRiskCode(): void
+    {
+        if ($this->db->columnExists('clients', 'risk_code')) {
+            return;
+        }
+
+        if ($this->db->columnExists('clients', 'risk_level')) {
+            $this->db->execute('ALTER TABLE clients CHANGE COLUMN risk_level risk_code VARCHAR(50) NULL');
+        } else {
+            $this->db->execute("ALTER TABLE clients ADD COLUMN risk_code VARCHAR(50) NULL AFTER nps");
+        }
+
+        $this->db->clearColumnCache();
+    }
+
+    private function ensureClientAreaCode(): void
+    {
+        if ($this->db->columnExists('clients', 'area_code')) {
+            return;
+        }
+
+        if ($this->db->columnExists('clients', 'area')) {
+            $this->db->execute('ALTER TABLE clients CHANGE COLUMN area area_code VARCHAR(120) NULL');
+        } else {
+            $this->db->execute("ALTER TABLE clients ADD COLUMN area_code VARCHAR(120) NULL AFTER tags");
+        }
+
+        $this->db->clearColumnCache();
+    }
+
+    private function dropLegacyClientColumns(): void
+    {
+        $legacyColumns = ['health', 'industry'];
+
+        foreach ($legacyColumns as $column) {
+            if (!$this->db->columnExists('clients', $column)) {
+                continue;
+            }
+
+            $this->db->execute('ALTER TABLE clients DROP COLUMN ' . $column);
+            $this->db->clearColumnCache();
+        }
+    }
+
+    private function relaxLegacyClientColumns(): void
+    {
+        $columns = [
+            'risk_code' => 'VARCHAR(50) NULL',
+            'tags' => 'VARCHAR(255) NULL',
+            'area_code' => 'VARCHAR(120) NULL',
+            'feedback_notes' => 'TEXT NULL',
+            'feedback_history' => 'TEXT NULL',
+            'operational_context' => 'TEXT NULL',
+            'logo_path' => 'VARCHAR(255) NULL',
+        ];
+
+        foreach ($columns as $column => $definition) {
+            if (!$this->db->columnExists('clients', $column)) {
+                continue;
+            }
+
+            $this->db->execute(sprintf('ALTER TABLE clients MODIFY %s %s', $column, $definition));
+            $this->db->clearColumnCache();
+        }
     }
 
     private function addProjectActiveColumn(): void
