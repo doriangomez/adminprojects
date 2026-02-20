@@ -147,6 +147,7 @@ error_log(sprintf(
         .nav-divider { height: 1px; background: color-mix(in srgb, var(--border) 65%, var(--background)); margin: 4px 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
+            --nav-tone: var(--primary);
             display: flex;
             align-items: center;
             gap: 12px;
@@ -167,42 +168,53 @@ error_log(sprintf(
             bottom: 10px;
             width: 3px;
             border-radius: 8px;
-            background: var(--background);
+            background: color-mix(in srgb, var(--nav-tone) 35%, var(--background));
         }
+        .nav-link:nth-of-type(1) { --nav-tone: #4f46e5; }
+        .nav-link:nth-of-type(2) { --nav-tone: #0ea5e9; }
+        .nav-link:nth-of-type(3) { --nav-tone: #06b6d4; }
+        .nav-link:nth-of-type(4) { --nav-tone: #14b8a6; }
+        .nav-link:nth-of-type(5) { --nav-tone: #f59e0b; }
+        .nav-link:nth-of-type(6) { --nav-tone: #8b5cf6; }
+        .nav-link:nth-of-type(7) { --nav-tone: #ec4899; }
+        .nav-link:nth-of-type(8) { --nav-tone: #22c55e; }
+        .nav-link:nth-of-type(9) { --nav-tone: #3b82f6; }
+        .nav-link:nth-of-type(10) { --nav-tone: #f97316; }
+        .nav-link[href$='/logout'] { --nav-tone: #ef4444; }
         .nav-link:hover {
             color: var(--text-secondary);
             background: color-mix(in srgb, var(--surface) 12%, var(--background));
-            border-color: color-mix(in srgb, var(--border) 70%, var(--background));
+            border-color: color-mix(in srgb, var(--nav-tone) 45%, var(--border));
         }
         .nav-link.active {
-            color: var(--primary);
+            color: var(--nav-tone);
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 12%, var(--background));
-            border-color: color-mix(in srgb, var(--border) 80%, var(--background));
+            background: color-mix(in srgb, var(--surface) 18%, var(--background));
+            border-color: color-mix(in srgb, var(--nav-tone) 48%, var(--border));
         }
-        .nav-link.active::before { background: var(--primary); }
+        .nav-link.active::before { background: var(--nav-tone); }
         .nav-icon {
             width: 34px;
             height: 34px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: var(--primary);
+            color: var(--nav-tone);
             border-radius: 10px;
-            background: color-mix(in srgb, var(--primary) 18%, var(--surface));
-            border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+            background: color-mix(in srgb, var(--nav-tone) 20%, var(--surface));
+            border: 1px solid color-mix(in srgb, var(--nav-tone) 45%, var(--border));
             transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
         }
         .nav-link:hover .nav-icon {
-            color: var(--secondary);
-            background: color-mix(in srgb, var(--accent) 45%, var(--surface));
-            transform: scale(1.06);
+            color: #ffffff;
+            background: linear-gradient(135deg, color-mix(in srgb, var(--nav-tone) 85%, #111827), var(--nav-tone));
+            transform: scale(1.08);
         }
         .nav-link.active .nav-icon {
-            color: var(--surface);
-            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, var(--accent)));
-            border-color: color-mix(in srgb, var(--primary) 78%, var(--surface));
-            box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 34%, transparent);
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 68%, #111827));
+            border-color: color-mix(in srgb, var(--nav-tone) 75%, var(--surface));
+            box-shadow: 0 8px 18px color-mix(in srgb, var(--nav-tone) 36%, transparent);
         }
         .nav-label { white-space: nowrap; }
         .nav-badge {
