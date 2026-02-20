@@ -185,8 +185,8 @@ class ClientsRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO clients (name, sector_code, category_code, priority_code, status_code, pm_id, satisfaction, nps, risk_code, tags, area_code, feedback_notes, feedback_history, operational_context, logo_path, created_at, updated_at)'
-             . ' VALUES (:name, :sector_code, :category_code, :priority_code, :status_code, :pm_id, :satisfaction, :nps, :risk_code, :tags, :area_code, :feedback_notes, :feedback_history, :operational_context, :logo_path, NOW(), NOW())',
+            'INSERT INTO clients (name, sector_code, category_code, priority_code, status_code, pm_id, satisfaction, nps, risk_code, tags, area_code, feedback_notes, feedback_history, operational_context, logo_path, active, created_at, updated_at)'
+             . ' VALUES (:name, :sector_code, :category_code, :priority_code, :status_code, :pm_id, :satisfaction, :nps, :risk_code, :tags, :area_code, :feedback_notes, :feedback_history, :operational_context, :logo_path, :active, NOW(), NOW())',
             [
                 ':name' => $payload['name'],
                 ':sector_code' => $payload['sector_code'],
@@ -203,6 +203,7 @@ class ClientsRepository
                 ':feedback_history' => $payload['feedback_history'] ?? null,
                 ':operational_context' => $payload['operational_context'] ?? null,
                 ':logo_path' => $payload['logo_path'] ?? null,
+                ':active' => isset($payload['active']) ? (int) $payload['active'] : 1,
             ]
         );
     }

@@ -93,6 +93,13 @@
             <span>NPS</span>
             <input type="number" name="nps" min="-100" max="100" placeholder="-100 a 100">
         </label>
+        <label class="input">
+            <span>Cliente activo</span>
+            <select name="active">
+                <option value="1" selected>Sí</option>
+                <option value="0">No</option>
+            </select>
+        </label>
         <label class="input" style="grid-column:1 / -1;">
             <span>Feedback (observaciones)</span>
             <textarea name="feedback_notes" rows="2" placeholder="Notas recientes de la relación"></textarea>
