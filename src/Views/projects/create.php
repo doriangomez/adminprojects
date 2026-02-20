@@ -852,6 +852,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         if (!stepValid) {
             return;
         }
+        if (!wizardForm.reportValidity()) {
+            return;
+        }
         if (wizardLoader) {
             wizardLoader.classList.add('is-visible');
             wizardLoader.setAttribute('aria-hidden', 'false');
