@@ -182,12 +182,27 @@ error_log(sprintf(
         }
         .nav-link.active::before { background: var(--primary); }
         .nav-icon {
-            width: 22px;
-            height: 22px;
+            width: 34px;
+            height: 34px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: inherit;
+            color: var(--primary);
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+            border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+            transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+        }
+        .nav-link:hover .nav-icon {
+            color: var(--secondary);
+            background: color-mix(in srgb, var(--accent) 45%, var(--surface));
+            transform: scale(1.06);
+        }
+        .nav-link.active .nav-icon {
+            color: var(--surface);
+            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 65%, var(--accent)));
+            border-color: color-mix(in srgb, var(--primary) 78%, var(--surface));
+            box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 34%, transparent);
         }
         .nav-label { white-space: nowrap; }
         .nav-badge {
@@ -201,7 +216,7 @@ error_log(sprintf(
             background: var(--accent);
             text-align: center;
         }
-        .nav-icon svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 2; }
+        .nav-icon svg { width: 65%; height: 65%; stroke: currentColor; stroke-width: 2.2; }
         .topbar {
             padding: 10px 22px;
             display: flex;
