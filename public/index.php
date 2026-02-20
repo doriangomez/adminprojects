@@ -1,7 +1,4 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 require_once __DIR__ . '/../src/Core/Database.php';
 require_once __DIR__ . '/../src/Core/DatabaseMigrator.php';
 require_once __DIR__ . '/../src/Core/Auth.php';
@@ -15,6 +12,15 @@ foreach ([
 ] as $dir) {
     foreach (glob(__DIR__ . '/../src/' . $dir . '/*.php') as $file) {
         require_once $file;
+    }
+}
+
+foreach (glob(__DIR__ . '/../src/Repositories/*.php') as $file) {
+    $repository = pathinfo($file, PATHINFO_FILENAME);
+    $fqcn = 'App\\Repositories\\' . $repository;
+
+    if (class_exists($fqcn) && !class_exists($repository)) {
+        class_alias($fqcn, $repository);
     }
 }
 
