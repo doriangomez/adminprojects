@@ -113,10 +113,20 @@ class ClientsController extends Controller
 
         try {
             $payload = $this->collectPayload();
+            $this->validateRequiredPayloadFields($payload);
             error_log('[clients.create] payload recibido (campos): ' . json_encode($this->payloadDiagnostics($payload), JSON_UNESCAPED_UNICODE));
             error_log('[clients.create] SQL a ejecutar (plantilla): ' . self::CLIENT_CREATE_SQL);
             $repo->create($payload);
             header('Location: /clients');
+            return;
+        } catch (\InvalidArgumentException $e) {
+            error_log('[clients.create] Validación fallida: ' . $e->getMessage());
+            http_response_code(422);
+            $this->render('clients/create', array_merge($this->formData(), [
+                'title' => 'Registrar cliente',
+                'error' => $e->getMessage(),
+            ]));
+            return;
         } catch (\PDOException $e) {
             error_log('Error al crear cliente: ' . $e->getMessage() . ' | code=' . (string) $e->getCode());
             http_response_code(500);
@@ -124,6 +134,15 @@ class ClientsController extends Controller
                 'title' => 'Registrar cliente',
                 'error' => 'No se pudo guardar el cliente. Intenta nuevamente o contacta al administrador.',
             ]));
+            return;
+        } catch (\Throwable $e) {
+            error_log('Error inesperado al crear cliente: ' . $e->getMessage());
+            http_response_code(500);
+            $this->render('clients/create', array_merge($this->formData(), [
+                'title' => 'Registrar cliente',
+                'error' => 'Se detectó un error inesperado durante la creación. Revisa el log para más detalle.',
+            ]));
+            return;
         }
     }
 
@@ -309,8 +328,10 @@ class ClientsController extends Controller
         $riskCode = $this->validatedCatalogValue($_POST['risk_code'] ?? '', $catalogs['risks'], 'riesgo', false);
         $areaCode = $this->validatedCatalogValue($_POST['area_code'] ?? '', $catalogs['areas'], 'área', false);
 
+        $name = trim($_POST['name'] ?? '');
+
         return [
-            'name' => trim($_POST['name'] ?? ''),
+            'name' => $name,
             'sector_code' => $sectorCode,
             'category_code' => $categoryCode,
             'priority_code' => $priorityCode,
@@ -400,15 +421,13 @@ class ClientsController extends Controller
         $pmId = (int) ($_POST['pm_id'] ?? 0);
         if ($pmId <= 0) {
             error_log('[clients.create] Validación fallida: pm_id inválido o ausente.');
-            http_response_code(400);
-            exit('Debes seleccionar un PM válido para el cliente.');
+            throw new \InvalidArgumentException('Debes seleccionar un PM válido para el cliente.');
         }
 
         $usersRepo = new UsersRepository($this->db);
         if (!$usersRepo->isValidProjectManager($pmId)) {
             error_log('[clients.create] Validación fallida: pm_id no corresponde a un PM habilitado. pm_id=' . $pmId);
-            http_response_code(400);
-            exit('El PM seleccionado no está disponible o no tiene permisos para gestionar clientes.');
+            throw new \InvalidArgumentException('El PM seleccionado no está disponible o no tiene permisos para gestionar clientes.');
         }
 
         error_log('[clients.create] Validación OK: pm_id=' . $pmId);
@@ -422,8 +441,7 @@ class ClientsController extends Controller
         if ($trimmed === '') {
             if ($required) {
                 error_log('[clients.create] Validación fallida: campo requerido vacío (' . $fieldLabel . ').');
-                http_response_code(400);
-                exit('Valor inválido para ' . $fieldLabel . '.');
+                throw new \InvalidArgumentException('Valor inválido para ' . $fieldLabel . '.');
             }
 
             error_log('[clients.create] Validación OK: campo opcional vacío permitido (' . $fieldLabel . ').');
@@ -433,13 +451,36 @@ class ClientsController extends Controller
         $codes = array_column($catalog, 'code');
         if (!in_array($trimmed, $codes, true)) {
             error_log('[clients.create] Validación fallida: código fuera de catálogo para ' . $fieldLabel . ' (' . $trimmed . ').');
-            http_response_code(400);
-            exit('Valor inválido para ' . $fieldLabel . '.');
+            throw new \InvalidArgumentException('Valor inválido para ' . $fieldLabel . '.');
         }
 
         error_log('[clients.create] Validación OK: ' . $fieldLabel . '=' . $trimmed);
 
         return $trimmed;
+    }
+
+
+    private function validateRequiredPayloadFields(array $payload): void
+    {
+        $requiredFields = [
+            'name' => 'nombre',
+            'sector_code' => 'sector',
+            'category_code' => 'categoría',
+            'priority_code' => 'prioridad',
+            'status_code' => 'estado',
+            'pm_id' => 'PM',
+        ];
+
+        foreach ($requiredFields as $field => $label) {
+            $value = $payload[$field] ?? null;
+            $isEmpty = $value === null || $value === '' || (is_int($value) && $value <= 0);
+            if ($isEmpty) {
+                error_log('[clients.create] Validación fallida: campo obligatorio ausente (' . $field . ').');
+                throw new \InvalidArgumentException('El campo obligatorio "' . $label . '" no fue enviado correctamente.');
+            }
+        }
+
+        error_log('[clients.create] Validación OK: campos obligatorios presentes.');
     }
 
     private function payloadDiagnostics(array $payload): array
