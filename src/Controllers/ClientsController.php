@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 class ClientsController extends Controller
 {
+    private const CLIENT_CREATE_SQL = 'INSERT INTO clients (name, sector_code, category_code, priority_code, status_code, pm_id, satisfaction, nps, risk_code, tags, area_code, feedback_notes, feedback_history, operational_context, logo_path, created_at, updated_at) VALUES (:name, :sector_code, :category_code, :priority_code, :status_code, :pm_id, :satisfaction, :nps, :risk_code, :tags, :area_code, :feedback_notes, :feedback_history, :operational_context, :logo_path, NOW(), NOW())';
+
     public function index(): void
     {
         $this->requirePermission('clients.view');
@@ -92,13 +94,31 @@ class ClientsController extends Controller
     public function store(): void
     {
         $this->requirePermission('clients.manage');
+        error_log('[clients.create] Entró al handler');
+        error_log(sprintf(
+            '[clients.create] request method=%s uri=%s actionEsperada=/clients/create contentType=%s postCount=%d postKeys=%s fileKeys=%s',
+            $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+            $_SERVER['REQUEST_URI'] ?? 'unknown',
+            $_SERVER['CONTENT_TYPE'] ?? 'unknown',
+            count($_POST),
+            implode(',', array_keys($_POST)),
+            implode(',', array_keys($_FILES))
+        ));
+
+        if ($this->isDebugEnabled()) {
+            $this->logDatabaseDiagnostics();
+        }
+
         $repo = new ClientsRepository($this->db);
 
         try {
-            $repo->create($this->collectPayload());
+            $payload = $this->collectPayload();
+            error_log('[clients.create] payload recibido (campos): ' . json_encode($this->payloadDiagnostics($payload), JSON_UNESCAPED_UNICODE));
+            error_log('[clients.create] SQL a ejecutar (plantilla): ' . self::CLIENT_CREATE_SQL);
+            $repo->create($payload);
             header('Location: /clients');
         } catch (\PDOException $e) {
-            error_log('Error al crear cliente: ' . $e->getMessage());
+            error_log('Error al crear cliente: ' . $e->getMessage() . ' | code=' . (string) $e->getCode());
             http_response_code(500);
             $this->render('clients/create', array_merge($this->formData(), [
                 'title' => 'Registrar cliente',
@@ -379,15 +399,19 @@ class ClientsController extends Controller
     {
         $pmId = (int) ($_POST['pm_id'] ?? 0);
         if ($pmId <= 0) {
+            error_log('[clients.create] Validación fallida: pm_id inválido o ausente.');
             http_response_code(400);
             exit('Debes seleccionar un PM válido para el cliente.');
         }
 
         $usersRepo = new UsersRepository($this->db);
         if (!$usersRepo->isValidProjectManager($pmId)) {
+            error_log('[clients.create] Validación fallida: pm_id no corresponde a un PM habilitado. pm_id=' . $pmId);
             http_response_code(400);
             exit('El PM seleccionado no está disponible o no tiene permisos para gestionar clientes.');
         }
+
+        error_log('[clients.create] Validación OK: pm_id=' . $pmId);
 
         return $pmId;
     }
@@ -397,19 +421,82 @@ class ClientsController extends Controller
         $trimmed = trim($value);
         if ($trimmed === '') {
             if ($required) {
+                error_log('[clients.create] Validación fallida: campo requerido vacío (' . $fieldLabel . ').');
                 http_response_code(400);
                 exit('Valor inválido para ' . $fieldLabel . '.');
             }
+
+            error_log('[clients.create] Validación OK: campo opcional vacío permitido (' . $fieldLabel . ').');
             return null;
         }
 
         $codes = array_column($catalog, 'code');
         if (!in_array($trimmed, $codes, true)) {
+            error_log('[clients.create] Validación fallida: código fuera de catálogo para ' . $fieldLabel . ' (' . $trimmed . ').');
             http_response_code(400);
             exit('Valor inválido para ' . $fieldLabel . '.');
         }
 
+        error_log('[clients.create] Validación OK: ' . $fieldLabel . '=' . $trimmed);
+
         return $trimmed;
+    }
+
+    private function payloadDiagnostics(array $payload): array
+    {
+        return [
+            'keys' => array_keys($payload),
+            'name_present' => ($payload['name'] ?? '') !== '',
+            'sector_code' => $payload['sector_code'] ?? null,
+            'category_code' => $payload['category_code'] ?? null,
+            'priority_code' => $payload['priority_code'] ?? null,
+            'status_code' => $payload['status_code'] ?? null,
+            'pm_id' => $payload['pm_id'] ?? null,
+            'has_logo_path' => !empty($payload['logo_path']),
+            'optional_present' => [
+                'satisfaction' => array_key_exists('satisfaction', $payload) && $payload['satisfaction'] !== null,
+                'nps' => array_key_exists('nps', $payload) && $payload['nps'] !== null,
+                'risk_code' => !empty($payload['risk_code']),
+                'tags' => !empty($payload['tags']),
+                'area_code' => !empty($payload['area_code']),
+                'feedback_notes' => !empty($payload['feedback_notes']),
+                'feedback_history' => !empty($payload['feedback_history']),
+                'operational_context' => !empty($payload['operational_context']),
+            ],
+        ];
+    }
+
+    private function isDebugEnabled(): bool
+    {
+        $flag = strtolower((string) (getenv('APP_DEBUG') ?: getenv('CLIENT_CREATE_DEBUG') ?: ''));
+        return in_array($flag, ['1', 'true', 'on', 'yes'], true);
+    }
+
+    private function logDatabaseDiagnostics(): void
+    {
+        try {
+            $dbName = $this->db->databaseName();
+            $selectedDb = $this->db->fetchOne('SELECT DATABASE() AS db_name');
+            $selectedDbName = $selectedDb['db_name'] ?? '(null)';
+            $currentUser = $this->db->fetchOne('SELECT CURRENT_USER() AS current_user');
+            $currentUserName = $currentUser['current_user'] ?? 'unknown';
+
+            error_log('[clients.create][debug] DB configurada=' . $dbName . ' DB activa=' . $selectedDbName . ' usuario=' . $currentUserName);
+
+            $insertPrivilege = $this->db->fetchOne(
+                'SELECT PRIVILEGE_TYPE
+                 FROM information_schema.SCHEMA_PRIVILEGES
+                 WHERE TABLE_SCHEMA = :schema
+                   AND GRANTEE = CONCAT("\"", SUBSTRING_INDEX(CURRENT_USER(), "@", 1), "\"@\"", SUBSTRING_INDEX(CURRENT_USER(), "@", -1), "\"")
+                   AND PRIVILEGE_TYPE = "INSERT"
+                 LIMIT 1',
+                [':schema' => $dbName]
+            );
+
+            error_log('[clients.create][debug] Permiso INSERT en esquema ' . $dbName . ': ' . (($insertPrivilege['PRIVILEGE_TYPE'] ?? '') === 'INSERT' ? 'sí' : 'no o no verificable'));
+        } catch (\Throwable $e) {
+            error_log('[clients.create][debug] No se pudo completar diagnóstico de conexión/permisos: ' . $e->getMessage());
+        }
     }
 
     private function isAdmin(): bool
