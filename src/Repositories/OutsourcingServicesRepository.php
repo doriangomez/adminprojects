@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use Database;
+
 class OutsourcingServicesRepository
 {
     private const FREQUENCIES = ['weekly', 'monthly'];

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Repositories\TalentsRepository;
+use App\Repositories\TasksRepository;
+
 class TasksController extends Controller
 {
     private const ALLOWED_STATUSES = ['todo', 'in_progress', 'review', 'blocked', 'done'];

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Repositories\ProjectNodesRepository;
+use App\Repositories\TimesheetsRepository;
+
 class ApprovalsController extends Controller
 {
     public function index(): void

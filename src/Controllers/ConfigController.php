@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Repositories\AuditLogRepository;
+use App\Repositories\MasterFilesRepository;
+use App\Repositories\NotificationsLogRepository;
+use App\Repositories\PermissionsRepository;
+use App\Repositories\RiskCatalogRepository;
+use App\Repositories\RolesRepository;
+use App\Repositories\ThemeRepository;
+use App\Repositories\UsersRepository;
+
 class ConfigController extends Controller
 {
     public function index(): void

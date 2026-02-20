@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use Database;
+
 class ClientsRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];

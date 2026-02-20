@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use ConfigService;
+use Database;
+
 class ThemeRepository
 {
     private ConfigService $configService;

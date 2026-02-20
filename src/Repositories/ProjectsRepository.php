@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use ConfigService;
+use Database;
+use InvalidArgumentException;
+
 class ProjectsRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];

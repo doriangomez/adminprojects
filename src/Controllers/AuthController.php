@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Repositories\AuditLogRepository;
+use App\Repositories\ThemeRepository;
+
 class AuthController extends Controller
 {
     private function resolveBasePath(): string

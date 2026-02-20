@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Repositories\TalentCapacityRepository;
+
 class TalentCapacityController extends Controller
 {
     public function index(): void

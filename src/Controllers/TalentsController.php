@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Repositories\AuditLogRepository;
+use App\Repositories\ClientsRepository;
+use App\Repositories\OutsourcingServicesRepository;
+use App\Repositories\ProjectNodesRepository;
+use App\Repositories\ProjectsRepository;
+use App\Repositories\TalentsRepository;
+
 class TalentsController extends Controller
 {
     public function index(): void

@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use Database;
+
 class TalentsRepository
 {
     private const DEFAULT_OUTSOURCING_FLAG = 0;

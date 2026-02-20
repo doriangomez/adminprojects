@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Repositories\AuditLogRepository;
+use App\Repositories\TimesheetsRepository;
+
 class TimesheetsController extends Controller
 {
     public function index(): void
