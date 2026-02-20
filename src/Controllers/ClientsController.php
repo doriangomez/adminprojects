@@ -93,6 +93,18 @@ class ClientsController extends Controller
 
     public function store(): void
     {
+        error_log("TEST STORE ENTRÓ");
+        $repo = new \App\Repositories\ClientsRepository();
+        $repo->create([
+            'name' => 'CLIENTE_TEST_DIRECTO',
+            'sector_id' => 1,
+            'category_id' => 1,
+            'priority_id' => 1,
+            'status_id' => 1,
+            'pm_id' => 1
+        ]);
+        die("TEST EJECUTADO");
+
         $this->requirePermission('clients.manage');
         error_log('[clients.create] Entré a crear cliente');
         error_log(sprintf(
