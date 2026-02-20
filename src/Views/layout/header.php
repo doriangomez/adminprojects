@@ -148,75 +148,97 @@ error_log(sprintf(
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             --nav-tone: var(--primary);
+            --nav-tone-soft: color-mix(in srgb, var(--nav-tone) 22%, var(--surface));
             display: flex;
             align-items: center;
             gap: 12px;
             color: var(--text-secondary);
             text-decoration: none;
             padding: 14px 12px;
-            border-radius: 12px;
+            border-radius: 14px;
             position: relative;
-            border: 1px solid var(--background);
+            border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
             font-weight: 600;
             font-size: 16px;
+            overflow: hidden;
+            transition: border-color 0.22s ease, transform 0.22s ease, background-color 0.22s ease;
         }
         .nav-link::before {
             content: '';
             position: absolute;
-            left: 10px;
-            top: 10px;
-            bottom: 10px;
+            left: 9px;
+            top: 9px;
+            bottom: 9px;
             width: 3px;
             border-radius: 8px;
-            background: color-mix(in srgb, var(--nav-tone) 35%, var(--background));
+            background: color-mix(in srgb, var(--nav-tone) 28%, transparent);
+            transition: background-color 0.22s ease;
         }
-        .nav-link:nth-of-type(1) { --nav-tone: #4f46e5; }
-        .nav-link:nth-of-type(2) { --nav-tone: #0ea5e9; }
-        .nav-link:nth-of-type(3) { --nav-tone: #06b6d4; }
-        .nav-link:nth-of-type(4) { --nav-tone: #14b8a6; }
-        .nav-link:nth-of-type(5) { --nav-tone: #f59e0b; }
-        .nav-link:nth-of-type(6) { --nav-tone: #8b5cf6; }
-        .nav-link:nth-of-type(7) { --nav-tone: #ec4899; }
-        .nav-link:nth-of-type(8) { --nav-tone: #22c55e; }
-        .nav-link:nth-of-type(9) { --nav-tone: #3b82f6; }
-        .nav-link:nth-of-type(10) { --nav-tone: #f97316; }
-        .nav-link[href$='/logout'] { --nav-tone: #ef4444; }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(120deg, color-mix(in srgb, var(--nav-tone) 10%, transparent), transparent 45%);
+            opacity: 0;
+            transition: opacity 0.22s ease;
+            pointer-events: none;
+        }
+        .nav-link[data-tone='indigo'] { --nav-tone: #6366f1; }
+        .nav-link[data-tone='sky'] { --nav-tone: #0ea5e9; }
+        .nav-link[data-tone='cyan'] { --nav-tone: #06b6d4; }
+        .nav-link[data-tone='teal'] { --nav-tone: #14b8a6; }
+        .nav-link[data-tone='amber'] { --nav-tone: #f59e0b; }
+        .nav-link[data-tone='violet'] { --nav-tone: #8b5cf6; }
+        .nav-link[data-tone='pink'] { --nav-tone: #ec4899; }
+        .nav-link[data-tone='green'] { --nav-tone: #22c55e; }
+        .nav-link[data-tone='blue'] { --nav-tone: #3b82f6; }
+        .nav-link[data-tone='orange'] { --nav-tone: #f97316; }
+        .nav-link[data-tone='red'] { --nav-tone: #ef4444; }
         .nav-link:hover {
-            color: var(--text-secondary);
-            background: color-mix(in srgb, var(--surface) 12%, var(--background));
-            border-color: color-mix(in srgb, var(--nav-tone) 45%, var(--border));
+            color: var(--text-primary);
+            background: color-mix(in srgb, var(--surface) 16%, var(--background));
+            border-color: color-mix(in srgb, var(--nav-tone) 52%, var(--border));
+            transform: translateX(2px);
         }
+        .nav-link:hover::after { opacity: 1; }
         .nav-link.active {
-            color: var(--nav-tone);
+            color: var(--text-primary);
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 18%, var(--background));
-            border-color: color-mix(in srgb, var(--nav-tone) 48%, var(--border));
+            background: color-mix(in srgb, var(--surface) 24%, var(--background));
+            border-color: color-mix(in srgb, var(--nav-tone) 60%, var(--border));
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-tone) 24%, transparent);
         }
         .nav-link.active::before { background: var(--nav-tone); }
         .nav-icon {
-            width: 34px;
-            height: 34px;
+            width: 38px;
+            height: 38px;
+            position: relative;
+            z-index: 1;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             color: var(--nav-tone);
-            border-radius: 10px;
-            background: color-mix(in srgb, var(--nav-tone) 20%, var(--surface));
-            border: 1px solid color-mix(in srgb, var(--nav-tone) 45%, var(--border));
-            transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+            border-radius: 12px;
+            background: linear-gradient(155deg, color-mix(in srgb, var(--nav-tone) 26%, #ffffff), var(--nav-tone-soft));
+            border: 1px solid color-mix(in srgb, var(--nav-tone) 50%, var(--border));
+            box-shadow: 0 5px 12px color-mix(in srgb, var(--nav-tone) 20%, transparent);
+            transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, color 0.22s ease;
         }
         .nav-link:hover .nav-icon {
             color: #ffffff;
-            background: linear-gradient(135deg, color-mix(in srgb, var(--nav-tone) 85%, #111827), var(--nav-tone));
-            transform: scale(1.08);
+            background: linear-gradient(140deg, color-mix(in srgb, var(--nav-tone) 82%, #111827), var(--nav-tone));
+            box-shadow: 0 10px 18px color-mix(in srgb, var(--nav-tone) 40%, transparent);
+            transform: translateY(-1px) scale(1.06);
         }
         .nav-link.active .nav-icon {
             color: #ffffff;
-            background: linear-gradient(135deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 68%, #111827));
-            border-color: color-mix(in srgb, var(--nav-tone) 75%, var(--surface));
-            box-shadow: 0 8px 18px color-mix(in srgb, var(--nav-tone) 36%, transparent);
+            background: linear-gradient(145deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 64%, #0f172a));
+            border-color: color-mix(in srgb, var(--nav-tone) 78%, var(--surface));
+            box-shadow: 0 12px 22px color-mix(in srgb, var(--nav-tone) 45%, transparent);
+            transform: translateY(-1px);
         }
-        .nav-label { white-space: nowrap; }
+        .nav-label { white-space: nowrap; position: relative; z-index: 1; }
         .nav-badge {
             margin-left: auto;
             min-width: 24px;
@@ -227,8 +249,11 @@ error_log(sprintf(
             color: var(--text-primary);
             background: var(--accent);
             text-align: center;
+            position: relative;
+            z-index: 1;
         }
-        .nav-icon svg { width: 65%; height: 65%; stroke: currentColor; stroke-width: 2.2; }
+        .nav-icon svg { width: 66%; height: 66%; stroke: currentColor; stroke-width: 2.2; }
+        .nav-icon--emoji { font-size: 20px; line-height: 1; }
         .topbar {
             padding: 10px 22px;
             display: flex;
@@ -571,50 +596,50 @@ error_log(sprintf(
         <h3 class="nav-title">Navegación</h3>
         <nav>
             <span class="nav-section-label">Operación</span>
-            <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>" data-tone="indigo">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 13h5v7H4zM10 4h4v16h-4zM16 9h4v11h-4z"/></svg></span>
                 <span class="nav-label">Dashboard</span>
             </a>
-            <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>" data-tone="sky">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
                 <span class="nav-label">Proyectos</span>
             </a>
-            <a href="<?= $basePath ?>/clients" class="nav-link <?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/clients" class="nav-link <?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>" data-tone="cyan">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M5 7a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm8 1h6l-1 12h-4zM3 21a4 4 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Clientes</span>
             </a>
 
             <div class="nav-divider" aria-hidden="true"></div>
             <span class="nav-section-label">Gestión</span>
-            <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>" data-tone="teal">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
                 <span class="nav-label">Outsourcing</span>
             </a>
-            <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>" data-tone="amber">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12h6l2 3 4-6h4"/><path d="M5 20h14"/><path d="M7 4h10v4H7z"/></svg></span>
                 <span class="nav-label">Aprobaciones</span>
                 <?php if (!empty($approvalBadgeCount)): ?>
                     <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
                 <?php endif; ?>
             </a>
-            <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>
             <?php if ($timesheetsEnabled): ?>
-                <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>">
-                    <span class="nav-icon" aria-hidden="true">⏱️</span>
+                <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>" data-tone="pink">
+                    <span class="nav-icon nav-icon--emoji" aria-hidden="true">⏱️</span>
                     <span class="nav-label">Timesheet</span>
                     <?php if (!empty($timesheetPendingCount)): ?>
                         <span class="nav-badge" aria-label="Timesheets pendientes"><?= (int) $timesheetPendingCount ?></span>
                     <?php endif; ?>
                 </a>
             <?php endif; ?>
-            <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>" data-tone="green">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
-            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>">
+            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 18h16"/><path d="M7 18v-5"/><path d="M12 18V6"/><path d="M17 18v-9"/></svg></span>
                 <span class="nav-label">Carga talento</span>
             </a>
@@ -622,13 +647,13 @@ error_log(sprintf(
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>
-                <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>">
+                <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>" data-tone="orange">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm8-1-1.5-.5a2 2 0 0 1-1.3-1.3L17 4l-2-.5-1 1.8a2 2 0 0 1-1.7 1L10 6l-.5 2 1.8 1a2 2 0 0 1 1 1.7L12 14l2 .5 1-1.8a2 2 0 0 1 1.7-1l1.8-.2Z"/></svg></span>
                     <span class="nav-label">Configuración</span>
                 </a>
             <?php endif; ?>
             <div class="nav-divider" aria-hidden="true"></div>
-            <a href="<?= $basePath ?>/logout" class="nav-link">
+            <a href="<?= $basePath ?>/logout" class="nav-link" data-tone="red">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M15 4h-5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m10 9 3 3-3 3"/><path d="M13 12H4"/></svg></span>
                 <span class="nav-label">Salir</span>
             </a>
