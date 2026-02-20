@@ -8,7 +8,7 @@ use App\Repositories\UsersRepository;
 
 class ClientsController extends Controller
 {
-    private const CLIENT_CREATE_SQL = 'INSERT INTO clients (name, sector_code, category_code, priority_code, status_code, pm_id, satisfaction, nps, risk_code, tags, area_code, feedback_notes, feedback_history, operational_context, logo_path, created_at, updated_at) VALUES (:name, :sector_code, :category_code, :priority_code, :status_code, :pm_id, :satisfaction, :nps, :risk_code, :tags, :area_code, :feedback_notes, :feedback_history, :operational_context, :logo_path, NOW(), NOW())';
+    private const CLIENT_CREATE_SQL = 'INSERT INTO clients (name, sector_code, category_code, priority_code, status_code, pm_id, satisfaction, nps, risk_code, tags, area_code, feedback_notes, feedback_history, operational_context, logo_path, active, created_at, updated_at) VALUES (:name, :sector_code, :category_code, :priority_code, :status_code, :pm_id, :satisfaction, :nps, :risk_code, :tags, :area_code, :feedback_notes, :feedback_history, :operational_context, :logo_path, :active, NOW(), NOW())';
 
     public function index(): void
     {
@@ -414,6 +414,7 @@ class ClientsController extends Controller
             'feedback_history' => trim($_POST['feedback_history'] ?? ''),
             'operational_context' => trim($_POST['operational_context'] ?? ''),
             'logo_path' => $logoPath ?: null,
+            'active' => (int) ($_POST['active'] ?? 1) === 0 ? 0 : 1,
         ];
     }
 
@@ -571,6 +572,7 @@ class ClientsController extends Controller
                 'feedback_notes' => !empty($payload['feedback_notes']),
                 'feedback_history' => !empty($payload['feedback_history']),
                 'operational_context' => !empty($payload['operational_context']),
+                'active' => isset($payload['active']) ? (int) $payload['active'] : null,
             ],
         ];
     }
