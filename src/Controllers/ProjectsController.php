@@ -1913,7 +1913,6 @@ class ProjectsController extends Controller
         if (!in_array($status, self::DOCUMENT_STATUSES, true)) {
             throw new \InvalidArgumentException('Estado documental inválido.');
         }
-
         $payload = [
             'document_status' => $status,
             'reviewed_by' => $nodeFlow['reviewed_by'],
@@ -2670,6 +2669,11 @@ class ProjectsController extends Controller
             'budget' => $budget,
         ]);
 
+        $startDate = $this->nullableDate($_POST['start_date'] ?? null);
+        if ($startDate === null) {
+            throw new \InvalidArgumentException('La fecha de inicio del proyecto es obligatoria.');
+        }
+
         $payload = [
             'client_id' => $clientId,
             'pm_id' => $pmId,
@@ -2689,7 +2693,7 @@ class ProjectsController extends Controller
             'planned_hours' => $plannedHours,
             'actual_hours' => $actualHours,
             'progress' => $progress,
-            'start_date' => $this->nullableDate($_POST['start_date'] ?? null),
+            'start_date' => $startDate,
             'end_date' => $endDate,
             'risks' => $riskAssessment['selected'],
             'risk_evaluations' => $riskAssessment['evaluations'],

@@ -839,10 +839,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         const stepValid = isStepValid(currentStep);
         updateValidationMessage(stepValid || currentStep !== 0);
         if (nextButton) {
-            nextButton.disabled = !stepValid;
+            nextButton.disabled = false;
         }
         if (submitButton) {
-            submitButton.disabled = !stepValid;
+            submitButton.disabled = false;
         }
     }
 
