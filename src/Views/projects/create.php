@@ -458,7 +458,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         <div class="wizard-footer__actions">
             <a class="btn ghost" href="<?= $basePath ?>/projects">Cancelar</a>
             <button type="button" class="btn" data-nav="next" <?= $canCreateProject ? '' : 'disabled' ?>>Siguiente</button>
-            <button type="button" class="btn primary" data-nav="submit" <?= $canCreateProject ? '' : 'disabled' ?>>Crear proyecto</button>
+            <button type="submit" class="btn primary" data-nav="submit" <?= $canCreateProject ? '' : 'disabled' ?>>
+                <span class="btn-spinner" aria-hidden="true"></span>
+                <span data-submit-label>Crear proyecto</span>
+            </button>
         </div>
     </div>
 </form>
@@ -558,6 +561,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .wizard-loader.is-visible { display:flex; }
     .wizard-loader__card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:14px; box-shadow: 0 18px 40px color-mix(in srgb, var(--text-primary) 35%, var(--background)); }
     .wizard-loader__spinner { width:28px; height:28px; border-radius:50%; border:3px solid color-mix(in srgb, var(--primary) 25%, var(--background)); border-top-color: var(--primary); animation: spin 1s linear infinite; }
+    .btn .btn-spinner { display:none; width:14px; height:14px; border-radius:50%; border:2px solid color-mix(in srgb, var(--surface) 55%, transparent); border-top-color: var(--surface); animation: spin .9s linear infinite; }
+    .btn.is-loading .btn-spinner { display:inline-block; }
+    .btn.is-loading [data-submit-label] { opacity:.92; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 840px) {
         .wizard-steps { grid-template-columns: 1fr; }
@@ -596,6 +602,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const wizardForm = document.getElementById('projectWizardForm');
     const wizardLoader = document.getElementById('wizardLoader');
     const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban', outsourcing: 'cascada' };
+    let isSubmitting = false;
 
     let currentStep = 0;
     let hasValidatedStep0 = false;
@@ -846,30 +853,24 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
     }
 
-    function submitProjectCreation() {
-        if (!wizardForm) return;
-        const stepValid = validateStep(currentStep);
-        if (!stepValid) {
-            return;
-        }
-        if (!wizardForm.reportValidity()) {
-            return;
-        }
+    function setSubmittingState(submitting) {
+        isSubmitting = submitting;
         if (wizardLoader) {
-            wizardLoader.classList.add('is-visible');
-            wizardLoader.setAttribute('aria-hidden', 'false');
+            wizardLoader.classList.toggle('is-visible', submitting);
+            wizardLoader.setAttribute('aria-hidden', submitting ? 'false' : 'true');
         }
+
+        if (!wizardForm) return;
         const actionButtons = wizardForm.querySelectorAll('button, a.btn');
         actionButtons.forEach((button) => {
-            button.setAttribute('aria-disabled', 'true');
+            button.setAttribute('aria-disabled', submitting ? 'true' : 'false');
             if (button.tagName === 'BUTTON') {
-                button.disabled = true;
+                button.disabled = submitting;
             }
         });
-        if (typeof wizardForm.requestSubmit === 'function') {
-            wizardForm.requestSubmit();
-        } else {
-            wizardForm.submit();
+
+        if (submitButton) {
+            submitButton.classList.toggle('is-loading', submitting);
         }
     }
 
@@ -946,7 +947,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     if (submitButton) {
         submitButton.addEventListener('click', () => {
-            submitProjectCreation();
+            console.log('CLICK CREAR PROYECTO');
         });
     }
 
@@ -965,18 +966,28 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     });
 
     if (wizardForm) {
-        wizardForm.addEventListener('submit', () => {
-            if (wizardLoader) {
-                wizardLoader.classList.add('is-visible');
-                wizardLoader.setAttribute('aria-hidden', 'false');
+        wizardForm.addEventListener('submit', (event) => {
+            console.log('[Wizard] Evento submit detectado');
+            if (isSubmitting) {
+                event.preventDefault();
+                return;
             }
-            const actionButtons = wizardForm.querySelectorAll('button, a.btn');
-            actionButtons.forEach((button) => {
-                button.setAttribute('aria-disabled', 'true');
-                if (button.tagName === 'BUTTON') {
-                    button.disabled = true;
-                }
-            });
+
+            const stepValid = validateStep(currentStep);
+            const formValid = stepValid && wizardForm.reportValidity();
+            if (!formValid) {
+                event.preventDefault();
+                setSubmittingState(false);
+                return;
+            }
+
+            alert('Intentando crear proyecto');
+            console.log('[Wizard] Submit válido, iniciando guardado');
+            setSubmittingState(true);
         });
     }
+
+    window.addEventListener('pageshow', () => {
+        setSubmittingState(false);
+    });
 </script>
