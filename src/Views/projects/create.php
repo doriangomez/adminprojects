@@ -945,6 +945,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         });
     }
 
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            console.log('CLICK CREAR PROYECTO');
+        });
+    }
+
     wizardSections.forEach((section) => {
         section.querySelectorAll('input, select, textarea').forEach((field) => {
             field.addEventListener('input', () => {
@@ -961,6 +967,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     if (wizardForm) {
         wizardForm.addEventListener('submit', (event) => {
+            console.log('[Wizard] Evento submit detectado');
             if (isSubmitting) {
                 event.preventDefault();
                 return;
@@ -974,6 +981,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 return;
             }
 
+            alert('Intentando crear proyecto');
+            console.log('[Wizard] Submit válido, iniciando guardado');
             setSubmittingState(true);
         });
     }
