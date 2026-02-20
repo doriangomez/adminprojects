@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use Database;
+use DateTimeImmutable;
+
 class OutsourcingRepository
 {
     private const FREQUENCIES = ['weekly', 'biweekly', 'monthly'];

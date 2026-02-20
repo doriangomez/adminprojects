@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use Database;
+use DateTimeImmutable;
+
 class TalentCapacityRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];

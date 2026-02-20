@@ -2,6 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Repositories\AuditLogRepository;
+use App\Repositories\ClientsRepository;
+use App\Repositories\MasterFilesRepository;
+use App\Repositories\OutsourcingRepository;
+use App\Repositories\ProjectNodesRepository;
+use App\Repositories\ProjectsRepository;
+use App\Repositories\TalentsRepository;
+use App\Repositories\TasksRepository;
+use App\Repositories\UsersRepository;
+
 class ProjectsController extends Controller
 {
     private const FINAL_STATUSES = ['closed', 'finalizado', 'finalized', 'cerrado'];

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Repositories\UsersRepository;
+
 class UsersController extends Controller
 {
     public function index(): void

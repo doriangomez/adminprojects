@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace App\Repositories;
+
+use Database;
+use InvalidArgumentException;
+
 class TimesheetsRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];
