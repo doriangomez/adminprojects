@@ -99,6 +99,7 @@ class App
             $controller = new ClientsController($this->db, $this->auth);
             if ($path === '/clients/create') {
                 if ($method === 'POST') {
+                    error_log('[clients.create] Route matched: POST /clients/create -> ClientsController::store');
                     $controller->store();
                     return;
                 }
