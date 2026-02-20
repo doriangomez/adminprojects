@@ -11,29 +11,6 @@
         <div class="alert error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <?php if (!empty($diagnostic)): ?>
-        <?php
-            $diagnosticJsonOptions = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
-            $insertWasSuccessful = !empty($diagnostic['insert_ok']);
-        ?>
-        <div class="alert <?= $insertWasSuccessful ? 'success' : 'error' ?>" style="margin-bottom: 16px;">
-            <strong>Diagnóstico temporal del submit</strong><br>
-            Insert exitoso: <strong><?= $insertWasSuccessful ? 'Sí' : 'No' ?></strong><br>
-            ID insertado: <strong><?= isset($diagnostic['insert_id']) ? htmlspecialchars((string) $diagnostic['insert_id']) : 'N/A' ?></strong><br>
-            Mensaje interno: <strong><?= htmlspecialchars((string) ($diagnostic['internal_message'] ?? 'Sin mensaje')) ?></strong>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px; background: #fafafa;">
-            <h4 style="margin-top: 0;">Payload recibido</h4>
-            <pre style="white-space: pre-wrap; word-break: break-word;"><?= htmlspecialchars((string) json_encode($diagnostic['request_payload'] ?? [], $diagnosticJsonOptions)) ?></pre>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px; background: #fafafa;">
-            <h4 style="margin-top: 0;">Resultado del intento de guardado</h4>
-            <pre style="white-space: pre-wrap; word-break: break-word;"><?= htmlspecialchars((string) json_encode($diagnostic['save_result'] ?? [], $diagnosticJsonOptions)) ?></pre>
-        </div>
-    <?php endif; ?>
-
     <form class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;" method="POST" action="/clients/create" enctype="multipart/form-data">
         <label class="input">
             <span>Nombre *</span>
