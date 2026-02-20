@@ -111,6 +111,10 @@ class ClientsController extends Controller
         $this->logDatabaseDiagnostics();
 
         $repo = new ClientsRepository($this->db);
+        $requestPayload = [
+            'post' => $_POST,
+            'files' => $this->filesDiagnostics($_FILES),
+        ];
 
         try {
             $payload = $this->collectPayload();
@@ -120,7 +124,19 @@ class ClientsController extends Controller
             error_log('[clients.create] SQL a ejecutar (plantilla): ' . self::CLIENT_CREATE_SQL);
             $newClientId = $repo->create($payload);
             error_log('[clients.create] Resultado INSERT | ok=1 | client_id=' . $newClientId);
-            header('Location: /clients');
+            $this->render('clients/create', array_merge($this->formData(), [
+                'title' => 'Registrar cliente',
+                'diagnostic' => [
+                    'insert_ok' => true,
+                    'insert_id' => $newClientId,
+                    'internal_message' => 'Cliente guardado correctamente.',
+                    'request_payload' => $requestPayload,
+                    'save_result' => [
+                        'status' => 'success',
+                        'message' => 'INSERT ejecutado sin errores.',
+                    ],
+                ],
+            ]));
             return;
         } catch (\InvalidArgumentException $e) {
             error_log('[clients.create] Validación fallida: ' . $e->getMessage());
@@ -128,6 +144,16 @@ class ClientsController extends Controller
             $this->render('clients/create', array_merge($this->formData(), [
                 'title' => 'Registrar cliente',
                 'error' => $e->getMessage(),
+                'diagnostic' => [
+                    'insert_ok' => false,
+                    'insert_id' => null,
+                    'internal_message' => $e->getMessage(),
+                    'request_payload' => $requestPayload,
+                    'save_result' => [
+                        'status' => 'validation_error',
+                        'message' => 'No se intentó guardar por validación.',
+                    ],
+                ],
             ]));
             return;
         } catch (\PDOException $e) {
@@ -137,6 +163,18 @@ class ClientsController extends Controller
             $this->render('clients/create', array_merge($this->formData(), [
                 'title' => 'Registrar cliente',
                 'error' => 'No se pudo guardar el cliente. Intenta nuevamente o contacta al administrador.',
+                'diagnostic' => [
+                    'insert_ok' => false,
+                    'insert_id' => null,
+                    'internal_message' => $e->getMessage(),
+                    'request_payload' => $requestPayload,
+                    'save_result' => [
+                        'status' => 'database_error',
+                        'message' => 'El INSERT falló en base de datos.',
+                        'code' => (string) $e->getCode(),
+                        'error_info' => $errorInfo,
+                    ],
+                ],
             ]));
             return;
         } catch (\Throwable $e) {
@@ -145,9 +183,35 @@ class ClientsController extends Controller
             $this->render('clients/create', array_merge($this->formData(), [
                 'title' => 'Registrar cliente',
                 'error' => 'Se detectó un error inesperado durante la creación. Revisa el log para más detalle.',
+                'diagnostic' => [
+                    'insert_ok' => false,
+                    'insert_id' => null,
+                    'internal_message' => $e->getMessage(),
+                    'request_payload' => $requestPayload,
+                    'save_result' => [
+                        'status' => 'unexpected_error',
+                        'message' => 'Se produjo una excepción no controlada.',
+                    ],
+                ],
             ]));
             return;
         }
+    }
+
+    private function filesDiagnostics(array $files): array
+    {
+        $output = [];
+
+        foreach ($files as $field => $file) {
+            $output[$field] = [
+                'name' => $file['name'] ?? null,
+                'type' => $file['type'] ?? null,
+                'size' => $file['size'] ?? null,
+                'error' => $file['error'] ?? null,
+            ];
+        }
+
+        return $output;
     }
 
     public function update(int $id): void
