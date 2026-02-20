@@ -12,11 +12,11 @@
     <?php endif; ?>
     <form class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;" method="POST" action="/clients/create" enctype="multipart/form-data">
         <label class="input">
-            <span>Nombre</span>
+            <span>Nombre *</span>
             <input type="text" name="name" placeholder="Nombre del cliente" required>
         </label>
         <label class="input">
-            <span>Sector</span>
+            <span>Sector *</span>
             <select name="sector_code" required>
                 <option value="">Selecciona sector</option>
                 <?php foreach($sectors as $sector): ?>
@@ -25,7 +25,7 @@
             </select>
         </label>
         <label class="input">
-            <span>Categoría</span>
+            <span>Categoría *</span>
             <select name="category_code" required>
                 <option value="">Selecciona categoría</option>
                 <?php foreach($categories as $category): ?>
@@ -34,7 +34,7 @@
             </select>
         </label>
         <label class="input">
-            <span>Prioridad</span>
+            <span>Prioridad *</span>
             <select name="priority_code" required>
                 <?php foreach($priorities as $priority): ?>
                     <option value="<?= htmlspecialchars($priority['code']) ?>"><?= htmlspecialchars($priority['label']) ?></option>
@@ -42,7 +42,7 @@
             </select>
         </label>
         <label class="input">
-            <span>Estado</span>
+            <span>Estado *</span>
             <select name="status_code" required>
                 <?php foreach($statuses as $status): ?>
                     <option value="<?= htmlspecialchars($status['code']) ?>"><?= htmlspecialchars($status['label']) ?></option>
@@ -50,7 +50,7 @@
             </select>
         </label>
         <label class="input">
-            <span>PM a cargo</span>
+            <span>PM a cargo *</span>
             <select name="pm_id" required>
                 <?php foreach($projectManagers as $pm): ?>
                     <option value="<?= (int) $pm['id'] ?>"><?= htmlspecialchars($pm['name']) ?> (<?= htmlspecialchars($pm['role_name']) ?>)</option>
