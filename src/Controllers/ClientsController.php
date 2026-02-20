@@ -94,7 +94,7 @@ class ClientsController extends Controller
     public function store(): void
     {
         $this->requirePermission('clients.manage');
-        error_log('[clients.create] Entró al handler');
+        error_log('[clients.create] Entré a crear cliente');
         error_log(sprintf(
             '[clients.create] request method=%s uri=%s actionEsperada=/clients/create contentType=%s postCount=%d postKeys=%s fileKeys=%s',
             $_SERVER['REQUEST_METHOD'] ?? 'unknown',
@@ -104,19 +104,18 @@ class ClientsController extends Controller
             implode(',', array_keys($_POST)),
             implode(',', array_keys($_FILES))
         ));
-
-        if ($this->isDebugEnabled()) {
-            $this->logDatabaseDiagnostics();
-        }
+        $this->logDatabaseDiagnostics();
 
         $repo = new ClientsRepository($this->db);
 
         try {
             $payload = $this->collectPayload();
             $this->validateRequiredPayloadFields($payload);
+            error_log('[clients.create] Voy a insertar | campos recibidos=' . json_encode(array_keys($payload), JSON_UNESCAPED_UNICODE));
             error_log('[clients.create] payload recibido (campos): ' . json_encode($this->payloadDiagnostics($payload), JSON_UNESCAPED_UNICODE));
             error_log('[clients.create] SQL a ejecutar (plantilla): ' . self::CLIENT_CREATE_SQL);
-            $repo->create($payload);
+            $newClientId = $repo->create($payload);
+            error_log('[clients.create] Resultado INSERT | ok=1 | client_id=' . $newClientId);
             header('Location: /clients');
             return;
         } catch (\InvalidArgumentException $e) {
@@ -128,7 +127,8 @@ class ClientsController extends Controller
             ]));
             return;
         } catch (\PDOException $e) {
-            error_log('Error al crear cliente: ' . $e->getMessage() . ' | code=' . (string) $e->getCode());
+            $errorInfo = $e->errorInfo ?? null;
+            error_log('[clients.create] Resultado INSERT | ok=0 | mensaje=' . $e->getMessage() . ' | code=' . (string) $e->getCode() . ' | errorInfo=' . json_encode($errorInfo, JSON_UNESCAPED_UNICODE));
             http_response_code(500);
             $this->render('clients/create', array_merge($this->formData(), [
                 'title' => 'Registrar cliente',
@@ -475,7 +475,7 @@ class ClientsController extends Controller
             $value = $payload[$field] ?? null;
             $isEmpty = $value === null || $value === '' || (is_int($value) && $value <= 0);
             if ($isEmpty) {
-                error_log('[clients.create] Validación fallida: campo obligatorio ausente (' . $field . ').');
+                error_log('[clients.create] Validación bloqueó guardado | regla=required | campo=' . $field);
                 throw new \InvalidArgumentException('El campo obligatorio "' . $label . '" no fue enviado correctamente.');
             }
         }
@@ -522,7 +522,7 @@ class ClientsController extends Controller
             $currentUser = $this->db->fetchOne('SELECT CURRENT_USER() AS current_user');
             $currentUserName = $currentUser['current_user'] ?? 'unknown';
 
-            error_log('[clients.create][debug] DB configurada=' . $dbName . ' DB activa=' . $selectedDbName . ' usuario=' . $currentUserName);
+            error_log('[clients.create] Diagnóstico conexión | DB configurada=' . $dbName . ' | DB activa=' . $selectedDbName . ' | usuario=' . $currentUserName);
 
             $insertPrivilege = $this->db->fetchOne(
                 'SELECT PRIVILEGE_TYPE
@@ -530,13 +530,24 @@ class ClientsController extends Controller
                  WHERE TABLE_SCHEMA = :schema
                    AND GRANTEE = CONCAT("\"", SUBSTRING_INDEX(CURRENT_USER(), "@", 1), "\"@\"", SUBSTRING_INDEX(CURRENT_USER(), "@", -1), "\"")
                    AND PRIVILEGE_TYPE = "INSERT"
+                LIMIT 1',
+                [':schema' => $dbName]
+            );
+
+            $tableInsertPrivilege = $this->db->fetchOne(
+                'SELECT PRIVILEGE_TYPE
+                 FROM information_schema.TABLE_PRIVILEGES
+                 WHERE TABLE_SCHEMA = :schema
+                   AND TABLE_NAME = "clients"
+                   AND GRANTEE = CONCAT("\"", SUBSTRING_INDEX(CURRENT_USER(), "@", 1), "\"@\"", SUBSTRING_INDEX(CURRENT_USER(), "@", -1), "\"")
+                   AND PRIVILEGE_TYPE = "INSERT"
                  LIMIT 1',
                 [':schema' => $dbName]
             );
 
-            error_log('[clients.create][debug] Permiso INSERT en esquema ' . $dbName . ': ' . (($insertPrivilege['PRIVILEGE_TYPE'] ?? '') === 'INSERT' ? 'sí' : 'no o no verificable'));
+            error_log('[clients.create] Diagnóstico permisos INSERT | schema=' . (($insertPrivilege['PRIVILEGE_TYPE'] ?? '') === 'INSERT' ? 'sí' : 'no o no verificable') . ' | table_clients=' . (($tableInsertPrivilege['PRIVILEGE_TYPE'] ?? '') === 'INSERT' ? 'sí' : 'no o no verificable'));
         } catch (\Throwable $e) {
-            error_log('[clients.create][debug] No se pudo completar diagnóstico de conexión/permisos: ' . $e->getMessage());
+            error_log('[clients.create] Diagnóstico conexión/permisos falló: ' . $e->getMessage());
         }
     }
 
