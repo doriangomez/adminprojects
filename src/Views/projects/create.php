@@ -1021,12 +1021,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             console.log('Respuesta HTTP status:', response.status);
             const responseText = await response.text();
             console.log('Respuesta cruda:', responseText);
-            alert(responseText);
+            window.prompt('Respuesta cruda (copiable):', responseText);
 
             const contentType = response.headers.get('content-type') || '';
             if (contentType.includes('application/json')) {
                 const responseData = JSON.parse(responseText);
-                alert(JSON.stringify(responseData));
+                window.prompt('Respuesta JSON (copiable):', JSON.stringify(responseData));
             }
 
             setSubmittingState(false);
