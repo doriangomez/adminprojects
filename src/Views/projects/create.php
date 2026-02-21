@@ -661,14 +661,19 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             endDateGroup.style.display = 'none';
             if (endDateInput) {
                 endDateInput.value = '';
-                endDateInput.required = false;
             }
         } else {
             endDateGroup.style.display = '';
-            if (endDateInput) {
-                endDateInput.required = selectedType === 'convencional';
-            }
         }
+
+        syncEndDateRequiredState();
+    }
+
+    function syncEndDateRequiredState() {
+        if (!endDateInput || !projectTypeSelect) return;
+        const isVisible = endDateInput.offsetParent !== null;
+        const shouldRequire = projectTypeSelect.value === 'convencional' && isVisible;
+        endDateInput.required = shouldRequire;
     }
 
     function resolveMethodology(type) {
@@ -728,6 +733,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         if (stepLabel) {
             stepLabel.textContent = (currentStep + 1).toString();
         }
+        syncEndDateRequiredState();
         updateNavState();
     }
 
@@ -965,25 +971,65 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         });
     });
 
+    function serializeFormData(formData) {
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                if (!Array.isArray(data[key])) {
+                    data[key] = [data[key]];
+                }
+                data[key].push(value);
+            } else {
+                data[key] = value;
+            }
+        }
+        return data;
+    }
+
     if (wizardForm) {
-        wizardForm.addEventListener('submit', (event) => {
+        wizardForm.addEventListener('submit', async (event) => {
             console.log('[Wizard] Evento submit detectado');
+            event.preventDefault();
+
             if (isSubmitting) {
-                event.preventDefault();
                 return;
             }
 
+            syncEndDateRequiredState();
             const stepValid = validateStep(currentStep);
             const formValid = stepValid && wizardForm.reportValidity();
             if (!formValid) {
-                event.preventDefault();
                 setSubmittingState(false);
                 return;
             }
 
-            alert('Intentando crear proyecto');
             console.log('[Wizard] Submit válido, iniciando guardado');
             setSubmittingState(true);
+
+            const formData = new FormData(wizardForm);
+            const datos = serializeFormData(formData);
+            console.log('Enviando payload:', datos);
+
+            const response = await fetch(wizardForm.action, {
+                method: (wizardForm.method || 'POST').toUpperCase(),
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            console.log('Respuesta HTTP status:', response.status);
+            const responseText = await response.text();
+            console.log('Respuesta cruda:', responseText);
+            alert(responseText);
+
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const responseData = JSON.parse(responseText);
+                alert(JSON.stringify(responseData));
+            }
+
+            setSubmittingState(false);
         });
     }
 
