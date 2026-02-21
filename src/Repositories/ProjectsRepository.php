@@ -802,12 +802,20 @@ class ProjectsRepository
                 default => null,
             };
 
+            $statusColumn = $this->db->columnExists('projects', 'status_code') ? 'status_code' : 'status';
+            $healthColumn = $this->db->columnExists('projects', 'health_code') ? 'health_code' : 'health';
+            $priorityColumn = $this->db->columnExists('projects', 'priority_code') ? 'priority_code' : 'priority';
+
             $columns = [
                 'client_id',
                 'pm_id',
                 'name',
                 'project_type',
                 'methodology',
+                'project_stage',
+                $statusColumn,
+                $healthColumn,
+                $priorityColumn,
                 'budget',
                 'actual_cost',
                 'planned_hours',
@@ -823,6 +831,10 @@ class ProjectsRepository
                 ':name',
                 ':project_type',
                 ':methodology',
+                ':project_stage',
+                ':status',
+                ':health',
+                ':priority',
                 ':budget',
                 ':actual_cost',
                 ':planned_hours',
@@ -838,6 +850,10 @@ class ProjectsRepository
                 ':name' => $payload['name'],
                 ':project_type' => $payload['project_type'] ?? 'convencional',
                 ':methodology' => $methodology,
+                ':project_stage' => $payload['project_stage'] ?? 'Discovery',
+                ':status' => $status,
+                ':health' => $health,
+                ':priority' => $payload['priority'] ?? 'medium',
                 ':budget' => $payload['budget'] ?? 0,
                 ':actual_cost' => $payload['actual_cost'] ?? 0,
                 ':planned_hours' => $payload['planned_hours'] ?? 0,
@@ -851,42 +867,6 @@ class ProjectsRepository
                 $columns[] = 'phase';
                 $placeholders[] = ':phase';
                 $params[':phase'] = $phase;
-            }
-
-            if ($this->db->columnExists('projects', 'project_stage')) {
-                $columns[] = 'project_stage';
-                $placeholders[] = ':project_stage';
-                $params[':project_stage'] = $payload['project_stage'] ?? 'Discovery';
-            }
-
-            if ($this->db->columnExists('projects', 'status_code')) {
-                $columns[] = 'status_code';
-                $placeholders[] = ':status';
-                $params[':status'] = $status;
-            } elseif ($this->db->columnExists('projects', 'status')) {
-                $columns[] = 'status';
-                $placeholders[] = ':status';
-                $params[':status'] = $status;
-            }
-
-            if ($this->db->columnExists('projects', 'health_code')) {
-                $columns[] = 'health_code';
-                $placeholders[] = ':health';
-                $params[':health'] = $health;
-            } elseif ($this->db->columnExists('projects', 'health')) {
-                $columns[] = 'health';
-                $placeholders[] = ':health';
-                $params[':health'] = $health;
-            }
-
-            if ($this->db->columnExists('projects', 'priority_code')) {
-                $columns[] = 'priority_code';
-                $placeholders[] = ':priority';
-                $params[':priority'] = $payload['priority'];
-            } elseif ($this->db->columnExists('projects', 'priority')) {
-                $columns[] = 'priority';
-                $placeholders[] = ':priority';
-                $params[':priority'] = $payload['priority'];
             }
 
             if ($this->db->columnExists('projects', 'risk_score')) {
