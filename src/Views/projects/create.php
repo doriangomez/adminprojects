@@ -79,6 +79,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
 <div class="alert error" id="serverResponseAlert" style="display:none; margin-top: 12px;">
     <strong id="serverResponseTitle" style="display:block; margin-bottom:8px;"></strong>
+    <a id="serverResponseLink" href="#" target="_self" rel="noopener" style="display:none; margin-bottom:8px;"></a>
     <pre id="serverResponseBody" style="margin:0; white-space:pre-wrap; word-break:break-word; max-height:280px; overflow:auto;"></pre>
 </div>
 
@@ -994,14 +995,28 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const serverResponseAlert = document.getElementById('serverResponseAlert');
     const serverResponseTitle = document.getElementById('serverResponseTitle');
     const serverResponseBody = document.getElementById('serverResponseBody');
+    const serverResponseLink = document.getElementById('serverResponseLink');
 
-    function showServerResponse(title, text) {
+    function showServerResponse(title, text, linkUrl = '') {
         if (!serverResponseAlert || !serverResponseTitle || !serverResponseBody) {
             return;
         }
 
         serverResponseTitle.textContent = title || 'Respuesta backend';
         serverResponseBody.textContent = text || '';
+
+        if (serverResponseLink) {
+            if (linkUrl) {
+                serverResponseLink.href = linkUrl;
+                serverResponseLink.textContent = 'Abrir respuesta en esta pestaña';
+                serverResponseLink.style.display = 'inline-block';
+            } else {
+                serverResponseLink.href = '#';
+                serverResponseLink.textContent = '';
+                serverResponseLink.style.display = 'none';
+            }
+        }
+
         serverResponseAlert.style.display = 'block';
         serverResponseAlert.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1014,13 +1029,22 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         serverResponseAlert.style.display = 'none';
         serverResponseTitle.textContent = '';
         serverResponseBody.textContent = '';
+        if (serverResponseLink) {
+            serverResponseLink.href = '#';
+            serverResponseLink.textContent = '';
+            serverResponseLink.style.display = 'none';
+        }
+    }
+
+    function normalizePath(pathname) {
+        return (pathname || '/').replace(/\/+$/, '') || '/';
     }
 
     function isSameRoute(urlA, urlB) {
         try {
             const a = new URL(urlA, window.location.origin);
             const b = new URL(urlB, window.location.origin);
-            return a.origin === b.origin && a.pathname === b.pathname;
+            return a.origin === b.origin && normalizePath(a.pathname) === normalizePath(b.pathname);
         } catch (error) {
             return false;
         }
@@ -1068,12 +1092,21 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     return;
                 }
 
+                console.group('[Wizard] Respuesta backend');
+                console.log('status:', response.status);
+                console.log('ok:', response.ok);
+                console.log('redirected:', response.redirected);
+                console.log('url final:', response.url);
+                console.log('content-type:', response.headers.get('content-type'));
+                console.log('body:', responseText);
+                console.groupEnd();
+
                 if (response.redirected && response.url && !isSameRoute(response.url, wizardForm.action)) {
-                    window.location.href = response.url;
+                    showServerResponse('Respuesta redirigida del backend (' + response.status + ')', responseText, response.url);
                     return;
                 }
 
-                showServerResponse('Respuesta del backend', responseText);
+                showServerResponse('Respuesta del backend (' + response.status + ')', responseText);
             } catch (error) {
                 showServerResponse('Error de red al crear el proyecto', error?.message || String(error));
             } finally {
