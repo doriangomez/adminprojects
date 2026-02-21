@@ -661,14 +661,19 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             endDateGroup.style.display = 'none';
             if (endDateInput) {
                 endDateInput.value = '';
-                endDateInput.required = false;
             }
         } else {
             endDateGroup.style.display = '';
-            if (endDateInput) {
-                endDateInput.required = selectedType === 'convencional';
-            }
         }
+
+        syncEndDateRequiredState();
+    }
+
+    function syncEndDateRequiredState() {
+        if (!endDateInput || !projectTypeSelect) return;
+        const isVisible = endDateInput.offsetParent !== null;
+        const shouldRequire = projectTypeSelect.value === 'convencional' && isVisible;
+        endDateInput.required = shouldRequire;
     }
 
     function resolveMethodology(type) {
@@ -728,6 +733,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         if (stepLabel) {
             stepLabel.textContent = (currentStep + 1).toString();
         }
+        syncEndDateRequiredState();
         updateNavState();
     }
 
@@ -965,25 +971,101 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         });
     });
 
+    function serializeFormData(formData) {
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                if (!Array.isArray(data[key])) {
+                    data[key] = [data[key]];
+                }
+                data[key].push(value);
+            } else {
+                data[key] = value;
+            }
+        }
+        return data;
+    }
+
+    function showCopyableDebugResponse(title, text) {
+        const debugWindow = window.open('', '_blank', 'width=920,height=720');
+        if (!debugWindow) {
+            window.prompt(title, text);
+            return;
+        }
+
+        debugWindow.document.open();
+        debugWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Debug backend</title></head><body style="font-family:Arial,sans-serif;padding:16px;"></body></html>');
+        debugWindow.document.close();
+
+        const body = debugWindow.document.body;
+        const heading = debugWindow.document.createElement('h2');
+        heading.textContent = title || 'Respuesta backend';
+        body.appendChild(heading);
+
+        const info = debugWindow.document.createElement('p');
+        info.textContent = 'Copia el contenido de abajo:';
+        body.appendChild(info);
+
+        const textarea = debugWindow.document.createElement('textarea');
+        textarea.style.width = '100%';
+        textarea.style.height = '78vh';
+        textarea.style.fontFamily = 'monospace';
+        textarea.value = text || '';
+        body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+    }
+
     if (wizardForm) {
-        wizardForm.addEventListener('submit', (event) => {
+        wizardForm.addEventListener('submit', async (event) => {
             console.log('[Wizard] Evento submit detectado');
+            event.preventDefault();
             if (isSubmitting) {
-                event.preventDefault();
                 return;
             }
 
+            syncEndDateRequiredState();
             const stepValid = validateStep(currentStep);
             const formValid = stepValid && wizardForm.reportValidity();
             if (!formValid) {
-                event.preventDefault();
                 setSubmittingState(false);
                 return;
             }
 
-            alert('Intentando crear proyecto');
             console.log('[Wizard] Submit válido, iniciando guardado');
             setSubmittingState(true);
+
+            const formData = new FormData(wizardForm);
+            const datos = serializeFormData(formData);
+            console.log('Enviando payload:', datos);
+
+            const response = await fetch(wizardForm.action, {
+                method: (wizardForm.method || 'POST').toUpperCase(),
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            console.log('Respuesta HTTP status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                showCopyableDebugResponse('Error HTTP ' + response.status, errorText);
+                setSubmittingState(false);
+                throw new Error('HTTP Error ' + response.status);
+            }
+
+            const responseText = await response.text();
+            console.log('Respuesta cruda:', responseText);
+            showCopyableDebugResponse('Respuesta backend', responseText);
+
+            if (response.redirected && response.url) {
+                window.location.href = response.url;
+                return;
+            }
+
+            setSubmittingState(false);
         });
     }
 
