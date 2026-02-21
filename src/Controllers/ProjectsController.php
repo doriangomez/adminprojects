@@ -14,6 +14,13 @@ use App\Repositories\UsersRepository;
 
 class ProjectsController extends Controller
 {
+    private const ALLOWED_PROJECT_TYPES = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
+    private const CLIENT_PARTICIPATION_LEVELS = [
+        'baja' => 0,
+        'media' => 1,
+        'alta' => 2,
+    ];
+    private const MIN_REQUIRED_RISKS_ON_CREATE = 5;
     private const FINAL_STATUSES = ['closed', 'finalizado', 'finalized', 'cerrado'];
     private const LIFECYCLE_STATUSES = ['planning', 'execution', 'on_hold', 'closing', 'closed'];
     private const ALLOWED_TRANSITIONS = [
@@ -190,20 +197,18 @@ class ProjectsController extends Controller
         $masterRepo = new MasterFilesRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
         $repo = new ProjectsRepository($this->db);
+        $payloadForDebug = [];
 
         try {
-            error_log('inicio');
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
+            $payloadForDebug = $this->sanitizePayloadForDebug($payload);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
-            error_log('proyecto creado');
             (new ProjectTreeService($this->db))->bootstrapFreshTree(
                 $projectId,
                 (string) ($payload['methodology'] ?? 'cascada'),
                 (int) ($this->auth->user()['id'] ?? 0)
             );
-            error_log('estructura creada');
-            error_log('retornando respuesta');
             try {
                 (new NotificationService($this->db))->notify(
                     'project.created',
@@ -232,7 +237,7 @@ class ProjectsController extends Controller
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => $this->formatExceptionForDisplay($e),
+                'error' => $this->buildInsertDebugMessage($e, $payloadForDebug),
                 'old' => $_POST,
             ]));
             return;
@@ -2618,9 +2623,7 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
         }
 
-        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
-        $projectTypeInput = trim((string) ($_POST['project_type'] ?? 'convencional')) ?: 'convencional';
-        $projectType = in_array($projectTypeInput, $allowedProjectTypes, true) ? $projectTypeInput : 'convencional';
+        $projectType = $this->validatedProjectType((string) ($_POST['project_type'] ?? 'convencional'));
         $status = 'planning';
         $priority = $this->validatedCatalogValue((string) ($_POST['priority'] ?? ''), $catalogs['priorities'], 'prioridad', $catalogs['priorities'][0]['code'] ?? 'medium');
 
@@ -2630,6 +2633,9 @@ class ProjectsController extends Controller
 
         $filteredRisks = $this->riskCatalogForType($delivery['risks'] ?? [], $projectType, $methodology);
         $riskAssessment = $this->assessRisks($_POST['risks'] ?? [], $filteredRisks);
+        if (count($riskAssessment['selected']) < self::MIN_REQUIRED_RISKS_ON_CREATE) {
+            throw new \InvalidArgumentException('Selecciona al menos ' . self::MIN_REQUIRED_RISKS_ON_CREATE . ' riesgos para crear el proyecto.');
+        }
 
         $scope = trim((string) ($_POST['scope'] ?? ''));
         if ($scope === '') {
@@ -2652,10 +2658,10 @@ class ProjectsController extends Controller
             $endDate = $this->nullableDate($_POST['end_date'] ?? null);
         }
 
-        $budget = $this->floatOrZero($_POST['budget'] ?? null);
-        $actualCost = $this->floatOrZero($_POST['actual_cost'] ?? null);
-        $plannedHours = $this->floatOrZero($_POST['planned_hours'] ?? null);
-        $actualHours = $this->floatOrZero($_POST['actual_hours'] ?? null);
+        $budget = $this->validatedNonNegativeFloat($_POST['budget'] ?? null, 'El presupuesto');
+        $actualCost = $this->validatedNonNegativeFloat($_POST['actual_cost'] ?? null, 'El costo real');
+        $plannedHours = $this->validatedNonNegativeFloat($_POST['planned_hours'] ?? null, 'Las horas planificadas');
+        $actualHours = $this->validatedNonNegativeFloat($_POST['actual_hours'] ?? null, 'Las horas reales');
         $progress = 0.0;
         $riskScore = $riskAssessment['score'];
         $riskLevel = $this->riskLevelFromScore($riskScore);
@@ -2673,6 +2679,7 @@ class ProjectsController extends Controller
         if ($startDate === null) {
             throw new \InvalidArgumentException('La fecha de inicio del proyecto es obligatoria.');
         }
+        $this->validateDateRange($startDate, $endDate);
 
         $payload = [
             'client_id' => $clientId,
@@ -2687,7 +2694,7 @@ class ProjectsController extends Controller
             'project_stage' => $this->validatedProjectStage((string) ($_POST['project_stage'] ?? 'Discovery')),
             'scope' => $scope,
             'design_inputs' => $designInputs,
-            'client_participation' => $clientParticipation,
+            'client_participation' => $this->clientParticipationToDbValue($clientParticipation),
             'budget' => $budget,
             'actual_cost' => $actualCost,
             'planned_hours' => $plannedHours,
@@ -2825,13 +2832,83 @@ class ProjectsController extends Controller
     private function validatedClientParticipation(string $value): string
     {
         $normalized = strtolower(trim($value));
-        $allowed = ['alta', 'media', 'baja'];
-
-        if (in_array($normalized, $allowed, true)) {
+        if (array_key_exists($normalized, self::CLIENT_PARTICIPATION_LEVELS)) {
             return $normalized;
         }
 
         return 'media';
+    }
+
+    private function clientParticipationToDbValue(string $value): int
+    {
+        return self::CLIENT_PARTICIPATION_LEVELS[$value] ?? self::CLIENT_PARTICIPATION_LEVELS['media'];
+    }
+
+    private function validatedProjectType(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        return in_array($normalized, self::ALLOWED_PROJECT_TYPES, true) ? $normalized : 'convencional';
+    }
+
+    private function validatedNonNegativeFloat(mixed $value, string $label): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (!is_numeric($value)) {
+            throw new \InvalidArgumentException($label . ' debe ser un número válido.');
+        }
+
+        $number = (float) $value;
+        if ($number < 0) {
+            throw new \InvalidArgumentException($label . ' no puede ser negativo.');
+        }
+
+        return $number;
+    }
+
+    private function validateDateRange(?string $startDate, ?string $endDate): void
+    {
+        if ($startDate === null || $endDate === null) {
+            return;
+        }
+
+        if ($endDate < $startDate) {
+            throw new \InvalidArgumentException('La fecha de fin no puede ser menor a la fecha de inicio.');
+        }
+    }
+
+
+    private function sanitizePayloadForDebug(array $payload): array
+    {
+        $copy = $payload;
+        if (isset($copy['risk_catalog']) && is_array($copy['risk_catalog'])) {
+            $copy['risk_catalog'] = 'omitted(' . count($copy['risk_catalog']) . ' items)';
+        }
+
+        return $copy;
+    }
+
+    private function buildInsertDebugMessage(\PDOException $e, array $payload): string
+    {
+        $base = $this->formatExceptionForDisplay($e);
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        if ($payloadJson === false) {
+            $payloadJson = '{"error":"No se pudo serializar payload"}';
+        }
+
+        return $base
+            . "
+
+Payload enviado al insert:
+"
+            . $payloadJson
+            . "
+
+POST crudo:
+"
+            . json_encode($_POST, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
     private function calculateInitialHealth(array $healthCatalog, array $context): string

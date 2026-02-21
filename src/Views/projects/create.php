@@ -276,7 +276,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🏁</span>Fin</span>
                         </span>
-                        <input type="date" name="end_date" id="endDateInput" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <input type="date" name="end_date" id="endDateInput" min="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
                     </section>
                 </div>
@@ -296,14 +296,16 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
+                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
+                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
@@ -323,7 +325,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <summary class="accordion-summary">
                     <div>
                         <p class="step-block__eyebrow">Riesgos</p>
-                        <strong class="step-block__title">Opcional</strong>
+                        <strong class="step-block__title">Obligatorio (mínimo 5)</strong>
                         <p class="step-block__help">Selecciona riesgos relevantes para monitorear desde el inicio.</p>
                     </div>
                     <div class="risk-summary">
@@ -429,13 +431,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <span class="field-label">
                                 <span class="field-title"><span class="field-icon">💰</span>Presupuesto plan</span>
                             </span>
-                            <input type="number" step="0.01" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <input type="number" step="0.01" min="0" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                         </label>
                         <label class="input">
                             <span class="field-label">
                                 <span class="field-title"><span class="field-icon">⏱️</span>Horas planificadas</span>
                             </span>
-                            <input type="number" step="0.1" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <input type="number" step="0.1" min="0" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                         </label>
                     </section>
                 </div>
@@ -605,6 +607,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const riskCount = document.getElementById('riskCount');
     const riskGroups = document.querySelectorAll('.risk-group');
     const wizardValidationMessage = document.getElementById('wizardValidationMessage');
+    const minimumRequiredRisks = 5;
     const wizardForm = document.getElementById('projectWizardForm');
     const wizardLoader = document.getElementById('wizardLoader');
     const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban', outsourcing: 'cascada' };
@@ -618,6 +621,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         { name: 'pm_id', label: 'PM responsable' },
         { name: 'methodology_display', label: 'Metodología' },
         { name: 'start_date', label: 'Fecha de inicio' },
+        { name: 'scope', label: 'Alcance del proyecto' },
+        { name: 'design_inputs', label: 'Entradas de diseño' },
     ];
 
     function refreshPhases() {
@@ -680,6 +685,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         const isVisible = endDateInput.offsetParent !== null;
         const shouldRequire = projectTypeSelect.value === 'convencional' && isVisible;
         endDateInput.required = shouldRequire;
+
+        const startDateInput = document.querySelector('[name="start_date"]');
+        if (startDateInput) {
+            endDateInput.min = startDateInput.value || '';
+        }
     }
 
     function resolveMethodology(type) {
@@ -784,6 +794,43 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         });
     }
 
+
+
+    function validateMinimumRisks(showValidity = false) {
+        const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
+        const isValid = selected >= minimumRequiredRisks;
+
+        riskChecklist.forEach((checkbox) => {
+            checkbox.setCustomValidity(isValid ? '' : `Selecciona al menos ${minimumRequiredRisks} riesgos.`);
+        });
+
+        if (!isValid && showValidity) {
+            const firstRisk = riskChecklist[0] || null;
+            if (firstRisk) {
+                firstRisk.reportValidity();
+                firstRisk.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        return isValid;
+    }
+
+    function validateDateRange() {
+        const startDateInput = document.querySelector('[name="start_date"]');
+        if (!startDateInput || !endDateInput || !endDateInput.value) {
+            return true;
+        }
+
+        if (endDateInput.value < startDateInput.value) {
+            endDateInput.setCustomValidity('La fecha de fin no puede ser menor a la fecha de inicio.');
+            endDateInput.reportValidity();
+            return false;
+        }
+
+        endDateInput.setCustomValidity('');
+        return true;
+    }
+
     function validateStep0() {
         let firstInvalidField = null;
         const missingFields = [];
@@ -822,6 +869,16 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             return false;
         }
 
+        if (!validateDateRange()) {
+            updateValidationMessage(false);
+            return false;
+        }
+
+        if (!validateMinimumRisks(true)) {
+            updateValidationMessage(false);
+            return false;
+        }
+
         updateValidationMessage(true);
         console.log('[Wizard] Validación Paso 1 OK.');
         return true;
@@ -845,7 +902,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     function isStepValid(index) {
         if (index === 0) {
-            return isStep0Valid();
+            return isStep0Valid() && validateDateRange() && validateMinimumRisks(false);
         }
         const section = wizardSections[index];
         if (!section) return true;
@@ -889,7 +946,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function updateRiskCount() {
         if (!riskCount) return;
         const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
-        riskCount.textContent = `${selected} seleccionados`;
+        riskCount.textContent = `${selected} seleccionados (mínimo ${minimumRequiredRisks})`;
+        riskCount.classList.toggle('soft-amber', selected < minimumRequiredRisks);
+        riskCount.classList.toggle('soft-green', selected >= minimumRequiredRisks);
     }
 
     function configureRiskGroups() {
