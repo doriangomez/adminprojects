@@ -1102,11 +1102,15 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 console.groupEnd();
 
                 if (response.redirected && response.url && !isSameRoute(response.url, wizardForm.action)) {
-                    showServerResponse('Respuesta redirigida del backend (' + response.status + ')', responseText, response.url);
+                    window.location.href = response.url;
+                    return;
+                } else {
+                    const htmlResponse = responseText;
+                    document.open();
+                    document.write(htmlResponse);
+                    document.close();
                     return;
                 }
-
-                showServerResponse('Respuesta del backend (' + response.status + ')', responseText);
             } catch (error) {
                 showServerResponse('Error de red al crear el proyecto', error?.message || String(error));
             } finally {
