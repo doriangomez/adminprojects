@@ -77,6 +77,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     <div class="alert error"><?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
 
+<div class="alert error" id="serverResponseAlert" style="display:none; margin-top: 12px;">
+    <strong id="serverResponseTitle" style="display:block; margin-bottom:8px;"></strong>
+    <a id="serverResponseLink" href="#" target="_self" rel="noopener" style="display:none; margin-bottom:8px;"></a>
+    <pre id="serverResponseBody" style="margin:0; white-space:pre-wrap; word-break:break-word; max-height:280px; overflow:auto;"></pre>
+</div>
+
 <?php if (!$canCreateProject): ?>
     <div class="alert warning">
         Necesitas al menos un cliente y un PM activo para crear proyectos. Revisa el módulo de Clientes o Configuración.
@@ -986,34 +992,62 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         return data;
     }
 
-    function showCopyableDebugResponse(title, text) {
-        const debugWindow = window.open('', '_blank', 'width=920,height=720');
-        if (!debugWindow) {
-            window.prompt(title, text);
+    const serverResponseAlert = document.getElementById('serverResponseAlert');
+    const serverResponseTitle = document.getElementById('serverResponseTitle');
+    const serverResponseBody = document.getElementById('serverResponseBody');
+    const serverResponseLink = document.getElementById('serverResponseLink');
+
+    function showServerResponse(title, text, linkUrl = '') {
+        if (!serverResponseAlert || !serverResponseTitle || !serverResponseBody) {
             return;
         }
 
-        debugWindow.document.open();
-        debugWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Debug backend</title></head><body style="font-family:Arial,sans-serif;padding:16px;"></body></html>');
-        debugWindow.document.close();
+        serverResponseTitle.textContent = title || 'Respuesta backend';
+        serverResponseBody.textContent = text || '';
 
-        const body = debugWindow.document.body;
-        const heading = debugWindow.document.createElement('h2');
-        heading.textContent = title || 'Respuesta backend';
-        body.appendChild(heading);
+        if (serverResponseLink) {
+            if (linkUrl) {
+                serverResponseLink.href = linkUrl;
+                serverResponseLink.textContent = 'Abrir respuesta en esta pestaña';
+                serverResponseLink.style.display = 'inline-block';
+            } else {
+                serverResponseLink.href = '#';
+                serverResponseLink.textContent = '';
+                serverResponseLink.style.display = 'none';
+            }
+        }
 
-        const info = debugWindow.document.createElement('p');
-        info.textContent = 'Copia el contenido de abajo:';
-        body.appendChild(info);
+        serverResponseAlert.style.display = 'block';
+        serverResponseAlert.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
-        const textarea = debugWindow.document.createElement('textarea');
-        textarea.style.width = '100%';
-        textarea.style.height = '78vh';
-        textarea.style.fontFamily = 'monospace';
-        textarea.value = text || '';
-        body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
+    function hideServerResponse() {
+        if (!serverResponseAlert || !serverResponseTitle || !serverResponseBody) {
+            return;
+        }
+
+        serverResponseAlert.style.display = 'none';
+        serverResponseTitle.textContent = '';
+        serverResponseBody.textContent = '';
+        if (serverResponseLink) {
+            serverResponseLink.href = '#';
+            serverResponseLink.textContent = '';
+            serverResponseLink.style.display = 'none';
+        }
+    }
+
+    function normalizePath(pathname) {
+        return (pathname || '/').replace(/\/+$/, '') || '/';
+    }
+
+    function isSameRoute(urlA, urlB) {
+        try {
+            const a = new URL(urlA, window.location.origin);
+            const b = new URL(urlB, window.location.origin);
+            return a.origin === b.origin && normalizePath(a.pathname) === normalizePath(b.pathname);
+        } catch (error) {
+            return false;
+        }
     }
 
     if (wizardForm) {
@@ -1034,38 +1068,50 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
             console.log('[Wizard] Submit válido, iniciando guardado');
             setSubmittingState(true);
+            hideServerResponse();
 
             const formData = new FormData(wizardForm);
             const datos = serializeFormData(formData);
             console.log('Enviando payload:', datos);
 
-            const response = await fetch(wizardForm.action, {
-                method: (wizardForm.method || 'POST').toUpperCase(),
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+            try {
+                const response = await fetch(wizardForm.action, {
+                    method: (wizardForm.method || 'POST').toUpperCase(),
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const responseText = await response.text();
+                console.log('Respuesta HTTP status:', response.status);
+                console.log('Respuesta cruda:', responseText);
+
+                if (!response.ok) {
+                    showServerResponse('Error HTTP ' + response.status, responseText);
+                    return;
                 }
-            });
 
-            console.log('Respuesta HTTP status:', response.status);
+                console.group('[Wizard] Respuesta backend');
+                console.log('status:', response.status);
+                console.log('ok:', response.ok);
+                console.log('redirected:', response.redirected);
+                console.log('url final:', response.url);
+                console.log('content-type:', response.headers.get('content-type'));
+                console.log('body:', responseText);
+                console.groupEnd();
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                showCopyableDebugResponse('Error HTTP ' + response.status, errorText);
+                if (response.redirected && response.url && !isSameRoute(response.url, wizardForm.action)) {
+                    showServerResponse('Respuesta redirigida del backend (' + response.status + ')', responseText, response.url);
+                    return;
+                }
+
+                showServerResponse('Respuesta del backend (' + response.status + ')', responseText);
+            } catch (error) {
+                showServerResponse('Error de red al crear el proyecto', error?.message || String(error));
+            } finally {
                 setSubmittingState(false);
-                throw new Error('HTTP Error ' + response.status);
             }
-
-            const responseText = await response.text();
-            console.log('Respuesta cruda:', responseText);
-            showCopyableDebugResponse('Respuesta backend', responseText);
-
-            if (response.redirected && response.url) {
-                window.location.href = response.url;
-                return;
-            }
-
-            setSubmittingState(false);
         });
     }
 
