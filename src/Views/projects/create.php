@@ -296,12 +296,14 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
                         <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
                         <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
                     </label>
@@ -323,7 +325,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <summary class="accordion-summary">
                     <div>
                         <p class="step-block__eyebrow">Riesgos</p>
-                        <strong class="step-block__title">Opcional</strong>
+                        <strong class="step-block__title">Obligatorio (mínimo 5)</strong>
                         <p class="step-block__help">Selecciona riesgos relevantes para monitorear desde el inicio.</p>
                     </div>
                     <div class="risk-summary">
@@ -605,6 +607,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const riskCount = document.getElementById('riskCount');
     const riskGroups = document.querySelectorAll('.risk-group');
     const wizardValidationMessage = document.getElementById('wizardValidationMessage');
+    const minimumRequiredRisks = 5;
     const wizardForm = document.getElementById('projectWizardForm');
     const wizardLoader = document.getElementById('wizardLoader');
     const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban', outsourcing: 'cascada' };
@@ -792,6 +795,26 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     }
 
 
+
+    function validateMinimumRisks(showValidity = false) {
+        const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
+        const isValid = selected >= minimumRequiredRisks;
+
+        riskChecklist.forEach((checkbox) => {
+            checkbox.setCustomValidity(isValid ? '' : `Selecciona al menos ${minimumRequiredRisks} riesgos.`);
+        });
+
+        if (!isValid && showValidity) {
+            const firstRisk = riskChecklist[0] || null;
+            if (firstRisk) {
+                firstRisk.reportValidity();
+                firstRisk.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        return isValid;
+    }
+
     function validateDateRange() {
         const startDateInput = document.querySelector('[name="start_date"]');
         if (!startDateInput || !endDateInput || !endDateInput.value) {
@@ -851,6 +874,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             return false;
         }
 
+        if (!validateMinimumRisks(true)) {
+            updateValidationMessage(false);
+            return false;
+        }
+
         updateValidationMessage(true);
         console.log('[Wizard] Validación Paso 1 OK.');
         return true;
@@ -874,7 +902,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     function isStepValid(index) {
         if (index === 0) {
-            return isStep0Valid() && validateDateRange();
+            return isStep0Valid() && validateDateRange() && validateMinimumRisks(false);
         }
         const section = wizardSections[index];
         if (!section) return true;
@@ -918,7 +946,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function updateRiskCount() {
         if (!riskCount) return;
         const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
-        riskCount.textContent = `${selected} seleccionados`;
+        riskCount.textContent = `${selected} seleccionados (mínimo ${minimumRequiredRisks})`;
+        riskCount.classList.toggle('soft-amber', selected < minimumRequiredRisks);
+        riskCount.classList.toggle('soft-green', selected >= minimumRequiredRisks);
     }
 
     function configureRiskGroups() {

@@ -20,6 +20,7 @@ class ProjectsController extends Controller
         'media' => 1,
         'alta' => 2,
     ];
+    private const MIN_REQUIRED_RISKS_ON_CREATE = 5;
     private const FINAL_STATUSES = ['closed', 'finalizado', 'finalized', 'cerrado'];
     private const LIFECYCLE_STATUSES = ['planning', 'execution', 'on_hold', 'closing', 'closed'];
     private const ALLOWED_TRANSITIONS = [
@@ -196,9 +197,11 @@ class ProjectsController extends Controller
         $masterRepo = new MasterFilesRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
         $repo = new ProjectsRepository($this->db);
+        $payloadForDebug = [];
 
         try {
             $payload = $this->validatedProjectPayload($delivery, $this->projectCatalogs($masterRepo), $usersRepo);
+            $payloadForDebug = $this->sanitizePayloadForDebug($payload);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
             (new ProjectTreeService($this->db))->bootstrapFreshTree(
@@ -234,7 +237,7 @@ class ProjectsController extends Controller
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => $this->formatExceptionForDisplay($e),
+                'error' => $this->buildInsertDebugMessage($e, $payloadForDebug),
                 'old' => $_POST,
             ]));
             return;
@@ -2630,6 +2633,9 @@ class ProjectsController extends Controller
 
         $filteredRisks = $this->riskCatalogForType($delivery['risks'] ?? [], $projectType, $methodology);
         $riskAssessment = $this->assessRisks($_POST['risks'] ?? [], $filteredRisks);
+        if (count($riskAssessment['selected']) < self::MIN_REQUIRED_RISKS_ON_CREATE) {
+            throw new \InvalidArgumentException('Selecciona al menos ' . self::MIN_REQUIRED_RISKS_ON_CREATE . ' riesgos para crear el proyecto.');
+        }
 
         $scope = trim((string) ($_POST['scope'] ?? ''));
         if ($scope === '') {
@@ -2871,6 +2877,38 @@ class ProjectsController extends Controller
         if ($endDate < $startDate) {
             throw new \InvalidArgumentException('La fecha de fin no puede ser menor a la fecha de inicio.');
         }
+    }
+
+
+    private function sanitizePayloadForDebug(array $payload): array
+    {
+        $copy = $payload;
+        if (isset($copy['risk_catalog']) && is_array($copy['risk_catalog'])) {
+            $copy['risk_catalog'] = 'omitted(' . count($copy['risk_catalog']) . ' items)';
+        }
+
+        return $copy;
+    }
+
+    private function buildInsertDebugMessage(\PDOException $e, array $payload): string
+    {
+        $base = $this->formatExceptionForDisplay($e);
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        if ($payloadJson === false) {
+            $payloadJson = '{"error":"No se pudo serializar payload"}';
+        }
+
+        return $base
+            . "
+
+Payload enviado al insert:
+"
+            . $payloadJson
+            . "
+
+POST crudo:
+"
+            . json_encode($_POST, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
     private function calculateInitialHealth(array $healthCatalog, array $context): string
