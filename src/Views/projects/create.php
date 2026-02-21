@@ -1018,6 +1018,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 }
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                alert('Error HTTP ' + response.status + "\n\n" + errorText);
+                throw new Error('HTTP Error ' + response.status);
+            }
+
             console.log('Respuesta HTTP status:', response.status);
             const responseText = await response.text();
             console.log('Respuesta cruda:', responseText);
