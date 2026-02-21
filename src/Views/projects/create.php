@@ -661,14 +661,19 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             endDateGroup.style.display = 'none';
             if (endDateInput) {
                 endDateInput.value = '';
-                endDateInput.required = false;
             }
         } else {
             endDateGroup.style.display = '';
-            if (endDateInput) {
-                endDateInput.required = selectedType === 'convencional';
-            }
         }
+
+        syncEndDateRequiredState();
+    }
+
+    function syncEndDateRequiredState() {
+        if (!endDateInput || !projectTypeSelect) return;
+        const isVisible = endDateInput.offsetParent !== null;
+        const shouldRequire = projectTypeSelect.value === 'convencional' && isVisible;
+        endDateInput.required = shouldRequire;
     }
 
     function resolveMethodology(type) {
@@ -728,6 +733,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         if (stepLabel) {
             stepLabel.textContent = (currentStep + 1).toString();
         }
+        syncEndDateRequiredState();
         updateNavState();
     }
 
@@ -973,6 +979,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 return;
             }
 
+            syncEndDateRequiredState();
             const stepValid = validateStep(currentStep);
             const formValid = stepValid && wizardForm.reportValidity();
             if (!formValid) {
