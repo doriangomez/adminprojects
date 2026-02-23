@@ -13,6 +13,7 @@ $canUpdateProgress = !empty($canUpdateProgress) && $isManualProgress;
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
 $progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
 $projectNotes = is_array($projectNotes ?? null) ? $projectNotes : [];
+$documentTreeNotice = is_array($documentTreeNotice ?? null) ? $documentTreeNotice : null;
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
 $view = in_array($view, ['resumen', 'documentos', 'seguimiento'], true) ? $view : 'documentos';
@@ -570,6 +571,11 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
             </article>
         </section>
     <?php else: ?>
+        <?php if ($documentTreeNotice): ?>
+            <div class="phase-notice <?= htmlspecialchars((string) ($documentTreeNotice['type'] ?? 'warning')) ?>">
+                <?= htmlspecialchars((string) ($documentTreeNotice['message'] ?? '')) ?>
+            </div>
+        <?php endif; ?>
         <div class="project-layout">
             <aside class="phase-sidebar">
                 <div class="phase-sidebar__header">
@@ -903,6 +909,10 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
     .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
     .phase-warning { color: var(--danger); margin:0; }
+    .phase-notice { border-radius:12px; padding:10px 12px; margin-bottom:12px; font-weight:600; border:1px solid var(--border); }
+    .phase-notice.success { color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--surface)); border-color: color-mix(in srgb, var(--success) 40%, var(--surface)); }
+    .phase-notice.warning { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 40%, var(--surface)); }
+    .phase-notice.error { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 40%, var(--surface)); }
     .progress-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
     .progress-modal.is-visible { display:flex; }
     .progress-modal .modal__backdrop { position:absolute; inset:0; background: color-mix(in srgb, var(--text-primary) 45%, var(--background)); }

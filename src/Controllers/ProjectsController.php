@@ -204,11 +204,25 @@ class ProjectsController extends Controller
             $payloadForDebug = $this->sanitizePayloadForDebug($payload);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
-            (new ProjectTreeService($this->db))->bootstrapFreshTree(
-                $projectId,
-                (string) ($payload['methodology'] ?? 'cascada'),
-                (int) ($this->auth->user()['id'] ?? 0)
-            );
+            try {
+                (new ProjectTreeService($this->db))->bootstrapFreshTree(
+                    $projectId,
+                    (string) ($payload['methodology'] ?? 'cascada'),
+                    (int) ($this->auth->user()['id'] ?? 0)
+                );
+            } catch (\Throwable $treeException) {
+                error_log(sprintf(
+                    '[projects.store] Proyecto creado sin árbol documental | project_id=%d | methodology=%s | error=%s',
+                    $projectId,
+                    (string) ($payload['methodology'] ?? 'cascada'),
+                    $treeException->getMessage()
+                ));
+                throw new \InvalidArgumentException(
+                    'El proyecto se registró, pero falló la creación del árbol documental. Revisa los logs del servidor y vuelve a intentarlo.',
+                    0,
+                    $treeException
+                );
+            }
             try {
                 (new NotificationService($this->db))->notify(
                     'project.created',
@@ -1474,6 +1488,46 @@ class ProjectsController extends Controller
         $treeService = new ProjectTreeService($this->db);
         $nodesRepo = new ProjectNodesRepository($this->db);
         $projectNodes = $nodesRepo->treeWithFiles($id);
+        $treeDiagnostics = $this->analyzeProjectTree($projectNodes);
+        $documentTreeNotice = null;
+
+        if (!$treeDiagnostics['is_ready']) {
+            try {
+                $treeService->bootstrapFreshTree(
+                    $id,
+                    (string) ($project['methodology'] ?? 'cascada'),
+                    (int) ($this->auth->user()['id'] ?? 0)
+                );
+                $projectNodes = $nodesRepo->treeWithFiles($id);
+                $treeDiagnostics = $this->analyzeProjectTree($projectNodes);
+
+                if ($treeDiagnostics['is_ready']) {
+                    $documentTreeNotice = [
+                        'type' => 'success',
+                        'message' => 'El árbol documental no estaba disponible y se regeneró automáticamente. Recarga la página si no ves los cambios.',
+                    ];
+                }
+            } catch (\Throwable $e) {
+                error_log(sprintf(
+                    '[projects.tree.recover] No se pudo regenerar árbol | project_id=%d | reason=%s | error=%s',
+                    $id,
+                    $treeDiagnostics['reason'],
+                    $e->getMessage()
+                ));
+                $documentTreeNotice = [
+                    'type' => 'error',
+                    'message' => 'No se pudo generar el árbol documental. Revisa logs con prefijos [project.tree.bootstrap] y [projects.tree.recover].',
+                ];
+            }
+        }
+
+        if ($documentTreeNotice === null && !$treeDiagnostics['is_ready']) {
+            $documentTreeNotice = [
+                'type' => 'warning',
+                'message' => 'El expediente no tiene fases cargadas aún. Motivo detectado: ' . $treeDiagnostics['reason'] . '.',
+            ];
+        }
+
         $config = (new ConfigService($this->db))->getConfig();
         $progress = $treeService->summarizeProgress(
             $id,
@@ -1495,6 +1549,7 @@ class ProjectsController extends Controller
             'currentUser' => $this->auth->user() ?? [],
             'canManage' => $this->auth->can('projects.manage'),
             'projectNodes' => $projectNodes,
+            'documentTreeNotice' => $documentTreeNotice,
             'progressPhases' => $progress['phases'] ?? [],
             'documentFlowConfig' => $config['document_flow'] ?? [],
             'accessRoles' => $config['access']['roles'] ?? [],
@@ -1507,6 +1562,32 @@ class ProjectsController extends Controller
                 'logged_hours' => $loggedHours,
             ],
         ], $deleteContext);
+    }
+
+    private function analyzeProjectTree(array $projectNodes): array
+    {
+        if (empty($projectNodes)) {
+            return ['is_ready' => false, 'reason' => 'árbol vacío'];
+        }
+
+        $rootNode = null;
+        foreach ($projectNodes as $node) {
+            if (($node['code'] ?? '') === 'ROOT') {
+                $rootNode = $node;
+                break;
+            }
+        }
+
+        if ($rootNode === null) {
+            return ['is_ready' => false, 'reason' => 'sin nodo ROOT'];
+        }
+
+        $phases = $rootNode['children'] ?? [];
+        if (empty($phases)) {
+            return ['is_ready' => false, 'reason' => 'ROOT sin fases hijas'];
+        }
+
+        return ['is_ready' => true, 'reason' => 'ok'];
     }
 
     private function userCanUpdateProjectProgress(): bool
