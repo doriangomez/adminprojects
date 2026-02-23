@@ -233,10 +233,11 @@ class DatabaseMigrator
         try {
             $this->db->execute(
                 'INSERT INTO permissions (code, name)
-                 SELECT :code, :name
-                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
                 [
-                    ':code' => 'projects.manage',
+                    ':code_value' => 'projects.manage',
+                    ':code_check' => 'projects.manage',
                     ':name' => 'Gestionar proyectos',
                 ]
             );
@@ -248,16 +249,17 @@ class DatabaseMigrator
             foreach ($roles as $role) {
                 $this->db->execute(
                     'INSERT INTO role_permissions (role_id, permission_id)
-                     SELECT :roleId, p.id
+                     SELECT :role_id_value, p.id
                      FROM permissions p
-                     WHERE p.code = :code
+                     WHERE p.code = :code_value
                      AND NOT EXISTS (
                         SELECT 1 FROM role_permissions rp
-                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
                     )',
                     [
-                        ':roleId' => (int) $role['id'],
-                        ':code' => 'projects.manage',
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'projects.manage',
                     ]
                 );
             }
@@ -275,37 +277,41 @@ class DatabaseMigrator
         try {
             $this->db->execute(
                 'INSERT INTO permissions (code, name)
-                 SELECT :code, :name
-                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
                 [
-                    ':code' => 'timesheets.approve',
+                    ':code_value' => 'timesheets.approve',
+                    ':code_check' => 'timesheets.approve',
                     ':name' => 'Aprobar timesheets',
                 ]
             );
             $this->db->execute(
                 'INSERT INTO permissions (code, name)
-                 SELECT :code, :name
-                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
                 [
-                    ':code' => 'timesheets.view',
+                    ':code_value' => 'timesheets.view',
+                    ':code_check' => 'timesheets.view',
                     ':name' => 'Ver y registrar timesheets',
                 ]
             );
             $this->db->execute(
                 'INSERT INTO permissions (code, name)
-                 SELECT :code, :name
-                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
                 [
-                    ':code' => 'approve_timesheet',
+                    ':code_value' => 'approve_timesheet',
+                    ':code_check' => 'approve_timesheet',
                     ':name' => 'Aprobar timesheets',
                 ]
             );
             $this->db->execute(
                 'INSERT INTO permissions (code, name)
-                 SELECT :code, :name
-                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code)',
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
                 [
-                    ':code' => 'view_timesheet',
+                    ':code_value' => 'view_timesheet',
+                    ':code_check' => 'view_timesheet',
                     ':name' => 'Ver y registrar timesheets',
                 ]
             );
@@ -317,30 +323,32 @@ class DatabaseMigrator
             foreach ($roles as $role) {
                 $this->db->execute(
                     'INSERT INTO role_permissions (role_id, permission_id)
-                     SELECT :roleId, p.id
+                     SELECT :role_id_value, p.id
                      FROM permissions p
-                     WHERE p.code = :code
+                     WHERE p.code = :code_value
                      AND NOT EXISTS (
                         SELECT 1 FROM role_permissions rp
-                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
                     )',
                     [
-                        ':roleId' => (int) $role['id'],
-                        ':code' => 'timesheets.approve',
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'timesheets.approve',
                     ]
                 );
                 $this->db->execute(
                     'INSERT INTO role_permissions (role_id, permission_id)
-                     SELECT :roleId, p.id
+                     SELECT :role_id_value, p.id
                      FROM permissions p
-                     WHERE p.code = :code
+                     WHERE p.code = :code_value
                      AND NOT EXISTS (
                         SELECT 1 FROM role_permissions rp
-                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
                     )',
                     [
-                        ':roleId' => (int) $role['id'],
-                        ':code' => 'approve_timesheet',
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'approve_timesheet',
                     ]
                 );
             }
@@ -349,30 +357,32 @@ class DatabaseMigrator
             foreach ($talentRoles as $role) {
                 $this->db->execute(
                     'INSERT INTO role_permissions (role_id, permission_id)
-                     SELECT :roleId, p.id
+                     SELECT :role_id_value, p.id
                      FROM permissions p
-                     WHERE p.code = :code
+                     WHERE p.code = :code_value
                      AND NOT EXISTS (
                         SELECT 1 FROM role_permissions rp
-                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
                     )',
                     [
-                        ':roleId' => (int) $role['id'],
-                        ':code' => 'timesheets.view',
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'timesheets.view',
                     ]
                 );
                 $this->db->execute(
                     'INSERT INTO role_permissions (role_id, permission_id)
-                     SELECT :roleId, p.id
+                     SELECT :role_id_value, p.id
                      FROM permissions p
-                     WHERE p.code = :code
+                     WHERE p.code = :code_value
                      AND NOT EXISTS (
                         SELECT 1 FROM role_permissions rp
-                        WHERE rp.role_id = :roleId AND rp.permission_id = p.id
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
                     )',
                     [
-                        ':roleId' => (int) $role['id'],
-                        ':code' => 'view_timesheet',
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'view_timesheet',
                     ]
                 );
             }
@@ -1139,7 +1149,13 @@ class DatabaseMigrator
     private function migrateProjectNodesTable(): void
     {
         if ($this->db->indexExists('project_nodes', 'project_code')) {
-            $this->db->execute('ALTER TABLE project_nodes DROP INDEX project_code');
+            try {
+                $this->db->execute('ALTER TABLE project_nodes DROP INDEX project_code');
+            } catch (\PDOException $e) {
+                if ((int) $e->errorInfo[1] !== 1553) {
+                    throw $e;
+                }
+            }
         }
 
         $this->ensureProjectNodesColumns();
