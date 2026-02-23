@@ -2242,6 +2242,9 @@ class ProjectsController extends Controller
             if ($currentIndex !== false && $requestedIndex !== false && $requestedIndex < $currentIndex) {
                 throw new \InvalidArgumentException('Las fases deben avanzar de forma secuencial.');
             }
+            if ($currentIndex !== false && $requestedIndex !== false && $requestedIndex > ($currentIndex + 1)) {
+                throw new \InvalidArgumentException('No puedes saltar fases. Debes avanzar una fase a la vez.');
+            }
         }
 
         return $requested;
