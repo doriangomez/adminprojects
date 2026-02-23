@@ -26,6 +26,14 @@ class ProjectTreeService
         $nodesRepo = new ProjectNodesRepository($this->db);
         $normalizedMethodology = $this->normalizeMethodology($methodology);
 
+        error_log(sprintf(
+            '[project.tree.bootstrap] Inicio | project_id=%d | methodology_raw=%s | methodology_normalized=%s | created_by=%s',
+            $projectId,
+            $methodology,
+            $normalizedMethodology,
+            $createdBy === null ? 'null' : (string) $createdBy
+        ));
+
         $nodesRepo->hardResetTree($projectId);
 
         $rootId = $nodesRepo->createNode([
@@ -41,6 +49,11 @@ class ProjectTreeService
         ]);
 
         $phases = $this->phaseDefinitions($normalizedMethodology);
+        error_log(sprintf(
+            '[project.tree.bootstrap] Fases definidas | project_id=%d | phases_count=%d',
+            $projectId,
+            count($phases)
+        ));
 
         foreach ($phases as $index => $phase) {
             $phaseId = $nodesRepo->createNode([
@@ -72,6 +85,20 @@ class ProjectTreeService
             if ($normalizedMethodology === 'scrum' && ($phase['code'] ?? '') === self::SCRUM_SPRINT_CONTAINER) {
                 $this->createSprintNodes($projectId, $phaseId, 1, $createdBy);
             }
+        }
+
+        $snapshot = $nodesRepo->snapshot($projectId);
+        $rootNodes = $snapshot['nodes'] ?? [];
+        $rootChildrenCount = count($rootNodes[0]['children'] ?? []);
+        error_log(sprintf(
+            '[project.tree.bootstrap] Árbol creado | project_id=%d | roots=%d | root_children=%d',
+            $projectId,
+            count($rootNodes),
+            $rootChildrenCount
+        ));
+
+        if (empty($rootNodes)) {
+            throw new \RuntimeException('No se generó el árbol documental: la raíz del proyecto no existe tras la inicialización.');
         }
 
         return [];

@@ -204,11 +204,25 @@ class ProjectsController extends Controller
             $payloadForDebug = $this->sanitizePayloadForDebug($payload);
             unset($payload['risk_catalog']);
             $projectId = $repo->create($payload);
-            (new ProjectTreeService($this->db))->bootstrapFreshTree(
-                $projectId,
-                (string) ($payload['methodology'] ?? 'cascada'),
-                (int) ($this->auth->user()['id'] ?? 0)
-            );
+            try {
+                (new ProjectTreeService($this->db))->bootstrapFreshTree(
+                    $projectId,
+                    (string) ($payload['methodology'] ?? 'cascada'),
+                    (int) ($this->auth->user()['id'] ?? 0)
+                );
+            } catch (\Throwable $treeException) {
+                error_log(sprintf(
+                    '[projects.store] Proyecto creado sin árbol documental | project_id=%d | methodology=%s | error=%s',
+                    $projectId,
+                    (string) ($payload['methodology'] ?? 'cascada'),
+                    $treeException->getMessage()
+                ));
+                throw new \InvalidArgumentException(
+                    'El proyecto se registró, pero falló la creación del árbol documental. Revisa los logs del servidor y vuelve a intentarlo.',
+                    0,
+                    $treeException
+                );
+            }
             try {
                 (new NotificationService($this->db))->notify(
                     'project.created',
