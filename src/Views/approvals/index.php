@@ -165,68 +165,51 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
         <section class="approvals-section" data-queue="timesheets">
             <header>
                 <h3>Timesheets por aprobar</h3>
-                <p class="section-muted">Horas reportadas pendientes de aprobación.</p>
+                <p class="section-muted">Horas agrupadas por semana con resumen por proyecto.</p>
             </header>
             <?php if (empty($timesheetApprovals)): ?>
                 <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
             <?php else: ?>
                 <div class="timesheet-cards">
-                    <?php foreach ($timesheetApprovals as $row): ?>
-                        <?php
-                        $status = $row['status'] === 'submitted' || $row['status'] === 'pending_approval' ? 'pending' : $row['status'];
-                        $statusLabel = $status === 'pending' ? 'Pendiente' : $status;
-                        ?>
+                    <?php foreach ($timesheetApprovals as $week): ?>
                         <article class="inbox-card timesheet-card" data-queue-type="timesheets">
                             <header class="inbox-card__header">
                                 <div class="inbox-card__heading">
-                                    <span class="inbox-card__type">Timesheet</span>
-                                    <strong class="inbox-card__title"><?= htmlspecialchars($row['project'] ?? '') ?></strong>
-                                    <div class="meta-line">Tarea: <?= htmlspecialchars($row['task'] ?? '') ?></div>
-                                    <div class="meta-line">Talento: <?= htmlspecialchars($row['talent'] ?? '') ?></div>
+                                    <span class="inbox-card__type">Semana</span>
+                                    <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
+                                    <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</div>
                                 </div>
-                                <div class="badge <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
-                                    <?= htmlspecialchars($statusLabel) ?>
-                                </div>
+                                <div class="badge status-warning">Pendiente</div>
                             </header>
                             <div class="inbox-card__body">
-                                <div class="inbox-card__summary">
-                                    <div>
-                                        <span class="meta-label">Estado actual</span>
-                                        <div class="status-pill <?= $status === 'pending' ? 'status-warning' : 'status-muted' ?>">
-                                            <?= htmlspecialchars($statusLabel) ?>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span class="meta-label">Responsable anterior</span>
-                                        <div><?= htmlspecialchars($row['talent'] ?? '') ?></div>
-                                    </div>
-                                    <div>
-                                        <span class="meta-label">Fecha</span>
-                                        <div><?= htmlspecialchars($row['date'] ?? '') ?></div>
-                                    </div>
-                                </div>
                                 <div class="inbox-card__grid">
                                     <div>
-                                        <span class="meta-label">Horas</span>
-                                        <div><?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
-                                    </div>
-                                    <div>
-                                        <span class="meta-label">Comentario</span>
-                                        <div class="wrap-anywhere"><?= htmlspecialchars((string) ($row['comment'] ?? '')) ?></div>
+                                        <span class="meta-label">Resumen por proyecto</span>
+                                        <?php foreach (($week['project_summary'] ?? []) as $summary): ?>
+                                            <div><?= htmlspecialchars((string) ($summary['project'] ?? '')) ?> · <?= htmlspecialchars((string) round((float) ($summary['hours'] ?? 0), 2)) ?>h</div>
+                                        <?php endforeach; ?>
                                     </div>
                                 </div>
                             </div>
                             <div class="inbox-card__footer">
-                                <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets">Ver</a>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/approve" class="inline-form">
-                                    <input type="text" name="comment" placeholder="Comentario (opcional)" aria-label="Comentario de aprobación">
-                                    <button type="submit" class="action-btn small primary">✅ Aprobar</button>
+                                <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
+                                    <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
+                                    <input type="hidden" name="status" value="approved">
+                                    <input type="text" name="comment" placeholder="Comentario (opcional)">
+                                    <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
                                 </form>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) $row['id'] ?>/reject" class="inline-form">
-                                    <input type="text" name="comment" placeholder="Motivo de rechazo" required aria-label="Motivo de rechazo">
-                                    <button type="submit" class="action-btn small danger">❌ Rechazar</button>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
+                                    <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
+                                    <input type="hidden" name="status" value="rejected">
+                                    <input type="text" name="comment" placeholder="Motivo rechazo" required>
+                                    <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
                                 </form>
                             </div>
+
+                            <?php foreach (($week['rows'] ?? []) as $row): ?>
+                                <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
+                            <?php endforeach; ?>
                         </article>
                     <?php endforeach; ?>
                 </div>

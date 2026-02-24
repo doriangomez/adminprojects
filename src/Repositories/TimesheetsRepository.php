@@ -91,6 +91,305 @@ class TimesheetsRepository
         return $totals;
     }
 
+
+
+    public function weeklyGridForUser(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $projects = $this->projectsForTimesheetEntry($userId);
+        $projectMap = [];
+        foreach ($projects as $project) {
+            $projectId = (int) ($project['project_id'] ?? 0);
+            if ($projectId <= 0 || isset($projectMap[$projectId])) {
+                continue;
+            }
+            $projectMap[$projectId] = [
+                'project_id' => $projectId,
+                'project' => (string) ($project['project'] ?? ''),
+                'assignment_id' => isset($project['assignment_id']) ? (int) $project['assignment_id'] : null,
+            ];
+        }
+
+        $talentId = $this->talentIdForUser($userId);
+        $entries = [];
+        if ($talentId !== null) {
+            $entries = $this->db->fetchAll(
+                'SELECT id, project_id, date, hours, status, comment
+                 FROM timesheets
+                 WHERE user_id = :user
+                   AND date BETWEEN :start AND :end',
+                [
+                    ':user' => $userId,
+                    ':start' => $weekStart->format('Y-m-d'),
+                    ':end' => $weekEnd->format('Y-m-d'),
+                ]
+            );
+        }
+
+        $days = [];
+        for ($i = 0; $i < 7; $i++) {
+            $day = $weekStart->modify('+' . $i . ' days');
+            $days[] = [
+                'key' => $day->format('Y-m-d'),
+                'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
+                'number' => $day->format('d'),
+            ];
+        }
+
+        $cells = [];
+        $dayTotals = array_fill_keys(array_column($days, 'key'), 0.0);
+        foreach ($entries as $entry) {
+            $projectId = (int) ($entry['project_id'] ?? 0);
+            $date = (string) ($entry['date'] ?? '');
+            if (!isset($projectMap[$projectId]) || !isset($dayTotals[$date])) {
+                continue;
+            }
+            $cells[$projectId][$date] = [
+                'id' => (int) ($entry['id'] ?? 0),
+                'hours' => (float) ($entry['hours'] ?? 0),
+                'status' => (string) ($entry['status'] ?? 'draft'),
+                'comment' => (string) ($entry['comment'] ?? ''),
+            ];
+            $dayTotals[$date] += (float) ($entry['hours'] ?? 0);
+        }
+
+        $rows = [];
+        foreach ($projectMap as $projectId => $project) {
+            $rowTotal = 0.0;
+            $rowCells = [];
+            foreach ($days as $day) {
+                $date = $day['key'];
+                $cell = $cells[$projectId][$date] ?? null;
+                $hours = $cell !== null ? (float) ($cell['hours'] ?? 0) : 0.0;
+                $rowTotal += $hours;
+                $rowCells[$date] = $cell ?? [
+                    'id' => null,
+                    'hours' => 0.0,
+                    'status' => 'draft',
+                    'comment' => '',
+                ];
+            }
+            $rows[] = [
+                'project_id' => $projectId,
+                'project' => $project['project'],
+                'assignment_id' => $project['assignment_id'],
+                'cells' => $rowCells,
+                'total' => $rowTotal,
+            ];
+        }
+
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
+        if ($weeklyCapacity <= 0) {
+            $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
+        }
+
+        return [
+            'days' => $days,
+            'rows' => $rows,
+            'day_totals' => $dayTotals,
+            'week_total' => array_sum($dayTotals),
+            'weekly_capacity' => $weeklyCapacity,
+            'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
+        ];
+    }
+
+    public function upsertDraftCell(int $userId, int $projectId, string $date, float $hours, string $comment = ''): array
+    {
+        $assignment = $this->assignmentForProject($projectId, $userId);
+        if (!$assignment) {
+            throw new InvalidArgumentException('Proyecto no asignado o inactivo para este talento.');
+        }
+
+        $talentId = (int) ($assignment['talent_id'] ?? 0);
+        if ($talentId <= 0) {
+            throw new InvalidArgumentException('Tu usuario no tiene un talento asociado.');
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT id, status, task_id, hours
+             FROM timesheets
+             WHERE user_id = :user AND project_id = :project AND date = :date
+             LIMIT 1',
+            [':user' => $userId, ':project' => $projectId, ':date' => $date]
+        );
+
+        if ($existing && !in_array((string) ($existing['status'] ?? ''), ['draft'], true)) {
+            throw new InvalidArgumentException('La celda no es editable porque la semana ya fue enviada.');
+        }
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE user_id = :user AND date = :date AND id <> :id',
+            [
+                ':user' => $userId,
+                ':date' => $date,
+                ':id' => (int) ($existing['id'] ?? 0),
+            ]
+        );
+
+        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
+        if ($currentDayTotal + $hours > 24) {
+            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
+        }
+
+        $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
+        $approver = $approverUserId > 0 ? $approverUserId : null;
+        $taskId = $this->resolveTimesheetTaskId($projectId);
+
+        if ($existing) {
+            $this->db->execute(
+                'UPDATE timesheets
+                 SET hours = :hours,
+                     comment = :comment,
+                     status = :status,
+                     approver_user_id = :approver,
+                     updated_at = NOW()
+                 WHERE id = :id',
+                [
+                    ':hours' => $hours,
+                    ':comment' => $comment,
+                    ':status' => 'draft',
+                    ':approver' => $approver,
+                    ':id' => (int) $existing['id'],
+                ]
+            );
+            return ['id' => (int) $existing['id'], 'updated' => true];
+        }
+
+        $id = $this->createTimesheet([
+            'task_id' => $taskId,
+            'project_id' => $projectId,
+            'talent_id' => $talentId,
+            'user_id' => $userId,
+            'assignment_id' => $assignment['id'] ?? null,
+            'approver_user_id' => $approver,
+            'date' => $date,
+            'hours' => $hours,
+            'status' => 'draft',
+            'comment' => $comment,
+            'billable' => 0,
+            'approved_by' => null,
+            'approved_at' => null,
+        ]);
+
+        return ['id' => $id, 'updated' => false];
+    }
+
+    public function submitWeek(int $userId, \DateTimeImmutable $weekStart): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $requiresFull = (int) ($profile['requiere_reporte_horas'] ?? 0) === 1;
+
+        if ($requiresFull) {
+            $rows = $this->db->fetchAll(
+                'SELECT date, COALESCE(SUM(hours), 0) AS hours
+                 FROM timesheets
+                 WHERE user_id = :user AND date BETWEEN :start AND :end
+                 GROUP BY date',
+                [
+                    ':user' => $userId,
+                    ':start' => $weekStart->format('Y-m-d'),
+                    ':end' => $weekEnd->format('Y-m-d'),
+                ]
+            );
+            $totalsByDate = [];
+            foreach ($rows as $row) {
+                $totalsByDate[(string) $row['date']] = (float) ($row['hours'] ?? 0);
+            }
+            for ($i = 0; $i < 7; $i++) {
+                $day = $weekStart->modify('+' . $i . ' days')->format('Y-m-d');
+                if (($totalsByDate[$day] ?? 0.0) <= 0) {
+                    throw new InvalidArgumentException('No se puede enviar la semana: hay días sin horas registradas.');
+                }
+            }
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :submitted,
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+               AND status = :draft',
+            [
+                ':submitted' => 'submitted',
+                ':draft' => 'draft',
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function pendingApprovalsByWeek(array $user): array
+    {
+        $rows = $this->pendingApprovals($user);
+        $grouped = [];
+        foreach ($rows as $row) {
+            $date = new \DateTimeImmutable((string) ($row['date'] ?? 'now'));
+            $weekStart = $date->modify('monday this week')->format('Y-m-d');
+            $project = (string) ($row['project'] ?? 'Sin proyecto');
+            $grouped[$weekStart]['week_start'] = $weekStart;
+            $grouped[$weekStart]['week_label'] = $date->modify('monday this week')->format('d/m') . ' - ' . $date->modify('sunday this week')->format('d/m');
+            $grouped[$weekStart]['total_hours'] = ($grouped[$weekStart]['total_hours'] ?? 0) + (float) ($row['hours'] ?? 0);
+            $grouped[$weekStart]['rows'][] = $row;
+            $grouped[$weekStart]['projects'][$project] = ($grouped[$weekStart]['projects'][$project] ?? 0) + (float) ($row['hours'] ?? 0);
+        }
+
+        foreach ($grouped as &$week) {
+            $summary = [];
+            foreach ($week['projects'] as $project => $hours) {
+                $summary[] = ['project' => $project, 'hours' => $hours];
+            }
+            usort($summary, static fn(array $a, array $b): int => strcmp($a['project'], $b['project']));
+            $week['project_summary'] = $summary;
+            unset($week['projects']);
+        }
+        unset($week);
+
+        krsort($grouped);
+        return array_values($grouped);
+    }
+
+    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null): int
+    {
+        $start = new \DateTimeImmutable($weekStart);
+        $end = $start->modify('+6 days');
+        $params = [
+            ':status' => $status,
+            ':comment' => $comment,
+            ':approver' => $approverUserId,
+            ':start' => $start->format('Y-m-d'),
+            ':end' => $end->format('Y-m-d'),
+        ];
+
+        $column = $status === 'approved' ? 'approved_by = :approver, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL' : 'rejected_by = :approver, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :status,
+                 approval_comment = :comment,
+                 ' . $column . ',
+                 updated_at = NOW()
+             WHERE approver_user_id = :approver
+               AND date BETWEEN :start AND :end
+               AND status IN ("submitted", "pending", "pending_approval")'
+            ,
+            $params
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
+    }
     public function hasTimesheetAssignments(int $userId): bool
     {
         if (!$this->db->tableExists('talents')) {

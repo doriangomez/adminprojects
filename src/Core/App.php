@@ -425,6 +425,18 @@ class App
 
         if (str_starts_with($path, '/timesheets')) {
             $controller = new TimesheetsController($this->db, $this->auth);
+            if ($path === '/timesheets/cell' && $method === 'POST') {
+                $controller->saveCell();
+                return;
+            }
+            if ($path === '/timesheets/submit-week' && $method === 'POST') {
+                $controller->submitWeek();
+                return;
+            }
+            if ($path === '/timesheets/approve-week' && $method === 'POST') {
+                $controller->approveWeek();
+                return;
+            }
             if ($path === '/timesheets/create' && $method === 'POST') {
                 $controller->create();
                 return;
