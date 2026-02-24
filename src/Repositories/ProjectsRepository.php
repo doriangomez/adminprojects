@@ -13,6 +13,7 @@ class ProjectsRepository
     private const ADMIN_ROLES = ['Administrador', 'PMO'];
 
     private array $signalRules;
+    private ?array $assignmentCostTypeDefinition = null;
 
     public function __construct(private Database $db)
     {
@@ -732,7 +733,7 @@ class ProjectsRepository
             ':end_date' => $payload['end_date'] ?: null,
             ':allocation_percent' => $payload['allocation_percent'],
             ':weekly_hours' => $payload['weekly_hours'],
-            ':cost_type' => $payload['cost_type'],
+            ':cost_type' => $this->normalizeAssignmentCostType((string) ($payload['cost_type'] ?? '')),
             ':cost_value' => $payload['cost_value'],
             ':is_external' => (int) $payload['is_external'],
             ':requires_timesheet' => $requiresTimesheet,
@@ -759,6 +760,82 @@ class ProjectsRepository
              VALUES (' . implode(', ', $valuePlaceholders) . ')',
             $params
         );
+    }
+
+
+    private function normalizeAssignmentCostType(string $costType): string
+    {
+        $normalized = strtolower(trim($costType));
+        $aliases = [
+            'por_horas' => 'por_horas',
+            'fijo' => 'fijo',
+            'hourly' => 'hourly',
+            'fixed' => 'fixed',
+        ];
+        $canonical = $aliases[$normalized] ?? 'por_horas';
+
+        $definition = $this->assignmentCostTypeDefinition();
+        if ($definition === null || $definition['data_type'] !== 'enum') {
+            return in_array($canonical, ['fijo', 'fixed'], true) ? 'fijo' : 'por_horas';
+        }
+
+        $options = $definition['enum_values'];
+        if ($options === []) {
+            return in_array($canonical, ['fijo', 'fixed'], true) ? 'fijo' : 'por_horas';
+        }
+
+        $compatibility = [
+            'por_horas' => ['por_horas', 'hourly', 'hora', 'horas', 'variable'],
+            'hourly' => ['hourly', 'por_horas', 'hora', 'horas', 'variable'],
+            'fijo' => ['fijo', 'fixed', 'mensual', 'flat'],
+            'fixed' => ['fixed', 'fijo', 'mensual', 'flat'],
+        ];
+
+        foreach ($compatibility[$canonical] ?? [$canonical] as $candidate) {
+            if (in_array($candidate, $options, true)) {
+                return $candidate;
+            }
+        }
+
+        return $options[0];
+    }
+
+    private function assignmentCostTypeDefinition(): ?array
+    {
+        if ($this->assignmentCostTypeDefinition !== null) {
+            return $this->assignmentCostTypeDefinition;
+        }
+
+        $metadata = $this->db->fetchOne(
+            'SELECT DATA_TYPE, COLUMN_TYPE
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = :schema
+               AND TABLE_NAME = :table
+               AND COLUMN_NAME = :column
+             LIMIT 1',
+            [
+                ':schema' => $this->db->databaseName(),
+                ':table' => 'project_talent_assignments',
+                ':column' => 'cost_type',
+            ]
+        );
+
+        if (!$metadata) {
+            return null;
+        }
+
+        $enumValues = [];
+        if (strtolower((string) ($metadata['DATA_TYPE'] ?? '')) === 'enum') {
+            preg_match_all("/'([^']*)'/", (string) ($metadata['COLUMN_TYPE'] ?? ''), $matches);
+            $enumValues = $matches[1] ?? [];
+        }
+
+        $this->assignmentCostTypeDefinition = [
+            'data_type' => strtolower((string) ($metadata['DATA_TYPE'] ?? '')),
+            'enum_values' => $enumValues,
+        ];
+
+        return $this->assignmentCostTypeDefinition;
     }
 
     public function updateAssignmentStatus(int $projectId, int $assignmentId, string $status): void
