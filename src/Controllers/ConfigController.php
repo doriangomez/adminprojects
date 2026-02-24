@@ -326,6 +326,7 @@ class ConfigController extends Controller
         $documentRoles = $this->documentRolePayload($isAdmin);
         $progressPermission = $this->progressPermissionPayload($isAdmin);
         $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin);
+        $outsourcingDeletePermission = $this->outsourcingDeletePermissionPayload($isAdmin);
         $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin);
         $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin);
         $email = strtolower(trim((string) ($_POST['email'] ?? '')));
@@ -352,6 +353,7 @@ class ConfigController extends Controller
             'can_approve_documents' => $documentRoles['can_approve_documents'],
             'can_update_project_progress' => $progressPermission,
             'can_access_outsourcing' => $outsourcingPermission,
+            'can_delete_outsourcing_records' => $outsourcingDeletePermission,
             'can_access_timesheets' => $timesheetAccessPermission,
             'can_approve_timesheets' => $timesheetApprovalPermission,
         ]);
@@ -387,6 +389,7 @@ class ConfigController extends Controller
         $documentRoles = $this->documentRolePayload($isAdmin, $current);
         $progressPermission = $this->progressPermissionPayload($isAdmin, $current);
         $outsourcingPermission = $this->outsourcingPermissionPayload($isAdmin, $current);
+        $outsourcingDeletePermission = $this->outsourcingDeletePermissionPayload($isAdmin, $current);
         $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin, $current);
         $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin, $current);
 
@@ -416,6 +419,7 @@ class ConfigController extends Controller
             'can_approve_documents' => $documentRoles['can_approve_documents'],
             'can_update_project_progress' => $progressPermission,
             'can_access_outsourcing' => $outsourcingPermission,
+            'can_delete_outsourcing_records' => $outsourcingDeletePermission,
             'can_access_timesheets' => $timesheetAccessPermission,
             'can_approve_timesheets' => $timesheetApprovalPermission,
         ]);
@@ -632,6 +636,15 @@ class ConfigController extends Controller
         }
 
         return $this->checkboxValue(['can_access_outsourcing']) ? 1 : 0;
+    }
+
+    private function outsourcingDeletePermissionPayload(bool $isAdmin, array $existing = []): int
+    {
+        if (!$isAdmin) {
+            return (int) ($existing['can_delete_outsourcing_records'] ?? 0);
+        }
+
+        return $this->checkboxValue(['can_delete_outsourcing_records']) ? 1 : 0;
     }
 
     private function timesheetAccessPermissionPayload(bool $isAdmin, array $existing = []): int

@@ -19,6 +19,7 @@ class App
         $migrator->ensureProjectActiveColumn();
         $migrator->ensureUserProgressPermissionColumn();
         $migrator->ensureUserOutsourcingPermissionColumn();
+        $migrator->ensureUserOutsourcingDeletePermissionColumn();
         $migrator->ensureUserAuthTypeColumn();
         $migrator->ensureUserTimesheetPermissionColumns();
         $migrator->ensureClientDeletionCascades();
@@ -365,6 +366,14 @@ class App
             }
             if (preg_match('#^/outsourcing/(\\d+)/followups/(\\d+)/close$#', $path, $matches) && $method === 'POST') {
                 $controller->closeFollowup((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\d+)/followups/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteFollowup((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteService((int) $matches[1]);
                 return;
             }
             if ($path === '/outsourcing/talents' && $method === 'POST') {

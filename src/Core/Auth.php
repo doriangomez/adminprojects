@@ -164,6 +164,29 @@ class Auth
         return ((int) ($row['can_access_outsourcing'] ?? 0)) === 1;
     }
 
+    public function canDeleteOutsourcingRecords(): bool
+    {
+        if ($this->can('outsourcing.delete')) {
+            return true;
+        }
+
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_delete_outsourcing_records FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_delete_outsourcing_records'] ?? 0)) === 1;
+    }
+
     public function hasRole(string $role): bool
     {
         $user = $this->user();

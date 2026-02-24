@@ -434,6 +434,33 @@ class OutsourcingServicesRepository
         return $followup ?: null;
     }
 
+    public function deleteService(int $serviceId): void
+    {
+        if (!$this->db->tableExists('outsourcing_services')) {
+            throw new \RuntimeException('La tabla de servicios outsourcing no está disponible.');
+        }
+
+        $this->db->execute(
+            'DELETE FROM outsourcing_services WHERE id = :id',
+            [':id' => $serviceId]
+        );
+    }
+
+    public function deleteFollowup(int $followupId, int $serviceId): void
+    {
+        if (!$this->db->tableExists('outsourcing_followups')) {
+            throw new \RuntimeException('La tabla de seguimientos outsourcing no está disponible.');
+        }
+
+        $this->db->execute(
+            'DELETE FROM outsourcing_followups WHERE id = :id AND service_id = :service_id',
+            [
+                ':id' => $followupId,
+                ':service_id' => $serviceId,
+            ]
+        );
+    }
+
     public function closeFollowup(int $followupId): void
     {
         if (!$this->db->tableExists('outsourcing_followups')) {

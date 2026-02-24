@@ -47,6 +47,7 @@ class OutsourcingServicesController extends Controller
             'talents' => $talents,
             'users' => $users,
             'canManage' => $this->auth->canAccessOutsourcing(),
+            'canDeleteRecords' => $this->auth->canDeleteOutsourcingRecords(),
             'filters' => $filters,
             'preselectedTalentId' => $preselectedTalentId,
             'talentCreatedMessage' => $talentCreatedMessage,
@@ -95,6 +96,7 @@ class OutsourcingServicesController extends Controller
             'documentFlowConfig' => (new ConfigService($this->db))->getConfig()['document_flow'] ?? [],
             'currentUser' => $user,
             'canManage' => $this->auth->canAccessOutsourcing(),
+            'canDeleteRecords' => $this->auth->canDeleteOutsourcingRecords(),
             'timesheetSummary' => $timesheetSummary,
         ]);
     }
@@ -381,11 +383,80 @@ class OutsourcingServicesController extends Controller
         header('Location: /outsourcing/' . $serviceId);
     }
 
+    public function deleteService(int $serviceId): void
+    {
+        $this->requireOutsourcingAccess();
+        $this->requireOutsourcingDeletePermission();
+        $user = $this->auth->user() ?? [];
+
+        $servicesRepo = new OutsourcingServicesRepository($this->db);
+        $service = $servicesRepo->findService($serviceId);
+
+        if (!$service) {
+            http_response_code(404);
+            exit('Servicio de outsourcing no encontrado.');
+        }
+
+        $servicesRepo->deleteService($serviceId);
+
+        (new AuditLogRepository($this->db))->log(
+            (int) ($user['id'] ?? 0),
+            'outsourcing_service',
+            $serviceId,
+            'deleted',
+            [
+                'talent_id' => $service['talent_id'] ?? null,
+                'client_id' => $service['client_id'] ?? null,
+                'project_id' => $service['project_id'] ?? null,
+            ]
+        );
+
+        header('Location: /talents?saved=outsourcing_service_deleted#talent-tracking');
+    }
+
+    public function deleteFollowup(int $serviceId, int $followupId): void
+    {
+        $this->requireOutsourcingAccess();
+        $this->requireOutsourcingDeletePermission();
+        $user = $this->auth->user() ?? [];
+
+        $servicesRepo = new OutsourcingServicesRepository($this->db);
+        $followup = $servicesRepo->findFollowup($followupId, $serviceId);
+
+        if (!$followup) {
+            http_response_code(404);
+            exit('Seguimiento de outsourcing no encontrado.');
+        }
+
+        $servicesRepo->deleteFollowup($followupId, $serviceId);
+
+        (new AuditLogRepository($this->db))->log(
+            (int) ($user['id'] ?? 0),
+            'outsourcing_followup',
+            $followupId,
+            'deleted',
+            [
+                'service_id' => $serviceId,
+                'previous_status' => $followup['followup_status'] ?? null,
+            ]
+        );
+
+        header('Location: /outsourcing/' . $serviceId . '#seguimientos');
+    }
+
     private function requireOutsourcingAccess(): void
     {
         if (!$this->auth->canAccessOutsourcing()) {
             http_response_code(403);
             exit('Acceso denegado');
+        }
+    }
+
+    private function requireOutsourcingDeletePermission(): void
+    {
+        if (!$this->auth->canDeleteOutsourcingRecords()) {
+            http_response_code(403);
+            exit('No tienes permiso para eliminar registros de outsourcing.');
         }
     }
 

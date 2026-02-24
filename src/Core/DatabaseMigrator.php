@@ -149,6 +149,21 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureUserOutsourcingDeletePermissionColumn(): void
+    {
+        if (!$this->db->tableExists('users') || $this->db->columnExists('users', 'can_delete_outsourcing_records')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'ALTER TABLE users ADD COLUMN can_delete_outsourcing_records TINYINT(1) DEFAULT 0 AFTER can_access_outsourcing'
+            );
+        } catch (\PDOException $e) {
+            error_log('Error agregando columna can_delete_outsourcing_records a users: ' . $e->getMessage());
+        }
+    }
+
     public function ensureUserTimesheetPermissionColumns(): void
     {
         if (!$this->db->tableExists('users')) {

@@ -54,8 +54,8 @@ class UsersRepository
     public function create(array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO users (name, email, password_hash, auth_type, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, can_update_project_progress, can_access_outsourcing, can_access_timesheets, can_approve_timesheets, created_at, updated_at)
-             VALUES (:name, :email, :password_hash, :auth_type, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, :can_update_project_progress, :can_access_outsourcing, :can_access_timesheets, :can_approve_timesheets, NOW(), NOW())',
+            'INSERT INTO users (name, email, password_hash, auth_type, role_id, active, can_review_documents, can_validate_documents, can_approve_documents, can_update_project_progress, can_access_outsourcing, can_delete_outsourcing_records, can_access_timesheets, can_approve_timesheets, created_at, updated_at)
+             VALUES (:name, :email, :password_hash, :auth_type, :role_id, :active, :can_review_documents, :can_validate_documents, :can_approve_documents, :can_update_project_progress, :can_access_outsourcing, :can_delete_outsourcing_records, :can_access_timesheets, :can_approve_timesheets, NOW(), NOW())',
             [
                 ':name' => $payload['name'],
                 ':email' => $payload['email'],
@@ -68,6 +68,7 @@ class UsersRepository
                 ':can_approve_documents' => $payload['can_approve_documents'] ?? 0,
                 ':can_update_project_progress' => $payload['can_update_project_progress'] ?? 0,
                 ':can_access_outsourcing' => $payload['can_access_outsourcing'] ?? 0,
+                ':can_delete_outsourcing_records' => $payload['can_delete_outsourcing_records'] ?? 0,
                 ':can_access_timesheets' => $payload['can_access_timesheets'] ?? 0,
                 ':can_approve_timesheets' => $payload['can_approve_timesheets'] ?? 0,
             ]
@@ -87,6 +88,7 @@ class UsersRepository
             ':can_approve_documents' => $payload['can_approve_documents'] ?? 0,
             ':can_update_project_progress' => $payload['can_update_project_progress'] ?? 0,
             ':can_access_outsourcing' => $payload['can_access_outsourcing'] ?? 0,
+            ':can_delete_outsourcing_records' => $payload['can_delete_outsourcing_records'] ?? 0,
             ':can_access_timesheets' => $payload['can_access_timesheets'] ?? 0,
             ':can_approve_timesheets' => $payload['can_approve_timesheets'] ?? 0,
             ':id' => $id,
@@ -103,6 +105,7 @@ class UsersRepository
             'can_approve_documents = :can_approve_documents',
             'can_update_project_progress = :can_update_project_progress',
             'can_access_outsourcing = :can_access_outsourcing',
+            'can_delete_outsourcing_records = :can_delete_outsourcing_records',
             'can_access_timesheets = :can_access_timesheets',
             'can_approve_timesheets = :can_approve_timesheets',
         ];

@@ -30,6 +30,7 @@ class TalentsController extends Controller
             'services' => $services,
             'documentsByService' => $this->serviceDocuments($services),
             'flashMessage' => $_GET['saved'] ?? '',
+            'canDeleteOutsourcingRecords' => $this->auth->canDeleteOutsourcingRecords(),
         ]);
     }
 
