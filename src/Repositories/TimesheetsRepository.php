@@ -667,9 +667,6 @@ class TimesheetsRepository
              GROUP BY ta.id, ta.name
              ORDER BY ' . $orderBy;
 
-        error_log('talentBreakdownByPeriod SQL: ' . $sql);
-        error_log('talentBreakdownByPeriod params: ' . json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
         return $this->db->fetchAll(
             $sql,
             $params
