@@ -617,6 +617,42 @@ class ProjectsController extends Controller
         }
     }
 
+
+    public function updateTalentAssignmentStatus(int $projectId, int $assignmentId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $status = (string) ($_POST['assignment_status'] ?? 'removed');
+
+        try {
+            $repo->updateAssignmentStatus($projectId, $assignmentId, $status);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'project_talent_assignment',
+                $assignmentId,
+                'status_updated',
+                [
+                    'project_id' => $projectId,
+                    'status' => $status,
+                ]
+            );
+
+            header('Location: /projects/' . $projectId . '/talent');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
     public function confirmClose(int $id): void
     {
         $this->requirePermission('projects.manage');

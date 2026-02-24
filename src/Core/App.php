@@ -278,6 +278,10 @@ class App
                 $controller->talent((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/talent/assignments/(\\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateTalentAssignmentStatus((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/costs$#', $path, $matches) && $method === 'GET') {
                 $controller->costs((int) $matches[1]);
                 return;
