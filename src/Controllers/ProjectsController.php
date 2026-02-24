@@ -1413,7 +1413,10 @@ class ProjectsController extends Controller
 
     public function downloadNodeFile(int $projectId, int $nodeId): void
     {
-        $this->requirePermission('projects.view');
+        if (!$this->auth->can('projects.view') && !$this->auth->can('projects.manage')) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
 
         try {
             $repo = new ProjectNodesRepository($this->db);
