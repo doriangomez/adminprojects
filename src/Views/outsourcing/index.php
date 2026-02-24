@@ -376,325 +376,197 @@ $riskServicesCount = count(array_filter(
     </section>
 
     <?php if ($canManage): ?>
-        <details class="outsourcing-form" open id="registrar-talento">
-            <summary>
-                <div class="section-title">
-                    <span class="section-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="presentation">
-                            <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h3>Registrar talento</h3>
-                        <small class="section-muted">Crea un talento sin salir del módulo para asignarlo al servicio.</small>
-                    </div>
-                </div>
-                <span class="summary-indicator" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="presentation">
-                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </span>
-            </summary>
+        <?php $hasTalents = !empty($talents); ?>
+        <section class="outsourcing-stepper" id="registrar-talento" data-has-talents="<?= $hasTalents ? '1' : '0' ?>">
+            <p class="stepper-microcopy">Para crear un servicio primero debes registrar el talento que será asignado.</p>
             <?php if ($talentCreatedMessage): ?>
                 <div class="alert success"><?= htmlspecialchars($talentCreatedMessage) ?></div>
             <?php endif; ?>
             <?php if ($deletedMessage): ?>
                 <div class="alert success"><?= htmlspecialchars($deletedMessage) ?></div>
             <?php endif; ?>
-            <form method="POST" action="<?= $basePath ?>/outsourcing/talents" class="talent-form">
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M12 12.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Zm-6 7.5a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                </svg>
-                            </span>
-                            Datos del talento
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Nombre
-                                <input name="name" required>
-                            </label>
-                            <label>Correo
-                                <input type="email" name="email" required>
+
+            <nav class="stepper-timeline" aria-label="Flujo de outsourcing">
+                <button type="button" class="stepper-node" data-step-target="1">
+                    <span class="stepper-bullet"></span>
+                    <span class="stepper-copy"><strong>Paso 1</strong><small>Registrar Talento</small></span>
+                </button>
+                <button type="button" class="stepper-node" data-step-target="2">
+                    <span class="stepper-bullet"></span>
+                    <span class="stepper-copy"><strong>Paso 2</strong><small>Configurar condiciones</small></span>
+                </button>
+                <button type="button" class="stepper-node" data-step-target="3" id="registrar-servicio">
+                    <span class="stepper-bullet"></span>
+                    <span class="stepper-copy"><strong>Paso 3</strong><small>Crear Servicio de Outsourcing</small></span>
+                </button>
+            </nav>
+
+            <div class="stepper-panels">
+                <article class="step-card" data-step-panel="1">
+                    <header class="step-card-header">
+                        <h3>Registrar talento</h3>
+                        <small class="section-muted">Crea la ficha base del talento antes de avanzar.</small>
+                    </header>
+                    <form method="POST" action="<?= $basePath ?>/outsourcing/talents" class="talent-form">
+                        <div class="form-section">
+                            <h4>Datos del talento</h4>
+                            <div class="grid">
+                                <label>Nombre
+                                    <input name="name" required>
+                                </label>
+                                <label>Correo
+                                    <input type="email" name="email" required>
+                                </label>
+                            </div>
+                            <div class="grid">
+                                <label>Rol
+                                    <input name="role" required placeholder="Ej. Analista, DevOps">
+                                </label>
+                                <label>Seniority
+                                    <input name="seniority" placeholder="Ej. Senior">
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-section">
+                            <h4>Capacidad y costos</h4>
+                            <div class="grid">
+                                <label>Capacidad horaria (h/semana)
+                                    <input type="number" step="0.5" name="capacidad_horaria" value="40">
+                                </label>
+                                <label>Disponibilidad (%)
+                                    <input type="number" name="availability" value="100">
+                                </label>
+                            </div>
+                            <div class="grid">
+                                <label>Costo hora
+                                    <input type="number" step="0.01" name="hourly_cost" value="0">
+                                </label>
+                                <label>Tarifa hora
+                                    <input type="number" step="0.01" name="hourly_rate" value="0">
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-section">
+                            <h4>Reglas de operación</h4>
+                            <div class="grid">
+                                <label>Tipo de talento
+                                    <select name="tipo_talento">
+                                        <option value="externo" selected>Externo</option>
+                                        <option value="interno">Interno</option>
+                                        <option value="otro">Otro</option>
+                                    </select>
+                                </label>
+                                <label>Reporte de horas
+                                    <select name="requiere_reporte_horas">
+                                        <option value="1" selected>Requiere reporte</option>
+                                        <option value="0">No reporta</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <label class="checkbox">
+                                <input type="checkbox" name="requiere_aprobacion_horas" value="1" checked>
+                                Requiere aprobación de horas
                             </label>
                         </div>
-                        <div class="grid">
-                            <label>Rol
-                                <input name="role" required placeholder="Ej. Analista, DevOps">
-                            </label>
-                            <label>Seniority
-                                <input name="seniority" placeholder="Ej. Senior">
+                        <div class="step-actions">
+                            <button type="submit" class="action-btn primary">Guardar talento</button>
+                            <button type="button" class="action-btn ghost" data-next-step="2">Continuar a condiciones</button>
+                        </div>
+                    </form>
+                </article>
+
+                <form method="POST" action="<?= $basePath ?>/outsourcing" id="outsourcing-service-form" class="service-step-form">
+                    <article class="step-card" data-step-panel="2" hidden>
+                        <header class="step-card-header">
+                            <h3>Configurar condiciones</h3>
+                            <small class="section-muted">Define horas, fechas y reglas de seguimiento del servicio.</small>
+                        </header>
+                        <div class="form-section">
+                            <h4>Periodo y control</h4>
+                            <div class="grid">
+                                <label>Inicio del servicio
+                                    <input type="date" name="start_date" required data-condition-field>
+                                </label>
+                                <label>Fin del servicio
+                                    <input type="date" name="end_date" data-condition-field>
+                                </label>
+                            </div>
+                            <div class="grid">
+                                <label>Frecuencia de seguimiento
+                                    <select name="followup_frequency" required data-condition-field>
+                                        <option value="weekly">Semanal</option>
+                                        <option value="monthly" selected>Mensual</option>
+                                    </select>
+                                </label>
+                                <label>Estado del servicio
+                                    <select name="service_status" required data-condition-field>
+                                        <option value="active">Activo</option>
+                                        <option value="paused">En pausa</option>
+                                        <option value="ended">Finalizado</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-section">
+                            <h4>Observaciones operativas</h4>
+                            <label>Observaciones
+                                <textarea name="observations" rows="3" placeholder="Notas del servicio, acuerdos o restricciones."></textarea>
                             </label>
                         </div>
-                    </div>
-                </details>
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M5 7.5h14M7 12h10M9 16.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                </svg>
-                            </span>
-                            Capacidad y horas
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Capacidad horaria (h/semana)
-                                <input type="number" step="0.5" name="capacidad_horaria" value="40">
-                            </label>
-                            <label>Disponibilidad (%)
-                                <input type="number" name="availability" value="100">
-                            </label>
+                        <div class="step-actions">
+                            <button type="button" class="action-btn ghost" data-prev-step="1">Volver</button>
+                            <button type="button" class="action-btn primary" data-next-step="3" id="go-step-3">Continuar a creación</button>
                         </div>
-                    </div>
-                </details>
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M6 8.5h12M6 12h12M6 15.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                </svg>
-                            </span>
-                            Costos
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Costo hora
-                                <input type="number" step="0.01" name="hourly_cost" value="0">
-                            </label>
-                            <label>Tarifa hora
-                                <input type="number" step="0.01" name="hourly_rate" value="0">
-                            </label>
-                        </div>
-                    </div>
-                </details>
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M7.5 4.5h9A2.5 2.5 0 0 1 19 7v9a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16V7A2.5 2.5 0 0 1 7.5 4.5Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                                    <path d="M9.5 12l1.8 1.8 3.2-3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            </span>
-                            Reglas
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Tipo de talento
-                                <select name="tipo_talento">
-                                    <option value="externo" selected>Externo</option>
-                                    <option value="interno">Interno</option>
-                                    <option value="otro">Otro</option>
-                                </select>
-                            </label>
-                            <label>Reporte de horas
-                                <select name="requiere_reporte_horas">
-                                    <option value="1" selected>Requiere reporte</option>
-                                    <option value="0">No reporta</option>
-                                </select>
-                            </label>
-                        </div>
-                        <label class="checkbox">
-                            <input type="checkbox" name="requiere_aprobacion_horas" value="1" checked>
-                            Requiere aprobación de horas
-                        </label>
-                    </div>
-                </details>
-                <button type="submit" class="action-btn primary">Guardar talento</button>
-            </form>
-        </details>
-        <details class="outsourcing-form" id="registrar-servicio">
-            <summary>
-                <div class="section-title">
-                    <span class="section-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="presentation">
-                            <path d="M4 6.75A2.75 2.75 0 0 1 6.75 4h10.5A2.75 2.75 0 0 1 20 6.75v10.5A2.75 2.75 0 0 1 17.25 20H6.75A2.75 2.75 0 0 1 4 17.25Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                            <path d="M8 9.5h8M8 12h5M8 14.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h3>Registrar servicio de outsourcing</h3>
-                        <small class="section-muted">Registra una asignación de talento con su cliente y periodo de servicio.</small>
-                    </div>
-                </div>
-                <span class="summary-indicator" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="presentation">
-                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </span>
-            </summary>
-            <form method="POST" action="<?= $basePath ?>/outsourcing">
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M6 7.5h12M6 12h12M6 16.5h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                </svg>
-                            </span>
-                            Asignación
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Talento
-                                <select name="talent_id" required>
-                                    <option value="">Selecciona un talento</option>
-                                    <?php foreach ($talents as $talent): ?>
-                                        <option value="<?= (int) $talent['id'] ?>" <?= $preselectedTalentId === (int) $talent['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($talent['name'] ?? '') ?> (<?= htmlspecialchars($talent['role_name'] ?? '') ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                            <label>Cliente
-                                <select name="client_id" required>
-                                    <option value="">Selecciona un cliente</option>
-                                    <?php foreach ($clients as $client): ?>
-                                        <option value="<?= (int) $client['id'] ?>">
-                                            <?= htmlspecialchars($client['name'] ?? '') ?>
+                    </article>
+
+                    <article class="step-card" data-step-panel="3" hidden>
+                        <header class="step-card-header">
+                            <h3>Crear servicio de outsourcing</h3>
+                            <small class="section-muted">Asigna cliente, proyecto y talento para finalizar el alta.</small>
+                        </header>
+                        <div class="form-section">
+                            <h4>Asignación</h4>
+                            <div class="grid">
+                                <label>Talento
+                                    <select name="talent_id" required>
+                                        <option value="">Selecciona un talento</option>
+                                        <?php foreach ($talents as $talent): ?>
+                                            <option value="<?= (int) $talent['id'] ?>" <?= $preselectedTalentId === (int) $talent['id'] ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($talent['name'] ?? '') ?> (<?= htmlspecialchars($talent['role_name'] ?? '') ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                                <label>Cliente
+                                    <select name="client_id" required>
+                                        <option value="">Selecciona un cliente</option>
+                                        <?php foreach ($clients as $client): ?>
+                                            <option value="<?= (int) $client['id'] ?>">
+                                                <?= htmlspecialchars($client['name'] ?? '') ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                            </div>
+                            <label>Proyecto relacionado (opcional)
+                                <select name="project_id">
+                                    <option value="">Sin proyecto</option>
+                                    <?php foreach ($projects as $project): ?>
+                                        <option value="<?= (int) $project['id'] ?>">
+                                            <?= htmlspecialchars($project['name'] ?? '') ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </label>
                         </div>
-                        <label>Proyecto relacionado (opcional)
-                            <select name="project_id">
-                                <option value="">Sin proyecto</option>
-                                <?php foreach ($projects as $project): ?>
-                                    <option value="<?= (int) $project['id'] ?>">
-                                        <?= htmlspecialchars($project['name'] ?? '') ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-                    </div>
-                </details>
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M7 4.5h10M7 12h10M7 19.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                    <circle cx="5" cy="4.5" r="1" fill="currentColor"/>
-                                    <circle cx="5" cy="12" r="1" fill="currentColor"/>
-                                    <circle cx="5" cy="19.5" r="1" fill="currentColor"/>
-                                </svg>
-                            </span>
-                            Periodo
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Inicio del servicio
-                                <input type="date" name="start_date" required>
-                            </label>
-                            <label>Fin del servicio
-                                <input type="date" name="end_date">
-                            </label>
+                        <div class="step-actions">
+                            <button type="button" class="action-btn ghost" data-prev-step="2">Volver</button>
+                            <button type="submit" class="action-btn primary" id="create-service-btn">Guardar servicio</button>
                         </div>
-                    </div>
-                </details>
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M12 4v8l5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                                </svg>
-                            </span>
-                            Seguimiento
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <div class="grid">
-                            <label>Frecuencia de seguimiento
-                                <select name="followup_frequency" required>
-                                    <option value="weekly">Semanal</option>
-                                    <option value="monthly" selected>Mensual</option>
-                                </select>
-                            </label>
-                            <label>Estado del servicio
-                                <select name="service_status" required>
-                                    <option value="active">Activo</option>
-                                    <option value="paused">En pausa</option>
-                                    <option value="ended">Finalizado</option>
-                                </select>
-                            </label>
-                        </div>
-                    </div>
-                </details>
-                <details class="form-accordion" open>
-                    <summary>
-                        <span class="accordion-title">
-                            <span class="section-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" role="presentation">
-                                    <path d="M5 6.5h14M5 12h14M5 17.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                </svg>
-                            </span>
-                            Observaciones
-                        </span>
-                        <span class="summary-indicator" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" role="presentation">
-                                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </summary>
-                    <div class="form-section">
-                        <label>Observaciones
-                            <textarea name="observations" rows="3" placeholder="Notas del servicio, acuerdos o restricciones."></textarea>
-                        </label>
-                    </div>
-                </details>
-                <button type="submit" class="action-btn primary">Guardar servicio</button>
-            </form>
-        </details>
+                    </article>
+                </form>
+            </div>
+        </section>
     <?php endif; ?>
 </section>
 
@@ -790,4 +662,99 @@ $riskServicesCount = count(array_filter(
     .form-accordion summary::-webkit-details-marker { display:none; }
     .accordion-title { display:inline-flex; gap:8px; align-items:center; }
     .form-section { border:1px dashed var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%); margin-top:10px; }
+
+    .outsourcing-stepper { border:1px solid var(--border); border-radius:22px; padding:24px; background: var(--surface); display:flex; flex-direction:column; gap:20px; }
+    .stepper-microcopy { margin:0; font-size:14px; color: var(--text-secondary); }
+    .stepper-timeline { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .stepper-node { border:1px solid var(--border); border-radius:14px; padding:12px; background:transparent; display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer; transition: all .25s ease; }
+    .stepper-node:disabled { opacity:.45; cursor:not-allowed; }
+    .stepper-node.is-active { border-color: var(--primary); box-shadow:0 0 0 1px color-mix(in srgb, var(--primary) 50%, transparent 50%); }
+    .stepper-node.is-complete { border-color: color-mix(in srgb, #22c55e 60%, var(--border) 40%); }
+    .stepper-bullet { width:26px; height:26px; border-radius:999px; border:2px solid var(--border); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .stepper-node.is-active .stepper-bullet { border-color: var(--primary); }
+    .stepper-node.is-complete .stepper-bullet { border-color:#16a34a; background:#16a34a; color:#fff; }
+    .stepper-node.is-complete .stepper-bullet::before { content:"✓"; font-size:12px; font-weight:800; }
+    .stepper-copy { display:flex; flex-direction:column; gap:2px; }
+    .stepper-copy strong { font-size:13px; color:var(--text-primary); }
+    .stepper-copy small { font-size:12px; color:var(--text-secondary); }
+    .stepper-panels { max-width:900px; margin:0 auto; width:100%; }
+    .step-card { border:1px solid var(--border); border-radius:18px; background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); padding:22px; display:flex; flex-direction:column; gap:16px; opacity:1; transform:translateY(0); transition:opacity .25s ease, transform .25s ease; }
+    .step-card[hidden] { display:none; opacity:0; transform:translateY(8px); }
+    .step-card-header h3 { margin:0; font-size:24px; }
+    .step-card-header small { font-size:12px; }
+    .step-card h4 { margin:0; font-size:14px; color:var(--text-primary); }
+    .step-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+    .service-step-form { display:flex; flex-direction:column; gap:16px; }
+
+    @media (max-width: 780px) {
+        .outsourcing-stepper { padding:16px; }
+        .stepper-timeline { grid-template-columns:1fr; }
+        .stepper-node { position:relative; }
+        .stepper-node:not(:last-child)::after { content:""; position:absolute; left:24px; top:42px; width:1px; height:24px; background:var(--border); }
+        .step-card { padding:16px; }
+        .step-card-header h3 { font-size:20px; }
+    }
 </style>
+<script>
+(() => {
+    const shell = document.querySelector('.outsourcing-stepper');
+    if (!shell) return;
+
+    const hasTalents = shell.dataset.hasTalents === '1';
+    const nodes = Array.from(shell.querySelectorAll('[data-step-target]'));
+    const panels = Array.from(shell.querySelectorAll('[data-step-panel]'));
+    const conditionsFields = Array.from(shell.querySelectorAll('[data-condition-field]'));
+    const continueToStep3Btn = document.getElementById('go-step-3');
+    const createServiceBtn = document.getElementById('create-service-btn');
+    let currentStep = 1;
+
+    const isConditionsComplete = () => conditionsFields.every((field) => !field.required || String(field.value || '').trim() !== '');
+
+    const maxStepAllowed = () => {
+        if (!hasTalents) return 1;
+        if (!isConditionsComplete()) return 2;
+        return 3;
+    };
+
+    const syncValidationState = () => {
+        if (continueToStep3Btn) continueToStep3Btn.disabled = !isConditionsComplete();
+        if (createServiceBtn) createServiceBtn.disabled = !isConditionsComplete() || !hasTalents;
+    };
+
+    const render = () => {
+        const allowed = maxStepAllowed();
+        if (currentStep > allowed) currentStep = allowed;
+
+        nodes.forEach((node) => {
+            const step = Number(node.dataset.stepTarget);
+            node.classList.toggle('is-active', step === currentStep);
+            node.classList.toggle('is-complete', step < currentStep || (step === 1 && hasTalents) || (step === 2 && isConditionsComplete()));
+            node.disabled = step > allowed;
+        });
+
+        panels.forEach((panel) => {
+            panel.hidden = Number(panel.dataset.stepPanel) !== currentStep;
+        });
+
+        syncValidationState();
+    };
+
+    shell.addEventListener('click', (event) => {
+        const target = event.target.closest('[data-step-target],[data-next-step],[data-prev-step]');
+        if (!target || target.disabled) return;
+
+        if (target.dataset.stepTarget) currentStep = Number(target.dataset.stepTarget);
+        if (target.dataset.nextStep) currentStep = Number(target.dataset.nextStep);
+        if (target.dataset.prevStep) currentStep = Number(target.dataset.prevStep);
+        render();
+    });
+
+    conditionsFields.forEach((field) => {
+        field.addEventListener('input', render);
+        field.addEventListener('change', render);
+    });
+
+    render();
+})();
+</script>
+
