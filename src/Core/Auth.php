@@ -347,6 +347,33 @@ class Auth
         return ((int) ($row['can_delete_timesheet_workflow_records'] ?? 0)) === 1;
     }
 
+    public function canManageAdvancedTimesheets(): bool
+    {
+        if ($this->can('timesheets.advanced_manage')) {
+            return true;
+        }
+
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        if (!$this->db->columnExists('users', 'can_manage_advanced_timesheets')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_manage_advanced_timesheets FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_manage_advanced_timesheets'] ?? 0)) === 1;
+    }
+
     public function isTimesheetsEnabled(): bool
     {
         return $this->timesheetsEnabled();

@@ -16,6 +16,7 @@ class TimesheetsController extends Controller
         $canApprove = $this->auth->canApproveTimesheets();
         $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
         $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
+        $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
@@ -52,6 +53,9 @@ class TimesheetsController extends Controller
         $talentBreakdown = $repo->talentBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $talentSort);
         $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd);
         $projectsForFilter = $repo->projectsCatalog();
+        $talentFilter = (int) ($_GET['talent_id'] ?? 0);
+        $managedWeekEntries = ($canApprove || $canManageAdvanced) ? $repo->managedWeekEntries($weekStart, $talentFilter > 0 ? $talentFilter : null) : [];
+        $talentOptions = $this->db->fetchAll('SELECT id, name FROM talents ORDER BY name ASC');
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets',
@@ -68,6 +72,7 @@ class TimesheetsController extends Controller
             'canReport' => $canReport,
             'canManageWorkflow' => $canManageWorkflow,
             'canDeleteWeek' => $canDeleteWeek,
+            'canManageAdvanced' => $canManageAdvanced,
             'timesheetsEnabled' => $timesheetsEnabled,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
@@ -82,6 +87,9 @@ class TimesheetsController extends Controller
             'talentBreakdown' => $talentBreakdown,
             'projectBreakdown' => $projectBreakdown,
             'talentSort' => $talentSort,
+            'managedWeekEntries' => $managedWeekEntries,
+            'talentOptions' => $talentOptions,
+            'talentFilter' => $talentFilter,
         ]);
     }
 
@@ -259,7 +267,71 @@ class TimesheetsController extends Controller
     }
 
 
+    public function adminAction(): void
+    {
+        if (!$this->auth->canManageAdvancedTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
 
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $action = trim((string) ($_POST['admin_action'] ?? ''));
+        $reason = trim((string) ($_POST['reason'] ?? ''));
+        if ($reason === '') {
+            http_response_code(400);
+            exit('Debes indicar un motivo para garantizar trazabilidad.');
+        }
+
+        try {
+            if ($action === 'update_hours') {
+                $repo->adminUpdateHours((int) ($_POST['timesheet_id'] ?? 0), (float) ($_POST['hours'] ?? 0), $reason, $userId);
+            } elseif ($action === 'delete_entry') {
+                $repo->adminDeleteTimesheet((int) ($_POST['timesheet_id'] ?? 0), $reason, $userId);
+            } elseif ($action === 'delete_week') {
+                $confirm = trim((string) ($_POST['confirm_token'] ?? ''));
+                if ($confirm !== 'ELIMINAR MASIVO') {
+                    http_response_code(400);
+                    exit('Confirmación inválida para eliminación masiva.');
+                }
+                $weekStart = trim((string) ($_POST['week_start'] ?? ''));
+                try {
+                    $week = new DateTimeImmutable($weekStart);
+                } catch (\Throwable $e) {
+                    http_response_code(400);
+                    exit('Semana inválida.');
+                }
+                $talentId = (int) ($_POST['talent_id'] ?? 0);
+                $repo->adminDeleteWeek($week, $talentId > 0 ? $talentId : null, $reason, $userId);
+            } elseif ($action === 'reopen_week') {
+                $weekStart = trim((string) ($_POST['week_start'] ?? ''));
+                try {
+                    $week = new DateTimeImmutable($weekStart);
+                } catch (\Throwable $e) {
+                    http_response_code(400);
+                    exit('Semana inválida.');
+                }
+                $talentId = (int) ($_POST['talent_id'] ?? 0);
+                $reopened = $repo->adminReopenWeek($week, $talentId > 0 ? $talentId : null, $reason, $userId);
+                if ($reopened <= 0) {
+                    http_response_code(400);
+                    exit('No hay registros aprobados/enviados para reabrir en la semana seleccionada.');
+                }
+            } else {
+                http_response_code(400);
+                exit('Acción administrativa inválida.');
+            }
+            header('Location: /timesheets?week=' . urlencode((string) ($_POST['week'] ?? '')));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error en acción administrativa de timesheets: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo ejecutar la acción administrativa.');
+        }
+    }
 
     public function reopenWeek(): void
     {

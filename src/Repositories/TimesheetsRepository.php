@@ -1233,6 +1233,209 @@ class TimesheetsRepository
     }
 
 
+    public function managedWeekEntries(\DateTimeImmutable $weekStart, ?int $talentId = null): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $params = [
+            ':start' => $weekStart->format('Y-m-d'),
+            ':end' => $weekEnd->format('Y-m-d'),
+        ];
+        $where = ['ts.date BETWEEN :start AND :end'];
+        if ($talentId !== null && $talentId > 0) {
+            $where[] = 'ts.talent_id = :talent';
+            $params[':talent'] = $talentId;
+        }
+
+        return $this->db->fetchAll(
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.comment, ts.user_id, ts.talent_id,
+                    COALESCE(ts.project_id, t.project_id) AS project_id,
+                    p.name AS project_name, ta.name AS talent_name, u.name AS user_name
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             LEFT JOIN talents ta ON ta.id = ts.talent_id
+             LEFT JOIN users u ON u.id = ts.user_id
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY ts.date DESC, ta.name ASC, ts.id DESC',
+            $params
+        );
+    }
+
+    public function adminUpdateHours(int $timesheetId, float $hours, string $reason, int $actorUserId): bool
+    {
+        if ($hours < 0 || $hours > 24) {
+            throw new InvalidArgumentException('Horas inválidas. Deben estar entre 0 y 24.');
+        }
+
+        $row = $this->db->fetchOne('SELECT id, task_id, user_id, talent_id, date, hours, status FROM timesheets WHERE id = :id LIMIT 1', [':id' => $timesheetId]);
+        if (!$row) {
+            throw new InvalidArgumentException('No se encontró el registro de timesheet.');
+        }
+
+        $status = (string) ($row['status'] ?? 'draft');
+        if (!in_array($status, ['draft', 'rejected'], true)) {
+            throw new InvalidArgumentException('El estado actual no permite edición directa. Reabre la semana para continuar.');
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET hours = :hours,
+                 approval_comment = :reason,
+                 updated_at = NOW()
+             WHERE id = :id',
+            [
+                ':hours' => $hours,
+                ':reason' => $reason,
+                ':id' => $timesheetId,
+            ]
+        );
+
+        $this->db->execute(
+            'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
+             VALUES (:user_id, :entity, :entity_id, :action, :payload)',
+            [
+                ':user_id' => $actorUserId,
+                ':entity' => 'timesheet',
+                ':entity_id' => $timesheetId,
+                ':action' => 'admin_hours_updated',
+                ':payload' => json_encode([
+                    'reason' => $reason,
+                    'previous_hours' => (float) ($row['hours'] ?? 0),
+                    'new_hours' => $hours,
+                    'week_start' => (new \DateTimeImmutable((string) $row['date']))->modify('monday this week')->format('Y-m-d'),
+                    'talent_id' => (int) ($row['talent_id'] ?? 0),
+                    'target_user_id' => (int) ($row['user_id'] ?? 0),
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]
+        );
+
+        return true;
+    }
+
+    public function adminDeleteTimesheet(int $timesheetId, string $reason, int $actorUserId): bool
+    {
+        $row = $this->db->fetchOne('SELECT id, user_id, talent_id, date, status FROM timesheets WHERE id = :id LIMIT 1', [':id' => $timesheetId]);
+        if (!$row) {
+            return false;
+        }
+
+        if ((string) ($row['status'] ?? '') === 'approved') {
+            throw new InvalidArgumentException('No se puede eliminar un registro aprobado sin reabrir la semana.');
+        }
+
+        $this->db->execute('DELETE FROM timesheets WHERE id = :id', [':id' => $timesheetId]);
+        $this->db->execute(
+            'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
+             VALUES (:user_id, :entity, :entity_id, :action, :payload)',
+            [
+                ':user_id' => $actorUserId,
+                ':entity' => 'timesheet',
+                ':entity_id' => $timesheetId,
+                ':action' => 'admin_deleted',
+                ':payload' => json_encode([
+                    'reason' => $reason,
+                    'week_start' => (new \DateTimeImmutable((string) $row['date']))->modify('monday this week')->format('Y-m-d'),
+                    'talent_id' => (int) ($row['talent_id'] ?? 0),
+                    'target_user_id' => (int) ($row['user_id'] ?? 0),
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]
+        );
+
+        return true;
+    }
+
+    public function adminDeleteWeek(\DateTimeImmutable $weekStart, ?int $talentId, string $reason, int $actorUserId): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $params = [':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')];
+        $where = ['date BETWEEN :start AND :end'];
+        if ($talentId !== null && $talentId > 0) {
+            $where[] = 'talent_id = :talent';
+            $params[':talent'] = $talentId;
+        }
+
+        $sample = $this->db->fetchAll('SELECT DISTINCT user_id, talent_id FROM timesheets WHERE ' . implode(' AND ', $where), $params);
+        $this->db->execute('DELETE FROM timesheets WHERE ' . implode(' AND ', $where), $params);
+        $affected = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+
+        if ($affected > 0) {
+            $this->db->execute(
+                'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
+                 VALUES (:user_id, :entity, :entity_id, :action, :payload)',
+                [
+                    ':user_id' => $actorUserId,
+                    ':entity' => 'timesheet_week',
+                    ':entity_id' => 0,
+                    ':action' => 'admin_bulk_deleted',
+                    ':payload' => json_encode([
+                        'reason' => $reason,
+                        'week_start' => $weekStart->format('Y-m-d'),
+                        'week_end' => $weekEnd->format('Y-m-d'),
+                        'affected_rows' => $affected,
+                        'affected_talents' => $sample,
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]
+            );
+        }
+
+        return $affected;
+    }
+
+    public function adminReopenWeek(\DateTimeImmutable $weekStart, ?int $talentId, string $reason, int $actorUserId): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $params = [
+            ':start' => $weekStart->format('Y-m-d'),
+            ':end' => $weekEnd->format('Y-m-d'),
+        ];
+        $where = ['date BETWEEN :start AND :end'];
+        if ($talentId !== null && $talentId > 0) {
+            $where[] = 'talent_id = :talent';
+            $params[':talent'] = $talentId;
+        }
+
+        $sample = $this->db->fetchAll(
+            'SELECT DISTINCT user_id, talent_id, status
+             FROM timesheets
+             WHERE ' . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')",
+            $params
+        );
+
+        $updated = $this->db->execute(
+            "UPDATE timesheets
+             SET status = 'draft',
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE " . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')",
+            $params
+        );
+
+        if ($updated > 0) {
+            $this->db->execute(
+                'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
+                 VALUES (:user_id, :entity, :entity_id, :action, :payload)',
+                [
+                    ':user_id' => $actorUserId,
+                    ':entity' => 'timesheet_week',
+                    ':entity_id' => 0,
+                    ':action' => 'admin_reopened',
+                    ':payload' => json_encode([
+                        'reason' => $reason,
+                        'week_start' => $weekStart->format('Y-m-d'),
+                        'week_end' => $weekEnd->format('Y-m-d'),
+                        'affected_rows' => $updated,
+                        'affected_talents' => $sample,
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]
+            );
+        }
+
+        return $updated;
+    }
+
     public function projectIdForTimesheet(int $timesheetId): ?int
     {
         if (!$this->db->tableExists('timesheets')) {

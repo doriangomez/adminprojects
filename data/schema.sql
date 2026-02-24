@@ -514,6 +514,7 @@ INSERT INTO permissions (code, name) VALUES
     ('talents.view', 'Ver talento'),
     ('timesheets.view', 'Ver timesheets'),
     ('timesheets.approve', 'Aprobar timesheets'),
+    ('timesheets.advanced_manage', 'Gestión avanzada de timesheets'),
     ('config.manage', 'Administrar configuración');
 
 INSERT INTO config_settings (config_key, config_value) VALUES

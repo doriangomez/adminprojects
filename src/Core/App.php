@@ -459,6 +459,10 @@ class App
                 $controller->deleteWeekWorkflow();
                 return;
             }
+            if ($path === '/timesheets/admin-action' && $method === 'POST') {
+                $controller->adminAction();
+                return;
+            }
             if ($path === '/timesheets/create' && $method === 'POST') {
                 $controller->create();
                 return;
