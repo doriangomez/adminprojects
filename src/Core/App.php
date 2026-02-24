@@ -29,6 +29,7 @@ class App
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
         $migrator->ensureTimesheetPermissions();
+        $migrator->ensureTimesheetWorkflowSchema();
         $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
@@ -436,6 +437,14 @@ class App
             }
             if ($path === '/timesheets/approve-week' && $method === 'POST') {
                 $controller->approveWeek();
+                return;
+            }
+            if ($path === '/timesheets/reopen-week' && $method === 'POST') {
+                $controller->reopenWeek();
+                return;
+            }
+            if ($path === '/timesheets/delete-week-workflow' && $method === 'POST') {
+                $controller->deleteWeekWorkflow();
                 return;
             }
             if ($path === '/timesheets/create' && $method === 'POST') {

@@ -387,13 +387,168 @@ class TimesheetsRepository
                AND date BETWEEN :start AND :end
                AND status IN ("submitted", "pending", "pending_approval")';
 
-        error_log('Timesheets weekly approval SQL: ' . $sql);
-        error_log('Timesheets weekly approval params: ' . json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
         $this->db->execute($sql, $params);
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        $updated = (int) ($row['total'] ?? 0);
+
+        if ($updated > 0) {
+            $this->logWeekWorkflowAction($start, $approverUserId, $status, $comment, 'pending', $status, $approverUserId);
+        }
+
+        return $updated;
+    }
+
+    public function reopenWeek(int $actorUserId, string $weekStart, int $approverUserId, ?string $comment = null): int
+    {
+        $start = new \DateTimeImmutable($weekStart);
+        $end = $start->modify('+6 days');
+        $statusRow = $this->db->fetchOne(
+            'SELECT status
+             FROM timesheets
+             WHERE approver_user_id = :approver
+               AND date BETWEEN :start AND :end
+               AND status IN ("approved", "rejected")
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1',
+            [
+                ':approver' => $approverUserId,
+                ':start' => $start->format('Y-m-d'),
+                ':end' => $end->format('Y-m-d'),
+            ]
+        );
+
+        $previousStatus = (string) ($statusRow['status'] ?? '');
+        if ($previousStatus === '') {
+            return 0;
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :status,
+                 approval_comment = :comment,
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE approver_user_id = :approver
+               AND date BETWEEN :start AND :end
+               AND status IN ("approved", "rejected")',
+            [
+                ':status' => 'pending',
+                ':comment' => $comment,
+                ':approver' => $approverUserId,
+                ':start' => $start->format('Y-m-d'),
+                ':end' => $end->format('Y-m-d'),
+            ]
+        );
 
         $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
-        return (int) ($row['total'] ?? 0);
+        $updated = (int) ($row['total'] ?? 0);
+        if ($updated > 0) {
+            $this->logWeekWorkflowAction($start, $actorUserId, 'reopened', $comment, $previousStatus, 'pending', $approverUserId);
+        }
+
+        return $updated;
+    }
+
+    public function softDeleteWeekWorkflow(int $actorUserId, string $weekStart, int $approverUserId, ?string $comment = null): int
+    {
+        $start = new \DateTimeImmutable($weekStart);
+        $end = $start->modify('+6 days');
+        $row = $this->db->fetchOne(
+            'SELECT status
+             FROM timesheets
+             WHERE approver_user_id = :approver
+               AND date BETWEEN :start AND :end
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1',
+            [
+                ':approver' => $approverUserId,
+                ':start' => $start->format('Y-m-d'),
+                ':end' => $end->format('Y-m-d'),
+            ]
+        );
+        $previousStatus = (string) ($row['status'] ?? 'pending');
+        if (!$row) {
+            return 0;
+        }
+
+        $this->logWeekWorkflowAction($start, $actorUserId, 'deleted', $comment, $previousStatus, $previousStatus, $approverUserId);
+        $this->db->execute(
+            'UPDATE timesheet_week_actions
+             SET deleted_at = NOW(),
+                 deleted_by = :actor,
+                 updated_at = NOW()
+             WHERE week_key = :week_key
+               AND target_approver_user_id = :approver
+               AND deleted_at IS NULL',
+            [
+                ':actor' => $actorUserId,
+                ':week_key' => $this->weekKey($start),
+                ':approver' => $approverUserId,
+            ]
+        );
+
+        $affected = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($affected['total'] ?? 0);
+    }
+
+    public function weekApprovalHistoryByApprover(array $user): array
+    {
+        if (!$this->db->tableExists('timesheet_week_actions')) {
+            return [];
+        }
+
+        $conditions = ['w.deleted_at IS NULL'];
+        $params = [];
+        if (!$this->isPrivileged($user)) {
+            $conditions[] = 'w.target_approver_user_id = :approver';
+            $params[':approver'] = (int) ($user['id'] ?? 0);
+        }
+
+        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        return $this->db->fetchAll(
+            'SELECT w.id, w.week_key, w.week_start, w.week_end, w.action, w.action_comment,
+                    w.previous_status, w.resulting_status, w.created_at, w.target_approver_user_id,
+                    actor.name AS actor_name, target.name AS approver_name
+             FROM timesheet_week_actions w
+             LEFT JOIN users actor ON actor.id = w.actor_user_id
+             LEFT JOIN users target ON target.id = w.target_approver_user_id
+             ' . $where . '
+             ORDER BY w.week_start DESC, w.created_at DESC, w.id DESC',
+            $params
+        );
+    }
+
+    private function logWeekWorkflowAction(\DateTimeImmutable $weekStart, int $actorUserId, string $action, ?string $comment, ?string $previousStatus, string $resultingStatus, int $targetApproverUserId): void
+    {
+        if (!$this->db->tableExists('timesheet_week_actions')) {
+            return;
+        }
+
+        $weekEnd = $weekStart->modify('+6 days');
+        $this->db->insert(
+            'INSERT INTO timesheet_week_actions
+                (week_key, week_start, week_end, action, action_comment, actor_user_id, previous_status, resulting_status, target_approver_user_id)
+             VALUES (:week_key, :week_start, :week_end, :action, :comment, :actor, :previous_status, :resulting_status, :target_approver)',
+            [
+                ':week_key' => $this->weekKey($weekStart),
+                ':week_start' => $weekStart->format('Y-m-d'),
+                ':week_end' => $weekEnd->format('Y-m-d'),
+                ':action' => $action,
+                ':comment' => $comment,
+                ':actor' => $actorUserId,
+                ':previous_status' => $previousStatus,
+                ':resulting_status' => $resultingStatus,
+                ':target_approver' => $targetApproverUserId,
+            ]
+        );
+    }
+
+    private function weekKey(\DateTimeImmutable $weekStart): string
+    {
+        return $weekStart->format('o-\WW');
     }
     public function hasTimesheetAssignments(int $userId): bool
     {
