@@ -1439,7 +1439,7 @@ class ProjectsController extends Controller
             $downloadName = $downloadName !== '' ? $downloadName : basename($physicalPath);
             header('Content-Type: ' . $mime);
             header('Content-Length: ' . filesize($physicalPath));
-            header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+            header('Content-Disposition: inline; filename="' . $downloadName . '"');
             readfile($physicalPath);
             return;
         } catch (\Throwable $e) {
