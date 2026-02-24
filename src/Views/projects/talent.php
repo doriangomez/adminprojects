@@ -5,7 +5,7 @@ $assignments = is_array($assignments ?? null) ? $assignments : [];
 $talents = is_array($talents ?? null) ? $talents : [];
 $assignmentLabels = [
     'active' => 'Activo',
-    'paused' => 'En pausa',
+    'paused' => 'Inactivo',
     'removed' => 'Retirado',
 ];
 $assignmentBadge = static function (string $status): string {
@@ -72,14 +72,21 @@ $assignmentBadge = static function (string $status): string {
                         <span class="badge <?= !empty($assignment['requiere_aprobacion_horas']) ? 'status-warning' : 'status-muted' ?>">
                             <?= !empty($assignment['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?>
                         </span>
-                        <div>
-                            <?php if ($assignmentStatus !== 'removed'): ?>
+                        <div class="row-actions">
+                            <?php if ($assignmentStatus === 'active'): ?>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Inactivar este talento en el proyecto?');">
+                                    <input type="hidden" name="assignment_status" value="paused">
+                                    <button type="submit" class="action-btn warning">Inactivar</button>
+                                </form>
+                            <?php elseif ($assignmentStatus === 'paused'): ?>
                                 <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Retirar este talento del proyecto?');">
                                     <input type="hidden" name="assignment_status" value="removed">
                                     <button type="submit" class="action-btn danger">Retirar</button>
                                 </form>
                             <?php else: ?>
-                                <span class="section-muted">Sin acciones</span>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar definitivamente esta asignación retirada? Esta acción no se puede deshacer.');">
+                                    <button type="submit" class="action-btn danger">Eliminar definitivo</button>
+                                </form>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -175,10 +182,12 @@ $assignmentBadge = static function (string $status): string {
     .status-muted { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color: var(--text-primary); border-color: var(--border); }
     .status-success { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--background)); }
     .status-warning { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, var(--background)); }
-    .status-danger { background: color-mix(in srgb, var(--danger) 16%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 30%, var(--background)); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
-    .action-btn.danger { background: color-mix(in srgb, var(--danger) 14%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--background)); }
+    .action-btn.warning { background: color-mix(in srgb, var(--warning) 16%, var(--surface) 84%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 35%, var(--border) 65%); }
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
+    .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
