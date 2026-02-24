@@ -160,16 +160,34 @@ class ClientsRepository
         $params = [':clientId' => $clientId];
         $conditions = ['client_id = :clientId'];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $hasHealthCodeColumn = $this->db->columnExists('projects', 'health_code');
+        $hasHealthTextColumn = $this->db->columnExists('projects', 'health');
+        $hasStatusCodeColumn = $this->db->columnExists('projects', 'status_code');
+        $hasStatusTextColumn = $this->db->columnExists('projects', 'status');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'pm_id = :pmId';
             $params[':pmId'] = $user['id'];
         }
 
+        $healthAtRiskExpression = '0';
+        if ($hasHealthCodeColumn) {
+            $healthAtRiskExpression = "SUM(CASE WHEN health_code IN ('at_risk','critical','red','yellow') THEN 1 ELSE 0 END)";
+        } elseif ($hasHealthTextColumn) {
+            $healthAtRiskExpression = "SUM(CASE WHEN health IN ('at_risk','critical','red','yellow') THEN 1 ELSE 0 END)";
+        }
+
+        $closedExpression = '0';
+        if ($hasStatusCodeColumn) {
+            $closedExpression = "SUM(CASE WHEN status_code = 'closed' THEN 1 ELSE 0 END)";
+        } elseif ($hasStatusTextColumn) {
+            $closedExpression = "SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END)";
+        }
+
         $snapshot = $this->db->fetchOne(
             "SELECT COUNT(*) AS total, AVG(progress) AS avg_progress,
-                    SUM(CASE WHEN health_code IN ('at_risk','critical','red','yellow') THEN 1 ELSE 0 END) AS at_risk,
-                    SUM(CASE WHEN status_code = 'closed' THEN 1 ELSE 0 END) AS closed
+                    {$healthAtRiskExpression} AS at_risk,
+                    {$closedExpression} AS closed
              FROM projects WHERE " . implode(' AND ', $conditions),
             $params
         );
