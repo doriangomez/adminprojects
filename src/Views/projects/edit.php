@@ -2,6 +2,13 @@
 $basePath = $basePath ?? '';
 $project = $project ?? [];
 $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];
+
+$projectManagersList = is_array($projectManagers ?? null) ? $projectManagers : [];
+$prioritiesCatalog = is_array($priorities ?? null) ? $priorities : [];
+$statusesCatalog = is_array($statuses ?? null) ? $statuses : [];
+$selectedStatus = (string) ($project['status'] ?? ($statusesCatalog[0]['code'] ?? ''));
+$selectedPriority = (string) ($project['priority'] ?? ($prioritiesCatalog[0]['code'] ?? ''));
+$selectedPmId = (int) ($project['pm_id'] ?? 0);
 $stageOptions = is_array($stageOptions ?? null) ? $stageOptions : [];
 $methodologies = $deliveryConfig['methodologies'] ?? [];
 $phasesByMethodology = $deliveryConfig['phases'] ?? [];
@@ -64,10 +71,24 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                     <input name="name" value="<?= htmlspecialchars($project['name'] ?? '') ?>" required>
                 </label>
                 <label>Estado
-                    <input name="status" value="<?= htmlspecialchars($project['status'] ?? '') ?>">
+                    <select name="status" required>
+                        <?php foreach ($statusesCatalog as $status): ?>
+                            <?php $statusCode = (string) ($status['code'] ?? ''); ?>
+                            <option value="<?= htmlspecialchars($statusCode) ?>" <?= $selectedStatus === $statusCode ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) ($status['label'] ?? $statusCode)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </label>
                 <label>Prioridad
-                    <input name="priority" value="<?= htmlspecialchars($project['priority'] ?? '') ?>">
+                    <select name="priority" required>
+                        <?php foreach ($prioritiesCatalog as $priority): ?>
+                            <?php $priorityCode = (string) ($priority['code'] ?? ''); ?>
+                            <option value="<?= htmlspecialchars($priorityCode) ?>" <?= $selectedPriority === $priorityCode ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) ($priority['label'] ?? $priorityCode)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </label>
                 <label>Stage-gate
                     <select name="project_stage">
@@ -78,8 +99,15 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <label>PM (ID)
-                    <input type="number" name="pm_id" value="<?= (int) ($project['pm_id'] ?? 0) ?>">
+                <label>PM
+                    <select name="pm_id" required>
+                        <?php foreach ($projectManagersList as $pm): ?>
+                            <?php $pmId = (int) ($pm['id'] ?? 0); ?>
+                            <option value="<?= $pmId ?>" <?= $selectedPmId === $pmId ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) ($pm['name'] ?? 'PM')) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </label>
             </div>
         </div>

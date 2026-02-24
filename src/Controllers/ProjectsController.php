@@ -104,12 +104,17 @@ class ProjectsController extends Controller
         }
 
         $config = (new ConfigService($this->db))->getConfig();
+        $catalogs = $this->projectCatalogs(new MasterFilesRepository($this->db));
+        $projectManagers = $this->projectManagersForSelection(new UsersRepository($this->db));
         $hasTasks = $repo->hasTasks($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
 
         $this->render('projects/edit', array_merge([
             'title' => 'Editar proyecto',
             'project' => $project,
+            'projectManagers' => $projectManagers,
+            'priorities' => $catalogs['priorities'],
+            'statuses' => $catalogs['statuses'],
             'stageOptions' => self::STAGE_GATES,
             'delivery' => array_merge(
                 $config['delivery'] ?? [],
@@ -139,12 +144,16 @@ class ProjectsController extends Controller
 
         $config = (new ConfigService($this->db))->getConfig();
         $delivery = $config['delivery'] ?? [];
+        $masterRepo = new MasterFilesRepository($this->db);
+        $catalogs = $this->projectCatalogs($masterRepo);
+        $usersRepo = new UsersRepository($this->db);
+        $projectManagers = $this->projectManagersForSelection($usersRepo);
         $hasTasks = $repo->hasTasks($id);
         $auditRepo = new AuditLogRepository($this->db);
         $previousEvaluations = $repo->riskEvaluationsForProject($id);
 
         try {
-            $payload = $this->projectPayload($project, $delivery);
+            $payload = $this->projectPayload($project, $delivery, $catalogs, $usersRepo);
             $riskCatalog = $payload['risk_catalog'] ?? $this->riskCatalogForType(
                 $delivery['risks'] ?? [],
                 (string) ($payload['project_type'] ?? ($project['project_type'] ?? 'convencional')),
@@ -169,6 +178,9 @@ class ProjectsController extends Controller
             $this->render('projects/edit', [
                 'title' => 'Editar proyecto',
                 'project' => $project,
+                'projectManagers' => $projectManagers,
+                'priorities' => $catalogs['priorities'],
+                'statuses' => $catalogs['statuses'],
                 'delivery' => array_merge(
                     $delivery ?? [],
                     [
@@ -2201,7 +2213,7 @@ class ProjectsController extends Controller
         return $message . "\n" . $trace;
     }
 
-    private function projectPayload(array $current, array $deliveryConfig = []): array
+    private function projectPayload(array $current, array $deliveryConfig = [], array $catalogs = [], ?UsersRepository $usersRepo = null): array
     {
         $allowedProjectTypes = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
         $projectType = $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional');
@@ -2238,13 +2250,32 @@ class ProjectsController extends Controller
 
         $scope = trim((string) ($_POST['scope'] ?? ($current['scope'] ?? '')));
 
+        $statusesCatalog = $catalogs['statuses'] ?? [];
+        $prioritiesCatalog = $catalogs['priorities'] ?? [];
+        $status = $this->validatedCatalogValue(
+            (string) ($_POST['status'] ?? ($current['status'] ?? '')),
+            $statusesCatalog,
+            'estado',
+            (string) ($current['status'] ?? ($statusesCatalog[0]['code'] ?? 'planning'))
+        );
+        $priority = $this->validatedCatalogValue(
+            (string) ($_POST['priority'] ?? ($current['priority'] ?? '')),
+            $prioritiesCatalog,
+            'prioridad',
+            (string) ($current['priority'] ?? ($prioritiesCatalog[0]['code'] ?? 'medium'))
+        );
+        $pmId = (int) ($_POST['pm_id'] ?? ($current['pm_id'] ?? 0));
+        if ($pmId <= 0 || $usersRepo === null || !$usersRepo->isValidProjectManager($pmId)) {
+            throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
+        }
+
         return [
             'name' => trim($_POST['name'] ?? (string) ($current['name'] ?? '')),
-            'status' => $_POST['status'] ?? (string) ($current['status'] ?? ''),
+            'status' => $status,
             'health' => (string) ($current['health'] ?? ''),
-            'priority' => $_POST['priority'] ?? (string) ($current['priority'] ?? ''),
+            'priority' => $priority,
             'client_id' => (int) ($_POST['client_id'] ?? ($current['client_id'] ?? 0)),
-            'pm_id' => (int) ($_POST['pm_id'] ?? ($current['pm_id'] ?? 0)),
+            'pm_id' => $pmId,
             'project_type' => $projectType,
             'budget' => (float) ($_POST['budget'] ?? ($current['budget'] ?? 0)),
             'actual_cost' => (float) ($_POST['actual_cost'] ?? ($current['actual_cost'] ?? 0)),
@@ -2660,10 +2691,7 @@ class ProjectsController extends Controller
         $user = $this->auth->user() ?? [];
 
         $catalogs = $this->projectCatalogs($masterRepo);
-        $projectManagers = array_filter(
-            $usersRepo->all(),
-            fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
-        );
+        $projectManagers = $this->projectManagersForSelection($usersRepo);
         $clients = $clientsRepo->listForUser($user);
         $defaultMethodology = $this->methodologyForType('convencional', $delivery['methodologies'] ?? []);
         $defaultPhase = $this->phaseForMethodology($defaultMethodology, $this->initialPhaseForMethodology($defaultMethodology, $delivery['phases'] ?? []));
@@ -2695,6 +2723,14 @@ class ProjectsController extends Controller
             'stageOptions' => self::STAGE_GATES,
             'canCreate' => !empty($clients) && !empty($projectManagers),
         ];
+    }
+
+    private function projectManagersForSelection(UsersRepository $usersRepo): array
+    {
+        return array_values(array_filter(
+            $usersRepo->all(),
+            fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
+        ));
     }
 
     private function projectCatalogs(MasterFilesRepository $masterRepo): array
