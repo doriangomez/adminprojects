@@ -82,6 +82,12 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
         color:#ffffff;
         border-color:#b91c1c;
     }
+    #confirm-delete-btn { min-width:220px; font-weight:700; border-style:solid; }
+    #confirm-delete-btn[data-mode="delete"] { background:#dc2626; color:#ffffff; border-color:#b91c1c; }
+    #confirm-delete-btn[data-mode="delete"]:hover:not(:disabled) { background:#b91c1c; color:#ffffff; border-color:#991b1b; }
+    #confirm-delete-btn[data-mode="inactivate"] { background:color-mix(in srgb, var(--warning) 18%, var(--surface)); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 42%, var(--border)); }
+    #confirm-delete-btn[data-mode="inactivate"]:hover:not(:disabled) { background:color-mix(in srgb, var(--warning) 26%, var(--surface)); }
+    #confirm-delete-btn:disabled { opacity:1; color:var(--text-secondary); background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); border-color:var(--border); cursor:not-allowed; }
     @media (max-width: 980px) { .dashboard-grid { grid-template-columns: 1fr; } }
 </style>
 
@@ -342,7 +348,7 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
                     context: 'Acción crítica',
                     actionUrl: '/clients/delete',
                     buttonLabel: 'Eliminar permanentemente',
-                    buttonStyle: 'color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%);'
+                    buttonMode: 'delete'
                 },
                 inactivate: {
                     title: 'Inactivar cliente',
@@ -350,7 +356,7 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
                     context: 'Acción segura',
                     actionUrl: `/clients/${clientId}/inactivate`,
                     buttonLabel: 'Inactivar cliente',
-                    buttonStyle: 'color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--warning) 12%, var(--surface) 88%);'
+                    buttonMode: 'inactivate'
                 }
             };
 
@@ -373,7 +379,7 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
                 if (modalContext) modalContext.textContent = config.context;
                 if (confirmButton) {
                     confirmButton.textContent = config.buttonLabel;
-                    confirmButton.style.cssText = `${confirmButton.getAttribute('style') || ''}; ${config.buttonStyle}`;
+                    confirmButton.setAttribute('data-mode', config.buttonMode || 'delete');
                 }
                 if (form) {
                     form.setAttribute('action', config.actionUrl);
