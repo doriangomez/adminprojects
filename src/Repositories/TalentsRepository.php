@@ -85,6 +85,52 @@ class TalentsRepository
         );
     }
 
+    public function assignmentOptions(): array
+    {
+        $conditions = [];
+        $hasTalentActive = $this->db->columnExists('talents', 'active');
+        $hasUserActive = $this->db->columnExists('users', 'active');
+
+        if ($hasTalentActive) {
+            $conditions[] = 'COALESCE(t.active, 1) = 1';
+        }
+
+        if ($hasUserActive) {
+            $conditions[] = '(u.id IS NULL OR u.active = 1)';
+        }
+
+        $where = $conditions !== [] ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $filteredTalents = $this->db->fetchAll(
+            'SELECT t.id, t.name, t.role, t.tipo_talento
+             FROM talents t
+             LEFT JOIN users u ON u.id = t.user_id
+             ' . $where . '
+             ORDER BY t.name'
+        );
+
+        if ($filteredTalents !== []) {
+            return $filteredTalents;
+        }
+
+        $fallbackTalents = $this->db->fetchAll(
+            'SELECT t.id, t.name, t.role, t.tipo_talento
+             FROM talents t
+             ORDER BY t.name'
+        );
+
+        if ($fallbackTalents !== [] && ($hasTalentActive || $hasUserActive)) {
+            error_log(sprintf(
+                '[talents.assignmentOptions] Se devolvió fallback sin filtros porque no hubo resultados filtrados | talents=%d | filtro_talent_active=%s | filtro_user_active=%s',
+                count($fallbackTalents),
+                $hasTalentActive ? 'on' : 'off',
+                $hasUserActive ? 'on' : 'off'
+            ));
+        }
+
+        return $fallbackTalents;
+    }
+
     public function find(int $talentId): ?array
     {
         $select = [
@@ -153,6 +199,11 @@ class TalentsRepository
         if ($this->hasOutsourcingFlag()) {
             $columns[] = 'is_outsourcing';
             $params[':is_outsourcing'] = $payload['is_outsourcing'] ?? 0;
+        }
+
+        if ($this->db->columnExists('talents', 'active')) {
+            $columns[] = 'active';
+            $params[':active'] = $payload['active'] ?? 1;
         }
 
         return $this->db->insert(
