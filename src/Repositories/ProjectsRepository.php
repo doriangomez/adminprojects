@@ -865,6 +865,40 @@ class ProjectsRepository
         );
     }
 
+
+    public function findAssignmentById(int $projectId, int $assignmentId): ?array
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return null;
+        }
+
+        $assignment = $this->db->fetchOne(
+            'SELECT * FROM project_talent_assignments WHERE id = :id AND project_id = :project LIMIT 1',
+            [
+                ':id' => $assignmentId,
+                ':project' => $projectId,
+            ]
+        );
+
+        return $assignment ?: null;
+    }
+
+    public function deleteAssignmentPermanently(int $projectId, int $assignmentId): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return;
+        }
+
+        $this->db->execute(
+            'DELETE FROM project_talent_assignments WHERE id = :id AND project_id = :project',
+            [
+                ':id' => $assignmentId,
+                ':project' => $projectId,
+            ]
+        );
+    }
+
+
     public function create(array $payload): int
     {
         try {

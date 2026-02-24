@@ -3,6 +3,19 @@ $basePath = $basePath ?? '';
 $project = $project ?? [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $talents = is_array($talents ?? null) ? $talents : [];
+$assignmentLabels = [
+    'active' => 'Activo',
+    'paused' => 'Inactivo',
+    'removed' => 'Retirado',
+];
+$assignmentBadge = static function (string $status): string {
+    return match ($status) {
+        'active' => 'status-success',
+        'paused' => 'status-warning',
+        'removed' => 'status-danger',
+        default => 'status-muted',
+    };
+};
 ?>
 
 <section class="project-shell">
@@ -36,8 +49,10 @@ $talents = is_array($talents ?? null) ? $talents : [];
                     <span>Talento</span>
                     <span>Rol</span>
                     <span>Dedicación</span>
+                    <span>Estado</span>
                     <span>Reporte</span>
                     <span>Aprobación</span>
+                    <span>Acciones</span>
                 </div>
                 <?php foreach ($assignments as $assignment): ?>
                     <div class="talent-row">
@@ -47,12 +62,33 @@ $talents = is_array($talents ?? null) ? $talents : [];
                         </div>
                         <span><?= htmlspecialchars($assignment['role'] ?? '') ?></span>
                         <span><?= htmlspecialchars((string) ($assignment['allocation_percent'] ?? 0)) ?>% · <?= htmlspecialchars((string) ($assignment['weekly_hours'] ?? 0)) ?>h/sem</span>
+                        <?php $assignmentStatus = (string) ($assignment['assignment_status'] ?? 'active'); ?>
+                        <span class="badge <?= $assignmentBadge($assignmentStatus) ?>">
+                            <?= htmlspecialchars($assignmentLabels[$assignmentStatus] ?? ucfirst($assignmentStatus)) ?>
+                        </span>
                         <span class="badge <?= !empty($assignment['requiere_reporte_horas']) ? 'status-success' : 'status-muted' ?>">
                             <?= !empty($assignment['requiere_reporte_horas']) ? 'Sí' : 'No' ?>
                         </span>
                         <span class="badge <?= !empty($assignment['requiere_aprobacion_horas']) ? 'status-warning' : 'status-muted' ?>">
                             <?= !empty($assignment['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?>
                         </span>
+                        <div class="row-actions">
+                            <?php if ($assignmentStatus === 'active'): ?>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Inactivar este talento en el proyecto?');">
+                                    <input type="hidden" name="assignment_status" value="paused">
+                                    <button type="submit" class="action-btn warning">Inactivar</button>
+                                </form>
+                            <?php elseif ($assignmentStatus === 'paused'): ?>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Retirar este talento del proyecto?');">
+                                    <input type="hidden" name="assignment_status" value="removed">
+                                    <button type="submit" class="action-btn danger">Retirar</button>
+                                </form>
+                            <?php else: ?>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar definitivamente esta asignación retirada? Esta acción no se puede deshacer.');">
+                                    <button type="submit" class="action-btn danger">Eliminar definitivo</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -127,7 +163,7 @@ $talents = is_array($talents ?? null) ? $talents : [];
     .project-actions { display:flex; gap:8px; flex-wrap:wrap; }
     .talent-overview, .talent-form { border:1px solid var(--border); padding:16px; border-radius:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
     .talent-table { display:grid; gap:8px; }
-    .talent-row { display:grid; grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr); gap:10px; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
+    .talent-row { display:grid; grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(90px, 0.7fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr) minmax(120px, 0.8fr); gap:10px; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
     .talent-head { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); font-weight:700; font-size:12px; text-transform:uppercase; color: var(--text-secondary); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; }
     .checkbox-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:8px; }
@@ -135,8 +171,12 @@ $talents = is_array($talents ?? null) ? $talents : [];
     .status-muted { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color: var(--text-primary); border-color: var(--border); }
     .status-success { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--background)); }
     .status-warning { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, var(--background)); }
+    .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+    .action-btn.warning { background: color-mix(in srgb, var(--warning) 16%, var(--surface) 84%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 35%, var(--border) 65%); }
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
+    .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
