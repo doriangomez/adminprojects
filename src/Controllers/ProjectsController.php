@@ -31,7 +31,8 @@ class ProjectsController extends Controller
         'closed' => ['closed'],
     ];
     private const DOCUMENT_STATUSES = [
-        'borrador',
+        'final',
+        'publicado',
         'en_revision',
         'revisado',
         'en_validacion',
@@ -1706,12 +1707,18 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Selecciona un revisor para iniciar el flujo.');
         }
 
+        if (!$startFlow) {
+            $reviewerId = null;
+            $validatorId = null;
+            $approverId = null;
+        }
+
         return [
             'document_type' => $documentType,
             'document_tags' => $documentTags,
             'document_version' => $documentVersion,
             'description' => $description,
-            'document_status' => $startFlow ? 'en_revision' : 'borrador',
+            'document_status' => $startFlow ? 'en_revision' : 'final',
             'reviewer_id' => $reviewerId,
             'validator_id' => $validatorId,
             'approver_id' => $approverId,
