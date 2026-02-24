@@ -17,6 +17,7 @@ $timesheetSummary = is_array($timesheetSummary ?? null)
         'period_end' => null,
     ];
 $canManage = !empty($canManage);
+$canDelete = !empty($canDelete);
 
 $serviceStatusLabels = [
     'active' => 'Activo',
@@ -117,6 +118,9 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
                 </span>
                 Evidencias
             </a>
+            <?php if ($canDelete): ?>
+                <button type="button" class="action-btn danger" id="toggle-delete-service">Eliminar servicio</button>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -147,6 +151,27 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
             Evidencias
         </a>
     </nav>
+
+    <?php if ($canDelete): ?>
+        <section class="delete-service-panel" id="delete-service-panel" hidden>
+            <h4>Eliminar servicio de outsourcing</h4>
+            <p class="section-muted">Esta acción elimina el servicio, sus seguimientos y su carpeta de evidencias asociada. Requiere permiso desde Gobierno y confirmación matemática.</p>
+            <form method="POST" action="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>/delete" id="delete-service-form" class="followup-form">
+                <?php
+                $op1 = random_int(1, 10);
+                $op2 = random_int(1, 10);
+                $operator = random_int(0, 1) === 1 ? '+' : '-';
+                ?>
+                <input type="hidden" name="math_operand1" value="<?= $op1 ?>">
+                <input type="hidden" name="math_operand2" value="<?= $op2 ?>">
+                <input type="hidden" name="math_operator" value="<?= $operator ?>">
+                <label>Confirmación matemática: <?= $op1 . ' ' . $operator . ' ' . $op2 ?> = ?
+                    <input type="number" name="math_result" id="delete-math-result" required>
+                </label>
+                <button type="submit" class="action-btn danger" id="confirm-delete-service" disabled>Eliminar definitivamente</button>
+            </form>
+        </section>
+    <?php endif; ?>
 
     <section class="outsourcing-overview" id="resumen">
         <div class="overview-card">
@@ -467,6 +492,46 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
     </section>
 </section>
 
+
+<?php if ($canDelete): ?>
+<script>
+(function () {
+    const toggleButton = document.getElementById('toggle-delete-service');
+    const panel = document.getElementById('delete-service-panel');
+    const form = document.getElementById('delete-service-form');
+    const resultInput = document.getElementById('delete-math-result');
+    const submitButton = document.getElementById('confirm-delete-service');
+    if (!toggleButton || !panel || !form || !resultInput || !submitButton) {
+        return;
+    }
+
+    toggleButton.addEventListener('click', function () {
+        panel.hidden = !panel.hidden;
+    });
+
+    const isValid = function () {
+        const operand1 = Number(form.querySelector('input[name="math_operand1"]').value || '0');
+        const operand2 = Number(form.querySelector('input[name="math_operand2"]').value || '0');
+        const operator = form.querySelector('input[name="math_operator"]').value;
+        const expected = operator === '+' ? operand1 + operand2 : operand1 - operand2;
+        const provided = Number(resultInput.value || 'NaN');
+        return Number.isFinite(provided) && provided === expected;
+    };
+
+    resultInput.addEventListener('input', function () {
+        submitButton.disabled = !isValid();
+    });
+
+    form.addEventListener('submit', function (event) {
+        if (!isValid()) {
+            event.preventDefault();
+            window.alert('La confirmación matemática es incorrecta.');
+        }
+    });
+})();
+</script>
+<?php endif; ?>
+
 <style>
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
     .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); }
@@ -527,4 +592,8 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
     .btn-icon { display:inline-flex; width:16px; height:16px; }
     .btn-icon svg { width:16px; height:16px; }
     .inline-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 16%, var(--surface)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+    .action-btn.danger:hover { background: color-mix(in srgb, var(--danger) 24%, var(--surface)); }
+    .delete-service-panel { border:1px solid color-mix(in srgb, var(--danger) 32%, var(--border)); border-radius:14px; padding:14px; background: color-mix(in srgb, var(--danger) 5%, var(--surface)); }
 </style>
