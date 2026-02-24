@@ -16,13 +16,7 @@ class TimesheetsController extends Controller
         $canApprove = $this->auth->canApproveTimesheets();
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
-        $weekStart = new DateTimeImmutable('monday this week');
-        if ($weekValue !== '') {
-            $parsedWeek = DateTimeImmutable::createFromFormat('o-\\WW', $weekValue);
-            if ($parsedWeek instanceof DateTimeImmutable) {
-                $weekStart = $parsedWeek->modify('monday this week');
-            }
-        }
+        $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
         $weekEnd = $weekStart->modify('+6 days');
         $weekValue = $weekStart->format('o-\\WW');
 
@@ -94,12 +88,11 @@ class TimesheetsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
 
         $weekValue = trim((string) ($_POST['week'] ?? ''));
-        $weekStart = DateTimeImmutable::createFromFormat('o-\\WW', $weekValue);
+        $weekStart = $this->parseWeekValue($weekValue);
         if (!$weekStart instanceof DateTimeImmutable) {
             http_response_code(400);
             exit('Semana inválida.');
         }
-        $weekStart = $weekStart->modify('monday this week');
 
         try {
             $repo->submitWeek($userId, $weekStart);
@@ -147,6 +140,23 @@ class TimesheetsController extends Controller
             http_response_code(500);
             exit('No se pudo actualizar la aprobación semanal.');
         }
+    }
+
+
+
+    private function parseWeekValue(string $weekValue): ?DateTimeImmutable
+    {
+        if (!preg_match('/^(\d{4})-W(\d{2})$/', $weekValue, $matches)) {
+            return null;
+        }
+
+        $year = (int) $matches[1];
+        $week = (int) $matches[2];
+        if ($week < 1 || $week > 53) {
+            return null;
+        }
+
+        return (new DateTimeImmutable('now'))->setISODate($year, $week, 1)->setTime(0, 0);
     }
 
     public function updateStatus(int $timesheetId, string $action): void
