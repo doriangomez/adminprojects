@@ -198,6 +198,19 @@ class Auth
         return strcasecmp((string) $user['role'], $role) === 0;
     }
 
+    public function canDeleteOutsourcing(): bool
+    {
+        if ($this->can('outsourcing.delete')) {
+            return true;
+        }
+
+        if ($this->can('config.manage')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador');
+    }
+
     public function canDeleteClients(): bool
     {
         if ($this->can('clients.delete')) {

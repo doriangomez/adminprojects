@@ -434,31 +434,69 @@ class OutsourcingServicesRepository
         return $followup ?: null;
     }
 
-    public function deleteService(int $serviceId): void
+
+    public function deleteServiceCascade(int $serviceId): array
     {
         if (!$this->db->tableExists('outsourcing_services')) {
             throw new \RuntimeException('La tabla de servicios outsourcing no está disponible.');
         }
 
-        $this->db->execute(
+        $service = $this->findService($serviceId);
+        if (!$service) {
+            throw new \InvalidArgumentException('Servicio de outsourcing no encontrado.');
+        }
+
+        $deleted = [
+            'outsourcing_followups' => 0,
+            'project_nodes' => 0,
+            'outsourcing_services' => 0,
+        ];
+
+        $projectId = (int) ($service['project_id'] ?? 0);
+
+        if ($projectId > 0 && $this->db->tableExists('outsourcing_followups')) {
+            $nodeRows = $this->db->fetchAll(
+                'SELECT document_node_id FROM outsourcing_followups WHERE service_id = :service_id AND document_node_id IS NOT NULL',
+                [':service_id' => $serviceId]
+            );
+
+            if (!empty($nodeRows) && $this->db->tableExists('project_nodes')) {
+                $nodesRepo = new ProjectNodesRepository($this->db);
+                $nodeIds = [];
+                foreach ($nodeRows as $row) {
+                    $nodeId = (int) ($row['document_node_id'] ?? 0);
+                    if ($nodeId > 0) {
+                        $nodeIds[$nodeId] = true;
+                    }
+                }
+
+                foreach (array_keys($nodeIds) as $nodeId) {
+                    $node = $nodesRepo->findById($projectId, $nodeId);
+                    if ($node) {
+                        $deleted['project_nodes']++;
+                        $nodesRepo->deleteNode($projectId, $nodeId);
+                    }
+                }
+            }
+        }
+
+        if ($this->db->tableExists('outsourcing_followups')) {
+            $deleted['outsourcing_followups'] = $this->db->execute(
+                'DELETE FROM outsourcing_followups WHERE service_id = :service_id',
+                [':service_id' => $serviceId]
+            );
+        }
+
+        $deleted['outsourcing_services'] = $this->db->execute(
             'DELETE FROM outsourcing_services WHERE id = :id',
             [':id' => $serviceId]
         );
-    }
 
-    public function deleteFollowup(int $followupId, int $serviceId): void
-    {
-        if (!$this->db->tableExists('outsourcing_followups')) {
-            throw new \RuntimeException('La tabla de seguimientos outsourcing no está disponible.');
-        }
-
-        $this->db->execute(
-            'DELETE FROM outsourcing_followups WHERE id = :id AND service_id = :service_id',
-            [
-                ':id' => $followupId,
-                ':service_id' => $serviceId,
-            ]
-        );
+        return [
+            'success' => $deleted['outsourcing_services'] > 0,
+            'service' => $service,
+            'deleted' => $deleted,
+        ];
     }
 
     public function closeFollowup(int $followupId): void

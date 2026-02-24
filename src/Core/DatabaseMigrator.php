@@ -215,6 +215,51 @@ class DatabaseMigrator
         }
     }
 
+
+    public function ensureOutsourcingDeletePermission(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => 'outsourcing.delete',
+                    ':code_check' => 'outsourcing.delete',
+                    ':name' => 'Eliminar servicios de outsourcing',
+                ]
+            );
+
+            $roles = $this->db->fetchAll(
+                "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')"
+            );
+
+            foreach ($roles as $role) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :role_id_value, p.id
+                     FROM permissions p
+                     WHERE p.code = :code_value
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                    )',
+                    [
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'outsourcing.delete',
+                    ]
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos de eliminación en outsourcing: ' . $e->getMessage());
+        }
+    }
+
     public function ensureOutsourcingModule(): void
     {
         try {
