@@ -14,6 +14,8 @@ class TimesheetsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
         $canReport = $this->auth->canAccessTimesheets();
         $canApprove = $this->auth->canApproveTimesheets();
+        $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
+        $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
@@ -29,11 +31,17 @@ class TimesheetsController extends Controller
             'title' => 'Timesheets',
             'rows' => $repo->weekly($user),
             'kpis' => $repo->kpis($user),
+            'weeksHistory' => $repo->weeksHistoryForUser($userId),
+            'selectedWeekSummary' => $repo->weekSummaryForUser($userId, $weekStart),
+            'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
+            'monthlySummary' => $repo->monthlySummaryForUser($userId, $weekStart),
             'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
             'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
             'weeklyGrid' => $canReport ? $repo->weeklyGridForUser($userId, $weekStart) : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0],
             'canApprove' => $canApprove,
             'canReport' => $canReport,
+            'canManageWorkflow' => $canManageWorkflow,
+            'canDeleteWeek' => $canDeleteWeek,
             'timesheetsEnabled' => $timesheetsEnabled,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
@@ -102,6 +110,77 @@ class TimesheetsController extends Controller
             http_response_code(400);
             exit($e->getMessage());
         }
+    }
+
+    public function cancelWeekSubmission(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue);
+        if (!$weekStart instanceof DateTimeImmutable) {
+            http_response_code(400);
+            exit('Semana inválida.');
+        }
+
+        $repo->cancelWeekSubmission($userId, $weekStart);
+        header('Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW')));
+    }
+
+    public function reopenOwnWeek(): void
+    {
+        if (!$this->auth->canManageTimesheetWorkflow()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue);
+        if (!$weekStart instanceof DateTimeImmutable) {
+            http_response_code(400);
+            exit('Semana inválida.');
+        }
+
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+        $repo->reopenOwnWeekToDraft($userId, $weekStart, $comment !== '' ? $comment : null);
+        header('Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW')));
+    }
+
+    public function deleteOwnWeek(): void
+    {
+        if (!$this->auth->canDeleteTimesheetWorkflowRecords()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue);
+        if (!$weekStart instanceof DateTimeImmutable) {
+            http_response_code(400);
+            exit('Semana inválida.');
+        }
+
+        $confirmToken = trim((string) ($_POST['confirm_token'] ?? ''));
+        if ($confirmToken !== 'ELIMINAR') {
+            http_response_code(400);
+            exit('Confirmación inválida.');
+        }
+
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+        $repo->deleteWeekEntries($userId, $weekStart, $userId, $comment !== '' ? $comment : null);
+        header('Location: /timesheets');
     }
 
     public function create(): void
