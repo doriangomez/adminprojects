@@ -435,6 +435,18 @@ class App
                 $controller->submitWeek();
                 return;
             }
+            if ($path === '/timesheets/cancel-week' && $method === 'POST') {
+                $controller->cancelWeekSubmission();
+                return;
+            }
+            if ($path === '/timesheets/reopen-own-week' && $method === 'POST') {
+                $controller->reopenOwnWeek();
+                return;
+            }
+            if ($path === '/timesheets/delete-week' && $method === 'POST') {
+                $controller->deleteOwnWeek();
+                return;
+            }
             if ($path === '/timesheets/approve-week' && $method === 'POST') {
                 $controller->approveWeek();
                 return;

@@ -331,6 +331,241 @@ class TimesheetsRepository
         return (int) ($row['total'] ?? 0);
     }
 
+    public function cancelWeekSubmission(int $userId, \DateTimeImmutable $weekStart): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :draft,
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+               AND status IN ("submitted", "pending", "pending_approval")',
+            [
+                ':draft' => 'draft',
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function reopenOwnWeekToDraft(int $userId, \DateTimeImmutable $weekStart, ?string $comment = null): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $statusRow = $this->db->fetchOne(
+            'SELECT status, approver_user_id
+             FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+               AND status = "approved"
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+
+        if (!$statusRow) {
+            return 0;
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :draft,
+                 approval_comment = :comment,
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+               AND status = "approved"',
+            [
+                ':draft' => 'draft',
+                ':comment' => $comment,
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+        $updated = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+
+        if ($updated > 0) {
+            $targetApproverUserId = (int) ($statusRow['approver_user_id'] ?? $userId);
+            $this->logWeekWorkflowAction($weekStart, $userId, 'reopened', $comment, 'approved', 'draft', $targetApproverUserId);
+        }
+
+        return $updated;
+    }
+
+    public function deleteWeekEntries(int $userId, \DateTimeImmutable $weekStart, int $actorUserId, ?string $comment = null): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $statusRow = $this->db->fetchOne(
+            'SELECT status, approver_user_id
+             FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+        if (!$statusRow) {
+            return 0;
+        }
+        if ((string) ($statusRow['status'] ?? '') === 'closed') {
+            throw new InvalidArgumentException('La semana está cerrada definitivamente y no se puede eliminar.');
+        }
+
+        $this->db->execute(
+            'DELETE FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+        $deleted = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+
+        if ($deleted > 0) {
+            $targetApproverUserId = (int) ($statusRow['approver_user_id'] ?? $userId);
+            $this->logWeekWorkflowAction($weekStart, $actorUserId, 'deleted', $comment, (string) ($statusRow['status'] ?? 'draft'), 'deleted', $targetApproverUserId);
+        }
+
+        return $deleted;
+    }
+
+    public function weeksHistoryForUser(int $userId): array
+    {
+        return $this->db->fetchAll(
+            'SELECT DATE_SUB(date, INTERVAL WEEKDAY(date) DAY) AS week_start,
+                    DATE_ADD(DATE_SUB(date, INTERVAL WEEKDAY(date) DAY), INTERVAL 6 DAY) AS week_end,
+                    COALESCE(SUM(hours), 0) AS total_hours,
+                    COUNT(*) AS entries,
+                    MAX(CASE status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight
+             FROM timesheets
+             WHERE user_id = :user
+             GROUP BY DATE_SUB(date, INTERVAL WEEKDAY(date) DAY)
+             ORDER BY week_start DESC',
+            [':user' => $userId]
+        );
+    }
+
+    public function weekSummaryForUser(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total_hours,
+                    MAX(CASE status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight,
+                    MAX(approved_at) AS approved_at,
+                    MAX(rejected_at) AS rejected_at,
+                    SUBSTRING_INDEX(GROUP_CONCAT(approval_comment ORDER BY updated_at DESC SEPARATOR "||"), "||", 1) AS latest_comment,
+                    MAX(approved_by) AS approved_by,
+                    MAX(rejected_by) AS rejected_by,
+                    COUNT(DISTINCT status) AS status_count
+             FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end',
+            [':user' => $userId, ':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')]
+        ) ?: [];
+
+        $status = $this->statusByWeight((int) ($row['status_weight'] ?? 2), (int) ($row['status_count'] ?? 1));
+        $approverName = null;
+        $approverId = (int) ($row['approved_by'] ?? $row['rejected_by'] ?? 0);
+        if ($approverId > 0) {
+            $u = $this->db->fetchOne('SELECT name FROM users WHERE id = :id LIMIT 1', [':id' => $approverId]);
+            $approverName = $u['name'] ?? null;
+        }
+
+        return [
+            'status' => $status,
+            'total_hours' => (float) ($row['total_hours'] ?? 0),
+            'approved_at' => $row['approved_at'] ?? null,
+            'rejected_at' => $row['rejected_at'] ?? null,
+            'approval_comment' => $row['latest_comment'] ?? null,
+            'approver_name' => $approverName,
+        ];
+    }
+
+    public function monthlySummaryForUser(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $monthStart = $weekStart->modify('first day of this month')->setTime(0, 0);
+        $monthEnd = $weekStart->modify('last day of this month')->setTime(0, 0);
+        $rows = $this->db->fetchAll(
+            'SELECT status, COALESCE(SUM(hours), 0) AS total_hours
+             FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+             GROUP BY status',
+            [':user' => $userId, ':start' => $monthStart->format('Y-m-d'), ':end' => $monthEnd->format('Y-m-d')]
+        );
+        $out = ['month_total' => 0.0, 'approved' => 0.0, 'rejected' => 0.0, 'draft' => 0.0, 'capacity' => 0.0, 'compliance' => 0.0];
+        foreach ($rows as $r) {
+            $hours = (float) ($r['total_hours'] ?? 0);
+            $status = (string) ($r['status'] ?? 'draft');
+            $out['month_total'] += $hours;
+            if (in_array($status, ['submitted', 'pending', 'pending_approval'], true)) {
+                continue;
+            }
+            if (isset($out[$status])) {
+                $out[$status] += $hours;
+            }
+        }
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
+        $weeksInMonth = (int) ceil(((int) $monthEnd->format('j')) / 7);
+        $out['capacity'] = max(0, $weeklyCapacity) * max(1, $weeksInMonth);
+        $out['compliance'] = $out['capacity'] > 0 ? min(100, round(($out['month_total'] / $out['capacity']) * 100, 2)) : 0;
+        return $out;
+    }
+
+    public function weekHistoryLogForUser(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekKey = $this->weekKey($weekStart);
+        return $this->db->fetchAll(
+            'SELECT w.created_at, w.action, w.action_comment, actor.name AS actor_name
+             FROM timesheet_week_actions w
+             LEFT JOIN users actor ON actor.id = w.actor_user_id
+             WHERE w.week_key = :week_key
+               AND w.deleted_at IS NULL
+               AND EXISTS (
+                    SELECT 1 FROM timesheets ts
+                    WHERE ts.user_id = :user
+                      AND ts.approver_user_id = w.target_approver_user_id
+                      AND ts.date BETWEEN w.week_start AND w.week_end
+               )
+             ORDER BY w.created_at DESC, w.id DESC',
+            [':week_key' => $weekKey, ':user' => $userId]
+        );
+    }
+
     public function pendingApprovalsByWeek(array $user): array
     {
         $rows = $this->pendingApprovals($user);
@@ -549,6 +784,20 @@ class TimesheetsRepository
     private function weekKey(\DateTimeImmutable $weekStart): string
     {
         return $weekStart->format('o-\WW');
+    }
+
+    private function statusByWeight(int $weight, int $statusCount = 1): string
+    {
+        if ($statusCount > 1) {
+            return 'partial';
+        }
+
+        return match (true) {
+            $weight >= 5 => 'approved',
+            $weight >= 4 => 'rejected',
+            $weight >= 3 => 'submitted',
+            default => 'draft',
+        };
     }
     public function hasTimesheetAssignments(int $userId): bool
     {
