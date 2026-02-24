@@ -17,6 +17,7 @@ $timesheetSummary = is_array($timesheetSummary ?? null)
         'period_end' => null,
     ];
 $canManage = !empty($canManage);
+$canDeleteRecords = !empty($canDeleteRecords);
 
 $serviceStatusLabels = [
     'active' => 'Activo',
@@ -108,6 +109,11 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
                 </span>
                 Nuevo seguimiento
             </a>
+            <?php if ($canDeleteRecords): ?>
+                <form method="POST" action="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar este servicio y todos sus seguimientos?');">
+                    <button type="submit" class="action-btn danger">Eliminar servicio</button>
+                </form>
+            <?php endif; ?>
             <a class="action-btn ghost" href="#evidencias">
                 <span class="btn-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" role="presentation">
@@ -424,6 +430,11 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
                                                 </span>
                                                 Cerrar
                                             </button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <?php if ($canDeleteRecords): ?>
+                                        <form method="POST" action="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>/followups/<?= (int) ($followup['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar este seguimiento?');">
+                                            <button type="submit" class="action-btn small danger">Eliminar</button>
                                         </form>
                                     <?php endif; ?>
                                 </div>
