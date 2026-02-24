@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 class ProjectService
 {
+    private const FOLLOWUP_EXPECTED_DAYS = 7;
+    private const FOLLOWUP_EVALUATION_DAYS = 28;
+
     /** @var array<int, array<string, mixed>> */
     private static array $healthCache = [];
+
+    /** @var array<int, array<string, mixed>> */
+    private array $seguimientoMeta = [];
 
     public function __construct(private Database $db)
     {
@@ -86,6 +92,10 @@ class ProjectService
                 'issues' => $this->dimensionIssues($dimension, $projectId, $project, $rawScore, $config),
                 'justification' => $this->dimensionJustification($dimension, $rawScore),
             ];
+
+            if ($dimension === 'seguimiento' && isset($this->seguimientoMeta[$projectId])) {
+                $breakdown[$dimension]['meta'] = $this->seguimientoMeta[$projectId];
+            }
         }
 
         $total = $this->clampScore((int) round($weightedTotal));
@@ -209,10 +219,22 @@ class ProjectService
         }
 
         if ($dimension === 'seguimiento') {
-            $daysWithoutUpdate = isset($project['updated_at']) ? (int) floor((time() - strtotime((string) $project['updated_at'])) / 86400) : 999;
-            $maxDays = (int) ($config['operational_rules']['health_scoring']['max_days_without_followup'] ?? 14);
+            $status = $this->normalizeProjectStatus($project);
+            if ($status === 'closed') {
+                return ['Seguimiento no exigible por proyecto cerrado.'];
+            }
+
+            $meta = $this->seguimientoMeta[$projectId] ?? [];
+            $daysWithoutUpdate = (int) ($meta['days_since_last_note'] ?? 999);
+            $maxDays = (int) ($meta['expected_days_threshold'] ?? self::FOLLOWUP_EXPECTED_DAYS);
+
             if ($daysWithoutUpdate > $maxDays) {
-                $issues[] = sprintf('Sin actualización hace %d días.', $daysWithoutUpdate);
+                $issues[] = sprintf('Última nota de seguimiento hace %d días.', $daysWithoutUpdate);
+            }
+
+            $notesInPeriod = (int) ($meta['notes_in_period'] ?? 0);
+            if ($notesInPeriod <= 0) {
+                $issues[] = sprintf('No hay notas en los últimos %d días.', (int) ($meta['evaluation_period_days'] ?? self::FOLLOWUP_EVALUATION_DAYS));
             }
         }
 
@@ -236,7 +258,8 @@ class ProjectService
         if ((int) ($breakdown['documental']['percentage'] ?? 0) < 85) {
             $recommendations[] = 'Completar documentos obligatorios fase actual';
         }
-        if ((int) ($breakdown['seguimiento']['percentage'] ?? 0) < 85) {
+        $needsFollowupUpdate = (bool) ($breakdown['seguimiento']['meta']['needs_followup_update'] ?? false);
+        if ((int) ($breakdown['seguimiento']['percentage'] ?? 0) < 85 && $needsFollowupUpdate) {
             $recommendations[] = 'Actualizar seguimiento semanal';
         }
         if ((int) ($breakdown['riesgo']['percentage'] ?? 0) < 85) {
@@ -324,28 +347,96 @@ class ProjectService
 
     private function calculateSeguimientoScore(int $projectId, array $project): int
     {
-        $updatedAt = $project['updated_at'] ?? null;
-        $daysWithoutUpdate = $updatedAt ? (int) floor((time() - strtotime((string) $updatedAt)) / 86400) : 999;
+        $status = $this->normalizeProjectStatus($project);
+        if ($status === 'closed') {
+            $this->seguimientoMeta[$projectId] = [
+                'project_status' => $status,
+                'expected_days_threshold' => self::FOLLOWUP_EXPECTED_DAYS,
+                'evaluation_period_days' => self::FOLLOWUP_EVALUATION_DAYS,
+                'needs_followup_update' => false,
+                'notes_in_period' => 0,
+                'last_note_at' => null,
+                'days_since_last_note' => null,
+            ];
+
+            return 100;
+        }
+
+        $expectedDays = self::FOLLOWUP_EXPECTED_DAYS;
+        $evaluationDays = self::FOLLOWUP_EVALUATION_DAYS;
+        $noteActivity = $this->projectNoteActivity($projectId, $evaluationDays);
+
+        $lastNoteAt = $noteActivity['last_note_at'];
+        $daysWithoutUpdate = $lastNoteAt ? (int) floor((time() - strtotime($lastNoteAt)) / 86400) : 999;
+        $notesInPeriod = (int) ($noteActivity['notes_in_period'] ?? 0);
+
+        error_log(sprintf(
+            'ProjectService Seguimiento project_id=%d last_note_at=%s notes_in_period=%d expected_days=%d',
+            $projectId,
+            $lastNoteAt ?? 'NULL',
+            $notesInPeriod,
+            $expectedDays
+        ));
 
         $recencyScore = match (true) {
-            $daysWithoutUpdate <= 3 => 100,
-            $daysWithoutUpdate <= 7 => 80,
-            $daysWithoutUpdate <= 14 => 60,
-            $daysWithoutUpdate <= 21 => 40,
+            $daysWithoutUpdate <= $expectedDays => 100,
+            $daysWithoutUpdate <= ($expectedDays * 2) => 65,
+            $daysWithoutUpdate <= ($expectedDays * 3) => 40,
             default => 20,
         };
 
-        $activityScore = 50;
-        if ($this->db->tableExists('audit_log')) {
-            $activity = $this->db->fetchOne(
-                'SELECT COUNT(*) AS total FROM audit_log WHERE entity = :entity AND entity_id = :projectId AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)',
-                [':entity' => 'project_progress', ':projectId' => $projectId]
-            );
-            $events = (int) ($activity['total'] ?? 0);
-            $activityScore = min(100, $events * 25);
+        $expectedNotes = max(1, (int) ceil($evaluationDays / $expectedDays));
+        $frequencyScore = $this->clampScore((int) round(min(1, $notesInPeriod / $expectedNotes) * 100));
+
+        $needsFollowupUpdate = $daysWithoutUpdate > $expectedDays;
+        $this->seguimientoMeta[$projectId] = [
+            'project_status' => $status,
+            'expected_days_threshold' => $expectedDays,
+            'evaluation_period_days' => $evaluationDays,
+            'needs_followup_update' => $needsFollowupUpdate,
+            'notes_in_period' => $notesInPeriod,
+            'last_note_at' => $lastNoteAt,
+            'days_since_last_note' => $lastNoteAt ? $daysWithoutUpdate : null,
+        ];
+
+        return $this->clampScore((int) round(($recencyScore * 0.65) + ($frequencyScore * 0.35)));
+    }
+
+    /** @return array{last_note_at: ?string, notes_in_period: int} */
+    private function projectNoteActivity(int $projectId, int $evaluationDays): array
+    {
+        if (!$this->db->tableExists('audit_log')) {
+            return ['last_note_at' => null, 'notes_in_period' => 0];
         }
 
-        return $this->clampScore((int) round(($recencyScore * 0.6) + ($activityScore * 0.4)));
+        $row = $this->db->fetchOne(
+            'SELECT
+                MAX(created_at) AS last_note_at,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL :evaluationDays DAY) THEN 1 ELSE 0 END) AS notes_in_period
+             FROM audit_log
+             WHERE entity = :entity
+               AND entity_id = :projectId
+               AND action = :action',
+            [
+                ':entity' => 'project_note',
+                ':projectId' => $projectId,
+                ':action' => 'project_note_created',
+                ':evaluationDays' => $evaluationDays,
+            ]
+        );
+
+        return [
+            'last_note_at' => isset($row['last_note_at']) && $row['last_note_at'] !== '' ? (string) $row['last_note_at'] : null,
+            'notes_in_period' => (int) ($row['notes_in_period'] ?? 0),
+        ];
+    }
+
+    private function normalizeProjectStatus(array $project): string
+    {
+        $status = strtolower(trim((string) ($project['status'] ?? '')));
+        return in_array($status, ['closed', 'cerrado', 'completado', 'finalizado', 'archived', 'cancelled'], true)
+            ? 'closed'
+            : $status;
     }
 
     private function calculateRiesgoScore(int $projectId, array $project): int
