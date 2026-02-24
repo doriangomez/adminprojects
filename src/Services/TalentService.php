@@ -59,7 +59,12 @@ class TalentService
             $userId = (int) ($resolution['user_id'] ?? 0);
         }
 
-        $talentsRepo->update($talentId, $this->talentAttributes($payload, $userId > 0 ? $userId : null));
+        $talentAttributes = $this->talentAttributes($payload, $userId > 0 ? $userId : null);
+        if ((int) ($talentAttributes['timesheet_approver_user_id'] ?? 0) > 0 && (int) ($talentAttributes['timesheet_approver_user_id'] ?? 0) === $userId) {
+            throw new InvalidArgumentException('El jefe aprobador debe ser distinto al talento.');
+        }
+
+        $talentsRepo->update($talentId, $talentAttributes);
 
         return [
             'talent_id' => $talentId,
@@ -74,6 +79,30 @@ class TalentService
 
         if ($name === '' || $role === '') {
             throw new InvalidArgumentException('El nombre y el rol del talento son obligatorios.');
+        }
+
+        $requiresReport = !empty($payload['requiere_reporte_horas']);
+        $requiresApproval = !empty($payload['requiere_aprobacion_horas']);
+        $approverUserId = (int) ($payload['timesheet_approver_user_id'] ?? 0);
+
+        if ($requiresApproval && !$requiresReport) {
+            throw new InvalidArgumentException('Para requerir aprobación, primero debes habilitar el reporte de horas.');
+        }
+
+        if ($requiresApproval && $approverUserId <= 0) {
+            throw new InvalidArgumentException('Debes seleccionar un jefe aprobador activo cuando el talento requiere aprobación de horas.');
+        }
+
+        if ($approverUserId > 0) {
+            $activeApprover = (new UsersRepository($this->db))->findActiveById($approverUserId);
+            if (!$activeApprover) {
+                throw new InvalidArgumentException('El jefe aprobador seleccionado no está activo en el sistema.');
+            }
+
+            $talentUserId = (int) ($payload['user_id'] ?? 0);
+            if ($talentUserId > 0 && $talentUserId === $approverUserId) {
+                throw new InvalidArgumentException('El jefe aprobador debe ser distinto al talento.');
+            }
         }
     }
 
@@ -157,6 +186,7 @@ class TalentService
             'availability' => (int) ($payload['availability'] ?? 0),
             'requiere_reporte_horas' => $requiresReport,
             'requiere_aprobacion_horas' => $requiresApproval,
+            'timesheet_approver_user_id' => $requiresApproval ? (int) ($payload['timesheet_approver_user_id'] ?? 0) ?: null : null,
             'tipo_talento' => $tipoTalento,
             'hourly_cost' => (float) ($payload['hourly_cost'] ?? 0),
             'hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),

@@ -8,6 +8,7 @@ $services = is_array($services ?? null) ? $services : [];
 $documentsByService = is_array($documentsByService ?? null) ? $documentsByService : [];
 $canDeleteOutsourcingRecords = (bool) ($canDeleteOutsourcingRecords ?? false);
 $flashMessage = (string) ($flashMessage ?? '');
+$timesheetApproverOptions = is_array($timesheetApproverOptions ?? null) ? $timesheetApproverOptions : [];
 $isEditing = !empty($editingTalent);
 
 $serviceStatusLabels = [
@@ -171,8 +172,20 @@ $flashMessageText = match ($flashMessage) {
                 </label>
             </div>
             <label class="checkbox">
-                <input type="checkbox" name="requiere_aprobacion_horas" value="1" <?= !empty($editingTalent['requiere_aprobacion_horas']) ? 'checked' : '' ?>>
+                <input type="checkbox" id="requires-approval" name="requiere_aprobacion_horas" value="1" <?= !empty($editingTalent['requiere_aprobacion_horas']) ? 'checked' : '' ?>>
                 Requiere aprobación de horas
+            </label>
+            <label>Jefe aprobador
+                <?php $selectedApprover = (int) ($editingTalent['timesheet_approver_user_id'] ?? 0); ?>
+                <select name="timesheet_approver_user_id" id="timesheet-approver-select" <?= !empty($editingTalent['requiere_aprobacion_horas']) ? 'required' : '' ?>>
+                    <option value="">Selecciona un jefe aprobador</option>
+                    <?php foreach ($timesheetApproverOptions as $approver): ?>
+                        <option value="<?= (int) ($approver['id'] ?? 0) ?>" <?= $selectedApprover === (int) ($approver['id'] ?? 0) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string) ($approver['name'] ?? '')) ?> · <?= htmlspecialchars((string) ($approver['email'] ?? '')) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <small class="section-muted">Obligatorio si el talento requiere aprobación de horas.</small>
             </label>
 
             <div class="divider"></div>
@@ -262,6 +275,13 @@ $flashMessageText = match ($flashMessage) {
                                 <div>
                                     <span class="talent-card__label">Contacto</span>
                                     <strong><?= htmlspecialchars($talent['user_email'] ?? 'Sin usuario') ?></strong>
+                                </div>
+                            </div>
+                            <div class="talent-card__item">
+                                <span class="icon" aria-hidden="true">👤</span>
+                                <div>
+                                    <span class="talent-card__label">Jefe aprobador</span>
+                                    <strong><?= htmlspecialchars((string) ($talent['timesheet_approver_name'] ?? 'Sin asignar')) ?></strong>
                                 </div>
                             </div>
                         </div>
@@ -511,3 +531,19 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     .alert.success { padding:10px 12px; border-radius:12px; background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border:1px solid color-mix(in srgb, var(--success) 40%, var(--surface) 60%); font-weight:600; }
 </style>
 
+
+<script>
+(() => {
+    const approvalCheckbox = document.getElementById('requires-approval');
+    const approverSelect = document.getElementById('timesheet-approver-select');
+    if (!approvalCheckbox || !approverSelect) return;
+    const toggleApproverField = () => {
+        approverSelect.required = approvalCheckbox.checked;
+        if (!approvalCheckbox.checked) {
+            approverSelect.value = '';
+        }
+    };
+    approvalCheckbox.addEventListener('change', toggleApproverField);
+    toggleApproverField();
+})();
+</script>

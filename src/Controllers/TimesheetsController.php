@@ -80,7 +80,19 @@ class TimesheetsController extends Controller
             exit('Tu usuario no tiene un talento asociado.');
         }
 
-        $requiresApproval = (int) ($assignment['requires_timesheet_approval'] ?? 0) === 1;
+        if ((int) ($assignment['talent_requires_report'] ?? 0) !== 1) {
+            http_response_code(403);
+            exit('Tu perfil de talento no tiene habilitado el registro de horas.');
+        }
+
+        $requiresApproval = (int) ($assignment['talent_requires_approval'] ?? 0) === 1;
+        $approverUserId = $requiresApproval ? (int) ($assignment['timesheet_approver_user_id'] ?? 0) : 0;
+
+        if ($requiresApproval && $approverUserId <= 0) {
+            http_response_code(400);
+            exit('Tu talento requiere aprobación de horas, pero no tiene jefe aprobador configurado.');
+        }
+
         $status = $requiresApproval ? 'pending_approval' : 'approved';
         $approvedBy = $requiresApproval ? null : $userId;
         $approvedAt = $requiresApproval ? null : date('Y-m-d H:i:s');
@@ -93,6 +105,7 @@ class TimesheetsController extends Controller
                 'talent_id' => $talentId,
                 'user_id' => $userId,
                 'assignment_id' => $assignment['id'] ?? null,
+                'approver_user_id' => $requiresApproval ? $approverUserId : null,
                 'date' => $date,
                 'hours' => $hours,
                 'status' => $status,

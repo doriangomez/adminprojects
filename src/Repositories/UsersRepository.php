@@ -35,6 +35,18 @@ class UsersRepository
         );
     }
 
+    public function findActiveById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        return $this->db->fetchOne(
+            'SELECT id, name, email, active FROM users WHERE id = :id AND active = 1 LIMIT 1',
+            [':id' => $id]
+        );
+    }
+
     public function isValidProjectManager(int $id): bool
     {
         $stmt = $this->db->connection()->prepare(
