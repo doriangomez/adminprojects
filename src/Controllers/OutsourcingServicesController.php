@@ -444,8 +444,7 @@ class OutsourcingServicesController extends Controller
     private function requireOutsourcingAccess(): void
     {
         if (!$this->auth->canAccessOutsourcing()) {
-            http_response_code(403);
-            exit('Acceso denegado');
+            $this->denyAccess('No tienes permisos para acceder al módulo de outsourcing.');
         }
     }
 

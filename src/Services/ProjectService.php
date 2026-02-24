@@ -69,7 +69,7 @@ class ProjectService
         $row = $this->db->fetchOne(
             "SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN document_status = 'aprobado' THEN 1 ELSE 0 END) AS approved
+                SUM(CASE WHEN document_status IN ('final', 'publicado', 'aprobado') THEN 1 ELSE 0 END) AS approved
              FROM project_nodes
              WHERE project_id = :projectId
              AND node_type = 'file'",

@@ -703,8 +703,7 @@ class ConfigController extends Controller
             $user = $this->auth->user();
             $allowedRoles = ['Administrador', 'PMO'];
             if (!$user || !in_array($user['role'] ?? '', $allowedRoles, true)) {
-                http_response_code(403);
-                exit('Acceso denegado');
+                $this->denyAccess('Tu perfil no cuenta con permisos para gestionar la configuración.');
             }
         }
     }

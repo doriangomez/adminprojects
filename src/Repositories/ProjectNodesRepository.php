@@ -251,7 +251,7 @@ class ProjectNodesRepository
             $reviewerId = isset($meta['reviewer_id']) && $meta['reviewer_id'] !== '' ? (int) $meta['reviewer_id'] : null;
             $validatorId = isset($meta['validator_id']) && $meta['validator_id'] !== '' ? (int) $meta['validator_id'] : null;
             $approverId = isset($meta['approver_id']) && $meta['approver_id'] !== '' ? (int) $meta['approver_id'] : null;
-            $documentStatus = $meta['document_status'] ?? 'borrador';
+            $documentStatus = $meta['document_status'] ?? 'final';
             $documentTags = $this->normalizeDocumentTags($meta['document_tags'] ?? $meta['tags'] ?? null);
             $documentVersion = trim((string) ($meta['document_version'] ?? $meta['version'] ?? ''));
             $documentVersion = $documentVersion !== '' ? $documentVersion : null;
