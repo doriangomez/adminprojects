@@ -69,8 +69,19 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
     .risk-pill.success { background:color-mix(in srgb, var(--success) 15%, var(--surface)); border-color:color-mix(in srgb, var(--success) 35%, var(--surface)); color:var(--success); }
     .risk-pill.warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface)); border-color:color-mix(in srgb, var(--warning) 35%, var(--surface)); color:var(--warning); }
     .risk-pill.danger { background:color-mix(in srgb, var(--danger) 15%, var(--surface)); border-color:color-mix(in srgb, var(--danger) 35%, var(--surface)); color:var(--danger); }
-    .btn.executive-danger { background:color-mix(in srgb, var(--danger) 68%, #ffffff 32%); border:1px solid color-mix(in srgb, var(--danger) 75%, var(--border)); color:#ffffff; border-style:solid; }
-    .btn.executive-danger:hover { background:color-mix(in srgb, var(--danger) 78%, #ffffff 22%); color:#ffffff; border-color:color-mix(in srgb, var(--danger) 82%, var(--border)); }
+    .btn.executive-danger {
+        background:#ef4444;
+        border:1px solid #dc2626;
+        color:#ffffff;
+        border-style:solid;
+        font-weight:700;
+        box-shadow:0 4px 10px color-mix(in srgb, #ef4444 30%, transparent);
+    }
+    .btn.executive-danger:hover {
+        background:#dc2626;
+        color:#ffffff;
+        border-color:#b91c1c;
+    }
     @media (max-width: 980px) { .dashboard-grid { grid-template-columns: 1fr; } }
 </style>
 
