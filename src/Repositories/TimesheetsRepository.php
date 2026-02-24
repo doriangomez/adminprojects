@@ -636,7 +636,11 @@ class TimesheetsRepository
 
     public function talentBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, string $sort = 'load_desc'): array
     {
-        $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
+        $params = [
+            ':start' => $periodStart->format('Y-m-d'),
+            ':end' => $periodEnd->format('Y-m-d'),
+            ':capacity_end' => $periodEnd->format('Y-m-d'),
+        ];
         $where = $this->timesheetScopeWhere($user, $params);
         if ($projectId !== null && $projectId > 0) {
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
@@ -644,8 +648,7 @@ class TimesheetsRepository
         }
         $orderBy = $sort === 'compliance_asc' ? 'compliance_percent ASC, total_hours DESC' : 'total_hours DESC, compliance_percent ASC';
 
-        return $this->db->fetchAll(
-            'SELECT ta.id AS talent_id, ta.name AS talent_name,
+        $sql = 'SELECT ta.id AS talent_id, ta.name AS talent_name,
                     COALESCE(SUM(ts.hours), 0) AS total_hours,
                     COALESCE(SUM(CASE WHEN ts.status = "approved" THEN ts.hours ELSE 0 END), 0) AS approved_hours,
                     COALESCE(SUM(CASE WHEN ts.status = "rejected" THEN ts.hours ELSE 0 END), 0) AS rejected_hours,
@@ -654,14 +657,20 @@ class TimesheetsRepository
                     MAX(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)) AS last_week_submitted,
                     MAX(CASE WHEN ts.status = "approved" THEN DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) ELSE NULL END) AS last_week_approved,
                     MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) AS weekly_capacity,
-                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * GREATEST(1, CEIL(DAY(LAST_DAY(:end)) / 7)), 0)) * 100, 2) AS compliance_percent
+                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * GREATEST(1, CEIL(DAY(LAST_DAY(:capacity_end)) / 7)), 0)) * 100, 2) AS compliance_percent
              FROM timesheets ts
              JOIN talents ta ON ta.id = ts.talent_id
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
              WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
              GROUP BY ta.id, ta.name
-             ORDER BY ' . $orderBy,
+             ORDER BY ' . $orderBy;
+
+        error_log('talentBreakdownByPeriod SQL: ' . $sql);
+        error_log('talentBreakdownByPeriod params: ' . json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $this->db->fetchAll(
+            $sql,
             $params
         );
     }
