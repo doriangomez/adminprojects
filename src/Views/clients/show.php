@@ -272,7 +272,7 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
 
 <?php if($auth->canDeleteClients()): ?>
     <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:color-mix(in srgb, var(--text-primary) 45%, var(--background)); align-items:center; justify-content:center; padding:16px;">
-        <div class="card" style="max-width:520px; width:100%; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); box-shadow:0 20px 40px color-mix(in srgb, var(--text-primary) 18%, var(--background));">
+        <div class="card" style="max-width:560px; width:100%; max-height:90vh; overflow:auto; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); box-shadow:0 20px 40px color-mix(in srgb, var(--text-primary) 18%, var(--background));">
             <div class="toolbar">
                 <div style="display:flex; gap:10px; align-items:flex-start;">
                     <span aria-hidden="true" style="width:36px; height:36px; border-radius:12px; background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); display:inline-flex; align-items:center; justify-content:center; font-weight:800;">!</span>
@@ -284,7 +284,7 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
                 </div>
                 <button type="button" class="btn ghost" data-close-delete aria-label="Cerrar" style="color:var(--text-secondary);">✕</button>
             </div>
-            <form method="POST" action="/clients/delete" class="grid" style="gap:12px;" id="delete-form">
+            <form method="POST" action="/clients/delete" class="grid" style="gap:12px; grid-template-columns:1fr;" id="delete-form">
                 <input type="hidden" name="id" value="<?= (int) $client['id'] ?>">
                 <input type="hidden" name="math_operand1" id="math_operand1" value="<?= $mathOperand1 ?>">
                 <input type="hidden" name="math_operand2" id="math_operand2" value="<?= $mathOperand2 ?>">
@@ -294,17 +294,17 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
                 <div>
                     <p style="margin:0 0 4px 0; color:var(--text-secondary); font-weight:600;">Confirmación obligatoria</p>
                     <p style="margin:0 0 8px 0; color:var(--text-secondary);">Resuelve la siguiente operación para confirmar. Solo los administradores pueden ejecutar esta acción.</p>
-                    <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <div style="flex:1;">
                             <div style="padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); font-weight:700;">
                                 <?= $mathOperand1 ?> <?= $mathOperator ?> <?= $mathOperand2 ?> =
                             </div>
                         </div>
-                        <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado" style="width:120px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+                        <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado" style="width:160px; max-width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
                     </div>
                 </div>
                 <div id="action-feedback" style="display:none; padding:10px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%); color:var(--danger); font-weight:600;"></div>
-                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
                     <button type="button" class="btn ghost" data-close-delete>Cancelar</button>
                     <button type="submit" class="btn ghost danger" id="confirm-delete-btn" disabled>Eliminar permanentemente</button>
                 </div>
