@@ -68,10 +68,16 @@ class ProjectsController extends Controller
         $repo = new ProjectsRepository($this->db);
         $config = (new ConfigService($this->db))->getConfig();
         $clientsRepo = new ClientsRepository($this->db);
+        $projectService = new ProjectService($this->db);
+        $projects = $repo->summary($user, $filters);
+        foreach ($projects as &$project) {
+            $project['health_score'] = $projectService->calculateProjectHealthScore((int) ($project['id'] ?? 0));
+        }
+        unset($project);
 
         $this->render('projects/index', [
             'title' => 'Panel de Proyectos',
-            'projects' => $repo->summary($user, $filters),
+            'projects' => $projects,
             'filters' => $filters,
             'clients' => $clientsRepo->listForUser($user),
             'delivery' => $config['delivery'] ?? [],
@@ -1504,10 +1510,12 @@ class ProjectsController extends Controller
         $loggedHours = $repo->timesheetHoursForProject($id);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
+        $healthScore = (new ProjectService($this->db))->calculateProjectHealthScore($id);
 
         return array_merge([
             'title' => 'Detalle de proyecto',
             'project' => $project,
+            'healthScore' => $healthScore,
             'assignments' => $assignments,
             'currentUser' => $this->auth->user() ?? [],
             'canManage' => $this->auth->can('projects.manage'),
