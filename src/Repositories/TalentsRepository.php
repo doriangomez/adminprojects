@@ -286,10 +286,15 @@ class TalentsRepository
             return [];
         }
 
+        $conditions = ['active = 1'];
+        if ($this->db->columnExists('users', 'can_approve_timesheets')) {
+            $conditions[] = 'can_approve_timesheets = 1';
+        }
+
         return $this->db->fetchAll(
             'SELECT id, name, email
              FROM users
-             WHERE active = 1
+             WHERE ' . implode(' AND ', $conditions) . '
              ORDER BY name ASC'
         );
     }
