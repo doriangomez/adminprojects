@@ -181,7 +181,7 @@ $flashMessageText = match ($flashMessage) {
                 <span class="toggle-slider" aria-hidden="true"></span>
             </label>
             <label id="timesheet-approver-field" <?= !$requiresApproval ? 'hidden' : '' ?>>Jefe aprobador
-                <select name="timesheet_approver_user_id" id="timesheet-approver-select" <?= $requiresApproval ? 'required' : '' ?>>
+                <select name="timesheet_approver_user_id" id="timesheet-approver-select" <?= $requiresApproval ? 'required' : '' ?> <?= !$requiresApproval ? 'disabled' : '' ?>>
                     <option value="">Selecciona un jefe aprobador</option>
                     <?php foreach ($timesheetApproverOptions as $approver): ?>
                         <option value="<?= (int) ($approver['id'] ?? 0) ?>" <?= $selectedApprover === (int) ($approver['id'] ?? 0) ? 'selected' : '' ?>>
@@ -499,7 +499,7 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     .toggle-switch input { position:absolute; opacity:0; width:1px; height:1px; }
     .toggle-switch .toggle-slider { width:46px; height:26px; border-radius:999px; background:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); border:1px solid var(--border); position:relative; transition:all .2s ease; }
     .toggle-switch .toggle-slider::after { content:''; position:absolute; width:20px; height:20px; top:2px; left:2px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(15,23,42,.25); transition:transform .2s ease; }
-    .toggle-switch input:checked + .toggle-slider { background:color-mix(in srgb, var(--success) 45%, var(--surface) 55%); border-color:color-mix(in srgb, var(--success) 60%, var(--surface) 40%); }
+    .toggle-switch input:checked + .toggle-slider { background:#0b2a6f; border-color:#0b2a6f; }
     .toggle-switch input:checked + .toggle-slider::after { transform:translateX(20px); }
     .toggle-switch input:focus-visible + .toggle-slider { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
@@ -554,7 +554,9 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     const syncApproverField = () => {
         const requiresApproval = approvalToggle.checked;
         approverField.hidden = !requiresApproval;
+        approverField.setAttribute('aria-hidden', requiresApproval ? 'false' : 'true');
         approverSelect.required = requiresApproval;
+        approverSelect.disabled = !requiresApproval;
         if (!requiresApproval) {
             approverSelect.value = '';
         }
