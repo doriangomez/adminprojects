@@ -1,163 +1,263 @@
+<?php
+$projects = is_array($projects ?? null) ? $projects : [];
+$snapshot = is_array($snapshot ?? null) ? $snapshot : [];
+
+$totalProjects = (int) ($snapshot['total'] ?? count($projects));
+$avgProgress = (float) ($snapshot['avg_progress'] ?? 0);
+$atRiskProjects = (int) ($snapshot['at_risk'] ?? 0);
+$closedProjects = (int) ($snapshot['closed'] ?? 0);
+
+$healthScoreMap = [
+    'on_track' => 90,
+    'at_risk' => 55,
+    'critical' => 20,
+    'blocked' => 15,
+    'completed' => 100,
+];
+$statusDistribution = [];
+$healthDistribution = ['on_track' => 0, 'at_risk' => 0, 'critical' => 0];
+$healthScoreTotal = 0;
+
+foreach ($projects as $project) {
+    $statusKey = trim((string) ($project['status_label'] ?? $project['status'] ?? 'Sin estado'));
+    if ($statusKey === '') {
+        $statusKey = 'Sin estado';
+    }
+    $statusDistribution[$statusKey] = ($statusDistribution[$statusKey] ?? 0) + 1;
+
+    $healthKey = (string) ($project['health'] ?? 'at_risk');
+    if (!isset($healthDistribution[$healthKey])) {
+        $healthDistribution[$healthKey] = 0;
+    }
+    $healthDistribution[$healthKey]++;
+
+    $healthScoreTotal += $healthScoreMap[$healthKey] ?? 50;
+}
+
+arsort($statusDistribution);
+$healthAverage = $totalProjects > 0 ? (int) round($healthScoreTotal / $totalProjects) : 0;
+$healthCircumference = 2 * pi() * 52;
+$healthOffset = $healthCircumference - (($healthAverage / 100) * $healthCircumference);
+$riskRatio = $totalProjects > 0 ? (int) round(($atRiskProjects / $totalProjects) * 100) : 0;
+$riskTone = $riskRatio >= 45 ? 'danger' : ($riskRatio >= 20 ? 'warning' : 'success');
+$activeProjects = max(0, $totalProjects - $closedProjects);
+?>
+
+<style>
+    .client-dashboard { display:flex; flex-direction:column; gap:16px; }
+    .client-dashboard .hero { padding:18px; border-radius:14px; background:linear-gradient(145deg, color-mix(in srgb, var(--primary) 20%, var(--surface)), color-mix(in srgb, var(--accent) 8%, var(--surface))); border:1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); }
+    .executive-kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .executive-kpi { border:1px solid var(--border); border-radius:12px; padding:12px; background:color-mix(in srgb, var(--surface) 88%, var(--background) 12%); }
+    .executive-kpi strong { font-size:26px; line-height:1.1; display:block; margin-top:6px; }
+    .dashboard-grid { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+    .metric-panel { border:1px solid var(--border); border-radius:12px; padding:14px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); }
+    .metric-title { margin:0 0 10px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-secondary); font-weight:700; }
+    .health-gauge { display:flex; gap:14px; align-items:center; }
+    .health-gauge svg { width:128px; height:128px; }
+    .health-gauge .track { fill:none; stroke:color-mix(in srgb, var(--border) 60%, var(--background)); stroke-width:10; }
+    .health-gauge .value { fill:none; stroke:var(--primary); stroke-width:10; stroke-linecap:round; transform:rotate(-90deg); transform-origin:64px 64px; }
+    .progress-block { display:flex; flex-direction:column; gap:8px; }
+    .progress-track { height:12px; border-radius:999px; overflow:hidden; background:color-mix(in srgb, var(--background) 85%, var(--surface)); border:1px solid var(--border); }
+    .progress-track .fill { display:block; height:100%; background:linear-gradient(90deg, var(--info), var(--success)); }
+    .status-bars { display:flex; flex-direction:column; gap:8px; }
+    .status-bar-item { display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; }
+    .status-bar-item .bar { height:9px; border-radius:999px; background:color-mix(in srgb, var(--background) 88%, var(--surface)); overflow:hidden; }
+    .status-bar-item .bar span { display:block; height:100%; background:color-mix(in srgb, var(--primary) 50%, var(--accent) 50%); }
+    .risk-card { border-color: color-mix(in srgb, var(--danger) 30%, var(--border)); }
+    .risk-indicator { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+    .risk-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; border:1px solid transparent; }
+    .risk-pill.success { background:color-mix(in srgb, var(--success) 15%, var(--surface)); border-color:color-mix(in srgb, var(--success) 35%, var(--surface)); color:var(--success); }
+    .risk-pill.warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface)); border-color:color-mix(in srgb, var(--warning) 35%, var(--surface)); color:var(--warning); }
+    .risk-pill.danger { background:color-mix(in srgb, var(--danger) 15%, var(--surface)); border-color:color-mix(in srgb, var(--danger) 35%, var(--surface)); color:var(--danger); }
+    .btn.executive-danger { background:color-mix(in srgb, var(--danger) 68%, #ffffff 32%); border:1px solid color-mix(in srgb, var(--danger) 75%, var(--border)); color:#ffffff; border-style:solid; }
+    .btn.executive-danger:hover { background:color-mix(in srgb, var(--danger) 78%, #ffffff 22%); color:#ffffff; border-color:color-mix(in srgb, var(--danger) 82%, var(--border)); }
+    @media (max-width: 980px) { .dashboard-grid { grid-template-columns: 1fr; } }
+</style>
+
 <div class="toolbar">
     <div>
         <a href="/clients" class="btn ghost">← Volver</a>
-        <h3 style="margin:8px 0 0 0;">Detalle del cliente</h3>
-        <p style="margin:4px 0 0 0; color: var(--text-secondary);">Gobierno y contexto de la relación. La información contractual permanece en los proyectos.</p>
+        <h3 style="margin:8px 0 0 0;">Detalle ejecutivo del cliente</h3>
+        <p style="margin:4px 0 0 0; color: var(--text-secondary);">Vista estratégica de salud, ejecución y riesgos de la cuenta.</p>
     </div>
-    <div style="display:flex; gap:8px; align-items:center;">
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <?php if($canManage): ?>
             <a class="btn secondary" href="/clients/<?= (int) $client['id'] ?>/edit">Editar</a>
         <?php endif; ?>
         <?php if($auth->canDeleteClients()): ?>
-            <button type="button" class="btn ghost danger" data-open-action="delete">
-                Eliminar cliente
-            </button>
+            <button type="button" class="btn executive-danger" data-open-action="delete">Eliminar cliente</button>
         <?php endif; ?>
         <?php if($canInactivate): ?>
-            <button type="button" class="btn ghost warning" data-open-action="inactivate">
-                Inactivar cliente
-            </button>
+            <button type="button" class="btn warning" data-open-action="inactivate">Inactivar cliente</button>
         <?php endif; ?>
     </div>
 </div>
 
-<div class="section-grid twothirds">
-    <div class="card">
-        <div class="toolbar">
+<section class="client-dashboard">
+    <div class="hero" data-aos="fade-up">
+        <div class="toolbar" style="margin:0 0 12px 0;">
             <div>
-                <p class="badge neutral" style="margin:0;">Ficha estratégica</p>
-                <h4 style="margin:4px 0 0 0;">Relación con <?= htmlspecialchars($client['name']) ?></h4>
+                <p class="badge neutral" style="margin:0;">Información estratégica</p>
+                <h4 style="margin:6px 0 0 0;"><?= htmlspecialchars($client['name']) ?></h4>
+                <p style="margin:6px 0 0 0; color:var(--text-secondary);">Sector <?= htmlspecialchars($client['sector_label'] ?? $client['sector_code']) ?> · <?= htmlspecialchars($client['category_label'] ?? $client['category_code']) ?></p>
             </div>
             <?php if(!empty($client['logo_path'])): ?>
-                <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo de <?= htmlspecialchars($client['name']) ?>" style="width:64px; height:64px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:var(--surface);">
+                <img src="<?= $basePath . $client['logo_path'] ?>" alt="Logo de <?= htmlspecialchars($client['name']) ?>" style="width:66px; height:66px; object-fit:contain; border:1px solid var(--border); border-radius:12px; background:var(--surface);">
             <?php endif; ?>
         </div>
-        <div class="grid tight" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-            <div>
-                <p class="muted">Sector</p>
-                <strong><?= htmlspecialchars($client['sector_label'] ?? $client['sector_code']) ?></strong>
-            </div>
-            <div>
-                <p class="muted">Categoría</p>
-                <strong><?= htmlspecialchars($client['category_label'] ?? $client['category_code']) ?></strong>
-            </div>
-            <div>
-                <p class="muted">Prioridad</p>
-                <span class="pill <?= htmlspecialchars($client['priority']) ?>"><?= htmlspecialchars($client['priority_label'] ?? ucfirst($client['priority'])) ?></span>
-            </div>
-            <div>
-                <p class="muted">Estado</p>
-                <span class="badge neutral"><?= htmlspecialchars($client['status_label'] ?? $client['status_code']) ?></span>
-            </div>
-            <div>
-                <p class="muted">PM a cargo</p>
-                <strong><?= htmlspecialchars($client['pm_name'] ?? 'Sin asignar') ?></strong><br>
-                <small style="color: var(--text-secondary);">Email: <?= htmlspecialchars($client['pm_email'] ?? '-') ?></small>
-            </div>
-            <div>
-                <p class="muted">Riesgo</p>
-                <strong><?= htmlspecialchars($client['risk_label'] ?? ($client['risk_code'] ?? 'Sin definir')) ?></strong>
-            </div>
-            <div>
-                <p class="muted">Etiquetas</p>
-                <strong><?= htmlspecialchars($client['tags'] ?? 'Sin etiquetas') ?></strong>
-            </div>
-            <div>
-                <p class="muted">Área</p>
-                <strong><?= htmlspecialchars($client['area_label'] ?? ($client['area_code'] ?? 'No registrada')) ?></strong>
-            </div>
-        </div>
-        <div style="margin-top:12px;">
-            <p class="muted" style="margin:0 0 4px 0;">Contexto operativo</p>
-            <p style="margin:0; line-height:1.5;"><?= nl2br(htmlspecialchars($client['operational_context'] ?? 'Sin información operativa')) ?></p>
+
+        <div class="executive-kpi-grid">
+            <article class="executive-kpi">
+                <small class="metric-title">Salud promedio</small>
+                <strong><?= $healthAverage ?>%</strong>
+            </article>
+            <article class="executive-kpi">
+                <small class="metric-title">Avance agregado</small>
+                <strong><?= number_format($avgProgress, 1) ?>%</strong>
+            </article>
+            <article class="executive-kpi">
+                <small class="metric-title">Proyectos activos</small>
+                <strong><?= $activeProjects ?></strong>
+            </article>
+            <article class="executive-kpi">
+                <small class="metric-title">Riesgo cartera</small>
+                <strong><?= $riskRatio ?>%</strong>
+            </article>
         </div>
     </div>
 
-    <div class="card">
-        <div class="toolbar">
-            <div>
+    <div class="dashboard-grid">
+        <div class="section-grid" style="gap:16px;">
+            <article class="card" data-aos="fade-up" data-aos-delay="30">
+                <div class="toolbar">
+                    <div>
+                        <p class="badge neutral" style="margin:0;">Operación</p>
+                        <h4 style="margin:4px 0 0 0;">Ejecución consolidada</h4>
+                    </div>
+                </div>
+                <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap:12px;">
+                    <div class="metric-panel">
+                        <p class="metric-title">Gauge de salud</p>
+                        <div class="health-gauge">
+                            <svg viewBox="0 0 128 128" role="img" aria-label="Salud promedio del cliente">
+                                <circle class="track" cx="64" cy="64" r="52"></circle>
+                                <circle class="value" cx="64" cy="64" r="52" stroke-dasharray="<?= $healthCircumference ?>" stroke-dashoffset="<?= $healthOffset ?>"></circle>
+                                <text x="64" y="69" text-anchor="middle" font-size="24" font-weight="700" fill="var(--text-primary)"><?= $healthAverage ?>%</text>
+                            </svg>
+                            <p style="margin:0; color:var(--text-secondary); line-height:1.45;">Indicador ejecutivo compuesto a partir de la salud de proyectos vinculados.</p>
+                        </div>
+                    </div>
+                    <div class="metric-panel">
+                        <p class="metric-title">Progreso agregado</p>
+                        <div class="progress-block">
+                            <div style="display:flex; justify-content:space-between; font-weight:600;">
+                                <span>Total ejecución</span>
+                                <span><?= number_format($avgProgress, 1) ?>%</span>
+                            </div>
+                            <div class="progress-track"><span class="fill" style="width: <?= max(0, min(100, $avgProgress)) ?>%"></span></div>
+                            <small style="color:var(--text-secondary);">Promedio simple de avance entre todos los proyectos vinculados.</small>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="card" data-aos="fade-up" data-aos-delay="60">
+                <div class="toolbar">
+                    <div>
+                        <p class="badge neutral" style="margin:0;">Proyectos vinculados</p>
+                        <h4 style="margin:4px 0 0 0;">Distribución por estado</h4>
+                    </div>
+                </div>
+                <div class="status-bars">
+                    <?php if (!empty($statusDistribution)): ?>
+                        <?php foreach ($statusDistribution as $statusLabel => $count): ?>
+                            <?php $percent = $totalProjects > 0 ? round(($count / $totalProjects) * 100, 1) : 0; ?>
+                            <div class="status-bar-item">
+                                <div>
+                                    <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:5px;">
+                                        <strong><?= htmlspecialchars($statusLabel) ?></strong>
+                                        <small style="color:var(--text-secondary);"><?= (int) $count ?> · <?= $percent ?>%</small>
+                                    </div>
+                                    <div class="bar"><span style="width: <?= $percent ?>%"></span></div>
+                                </div>
+                                <span class="badge neutral"><?= (int) $count ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p style="margin:0; color:var(--text-secondary);">Sin proyectos para graficar.</p>
+                    <?php endif; ?>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Proyecto</th>
+                            <th>Estado</th>
+                            <th>Salud</th>
+                            <th>Prioridad</th>
+                            <th>Avance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($projects as $project): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($project['name']) ?></td>
+                                <td><?= htmlspecialchars($project['status_label'] ?? $project['status']) ?></td>
+                                <td><span class="badge <?= $project['health'] === 'on_track' ? 'success' : ($project['health'] === 'at_risk' ? 'warning' : 'danger') ?>"><?= htmlspecialchars($project['health_label'] ?? $project['health']) ?></span></td>
+                                <td><span class="pill <?= htmlspecialchars($project['priority']) ?>"><?= htmlspecialchars($project['priority_label'] ?? $project['priority']) ?></span></td>
+                                <td><?= number_format((float) $project['progress'], 1) ?>%</td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </article>
+        </div>
+
+        <div class="section-grid" style="gap:16px;">
+            <article class="card risk-card" data-aos="fade-up" data-aos-delay="30">
+                <p class="badge danger" style="margin:0;">Riesgos</p>
+                <h4 style="margin:6px 0 0 0;">Indicador visual de riesgo</h4>
+                <div class="risk-indicator">
+                    <div>
+                        <p style="margin:0; color:var(--text-secondary);">Proyectos en riesgo/críticos</p>
+                        <strong style="font-size:28px;"><?= $atRiskProjects ?>/<?= $totalProjects ?></strong>
+                    </div>
+                    <span class="risk-pill <?= $riskTone ?>"><?= $riskRatio ?>%</span>
+                </div>
+                <div class="progress-track" style="margin-top:10px;"><span class="fill" style="width: <?= max(0, min(100, $riskRatio)) ?>%; background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));"></span></div>
+                <p style="margin:10px 0 0 0; color:var(--text-secondary); line-height:1.5;">Riesgo reportado: <strong><?= htmlspecialchars($client['risk_label'] ?? ($client['risk_code'] ?? 'Sin definir')) ?></strong>.</p>
+            </article>
+
+            <article class="card" data-aos="fade-up" data-aos-delay="60">
+                <p class="badge neutral" style="margin:0;">Información estratégica</p>
+                <h4 style="margin:6px 0 10px 0;">Ficha ejecutiva</h4>
+                <div class="grid tight" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+                    <div><p class="muted">Prioridad</p><span class="pill <?= htmlspecialchars($client['priority']) ?>"><?= htmlspecialchars($client['priority_label'] ?? ucfirst($client['priority'])) ?></span></div>
+                    <div><p class="muted">Estado</p><span class="badge neutral"><?= htmlspecialchars($client['status_label'] ?? $client['status_code']) ?></span></div>
+                    <div><p class="muted">PM a cargo</p><strong><?= htmlspecialchars($client['pm_name'] ?? 'Sin asignar') ?></strong></div>
+                    <div><p class="muted">Área</p><strong><?= htmlspecialchars($client['area_label'] ?? ($client['area_code'] ?? 'No registrada')) ?></strong></div>
+                    <div><p class="muted">Etiquetas</p><strong><?= htmlspecialchars($client['tags'] ?? 'Sin etiquetas') ?></strong></div>
+                </div>
+                <p class="muted" style="margin:12px 0 4px 0;">Contexto operativo</p>
+                <p style="margin:0; line-height:1.5;"><?= nl2br(htmlspecialchars($client['operational_context'] ?? 'Sin información operativa')) ?></p>
+            </article>
+
+            <article class="card" data-aos="fade-up" data-aos-delay="90">
                 <p class="badge neutral" style="margin:0;">Feedback continuo</p>
-                <h4 style="margin:4px 0 0 0;">Percepción y señales</h4>
-            </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <div class="kpi">
-                    <div class="kpi-body">
-                        <span class="label">Satisfacción</span>
-                        <span class="value"><?= $client['satisfaction'] !== null ? (int) $client['satisfaction'] : '-' ?></span>
-                    </div>
+                <h4 style="margin:6px 0 10px 0;">Percepción y señales</h4>
+                <div class="grid tight" style="grid-template-columns: repeat(2, minmax(120px, 1fr));">
+                    <div class="kpi"><div class="kpi-body"><span class="label">Satisfacción</span><span class="value" style="font-size:26px;"><?= $client['satisfaction'] !== null ? (int) $client['satisfaction'] : '-' ?></span></div></div>
+                    <div class="kpi"><div class="kpi-body"><span class="label">NPS</span><span class="value" style="font-size:26px;"><?= $client['nps'] !== null ? (int) $client['nps'] : '-' ?></span></div></div>
                 </div>
-                <div class="kpi">
-                    <div class="kpi-body">
-                        <span class="label">NPS</span>
-                        <span class="value"><?= $client['nps'] !== null ? (int) $client['nps'] : '-' ?></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <p style="margin:0 0 8px 0;">Observaciones actuales</p>
-        <p style="margin:0; line-height:1.5;"><?= nl2br(htmlspecialchars($client['feedback_notes'] ?? 'Sin observaciones registradas')) ?></p>
-        <hr style="margin:16px 0; border:1px solid var(--border);">
-        <p style="margin:0 0 8px 0;">Historial</p>
-        <p style="margin:0; line-height:1.5;"><?= nl2br(htmlspecialchars($client['feedback_history'] ?? 'Aún no hay historial documentado')) ?></p>
-    </div>
-</div>
-
-<div class="card">
-    <div class="toolbar">
-        <div>
-            <p class="badge neutral" style="margin:0;">Proyectos vinculados</p>
-            <h4 style="margin:4px 0 0 0;">Estado general</h4>
-        </div>
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; align-items:center;">
-            <div class="kpi">
-                <div class="kpi-body">
-                    <span class="label">Proyectos</span>
-                    <span class="value"><?= (int) $snapshot['total'] ?></span>
-                </div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-body">
-                    <span class="label">En riesgo / críticos</span>
-                    <span class="value"><?= (int) $snapshot['at_risk'] ?></span>
-                </div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-body">
-                    <span class="label">Cerrados</span>
-                    <span class="value"><?= (int) $snapshot['closed'] ?></span>
-                </div>
-            </div>
-            <div class="kpi">
-                <div class="kpi-body">
-                    <span class="label">Avance promedio</span>
-                    <span class="value"><?= number_format((float) $snapshot['avg_progress'], 1) ?>%</span>
-                </div>
-            </div>
+                <p style="margin:10px 0 4px 0;">Observaciones actuales</p>
+                <p style="margin:0; line-height:1.5;"><?= nl2br(htmlspecialchars($client['feedback_notes'] ?? 'Sin observaciones registradas')) ?></p>
+                <hr style="margin:14px 0; border:1px solid var(--border);">
+                <p style="margin:0 0 4px 0;">Historial</p>
+                <p style="margin:0; line-height:1.5;"><?= nl2br(htmlspecialchars($client['feedback_history'] ?? 'Aún no hay historial documentado')) ?></p>
+            </article>
         </div>
     </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Proyecto</th>
-                <th>Estado</th>
-                <th>Salud</th>
-                <th>Prioridad</th>
-                <th>Avance</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach($projects as $project): ?>
-                <tr>
-                    <td><?= htmlspecialchars($project['name']) ?></td>
-                    <td><?= htmlspecialchars($project['status_label'] ?? $project['status']) ?></td>
-                    <td><span class="badge <?= $project['health'] === 'on_track' ? 'success' : ($project['health'] === 'at_risk' ? 'warning' : 'danger') ?>"><?= htmlspecialchars($project['health_label'] ?? $project['health']) ?></span></td>
-                    <td><span class="pill <?= htmlspecialchars($project['priority']) ?>"><?= htmlspecialchars($project['priority_label'] ?? $project['priority']) ?></span></td>
-                    <td><?= number_format((float) $project['progress'], 1) ?>%</td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
+</section>
 
 <?php if($auth->canDeleteClients()): ?>
     <div id="delete-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:color-mix(in srgb, var(--text-primary) 45%, var(--background)); align-items:center; justify-content:center; padding:16px;">
@@ -224,12 +324,12 @@
             const forceDeleteInput = document.getElementById('force_delete');
             const dependencyMessage = 'El cliente tiene dependencias activas. La eliminación permanente borrará todo lo relacionado de forma definitiva.';
 
-                const actions = {
-                    delete: {
-                        title: 'Eliminar cliente',
-                        subtitle: 'Esta acción elimina definitivamente la ficha. Los administradores pueden forzar la eliminación incluso con dependencias activas.',
-                        context: 'Acción crítica',
-                        actionUrl: '/clients/delete',
+            const actions = {
+                delete: {
+                    title: 'Eliminar cliente',
+                    subtitle: 'Esta acción elimina definitivamente la ficha. Los administradores pueden forzar la eliminación incluso con dependencias activas.',
+                    context: 'Acción crítica',
+                    actionUrl: '/clients/delete',
                     buttonLabel: 'Eliminar permanentemente',
                     buttonStyle: 'color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); background:color-mix(in srgb, var(--danger) 12%, var(--surface) 88%);'
                 },
