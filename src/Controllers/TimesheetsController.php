@@ -22,10 +22,36 @@ class TimesheetsController extends Controller
         $weekEnd = $weekStart->modify('+6 days');
         $weekValue = $weekStart->format('o-\\WW');
 
+        $periodType = trim((string) ($_GET['period'] ?? 'month'));
+        if (!in_array($periodType, ['month', 'custom'], true)) {
+            $periodType = 'month';
+        }
+        $rangeStartRaw = trim((string) ($_GET['range_start'] ?? ''));
+        $rangeEndRaw = trim((string) ($_GET['range_end'] ?? ''));
+        $periodStart = $periodType === 'custom' ? $this->parseDateValue($rangeStartRaw) : null;
+        $periodEnd = $periodType === 'custom' ? $this->parseDateValue($rangeEndRaw) : null;
+        if (!$periodStart || !$periodEnd || $periodStart > $periodEnd) {
+            $periodType = 'month';
+            $periodStart = $weekStart->modify('first day of this month')->setTime(0, 0);
+            $periodEnd = $weekStart->modify('last day of this month')->setTime(0, 0);
+        }
+
+        $projectFilter = (int) ($_GET['project_id'] ?? 0);
+        $talentSort = trim((string) ($_GET['talent_sort'] ?? 'load_desc'));
+        if (!in_array($talentSort, ['load_desc', 'compliance_asc'], true)) {
+            $talentSort = 'load_desc';
+        }
+
         if (!$timesheetsEnabled) {
             http_response_code(404);
             exit('El módulo de timesheets no está habilitado.');
         }
+
+        $executiveSummary = $repo->executiveSummary($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $approvedWeeks = $repo->approvedWeeksByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $talentBreakdown = $repo->talentBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $talentSort);
+        $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd);
+        $projectsForFilter = $repo->projectsCatalog();
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets',
@@ -46,6 +72,16 @@ class TimesheetsController extends Controller
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'weekValue' => $weekValue,
+            'periodType' => $periodType,
+            'periodStart' => $periodStart,
+            'periodEnd' => $periodEnd,
+            'projectFilter' => $projectFilter,
+            'projectsForFilter' => $projectsForFilter,
+            'executiveSummary' => $executiveSummary,
+            'approvedWeeks' => $approvedWeeks,
+            'talentBreakdown' => $talentBreakdown,
+            'projectBreakdown' => $projectBreakdown,
+            'talentSort' => $talentSort,
         ]);
     }
 
@@ -290,6 +326,18 @@ class TimesheetsController extends Controller
         }
 
         return (new DateTimeImmutable('now'))->setISODate($year, $week, 1)->setTime(0, 0);
+    }
+
+    private function parseDateValue(string $value): ?DateTimeImmutable
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+        try {
+            return (new DateTimeImmutable($value))->setTime(0, 0);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function updateStatus(int $timesheetId, string $action): void

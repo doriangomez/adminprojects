@@ -546,6 +546,144 @@ class TimesheetsRepository
         return $out;
     }
 
+    public function executiveSummary(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    {
+        $params = [
+            ':start' => $periodStart->format('Y-m-d'),
+            ':end' => $periodEnd->format('Y-m-d'),
+        ];
+        $where = $this->timesheetScopeWhere($user, $params);
+        if ($projectId !== null && $projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
+            $params[':project'] = $projectId;
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT ts.status, COALESCE(SUM(ts.hours), 0) AS total_hours
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY ts.status',
+            $params
+        );
+
+        $summary = [
+            'total' => 0.0,
+            'approved' => 0.0,
+            'rejected' => 0.0,
+            'draft' => 0.0,
+            'pending' => 0.0,
+            'capacity' => 0.0,
+            'approved_percent' => 0.0,
+            'compliance_percent' => 0.0,
+        ];
+
+        foreach ($rows as $row) {
+            $hours = (float) ($row['total_hours'] ?? 0);
+            $status = (string) ($row['status'] ?? 'draft');
+            $summary['total'] += $hours;
+            if (in_array($status, ['submitted', 'pending', 'pending_approval'], true)) {
+                $summary['pending'] += $hours;
+            } elseif (isset($summary[$status])) {
+                $summary[$status] += $hours;
+            }
+        }
+
+        $summary['capacity'] = $this->capacityForScope($user, $periodStart, $periodEnd, $projectId);
+        $summary['approved_percent'] = $summary['total'] > 0 ? round(($summary['approved'] / $summary['total']) * 100, 2) : 0.0;
+        $summary['compliance_percent'] = $summary['capacity'] > 0 ? round(($summary['total'] / $summary['capacity']) * 100, 2) : 0.0;
+
+        return $summary;
+    }
+
+    public function approvedWeeksByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    {
+        $params = [
+            ':start' => $periodStart->format('Y-m-d'),
+            ':end' => $periodEnd->format('Y-m-d'),
+        ];
+        $where = $this->timesheetScopeWhere($user, $params);
+        if ($projectId !== null && $projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
+            $params[':project'] = $projectId;
+        }
+
+        return $this->db->fetchAll(
+            'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                    DATE_ADD(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY), INTERVAL 6 DAY) AS week_end,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours,
+                    MAX(CASE ts.status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight,
+                    MAX(ts.approved_at) AS approved_at,
+                    SUBSTRING_INDEX(GROUP_CONCAT(ua.name ORDER BY ts.approved_at DESC SEPARATOR "||"), "||", 1) AS approver_name
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             LEFT JOIN users ua ON ua.id = ts.approved_by
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)
+             ORDER BY week_start DESC'
+            , $params
+        );
+    }
+
+    public function talentBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, string $sort = 'load_desc'): array
+    {
+        $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
+        $where = $this->timesheetScopeWhere($user, $params);
+        if ($projectId !== null && $projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
+            $params[':project'] = $projectId;
+        }
+        $orderBy = $sort === 'compliance_asc' ? 'compliance_percent ASC, total_hours DESC' : 'total_hours DESC, compliance_percent ASC';
+
+        return $this->db->fetchAll(
+            'SELECT ta.id AS talent_id, ta.name AS talent_name,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours,
+                    COALESCE(SUM(CASE WHEN ts.status = "approved" THEN ts.hours ELSE 0 END), 0) AS approved_hours,
+                    COALESCE(SUM(CASE WHEN ts.status = "rejected" THEN ts.hours ELSE 0 END), 0) AS rejected_hours,
+                    COALESCE(SUM(CASE WHEN ts.status = "draft" THEN ts.hours ELSE 0 END), 0) AS draft_hours,
+                    COALESCE(SUM(CASE WHEN ts.status IN ("submitted", "pending", "pending_approval") THEN ts.hours ELSE 0 END), 0) AS pending_hours,
+                    MAX(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)) AS last_week_submitted,
+                    MAX(CASE WHEN ts.status = "approved" THEN DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) ELSE NULL END) AS last_week_approved,
+                    MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) AS weekly_capacity,
+                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * GREATEST(1, CEIL(DAY(LAST_DAY(:end)) / 7)), 0)) * 100, 2) AS compliance_percent
+             FROM timesheets ts
+             JOIN talents ta ON ta.id = ts.talent_id
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY ta.id, ta.name
+             ORDER BY ' . $orderBy,
+            $params
+        );
+    }
+
+    public function projectBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd): array
+    {
+        $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
+        $where = $this->timesheetScopeWhere($user, $params);
+
+        return $this->db->fetchAll(
+            'SELECT COALESCE(ts.project_id, t.project_id) AS project_id, p.name AS project,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY COALESCE(ts.project_id, t.project_id), p.name
+             ORDER BY total_hours DESC'
+            , $params
+        );
+    }
+
     public function weekHistoryLogForUser(int $userId, \DateTimeImmutable $weekStart): array
     {
         $weekKey = $this->weekKey($weekStart);
@@ -808,6 +946,20 @@ class TimesheetsRepository
         $talent = $this->talentProfileForUser($userId);
 
         return $talent !== null && (int) ($talent['requiere_reporte_horas'] ?? 0) === 1;
+    }
+
+    public function projectsCatalog(): array
+    {
+        if (!$this->db->tableExists('projects')) {
+            return [];
+        }
+
+        $condition = $this->activeProjectCondition('p');
+        return $this->db->fetchAll(
+            'SELECT p.id AS project_id, p.name AS project
+             FROM projects p' . ($condition !== '' ? ' WHERE ' . $condition : '') . '
+             ORDER BY p.name ASC'
+        );
     }
 
     public function projectsForTimesheetEntry(int $userId): array
@@ -1183,6 +1335,51 @@ class TimesheetsRepository
                 ]
             );
         }
+    }
+
+
+    private function timesheetScopeWhere(array $user, array &$params): array
+    {
+        $where = [];
+        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
+
+        if (!$this->isPrivileged($user)) {
+            if ($talentId !== null) {
+                $where[] = 'ts.talent_id = :scopeTalentId';
+                $params[':scopeTalentId'] = $talentId;
+            } elseif ($hasPmColumn) {
+                $where[] = 'p.pm_id = :scopePmId';
+                $params[':scopePmId'] = (int) ($user['id'] ?? 0);
+            }
+        }
+
+        return $where;
+    }
+
+    private function capacityForScope(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): float
+    {
+        $monthWeeks = (int) ceil(((int) $periodEnd->format('j')) / 7);
+        $multiplier = max(1, $monthWeeks);
+
+        if ($this->isPrivileged($user)) {
+            $params = [];
+            $query = 'SELECT COALESCE(SUM(COALESCE(capacidad_horaria, weekly_capacity, 0)), 0) AS total FROM talents';
+            if ($projectId !== null && $projectId > 0 && $this->db->tableExists('project_talent_assignments')) {
+                $query = 'SELECT COALESCE(SUM(COALESCE(t.capacidad_horaria, t.weekly_capacity, 0)), 0) AS total
+                          FROM project_talent_assignments a
+                          JOIN talents t ON t.user_id = a.user_id
+                          WHERE a.project_id = :project
+                            AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))';
+                $params[':project'] = $projectId;
+            }
+            $row = $this->db->fetchOne($query, $params);
+            return (float) ($row['total'] ?? 0) * $multiplier;
+        }
+
+        $profile = $this->talentProfileForUser((int) ($user['id'] ?? 0)) ?? [];
+        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
+        return max(0, $weeklyCapacity) * $multiplier;
     }
 
     private function isPrivileged(array $user): bool
