@@ -9,6 +9,8 @@ $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
 
 $statusMeta = [
     'borrador' => ['label' => 'Borrador', 'class' => 'status-muted'],
+    'final' => ['label' => 'Final', 'class' => 'status-success'],
+    'publicado' => ['label' => 'Publicado', 'class' => 'status-success'],
     'en_revision' => ['label' => 'En revisión', 'class' => 'status-info'],
     'revisado' => ['label' => 'Revisado', 'class' => 'status-info'],
     'en_validacion' => ['label' => 'En validación', 'class' => 'status-info'],
@@ -19,7 +21,7 @@ $statusMeta = [
 ];
 
 $renderRow = static function (array $doc, string $queue) use ($basePath, $statusMeta): void {
-    $status = (string) ($doc['document_status'] ?? 'borrador');
+    $status = (string) ($doc['document_status'] ?? 'final');
     $meta = $statusMeta[$status] ?? ['label' => $status, 'class' => 'status-muted'];
     $tags = $doc['document_tags'] ?? [];
     $tagList = !empty($tags) ? implode(', ', array_map('strval', $tags)) : 'Sin tags';

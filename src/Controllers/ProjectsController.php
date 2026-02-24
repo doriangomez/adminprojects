@@ -1904,7 +1904,7 @@ class ProjectsController extends Controller
             'send_approval' => 'en_aprobacion',
             'approved' => 'aprobado',
             'rejected' => 'rechazado',
-            default => 'borrador',
+            default => 'final',
         };
     }
 
@@ -1912,6 +1912,12 @@ class ProjectsController extends Controller
     {
         $transitions = [
             'borrador' => [
+                'en_revision' => 'send_review',
+            ],
+            'final' => [
+                'en_revision' => 'send_review',
+            ],
+            'publicado' => [
                 'en_revision' => 'send_review',
             ],
             'en_revision' => [
@@ -1950,7 +1956,7 @@ class ProjectsController extends Controller
             if (!$canManage) {
                 throw new \InvalidArgumentException('No tienes permisos para enviar a revisión.');
             }
-            if ($currentStatus !== 'borrador') {
+            if (!in_array($currentStatus, ['borrador', 'final', 'publicado'], true)) {
                 throw new \InvalidArgumentException('El documento no está disponible para enviar a revisión.');
             }
             if ($reviewerId === 0) {
@@ -2039,7 +2045,7 @@ class ProjectsController extends Controller
         $currentUserId = (int) ($this->auth->user()['id'] ?? 0);
 
         $nodeFlow = $repo->documentFlowForNode($projectId, $nodeId);
-        $currentStatus = $nodeFlow['document_status'] ?? 'borrador';
+        $currentStatus = $nodeFlow['document_status'] ?? 'final';
 
         if ($action !== '' && $documentStatus !== '') {
             $expectedStatus = $this->statusFromDocumentAction($action);
