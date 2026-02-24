@@ -328,6 +328,14 @@
                                                     <span class="toggle-state" aria-hidden="true"></span>
                                                 </span>
                                             </label>
+                                            <label class="user-permission-item">
+                                                <span class="permission-name">Eliminar registros de outsourcing</span>
+                                                <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                    <input type="checkbox" name="can_delete_outsourcing_records" <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                    <span class="toggle-track" aria-hidden="true"></span>
+                                                    <span class="toggle-state" aria-hidden="true"></span>
+                                                </span>
+                                            </label>
                                         </div>
                                     </div>
                                     <div class="user-permission-group">
@@ -376,6 +384,7 @@
                                     (int) ($user['can_approve_documents'] ?? 0) === 1,
                                     (int) ($user['can_update_project_progress'] ?? 0) === 1,
                                     (int) ($user['can_access_outsourcing'] ?? 0) === 1,
+                                    (int) ($user['can_delete_outsourcing_records'] ?? 0) === 1,
                                     (int) ($user['can_access_timesheets'] ?? 0) === 1,
                                     (int) ($user['can_approve_timesheets'] ?? 0) === 1,
                                 ]));
@@ -473,6 +482,14 @@
                                                         <span class="permission-name">Acceder a Outsourcing</span>
                                                         <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
                                                             <input type="checkbox" name="can_access_outsourcing" <?= ((int) ($user['can_access_outsourcing'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
+                                                            <span class="toggle-track" aria-hidden="true"></span>
+                                                            <span class="toggle-state" aria-hidden="true"></span>
+                                                        </span>
+                                                    </label>
+                                                    <label class="user-permission-item">
+                                                        <span class="permission-name">Eliminar registros de outsourcing</span>
+                                                        <span class="toggle-switch toggle-switch--compact toggle-switch--state permission-toggle">
+                                                            <input type="checkbox" name="can_delete_outsourcing_records" <?= ((int) ($user['can_delete_outsourcing_records'] ?? 0) === 1) ? 'checked' : '' ?> <?= !$isAdmin ? 'disabled' : '' ?>>
                                                             <span class="toggle-track" aria-hidden="true"></span>
                                                             <span class="toggle-state" aria-hidden="true"></span>
                                                         </span>

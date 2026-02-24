@@ -449,6 +449,14 @@ class OutsourcingServicesController extends Controller
         }
     }
 
+    private function requireOutsourcingDeletePermission(): void
+    {
+        if (!$this->auth->canDeleteOutsourcingRecords()) {
+            http_response_code(403);
+            exit('No tienes permiso para eliminar registros de outsourcing.');
+        }
+    }
+
     private function talentPayloadFromRequest(array $payload): array
     {
         return [
