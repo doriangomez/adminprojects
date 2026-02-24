@@ -166,10 +166,17 @@ class ProjectService
         }
 
         if ($dimension === 'documental' && $this->db->tableExists('project_nodes')) {
+            $requiredCondition = '1 = 1';
+            if ($this->db->columnExists('project_nodes', 'is_required')) {
+                $requiredCondition = 'is_required = 1';
+            } elseif ($this->db->columnExists('project_nodes', 'critical')) {
+                $requiredCondition = 'critical = 1';
+            }
+
             $row = $this->db->fetchOne(
                 "SELECT
-                    SUM(CASE WHEN node_type = 'file' AND is_required = 1 AND document_status NOT IN ('final','publicado','aprobado') THEN 1 ELSE 0 END) AS pending_required,
-                    SUM(CASE WHEN node_type = 'file' AND is_required = 1 THEN 1 ELSE 0 END) AS total_required
+                    SUM(CASE WHEN node_type = 'file' AND {$requiredCondition} AND document_status NOT IN ('final','publicado','aprobado') THEN 1 ELSE 0 END) AS pending_required,
+                    SUM(CASE WHEN node_type = 'file' AND {$requiredCondition} THEN 1 ELSE 0 END) AS total_required
                 FROM project_nodes
                 WHERE project_id = :projectId",
                 [':projectId' => $projectId]
