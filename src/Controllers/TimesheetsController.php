@@ -296,9 +296,28 @@ class TimesheetsController extends Controller
                     exit('Confirmación inválida para eliminación masiva.');
                 }
                 $weekStart = trim((string) ($_POST['week_start'] ?? ''));
-                $week = new DateTimeImmutable($weekStart);
+                try {
+                    $week = new DateTimeImmutable($weekStart);
+                } catch (\Throwable $e) {
+                    http_response_code(400);
+                    exit('Semana inválida.');
+                }
                 $talentId = (int) ($_POST['talent_id'] ?? 0);
                 $repo->adminDeleteWeek($week, $talentId > 0 ? $talentId : null, $reason, $userId);
+            } elseif ($action === 'reopen_week') {
+                $weekStart = trim((string) ($_POST['week_start'] ?? ''));
+                try {
+                    $week = new DateTimeImmutable($weekStart);
+                } catch (\Throwable $e) {
+                    http_response_code(400);
+                    exit('Semana inválida.');
+                }
+                $talentId = (int) ($_POST['talent_id'] ?? 0);
+                $reopened = $repo->adminReopenWeek($week, $talentId > 0 ? $talentId : null, $reason, $userId);
+                if ($reopened <= 0) {
+                    http_response_code(400);
+                    exit('No hay registros aprobados/enviados para reabrir en la semana seleccionada.');
+                }
             } else {
                 http_response_code(400);
                 exit('Acción administrativa inválida.');

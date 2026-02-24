@@ -1381,6 +1381,61 @@ class TimesheetsRepository
         return $affected;
     }
 
+    public function adminReopenWeek(\DateTimeImmutable $weekStart, ?int $talentId, string $reason, int $actorUserId): int
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $params = [
+            ':start' => $weekStart->format('Y-m-d'),
+            ':end' => $weekEnd->format('Y-m-d'),
+        ];
+        $where = ['date BETWEEN :start AND :end'];
+        if ($talentId !== null && $talentId > 0) {
+            $where[] = 'talent_id = :talent';
+            $params[':talent'] = $talentId;
+        }
+
+        $sample = $this->db->fetchAll(
+            'SELECT DISTINCT user_id, talent_id, status
+             FROM timesheets
+             WHERE ' . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')",
+            $params
+        );
+
+        $updated = $this->db->execute(
+            "UPDATE timesheets
+             SET status = 'draft',
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE " . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')",
+            $params
+        );
+
+        if ($updated > 0) {
+            $this->db->execute(
+                'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
+                 VALUES (:user_id, :entity, :entity_id, :action, :payload)',
+                [
+                    ':user_id' => $actorUserId,
+                    ':entity' => 'timesheet_week',
+                    ':entity_id' => 0,
+                    ':action' => 'admin_reopened',
+                    ':payload' => json_encode([
+                        'reason' => $reason,
+                        'week_start' => $weekStart->format('Y-m-d'),
+                        'week_end' => $weekEnd->format('Y-m-d'),
+                        'affected_rows' => $updated,
+                        'affected_talents' => $sample,
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]
+            );
+        }
+
+        return $updated;
+    }
+
     public function projectIdForTimesheet(int $timesheetId): ?int
     {
         if (!$this->db->tableExists('timesheets')) {

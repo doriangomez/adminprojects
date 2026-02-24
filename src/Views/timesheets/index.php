@@ -219,6 +219,20 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
                 </tbody></table></div>
 
                 <?php if ($canManageAdvanced): ?>
+                    <h4>Reapertura controlada de semana</h4>
+                    <form method="POST" action="<?= $basePath ?>/timesheets/admin-action" class="filters-grid" style="grid-template-columns:repeat(4,minmax(140px,1fr));margin-bottom:12px;">
+                        <input type="hidden" name="admin_action" value="reopen_week">
+                        <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
+                        <input type="hidden" name="week_start" value="<?= htmlspecialchars($weekStart->format('Y-m-d')) ?>">
+                        <label>Talento afectado
+                            <select name="talent_id"><option value="0">Toda la semana</option><?php foreach ($talentOptions as $tal): ?><option value="<?= (int) ($tal['id'] ?? 0) ?>"><?= htmlspecialchars((string) ($tal['name'] ?? '')) ?></option><?php endforeach; ?></select>
+                        </label>
+                        <label>Motivo
+                            <input type="text" name="reason" required placeholder="Ej: corrección de horas aprobadas">
+                        </label>
+                        <button type="submit" class="action-btn">Reabrir semana</button>
+                    </form>
+
                     <h4>Eliminación masiva controlada</h4>
                     <form method="POST" action="<?= $basePath ?>/timesheets/admin-action" class="filters-grid" style="grid-template-columns:repeat(4,minmax(140px,1fr));">
                         <input type="hidden" name="admin_action" value="delete_week">
