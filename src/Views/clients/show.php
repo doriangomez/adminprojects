@@ -69,8 +69,8 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
     .risk-pill.success { background:color-mix(in srgb, var(--success) 15%, var(--surface)); border-color:color-mix(in srgb, var(--success) 35%, var(--surface)); color:var(--success); }
     .risk-pill.warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface)); border-color:color-mix(in srgb, var(--warning) 35%, var(--surface)); color:var(--warning); }
     .risk-pill.danger { background:color-mix(in srgb, var(--danger) 15%, var(--surface)); border-color:color-mix(in srgb, var(--danger) 35%, var(--surface)); color:var(--danger); }
-    .btn.executive-danger { background:color-mix(in srgb, var(--danger) 16%, var(--background)); border:1px solid color-mix(in srgb, var(--danger) 38%, var(--border)); color:var(--danger); border-style:solid; }
-    .btn.executive-danger:hover { background:color-mix(in srgb, var(--danger) 24%, var(--background)); }
+    .btn.executive-danger { background:color-mix(in srgb, var(--danger) 68%, #ffffff 32%); border:1px solid color-mix(in srgb, var(--danger) 75%, var(--border)); color:#ffffff; border-style:solid; }
+    .btn.executive-danger:hover { background:color-mix(in srgb, var(--danger) 78%, #ffffff 22%); color:#ffffff; border-color:color-mix(in srgb, var(--danger) 82%, var(--border)); }
     @media (max-width: 980px) { .dashboard-grid { grid-template-columns: 1fr; } }
 </style>
 
