@@ -1711,7 +1711,7 @@ class DatabaseMigrator
                AND (u.id IS NULL OR u.active = 0)'
         );
 
-        if (!$this->db->foreignKeyExists('talents', 'fk_talents_timesheet_approver_user_id')) {
+        if (!$this->db->foreignKeyExists('talents', 'timesheet_approver_user_id', 'users')) {
             $this->db->execute(
                 'ALTER TABLE talents
                  ADD CONSTRAINT fk_talents_timesheet_approver_user_id
@@ -1732,7 +1732,7 @@ class DatabaseMigrator
             $this->db->clearColumnCache();
         }
 
-        if (!$this->db->foreignKeyExists('timesheets', 'fk_timesheets_approver_user_id')) {
+        if (!$this->db->foreignKeyExists('timesheets', 'approver_user_id', 'users')) {
             $this->db->execute(
                 'ALTER TABLE timesheets
                  ADD CONSTRAINT fk_timesheets_approver_user_id
