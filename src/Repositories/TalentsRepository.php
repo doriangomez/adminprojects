@@ -28,6 +28,7 @@ class TalentsRepository
             't.availability',
             't.requiere_reporte_horas',
             't.requiere_aprobacion_horas',
+            't.timesheet_approver_user_id',
             't.tipo_talento',
             'COALESCE(pmo.active_projects, 0) AS active_projects',
             'COALESCE(pmo.total_assignments, 0) AS total_assignments',
@@ -43,9 +44,10 @@ class TalentsRepository
         }
 
         return $this->db->fetchAll(
-            'SELECT ' . implode(', ', $select) . ', u.email AS user_email, u.active AS user_active, GROUP_CONCAT(s.name) AS skills
+            'SELECT ' . implode(', ', $select) . ', u.email AS user_email, u.active AS user_active, approver.name AS timesheet_approver_name, GROUP_CONCAT(s.name) AS skills
              FROM talents t
              LEFT JOIN users u ON u.id = t.user_id
+             LEFT JOIN users approver ON approver.id = t.timesheet_approver_user_id
              LEFT JOIN talent_skills ts ON ts.talent_id = t.id
              LEFT JOIN skills s ON s.id = ts.skill_id
              LEFT JOIN (
@@ -145,8 +147,10 @@ class TalentsRepository
             't.availability',
             't.requiere_reporte_horas',
             't.requiere_aprobacion_horas',
+            't.timesheet_approver_user_id',
             't.tipo_talento',
             'u.email AS user_email',
+            'approver.name AS timesheet_approver_name',
         ];
 
         if ($this->hasOutsourcingFlag()) {
@@ -159,6 +163,7 @@ class TalentsRepository
             'SELECT ' . implode(', ', $select) . '
              FROM talents t
              LEFT JOIN users u ON u.id = t.user_id
+             LEFT JOIN users approver ON approver.id = t.timesheet_approver_user_id
              WHERE t.id = :id
              LIMIT 1',
             [':id' => $talentId]
@@ -193,6 +198,7 @@ class TalentsRepository
             'availability',
             'requiere_reporte_horas',
             'requiere_aprobacion_horas',
+            'timesheet_approver_user_id',
             'tipo_talento',
             'hourly_cost',
             'hourly_rate',
@@ -206,6 +212,7 @@ class TalentsRepository
             ':availability' => $payload['availability'] ?? 0,
             ':requiere_reporte_horas' => $payload['requiere_reporte_horas'] ?? 0,
             ':requiere_aprobacion_horas' => $payload['requiere_aprobacion_horas'] ?? 0,
+            ':timesheet_approver_user_id' => $payload['timesheet_approver_user_id'] ?? null,
             ':tipo_talento' => $payload['tipo_talento'] ?? 'interno',
             ':hourly_cost' => $payload['hourly_cost'] ?? 0,
             ':hourly_rate' => $payload['hourly_rate'] ?? 0,
@@ -239,6 +246,7 @@ class TalentsRepository
             'availability = :availability',
             'requiere_reporte_horas = :requiere_reporte_horas',
             'requiere_aprobacion_horas = :requiere_aprobacion_horas',
+            'timesheet_approver_user_id = :timesheet_approver_user_id',
             'tipo_talento = :tipo_talento',
             'hourly_cost = :hourly_cost',
             'hourly_rate = :hourly_rate',
@@ -252,6 +260,7 @@ class TalentsRepository
             ':availability' => $payload['availability'] ?? 0,
             ':requiere_reporte_horas' => $payload['requiere_reporte_horas'] ?? 0,
             ':requiere_aprobacion_horas' => $payload['requiere_aprobacion_horas'] ?? 0,
+            ':timesheet_approver_user_id' => $payload['timesheet_approver_user_id'] ?? null,
             ':tipo_talento' => $payload['tipo_talento'] ?? 'interno',
             ':hourly_cost' => $payload['hourly_cost'] ?? 0,
             ':hourly_rate' => $payload['hourly_rate'] ?? 0,
@@ -270,6 +279,20 @@ class TalentsRepository
     }
 
 
+
+    public function activeUsersForTimesheetApprover(): array
+    {
+        if (!$this->db->tableExists('users')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT id, name, email
+             FROM users
+             WHERE active = 1
+             ORDER BY name ASC'
+        );
+    }
 
     public function inactivateTalent(int $talentId): bool
     {

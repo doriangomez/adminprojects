@@ -309,6 +309,7 @@ CREATE TABLE talents (
     availability INT DEFAULT 0,
     requiere_reporte_horas TINYINT(1) DEFAULT 0,
     requiere_aprobacion_horas TINYINT(1) DEFAULT 0,
+    timesheet_approver_user_id INT NULL,
     capacidad_horaria DECIMAL(8,2) DEFAULT 0,
     tipo_talento ENUM('interno','externo','otro') NOT NULL DEFAULT 'interno',
     is_outsourcing TINYINT(1) DEFAULT 0,
@@ -316,7 +317,8 @@ CREATE TABLE talents (
     hourly_rate DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (timesheet_approver_user_id) REFERENCES users(id)
 );
 
 CREATE TABLE skills (
@@ -368,6 +370,7 @@ CREATE TABLE timesheets (
     talent_id INT NOT NULL,
     user_id INT NULL,
     assignment_id INT,
+    approver_user_id INT NULL,
     date DATE NOT NULL,
     hours DECIMAL(8,2) NOT NULL,
     status VARCHAR(20) NOT NULL,
@@ -385,6 +388,7 @@ CREATE TABLE timesheets (
     FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (assignment_id) REFERENCES project_talent_assignments(id),
+    FOREIGN KEY (approver_user_id) REFERENCES users(id),
     FOREIGN KEY (approved_by) REFERENCES users(id),
     FOREIGN KEY (rejected_by) REFERENCES users(id)
 );

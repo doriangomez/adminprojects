@@ -114,7 +114,9 @@ class TimesheetsRepository
             'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval, p.name AS project
              FROM project_talent_assignments a
              JOIN projects p ON p.id = a.project_id
+             JOIN talents t ON t.user_id = a.user_id
              WHERE a.user_id = :user
+               AND COALESCE(t.requiere_reporte_horas, 0) = 1
                AND ' . $assignmentStatusCondition .
              ($projectStatusCondition !== '' ? ' AND ' . $projectStatusCondition : '') . '
              ORDER BY p.name ASC',
@@ -131,11 +133,14 @@ class TimesheetsRepository
         $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
         $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
         $talentSelect = $hasTalentColumn ? 'a.talent_id' : 'NULL AS talent_id';
+        $talentJoin = $hasTalentColumn ? 'a.talent_id' : 'NULL';
         $assignment = $this->db->fetchOne(
             'SELECT a.id, ' . $talentSelect . ', a.requires_timesheet, a.requires_timesheet_approval,
-                    a.project_id, p.name AS project
+                    a.project_id, p.name AS project,
+                    tal.requiere_reporte_horas, tal.requiere_aprobacion_horas, tal.timesheet_approver_user_id
              FROM project_talent_assignments a
              JOIN projects p ON p.id = a.project_id
+             LEFT JOIN talents tal ON tal.id = ' . $talentJoin . '
              WHERE a.user_id = :user
                AND a.project_id = :project
                AND ' . $assignmentStatusCondition .
@@ -157,6 +162,9 @@ class TimesheetsRepository
             'id' => $assignment['id'] ?? null,
             'requires_timesheet' => $assignment['requires_timesheet'] ?? 0,
             'requires_timesheet_approval' => $assignment['requires_timesheet_approval'] ?? 0,
+            'talent_requires_report' => $assignment['requiere_reporte_horas'] ?? 0,
+            'talent_requires_approval' => $assignment['requiere_aprobacion_horas'] ?? 0,
+            'timesheet_approver_user_id' => $assignment['timesheet_approver_user_id'] ?? null,
             'talent_id' => $talentId,
             'project_id' => $assignment['project_id'] ?? null,
         ];
@@ -195,6 +203,7 @@ class TimesheetsRepository
             'task_id',
             'talent_id',
             'assignment_id',
+            'approver_user_id',
             'date',
             'hours',
             'status',
@@ -209,6 +218,7 @@ class TimesheetsRepository
             ':task_id' => (int) $payload['task_id'],
             ':talent_id' => (int) $payload['talent_id'],
             ':assignment_id' => $payload['assignment_id'] !== null ? (int) $payload['assignment_id'] : null,
+            ':approver_user_id' => $payload['approver_user_id'] ?? null,
             ':date' => $payload['date'],
             ':hours' => (float) $payload['hours'],
             ':status' => $payload['status'],
@@ -271,11 +281,15 @@ class TimesheetsRepository
 
         $conditions = ['ts.status IN ("pending", "submitted", "pending_approval")'];
         $params = [];
+        if (!$this->isPrivileged($user)) {
+            $conditions[] = 'ts.approver_user_id = :approverUser';
+            $params[':approverUser'] = (int) ($user['id'] ?? 0);
+        }
 
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         return $this->db->fetchAll(
-            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment, p.name AS project, t.title AS task, ta.name AS talent
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment, p.name AS project, t.title AS task, ta.name AS talent, ts.approver_user_id
              FROM timesheets ts
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
@@ -311,7 +325,7 @@ class TimesheetsRepository
         $columnDate = $status === 'approved' ? 'approved_at' : 'rejected_at';
 
         $timesheet = $this->db->fetchOne(
-            'SELECT ts.task_id, ta.user_id
+            'SELECT ts.task_id, ta.user_id, ts.approver_user_id
              FROM timesheets ts
              JOIN talents ta ON ta.id = ts.talent_id
              WHERE ts.id = :id',
@@ -320,6 +334,10 @@ class TimesheetsRepository
 
         if ($timesheet && (int) ($timesheet['user_id'] ?? 0) === $userId) {
             throw new InvalidArgumentException('No puedes aprobar tus propias horas.');
+        }
+
+        if ($timesheet && (int) ($timesheet['approver_user_id'] ?? 0) > 0 && (int) ($timesheet['approver_user_id'] ?? 0) !== $userId) {
+            throw new InvalidArgumentException('No tienes permiso para aprobar o rechazar este registro de horas.');
         }
 
         $updated = $this->db->execute(
@@ -384,7 +402,7 @@ class TimesheetsRepository
         }
 
         $row = $this->db->fetchOne(
-            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, is_outsourcing
+            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, timesheet_approver_user_id, is_outsourcing
              FROM talents
              WHERE user_id = :user
              LIMIT 1',

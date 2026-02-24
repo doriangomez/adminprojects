@@ -207,9 +207,11 @@ class DatabaseMigrator
         try {
             $this->ensureTalentOutsourcingFlag();
             $this->ensureTalentTimesheetFlags();
+            $this->ensureTalentTimesheetApproverColumn();
             $this->ensureTalentCapacityColumn();
             $this->ensureTalentTypeColumn();
             $this->ensureTalentDeletionCascades();
+            $this->ensureTimesheetApproverColumn();
         } catch (\PDOException $e) {
             error_log('Error asegurando columnas de talentos: ' . $e->getMessage());
         }
@@ -1687,6 +1689,56 @@ class DatabaseMigrator
         if (!$this->db->columnExists('talents', 'requiere_aprobacion_horas')) {
             $this->db->execute('ALTER TABLE talents ADD COLUMN requiere_aprobacion_horas TINYINT(1) DEFAULT 0 AFTER requiere_reporte_horas');
             $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureTalentTimesheetApproverColumn(): void
+    {
+        if (!$this->db->columnExists('talents', 'timesheet_approver_user_id')) {
+            $this->db->execute('ALTER TABLE talents ADD COLUMN timesheet_approver_user_id INT NULL AFTER requiere_aprobacion_horas');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->columnExists('talents', 'timesheet_approver_user_id')) {
+            return;
+        }
+
+        $this->db->execute(
+            'UPDATE talents t
+             LEFT JOIN users u ON u.id = t.timesheet_approver_user_id
+             SET t.timesheet_approver_user_id = NULL
+             WHERE t.timesheet_approver_user_id IS NOT NULL
+               AND (u.id IS NULL OR u.active = 0)'
+        );
+
+        if (!$this->db->foreignKeyExists('talents', 'fk_talents_timesheet_approver_user_id')) {
+            $this->db->execute(
+                'ALTER TABLE talents
+                 ADD CONSTRAINT fk_talents_timesheet_approver_user_id
+                 FOREIGN KEY (timesheet_approver_user_id) REFERENCES users(id)
+                 ON DELETE SET NULL'
+            );
+        }
+    }
+
+    private function ensureTimesheetApproverColumn(): void
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('timesheets', 'approver_user_id')) {
+            $this->db->execute('ALTER TABLE timesheets ADD COLUMN approver_user_id INT NULL AFTER assignment_id');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->foreignKeyExists('timesheets', 'fk_timesheets_approver_user_id')) {
+            $this->db->execute(
+                'ALTER TABLE timesheets
+                 ADD CONSTRAINT fk_timesheets_approver_user_id
+                 FOREIGN KEY (approver_user_id) REFERENCES users(id)
+                 ON DELETE SET NULL'
+            );
         }
     }
 

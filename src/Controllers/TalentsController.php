@@ -30,6 +30,7 @@ class TalentsController extends Controller
             'services' => $services,
             'documentsByService' => $this->serviceDocuments($services),
             'flashMessage' => $_GET['saved'] ?? '',
+            'timesheetApproverOptions' => $repo->activeUsersForTimesheetApprover(),
             'canDeleteOutsourcingRecords' => $this->auth->canDeleteOutsourcingRecords(),
         ]);
     }
@@ -232,6 +233,7 @@ class TalentsController extends Controller
             'hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),
             'requiere_reporte_horas' => !empty($payload['requiere_reporte_horas']) ? 1 : 0,
             'requiere_aprobacion_horas' => !empty($payload['requiere_aprobacion_horas']) ? 1 : 0,
+            'timesheet_approver_user_id' => (int) ($payload['timesheet_approver_user_id'] ?? 0) ?: null,
             'tipo_talento' => strtolower(trim((string) ($payload['tipo_talento'] ?? 'interno'))),
         ];
     }
