@@ -83,9 +83,9 @@ $activeProjects = max(0, $totalProjects - $closedProjects);
         border-color:#b91c1c;
     }
     #confirm-delete-btn { min-width:220px; font-weight:700; border-style:solid; }
-    #confirm-delete-btn[data-mode="delete"] { background:#dc2626; color:#ffffff; border-color:#b91c1c; }
-    #confirm-delete-btn[data-mode="delete"]:hover:not(:disabled) { background:#b91c1c; color:#ffffff; border-color:#991b1b; }
-    #confirm-delete-btn[data-mode="inactivate"] { background:color-mix(in srgb, var(--warning) 18%, var(--surface)); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 42%, var(--border)); }
+    #confirm-delete-btn[data-mode="delete"] { background:color-mix(in srgb, var(--danger) 16%, var(--surface)); color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--border)); }
+    #confirm-delete-btn[data-mode="delete"]:hover:not(:disabled) { background:color-mix(in srgb, var(--danger) 24%, var(--surface)); color:var(--danger); border-color:color-mix(in srgb, var(--danger) 52%, var(--border)); }
+    #confirm-delete-btn[data-mode="inactivate"] { background:color-mix(in srgb, var(--warning) 16%, var(--surface)); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--border)); }
     #confirm-delete-btn[data-mode="inactivate"]:hover:not(:disabled) { background:color-mix(in srgb, var(--warning) 26%, var(--surface)); }
     #confirm-delete-btn:disabled { opacity:1; color:var(--text-secondary); background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); border-color:var(--border); cursor:not-allowed; }
     @media (max-width: 980px) { .dashboard-grid { grid-template-columns: 1fr; } }
