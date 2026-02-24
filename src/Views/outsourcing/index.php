@@ -8,6 +8,7 @@ $canManage = !empty($canManage);
 $filters = is_array($filters ?? null) ? $filters : [];
 $preselectedTalentId = (int) ($preselectedTalentId ?? 0);
 $talentCreatedMessage = $talentCreatedMessage ?? null;
+$deletedMessage = !empty($_GET['deleted']) ? 'Servicio de outsourcing eliminado correctamente.' : null;
 
 $healthLabels = [
     'green' => 'Verde',
@@ -396,6 +397,9 @@ $riskServicesCount = count(array_filter(
             </summary>
             <?php if ($talentCreatedMessage): ?>
                 <div class="alert success"><?= htmlspecialchars($talentCreatedMessage) ?></div>
+            <?php endif; ?>
+            <?php if ($deletedMessage): ?>
+                <div class="alert success"><?= htmlspecialchars($deletedMessage) ?></div>
             <?php endif; ?>
             <form method="POST" action="<?= $basePath ?>/outsourcing/talents" class="talent-form">
                 <details class="form-accordion" open>
