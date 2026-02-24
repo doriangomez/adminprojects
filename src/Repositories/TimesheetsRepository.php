@@ -1414,6 +1414,8 @@ class TimesheetsRepository
 
         $updated = (int) $updateStmt->rowCount();
 
+        $updated = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+
         if ($updated > 0) {
             $this->db->execute(
                 'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
