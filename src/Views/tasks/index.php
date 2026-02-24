@@ -1,7 +1,9 @@
 <?php
 $basePath = $basePath ?? '';
 $tasks = is_array($tasks ?? null) ? $tasks : [];
-$canManageTasks = isset($auth) ? $auth->can('projects.manage') : false;
+$canManageTasks = !empty($canManage) || (isset($auth) ? $auth->can('projects.manage') : false);
+$projectOptionsForCreate = is_array($projectOptions ?? null) ? $projectOptions : [];
+$talents = is_array($talents ?? null) ? $talents : [];
 
 $statusMeta = [
     'todo' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-muted'],
@@ -54,6 +56,58 @@ ksort($priorityOptions);
         </div>
     </header>
 
+    <?php if ($canManageTasks): ?>
+        <form class="task-create-form" method="POST" action="<?= $basePath ?>/tasks/create">
+            <div class="task-create-form__header">
+                <strong>Crear tarea</strong>
+                <span class="section-muted">Puedes crear tareas desde este panel igual que en cada proyecto.</span>
+            </div>
+            <div class="task-create-form__grid">
+                <label>
+                    Proyecto
+                    <select name="project_id" required>
+                        <option value="">Selecciona un proyecto</option>
+                        <?php foreach ($projectOptionsForCreate as $project): ?>
+                            <option value="<?= (int) ($project['id'] ?? 0) ?>"><?= htmlspecialchars($project['name'] ?? '') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    Título de la tarea
+                    <input type="text" name="title" required maxlength="160" placeholder="Ej. Validar entregable de sprint" />
+                </label>
+                <label>
+                    Prioridad
+                    <select name="priority">
+                        <option value="medium" selected>Media</option>
+                        <option value="high">Alta</option>
+                        <option value="low">Baja</option>
+                    </select>
+                </label>
+                <label>
+                    Horas estimadas
+                    <input type="number" name="estimated_hours" min="0" step="0.5" value="0" />
+                </label>
+                <label>
+                    Fecha límite
+                    <input type="date" name="due_date" />
+                </label>
+                <label>
+                    Responsable
+                    <select name="assignee_id">
+                        <option value="0">Sin asignar</option>
+                        <?php foreach ($talents as $talent): ?>
+                            <option value="<?= (int) ($talent['id'] ?? 0) ?>"><?= htmlspecialchars($talent['name'] ?? '') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </div>
+            <div class="task-create-form__actions">
+                <button type="submit" class="action-btn primary">Crear tarea</button>
+            </div>
+        </form>
+    <?php endif; ?>
+
     <div class="filters-bar">
         <label>Proyecto
             <select data-filter="project">
@@ -94,7 +148,7 @@ ksort($priorityOptions);
             <span>📌</span>
             <div>
                 <strong>No hay tareas registradas.</strong>
-                <p class="section-muted">Crea tareas desde los proyectos para comenzar a reportar horas.</p>
+                <p class="section-muted">Crea una tarea desde este panel o desde la vista del proyecto para comenzar a reportar horas.</p>
             </div>
         </div>
     <?php else: ?>
@@ -168,6 +222,13 @@ ksort($priorityOptions);
     .tasks-header h2 { margin:0; }
     .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
     .empty-state { border:1px dashed var(--border); border-radius:12px; padding:16px; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); display:flex; align-items:flex-start; gap:12px; }
+    .task-create-form { border:1px dashed var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:12px; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
+    .task-create-form__header { display:flex; flex-direction:column; gap:4px; }
+    .task-create-form__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+    .task-create-form label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:12px; }
+    .task-create-form input,
+    .task-create-form select { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size:13px; }
+    .task-create-form__actions { display:flex; justify-content:flex-end; }
     .filters-bar { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; padding:12px; border:1px solid var(--border); border-radius:14px; background: var(--surface); }
     .filters-bar label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); font-size:12px; }
     .filters-bar select { padding:8px 10px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size:13px; }
