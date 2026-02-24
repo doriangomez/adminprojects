@@ -6,6 +6,7 @@ $clients = is_array($clients ?? null) ? $clients : [];
 $projects = is_array($projects ?? null) ? $projects : [];
 $services = is_array($services ?? null) ? $services : [];
 $documentsByService = is_array($documentsByService ?? null) ? $documentsByService : [];
+$canDeleteOutsourcingRecords = (bool) ($canDeleteOutsourcingRecords ?? false);
 $flashMessage = (string) ($flashMessage ?? '');
 $isEditing = !empty($editingTalent);
 
@@ -42,6 +43,7 @@ $flashMessageText = match ($flashMessage) {
     'created_outsourcing' => 'Talento registrado. Asígnalo a un servicio desde el módulo Outsourcing.',
     'updated' => 'Talento actualizado. Gestiona sus asignaciones desde Outsourcing.',
     'deleted' => 'Talento eliminado en cascada correctamente.',
+    'outsourcing_service_deleted' => 'Registro de servicio/seguimiento eliminado correctamente.',
     'inactivated' => 'Talento inactivado correctamente.',
     default => '',
 };
@@ -391,6 +393,11 @@ $flashMessageText = match ($flashMessage) {
                                     <div class="service-actions">
                                         <a class="link" href="<?= $basePath ?>/outsourcing/<?= $serviceId ?>">Ver servicio</a>
                                         <a class="link" href="<?= $basePath ?>/outsourcing/<?= $serviceId ?>#nuevo-seguimiento">Agregar seguimiento</a>
+                                        <?php if ($canDeleteOutsourcingRecords): ?>
+                                            <form method="POST" action="<?= $basePath ?>/outsourcing/<?= $serviceId ?>/delete" onsubmit="return confirm('¿Eliminar este servicio y sus seguimientos asociados?');" class="inline-action-form">
+                                                <button type="submit" class="link danger">Eliminar registro</button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
@@ -497,5 +504,8 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     .link { color: var(--primary); font-weight:600; text-decoration:none; }
     .link:hover { text-decoration:underline; }
     .service-actions { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+    .inline-action-form { display:inline; margin:0; }
+    .link.danger { color: var(--danger); font-weight: 600; background: transparent; border: 0; padding: 0; cursor: pointer; text-align:left; }
     .alert.success { padding:10px 12px; border-radius:12px; background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border:1px solid color-mix(in srgb, var(--success) 40%, var(--surface) 60%); font-weight:600; }
 </style>
+
