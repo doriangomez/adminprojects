@@ -1353,8 +1353,9 @@ class TimesheetsRepository
         }
 
         $sample = $this->db->fetchAll('SELECT DISTINCT user_id, talent_id FROM timesheets WHERE ' . implode(' AND ', $where), $params);
-        $this->db->execute('DELETE FROM timesheets WHERE ' . implode(' AND ', $where), $params);
-        $affected = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+        $deleteStmt = $this->db->connection()->prepare('DELETE FROM timesheets WHERE ' . implode(' AND ', $where));
+        $deleteStmt->execute($params);
+        $affected = (int) $deleteStmt->rowCount();
 
         if ($affected > 0) {
             $this->db->execute(
@@ -1399,7 +1400,7 @@ class TimesheetsRepository
             $params
         );
 
-        $this->db->execute(
+        $updateStmt = $this->db->connection()->prepare(
             "UPDATE timesheets
              SET status = 'draft',
                  approved_by = NULL,
@@ -1407,9 +1408,11 @@ class TimesheetsRepository
                  rejected_by = NULL,
                  rejected_at = NULL,
                  updated_at = NOW()
-             WHERE " . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')",
-            $params
+             WHERE " . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')"
         );
+        $updateStmt->execute($params);
+
+        $updated = (int) $updateStmt->rowCount();
 
         $updated = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
 
