@@ -41,9 +41,36 @@ abstract class Controller
     protected function requirePermission(string $permission): void
     {
         if (!$this->auth->can($permission)) {
-            http_response_code(403);
+            $this->denyAccess();
+        }
+    }
+
+    protected function denyAccess(string $message = 'No tienes permisos para acceder a este módulo.'): void
+    {
+        http_response_code(403);
+
+        if ($this->expectsJsonResponse()) {
             exit('Acceso denegado');
         }
+
+        $this->render('errors/forbidden', [
+            'title' => 'Acceso restringido',
+            'errorTitle' => 'Acceso denegado',
+            'errorMessage' => $message,
+        ]);
+        exit;
+    }
+
+    private function expectsJsonResponse(): bool
+    {
+        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+        $requestedWith = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+        return str_contains($accept, 'application/json')
+            || str_contains($accept, 'text/json')
+            || $requestedWith === 'xmlhttprequest'
+            || in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
     }
 
     protected function getAppName(): string
