@@ -1943,9 +1943,10 @@ class DatabaseMigrator
             $this->db->execute(
                 'INSERT INTO risk_catalog (code, category, label, applies_to, impact_scope, impact_time, impact_cost, impact_quality, impact_legal, severity_base, active)
                  SELECT :code, :category, :label, :applies_to, :impact_scope, :impact_time, :impact_cost, :impact_quality, :impact_legal, :severity_base, :active
-                 WHERE NOT EXISTS (SELECT 1 FROM risk_catalog WHERE code = :code)',
+                 WHERE NOT EXISTS (SELECT 1 FROM risk_catalog WHERE code = :code_exists)',
                 [
                     ':code' => $risk['code'],
+                    ':code_exists' => $risk['code'],
                     ':category' => $risk['category'],
                     ':label' => $risk['label'],
                     ':applies_to' => $risk['applies_to'],
@@ -1980,13 +1981,14 @@ class DatabaseMigrator
         $stmt = $this->db->connection()->prepare(
             'INSERT INTO project_risk_evaluations (project_id, risk_code, selected)
              SELECT :project_id, :risk_code, 1
-             WHERE EXISTS (SELECT 1 FROM risk_catalog WHERE code = :risk_code)'
+             WHERE EXISTS (SELECT 1 FROM risk_catalog WHERE code = :risk_code_exists)'
         );
 
         foreach ($mappings as $row) {
             $stmt->execute([
                 ':project_id' => (int) ($row['project_id'] ?? 0),
                 ':risk_code' => (string) ($row['risk_code'] ?? ''),
+                ':risk_code_exists' => (string) ($row['risk_code'] ?? ''),
             ]);
         }
     }

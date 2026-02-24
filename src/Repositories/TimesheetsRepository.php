@@ -636,10 +636,11 @@ class TimesheetsRepository
 
     public function talentBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, string $sort = 'load_desc'): array
     {
+        $monthWeeks = max(1, (int) ceil(((int) $periodEnd->format('j')) / 7));
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
             ':end' => $periodEnd->format('Y-m-d'),
-            ':capacity_end' => $periodEnd->format('Y-m-d'),
+            ':month_weeks' => $monthWeeks,
         ];
         $where = $this->timesheetScopeWhere($user, $params);
         if ($projectId !== null && $projectId > 0) {
@@ -657,7 +658,7 @@ class TimesheetsRepository
                     MAX(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)) AS last_week_submitted,
                     MAX(CASE WHEN ts.status = "approved" THEN DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) ELSE NULL END) AS last_week_approved,
                     MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) AS weekly_capacity,
-                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * GREATEST(1, CEIL(DAY(LAST_DAY(:capacity_end)) / 7)), 0)) * 100, 2) AS compliance_percent
+                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * :month_weeks, 0)) * 100, 2) AS compliance_percent
              FROM timesheets ts
              JOIN talents ta ON ta.id = ts.talent_id
              LEFT JOIN tasks t ON t.id = ts.task_id
@@ -665,9 +666,6 @@ class TimesheetsRepository
              WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
              GROUP BY ta.id, ta.name
              ORDER BY ' . $orderBy;
-
-        error_log('talentBreakdownByPeriod SQL: ' . $sql);
-        error_log('talentBreakdownByPeriod params: ' . json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         return $this->db->fetchAll(
             $sql,
@@ -1355,8 +1353,9 @@ class TimesheetsRepository
         }
 
         $sample = $this->db->fetchAll('SELECT DISTINCT user_id, talent_id FROM timesheets WHERE ' . implode(' AND ', $where), $params);
-        $this->db->execute('DELETE FROM timesheets WHERE ' . implode(' AND ', $where), $params);
-        $affected = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+        $deleteStmt = $this->db->connection()->prepare('DELETE FROM timesheets WHERE ' . implode(' AND ', $where));
+        $deleteStmt->execute($params);
+        $affected = (int) $deleteStmt->rowCount();
 
         if ($affected > 0) {
             $this->db->execute(
@@ -1401,7 +1400,7 @@ class TimesheetsRepository
             $params
         );
 
-        $updated = $this->db->execute(
+        $updateStmt = $this->db->connection()->prepare(
             "UPDATE timesheets
              SET status = 'draft',
                  approved_by = NULL,
@@ -1409,9 +1408,11 @@ class TimesheetsRepository
                  rejected_by = NULL,
                  rejected_at = NULL,
                  updated_at = NOW()
-             WHERE " . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')",
-            $params
+             WHERE " . implode(' AND ', $where) . " AND status IN ('approved','rejected','submitted','pending','pending_approval')"
         );
+        $updateStmt->execute($params);
+
+        $updated = (int) $updateStmt->rowCount();
 
         if ($updated > 0) {
             $this->db->execute(
