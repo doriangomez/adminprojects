@@ -662,6 +662,25 @@ class TimesheetsRepository
         return $updated;
     }
 
+
+    public function projectIdForTimesheet(int $timesheetId): ?int
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(ts.project_id, t.project_id) AS project_id
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             WHERE ts.id = :id
+             LIMIT 1',
+            [':id' => $timesheetId]
+        );
+
+        return $row && isset($row['project_id']) ? (int) $row['project_id'] : null;
+    }
+
     public function findOwnerId(int $timesheetId): ?int
     {
         if (!$this->db->tableExists('timesheets')) {

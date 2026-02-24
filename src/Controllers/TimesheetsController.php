@@ -64,6 +64,7 @@ class TimesheetsController extends Controller
 
         try {
             $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment);
+            (new ProjectService($this->db))->recordHealthSnapshot($projectId);
             header('Content-Type: application/json');
             echo json_encode(['ok' => true]);
         } catch (\InvalidArgumentException $e) {
@@ -180,6 +181,10 @@ class TimesheetsController extends Controller
 
         try {
             $repo->updateApprovalStatus($timesheetId, $status, $userId, $comment !== '' ? $comment : null);
+            $projectId = (int) ($repo->projectIdForTimesheet($timesheetId) ?? 0);
+            if ($projectId > 0) {
+                (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            }
 
             (new AuditLogRepository($this->db))->log(
                 $userId,

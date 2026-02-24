@@ -196,6 +196,28 @@ class ConfigService
             'timesheets' => [
                 'enabled' => false,
             ],
+            'health_scoring' => [
+                'weights' => [
+                    'documental' => 0.25,
+                    'avance' => 0.25,
+                    'horas' => 0.20,
+                    'seguimiento' => 0.15,
+                    'riesgo' => 0.15,
+                ],
+                'max_points' => [
+                    'documental' => 25,
+                    'avance' => 25,
+                    'horas' => 20,
+                    'seguimiento' => 15,
+                    'riesgo' => 15,
+                ],
+                'thresholds' => [
+                    'optimal' => 90,
+                    'attention' => 75,
+                ],
+                'max_days_without_followup' => 14,
+                'max_pending_hours_ratio' => 0.20,
+            ],
         ],
         'notifications' => [
             'enabled' => false,
@@ -282,6 +304,22 @@ class ConfigService
                     $this->defaults['operational_rules']['timesheets'],
                     $stored['operational_rules']['timesheets'] ?? []
                 ),
+                'health_scoring' => [
+                    'weights' => array_merge(
+                        $this->defaults['operational_rules']['health_scoring']['weights'],
+                        $stored['operational_rules']['health_scoring']['weights'] ?? []
+                    ),
+                    'max_points' => array_merge(
+                        $this->defaults['operational_rules']['health_scoring']['max_points'],
+                        $stored['operational_rules']['health_scoring']['max_points'] ?? []
+                    ),
+                    'thresholds' => array_merge(
+                        $this->defaults['operational_rules']['health_scoring']['thresholds'],
+                        $stored['operational_rules']['health_scoring']['thresholds'] ?? []
+                    ),
+                    'max_days_without_followup' => (int) ($stored['operational_rules']['health_scoring']['max_days_without_followup'] ?? $this->defaults['operational_rules']['health_scoring']['max_days_without_followup']),
+                    'max_pending_hours_ratio' => (float) ($stored['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? $this->defaults['operational_rules']['health_scoring']['max_pending_hours_ratio']),
+                ],
             ],
             'notifications' => $this->mergeNotifications(
                 $stored['notifications'] ?? []
@@ -347,6 +385,22 @@ class ConfigService
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
                 ),
+                'health_scoring' => [
+                    'weights' => array_merge(
+                        $current['operational_rules']['health_scoring']['weights'] ?? [],
+                        $payload['operational_rules']['health_scoring']['weights'] ?? []
+                    ),
+                    'max_points' => array_merge(
+                        $current['operational_rules']['health_scoring']['max_points'] ?? [],
+                        $payload['operational_rules']['health_scoring']['max_points'] ?? []
+                    ),
+                    'thresholds' => array_merge(
+                        $current['operational_rules']['health_scoring']['thresholds'] ?? [],
+                        $payload['operational_rules']['health_scoring']['thresholds'] ?? []
+                    ),
+                    'max_days_without_followup' => (int) ($payload['operational_rules']['health_scoring']['max_days_without_followup'] ?? ($current['operational_rules']['health_scoring']['max_days_without_followup'] ?? 14)),
+                    'max_pending_hours_ratio' => (float) ($payload['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? ($current['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? 0.20)),
+                ],
             ],
             'notifications' => $this->mergeNotifications(
                 array_merge(

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 class ProjectService
 {
-    /** @var array<int, array<string, float|int>> */
+    /** @var array<int, array<string, mixed>> */
     private static array $healthCache = [];
 
     public function __construct(private Database $db)
@@ -12,6 +12,11 @@ class ProjectService
     }
 
     public function calculateProjectHealthScore(int $projectId): array
+    {
+        return $this->calculateProjectHealthReport($projectId);
+    }
+
+    public function calculateProjectHealthReport(int $projectId): array
     {
         if (isset(self::$healthCache[$projectId])) {
             return self::$healthCache[$projectId];
@@ -21,43 +26,220 @@ class ProjectService
         if (!$project) {
             $empty = [
                 'total_score' => 0,
+                'level' => 'critical',
+                'label' => 'Crítico',
                 'documental_score' => 0,
                 'avance_score' => 0,
                 'horas_score' => 0,
                 'seguimiento_score' => 0,
                 'riesgo_score' => 0,
+                'breakdown' => [],
+                'recommendations' => [],
             ];
             self::$healthCache[$projectId] = $empty;
 
             return $empty;
         }
 
-        $documentalScore = $this->calculateDocumentalScore($projectId);
-        $avanceScore = $this->calculateAvanceScore($project);
-        $horasScore = $this->calculateHorasScore($projectId, $project);
-        $seguimientoScore = $this->calculateSeguimientoScore($projectId, $project);
-        $riesgoScore = $this->calculateRiesgoScore($projectId, $project);
+        $config = (new ConfigService($this->db))->getConfig();
+        $rules = $config['operational_rules']['health_scoring'] ?? [];
 
-        $total = (int) round(
-            ($documentalScore * 0.25)
-            + ($avanceScore * 0.25)
-            + ($horasScore * 0.20)
-            + ($seguimientoScore * 0.15)
-            + ($riesgoScore * 0.15)
-        );
+        $weights = [
+            'documental' => (float) ($rules['weights']['documental'] ?? 0.25),
+            'avance' => (float) ($rules['weights']['avance'] ?? 0.25),
+            'horas' => (float) ($rules['weights']['horas'] ?? 0.20),
+            'seguimiento' => (float) ($rules['weights']['seguimiento'] ?? 0.15),
+            'riesgo' => (float) ($rules['weights']['riesgo'] ?? 0.15),
+        ];
+
+        $thresholds = [
+            'optimal' => (int) ($rules['thresholds']['optimal'] ?? 90),
+            'attention' => (int) ($rules['thresholds']['attention'] ?? 75),
+        ];
+
+        $maxPoints = [
+            'documental' => (int) ($rules['max_points']['documental'] ?? 25),
+            'avance' => (int) ($rules['max_points']['avance'] ?? 25),
+            'horas' => (int) ($rules['max_points']['horas'] ?? 20),
+            'seguimiento' => (int) ($rules['max_points']['seguimiento'] ?? 15),
+            'riesgo' => (int) ($rules['max_points']['riesgo'] ?? 15),
+        ];
+
+        $rawScores = [
+            'documental' => $this->calculateDocumentalScore($projectId),
+            'avance' => $this->calculateAvanceScore($project),
+            'horas' => $this->calculateHorasScore($projectId, $project),
+            'seguimiento' => $this->calculateSeguimientoScore($projectId, $project),
+            'riesgo' => $this->calculateRiesgoScore($projectId, $project),
+        ];
+
+        $breakdown = [];
+        $weightedTotal = 0.0;
+        foreach ($rawScores as $dimension => $rawScore) {
+            $max = max(0, $maxPoints[$dimension] ?? 0);
+            $score = (int) round(($rawScore / 100) * $max);
+            $weightedTotal += $rawScore * ($weights[$dimension] ?? 0);
+            $breakdown[$dimension] = [
+                'score' => $score,
+                'max' => $max,
+                'percentage' => $rawScore,
+                'issues' => $this->dimensionIssues($dimension, $projectId, $project, $rawScore, $config),
+                'justification' => $this->dimensionJustification($dimension, $rawScore),
+            ];
+        }
+
+        $total = $this->clampScore((int) round($weightedTotal));
+        $level = $total >= $thresholds['optimal'] ? 'optimal' : ($total >= $thresholds['attention'] ? 'attention' : 'critical');
+        $label = $level === 'optimal' ? 'Salud óptima' : ($level === 'attention' ? 'Atención' : 'Crítico');
 
         $result = [
-            'total_score' => $this->clampScore($total),
-            'documental_score' => $documentalScore,
-            'avance_score' => $avanceScore,
-            'horas_score' => $horasScore,
-            'seguimiento_score' => $seguimientoScore,
-            'riesgo_score' => $riesgoScore,
+            'total_score' => $total,
+            'level' => $level,
+            'label' => $label,
+            'documental_score' => $rawScores['documental'],
+            'avance_score' => $rawScores['avance'],
+            'horas_score' => $rawScores['horas'],
+            'seguimiento_score' => $rawScores['seguimiento'],
+            'riesgo_score' => $rawScores['riesgo'],
+            'breakdown' => $breakdown,
+            'recommendations' => $this->buildRecommendations($breakdown),
+            'calculated_at' => date('Y-m-d H:i:s'),
         ];
 
         self::$healthCache[$projectId] = $result;
 
         return $result;
+    }
+
+    public function recordHealthSnapshot(int $projectId): void
+    {
+        if (!$this->db->tableExists('project_health_history')) {
+            return;
+        }
+
+        unset(self::$healthCache[$projectId]);
+        $report = $this->calculateProjectHealthReport($projectId);
+
+        $this->db->insert(
+            'INSERT INTO project_health_history (project_id, score, breakdown_json, calculated_at) VALUES (:project_id, :score, :breakdown, NOW())',
+            [
+                ':project_id' => $projectId,
+                ':score' => (int) ($report['total_score'] ?? 0),
+                ':breakdown' => json_encode($report, JSON_UNESCAPED_UNICODE),
+            ]
+        );
+    }
+
+    public function history(int $projectId, int $days = 30): array
+    {
+        if (!$this->db->tableExists('project_health_history')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT score, calculated_at FROM project_health_history WHERE project_id = :project_id AND calculated_at >= DATE_SUB(NOW(), INTERVAL :days DAY) ORDER BY calculated_at ASC',
+            [':project_id' => $projectId, ':days' => max(1, $days)]
+        );
+    }
+
+    private function dimensionJustification(string $dimension, int $score): string
+    {
+        if ($score >= 85) {
+            return 'Dentro del rango esperado.';
+        }
+
+        return match ($dimension) {
+            'documental' => 'Faltan documentos obligatorios de la fase actual.',
+            'avance' => 'El avance real se desvía del plan esperado.',
+            'horas' => 'Existe desviación de horas respecto al avance.',
+            'seguimiento' => 'Proyecto sin actualización reciente.',
+            'riesgo' => 'Riesgos críticos sin mitigación.',
+            default => 'Requiere atención ejecutiva.',
+        };
+    }
+
+    private function dimensionIssues(string $dimension, int $projectId, array $project, int $score, array $config): array
+    {
+        $issues = [];
+        if ($score >= 85) {
+            return ['Sin hallazgos críticos.'];
+        }
+
+        if ($dimension === 'documental' && $this->db->tableExists('project_nodes')) {
+            $row = $this->db->fetchOne(
+                "SELECT
+                    SUM(CASE WHEN node_type = 'file' AND is_required = 1 AND document_status NOT IN ('final','publicado','aprobado') THEN 1 ELSE 0 END) AS pending_required,
+                    SUM(CASE WHEN node_type = 'file' AND is_required = 1 THEN 1 ELSE 0 END) AS total_required
+                FROM project_nodes
+                WHERE project_id = :projectId",
+                [':projectId' => $projectId]
+            );
+            $pending = (int) ($row['pending_required'] ?? 0);
+            if ($pending > 0) {
+                $issues[] = sprintf('%d nodos obligatorios sin documento final.', $pending);
+            }
+        }
+
+        if ($dimension === 'horas' && $this->db->tableExists('timesheets')) {
+            $row = $this->db->fetchOne(
+                "SELECT
+                    SUM(CASE WHEN status IN ('pending','submitted','pending_approval') THEN hours ELSE 0 END) AS pending_hours,
+                    SUM(hours) AS total_hours
+                FROM timesheets
+                WHERE project_id = :projectId",
+                [':projectId' => $projectId]
+            );
+            $pending = (float) ($row['pending_hours'] ?? 0);
+            $total = (float) ($row['total_hours'] ?? 0);
+            $ratio = $total > 0 ? $pending / $total : 0.0;
+            if ($pending > 0) {
+                $issues[] = sprintf('%.1f horas pendientes de aprobación.', $pending);
+            }
+            $maxPending = (float) ($config['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? 0.20);
+            if ($ratio > $maxPending) {
+                $issues[] = 'Alto volumen de horas sin aprobación.';
+            }
+        }
+
+        if ($dimension === 'seguimiento') {
+            $daysWithoutUpdate = isset($project['updated_at']) ? (int) floor((time() - strtotime((string) $project['updated_at'])) / 86400) : 999;
+            $maxDays = (int) ($config['operational_rules']['health_scoring']['max_days_without_followup'] ?? 14);
+            if ($daysWithoutUpdate > $maxDays) {
+                $issues[] = sprintf('Sin actualización hace %d días.', $daysWithoutUpdate);
+            }
+        }
+
+        if ($dimension === 'riesgo') {
+            $riskLevel = strtolower((string) ($project['risk_level'] ?? ''));
+            if ($riskLevel === 'alto') {
+                $issues[] = 'Riesgos críticos sin mitigación.';
+            }
+        }
+
+        if ($dimension === 'avance') {
+            $issues[] = 'El avance real requiere alineación con el plan base.';
+        }
+
+        return $issues === [] ? ['Revisar dimensión para mejorar desempeño.'] : $issues;
+    }
+
+    private function buildRecommendations(array $breakdown): array
+    {
+        $recommendations = [];
+        if ((int) ($breakdown['documental']['percentage'] ?? 0) < 85) {
+            $recommendations[] = 'Completar documentos obligatorios fase actual';
+        }
+        if ((int) ($breakdown['seguimiento']['percentage'] ?? 0) < 85) {
+            $recommendations[] = 'Actualizar seguimiento semanal';
+        }
+        if ((int) ($breakdown['riesgo']['percentage'] ?? 0) < 85) {
+            $recommendations[] = 'Revisar riesgos críticos abiertos';
+        }
+        if ((int) ($breakdown['horas']['percentage'] ?? 0) < 85) {
+            $recommendations[] = 'Reducir horas pendientes y validar imputaciones';
+        }
+
+        return $recommendations;
     }
 
     private function calculateDocumentalScore(int $projectId): int

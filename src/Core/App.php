@@ -33,6 +33,7 @@ class App
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
         $migrator->ensureNotificationsLog();
+        $migrator->ensureProjectHealthHistoryTable();
         $this->auth = new Auth($this->db);
     }
 
