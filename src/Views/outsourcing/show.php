@@ -638,8 +638,9 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
     .btn-icon svg { width:16px; height:16px; }
     .inline-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
-    .action-btn.danger { background: color-mix(in srgb, var(--danger) 16%, var(--surface)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
-    .action-btn.danger:hover { background: color-mix(in srgb, var(--danger) 24%, var(--surface)); }
+    .action-btn.danger { background: var(--danger); color: #ffffff; border-color: color-mix(in srgb, var(--danger) 72%, #000 28%); }
+    .action-btn.danger:hover { background: color-mix(in srgb, var(--danger) 86%, #000 14%); color:#ffffff; }
+    .action-btn.danger:disabled { background: color-mix(in srgb, var(--danger) 68%, #ffffff 32%); color:#ffffff; border-color: color-mix(in srgb, var(--danger) 60%, #000 40%); opacity:0.92; cursor:not-allowed; }
     .delete-service-modal { border:none; padding:0; width:min(640px, calc(100% - 2rem)); background:transparent; }
     .delete-service-modal::backdrop { background: rgba(15, 23, 42, 0.45); }
     .delete-service-modal__content { border:1px solid color-mix(in srgb, var(--danger) 32%, var(--border)); border-radius:14px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); }
