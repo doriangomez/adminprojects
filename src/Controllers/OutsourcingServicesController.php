@@ -47,6 +47,7 @@ class OutsourcingServicesController extends Controller
             'talents' => $talents,
             'users' => $users,
             'canManage' => $this->auth->canAccessOutsourcing(),
+            'canDelete' => $this->auth->canDeleteOutsourcing(),
             'filters' => $filters,
             'preselectedTalentId' => $preselectedTalentId,
             'talentCreatedMessage' => $talentCreatedMessage,
@@ -95,6 +96,7 @@ class OutsourcingServicesController extends Controller
             'documentFlowConfig' => (new ConfigService($this->db))->getConfig()['document_flow'] ?? [],
             'currentUser' => $user,
             'canManage' => $this->auth->canAccessOutsourcing(),
+            'canDelete' => $this->auth->canDeleteOutsourcing(),
             'timesheetSummary' => $timesheetSummary,
         ]);
     }
@@ -379,6 +381,64 @@ class OutsourcingServicesController extends Controller
         }
 
         header('Location: /outsourcing/' . $serviceId);
+    }
+
+    public function destroy(int $serviceId): void
+    {
+        $this->requireOutsourcingAccess();
+        $user = $this->auth->user() ?? [];
+
+        if (!$this->auth->canDeleteOutsourcing()) {
+            http_response_code(403);
+            exit('No tienes permisos de gobierno para eliminar servicios de outsourcing.');
+        }
+
+        $mathOperator = trim((string) ($_POST['math_operator'] ?? ''));
+        $operand1 = isset($_POST['math_operand1']) ? (int) $_POST['math_operand1'] : 0;
+        $operand2 = isset($_POST['math_operand2']) ? (int) $_POST['math_operand2'] : 0;
+        $mathResult = trim((string) ($_POST['math_result'] ?? ''));
+
+        if (!in_array($mathOperator, ['+', '-'], true) || $operand1 < 1 || $operand1 > 10 || $operand2 < 1 || $operand2 > 10) {
+            http_response_code(400);
+            exit('La verificación matemática no es válida.');
+        }
+
+        $expected = $mathOperator === '+' ? $operand1 + $operand2 : $operand1 - $operand2;
+        if ($mathResult === '' || (int) $mathResult !== $expected) {
+            http_response_code(400);
+            exit('La confirmación matemática es incorrecta.');
+        }
+
+        try {
+            $servicesRepo = new OutsourcingServicesRepository($this->db);
+            $result = $servicesRepo->deleteServiceCascade($serviceId);
+            if (!($result['success'] ?? false)) {
+                http_response_code(500);
+                exit('No se pudo eliminar el servicio de outsourcing.');
+            }
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'outsourcing_service',
+                $serviceId,
+                'deleted',
+                [
+                    'talent_id' => (int) (($result['service']['talent_id'] ?? 0)),
+                    'client_id' => (int) (($result['service']['client_id'] ?? 0)),
+                    'project_id' => (int) (($result['service']['project_id'] ?? 0)),
+                    'deleted' => $result['deleted'] ?? [],
+                ]
+            );
+
+            header('Location: /outsourcing?deleted=1');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(404);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error al eliminar servicio outsourcing: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo eliminar el servicio de outsourcing.');
+        }
     }
 
     private function requireOutsourcingAccess(): void
