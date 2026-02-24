@@ -22,6 +22,19 @@ class UsersRepository
         return $this->db->fetchOne('SELECT * FROM users WHERE id = :id', [':id' => $id]);
     }
 
+    public function findByEmail(string $email): ?array
+    {
+        $normalizedEmail = strtolower(trim($email));
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        return $this->db->fetchOne(
+            'SELECT * FROM users WHERE email = :email LIMIT 1',
+            [':email' => $normalizedEmail]
+        );
+    }
+
     public function isValidProjectManager(int $id): bool
     {
         $stmt = $this->db->connection()->prepare(

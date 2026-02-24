@@ -15,12 +15,13 @@ class TalentService
         $usersRepo = new UsersRepository($this->db);
         $talentsRepo = new TalentsRepository($this->db);
 
-        $userId = $this->resolveUserId($payload, $usersRepo);
-        $talentId = $talentsRepo->create($this->talentAttributes($payload, $userId));
+        $userResolution = $this->resolveUserForTalentCreation($payload, $usersRepo, $talentsRepo);
+        $talentId = $talentsRepo->create($this->talentAttributes($payload, $userResolution['user_id']));
 
         return [
             'talent_id' => $talentId,
-            'user_id' => $userId,
+            'user_id' => $userResolution['user_id'],
+            'status' => $userResolution['status'],
         ];
     }
 
@@ -44,7 +45,7 @@ class TalentService
             $currentUser = $usersRepo->find($userId) ?? [];
             $usersRepo->update($userId, [
                 'name' => $name !== '' ? $name : ($currentUser['name'] ?? ''),
-                'email' => $email !== '' ? $email : ($currentUser['email'] ?? ''),
+                'email' => $email !== '' ? strtolower($email) : ($currentUser['email'] ?? ''),
                 'role_id' => $this->talentRoleId(),
                 'active' => $currentUser['active'] ?? 1,
                 'can_review_documents' => $currentUser['can_review_documents'] ?? 0,
@@ -54,10 +55,11 @@ class TalentService
                 'can_access_outsourcing' => $currentUser['can_access_outsourcing'] ?? 0,
             ]);
         } elseif ($email !== '') {
-            $userId = $this->resolveUserId($payload, $usersRepo);
+            $resolution = $this->resolveUserForTalentCreation($payload, $usersRepo, $talentsRepo);
+            $userId = (int) ($resolution['user_id'] ?? 0);
         }
 
-        $talentsRepo->update($talentId, $this->talentAttributes($payload, $userId));
+        $talentsRepo->update($talentId, $this->talentAttributes($payload, $userId > 0 ? $userId : null));
 
         return [
             'talent_id' => $talentId,
@@ -75,13 +77,37 @@ class TalentService
         }
     }
 
-    private function resolveUserId(array $payload, UsersRepository $usersRepo): ?int
+    private function resolveUserForTalentCreation(array $payload, UsersRepository $usersRepo, TalentsRepository $talentsRepo): array
     {
-        $email = trim((string) ($payload['email'] ?? ''));
+        $email = strtolower(trim((string) ($payload['email'] ?? '')));
         if ($email === '') {
-            return null;
+            return [
+                'user_id' => null,
+                'status' => 'talent_without_access',
+            ];
         }
 
+        $existingUser = $usersRepo->findByEmail($email);
+        if ($existingUser) {
+            $existingTalent = $talentsRepo->findByUserId((int) ($existingUser['id'] ?? 0));
+            if ($existingTalent) {
+                throw new InvalidArgumentException('El usuario ya está registrado como talento');
+            }
+
+            return [
+                'user_id' => (int) $existingUser['id'],
+                'status' => 'existing_user_reused',
+            ];
+        }
+
+        return [
+            'user_id' => $this->createTalentUser($payload, $usersRepo, $email),
+            'status' => 'new_user_created',
+        ];
+    }
+
+    private function createTalentUser(array $payload, UsersRepository $usersRepo, string $email): int
+    {
         $name = trim((string) ($payload['name'] ?? ''));
         $password = bin2hex(random_bytes(6));
 
