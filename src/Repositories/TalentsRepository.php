@@ -85,6 +85,29 @@ class TalentsRepository
         );
     }
 
+    public function assignmentOptions(): array
+    {
+        $conditions = [];
+
+        if ($this->db->columnExists('talents', 'active')) {
+            $conditions[] = 't.active = 1';
+        }
+
+        if ($this->db->columnExists('users', 'active')) {
+            $conditions[] = '(u.id IS NULL OR u.active = 1)';
+        }
+
+        $where = $conditions !== [] ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        return $this->db->fetchAll(
+            'SELECT t.id, t.name, t.role, t.tipo_talento
+             FROM talents t
+             LEFT JOIN users u ON u.id = t.user_id
+             ' . $where . '
+             ORDER BY t.name'
+        );
+    }
+
     public function find(int $talentId): ?array
     {
         $select = [

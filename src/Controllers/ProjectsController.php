@@ -280,7 +280,7 @@ class ProjectsController extends Controller
         }
 
         $assignments = $repo->assignmentsForProject($id, $user);
-        $talents = (new TalentsRepository($this->db))->summary();
+        $talents = (new TalentsRepository($this->db))->assignmentOptions();
 
         $this->render('projects/talent', [
             'title' => 'Gestionar talento',
@@ -325,7 +325,7 @@ class ProjectsController extends Controller
         $isClosed = $this->normalizeStatus((string) ($project['status'] ?? '')) === 'closed';
         $talents = [];
         if ($canManage && !$isClosed) {
-            $talents = (new TalentsRepository($this->db))->summary();
+            $talents = (new TalentsRepository($this->db))->assignmentOptions();
         }
 
         $this->render('projects/tasks', [
@@ -401,7 +401,7 @@ class ProjectsController extends Controller
         }
 
         $assignments = $repo->assignmentsForProject($id, $user);
-        $talents = (new TalentsRepository($this->db))->summary();
+        $talents = (new TalentsRepository($this->db))->assignmentOptions();
         $users = array_values(array_filter(
             (new UsersRepository($this->db))->all(),
             static fn (array $candidate): bool => (int) ($candidate['active'] ?? 0) === 1
