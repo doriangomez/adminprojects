@@ -327,6 +327,10 @@ class App
 
         if (str_starts_with($path, '/tasks')) {
             $controller = new TasksController($this->db, $this->auth);
+            if ($path === '/tasks/create' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
             if (preg_match('#^/tasks/(\\d+)/edit$#', $path, $matches) && $method === 'GET') {
                 $controller->edit((int) $matches[1]);
                 return;
