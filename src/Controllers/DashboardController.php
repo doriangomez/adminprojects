@@ -13,6 +13,7 @@ class DashboardController extends Controller
             'title' => 'Dashboard Ejecutivo',
             'summary' => $service->executiveSummary($user),
             'projects' => $service->projectHealth($user),
+            'portfolioHealth' => $service->portfolioHealthAverage($user),
             'timesheets' => $service->timesheetOverview($user),
             'outsourcing' => $service->outsourcingOverview($user),
             'governance' => $service->governanceOverview($user),

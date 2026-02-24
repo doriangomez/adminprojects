@@ -174,6 +174,44 @@ class DashboardService
         ];
     }
 
+
+
+    public function portfolioHealthAverage(array $user): array
+    {
+        [$where, $params] = $this->visibilityForUser($user);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+
+        $rows = $this->db->fetchAll(
+            "SELECT p.id
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}",
+            $params
+        );
+
+        $service = new ProjectService($this->db);
+        $total = 0;
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $projectId = (int) ($row['id'] ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+
+            $score = $service->calculateProjectHealthScore($projectId);
+            $total += (int) ($score['total_score'] ?? 0);
+            $count++;
+        }
+
+        $average = $count > 0 ? (int) round($total / $count) : 0;
+
+        return [
+            'average_score' => $average,
+            'projects_count' => $count,
+        ];
+    }
+
     public function timesheetOverview(array $user): array
     {
         [$where, $params] = $this->visibilityForUser($user);

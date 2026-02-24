@@ -327,6 +327,18 @@ $formatTimestamp = static function (?string $value): string {
     return date('d/m/Y H:i', $timestamp);
 };
 $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['created_at'] ?? null) : 'Sin registro';
+
+$healthScore = is_array($healthScore ?? null) ? $healthScore : [
+    'total_score' => 0,
+    'documental_score' => 0,
+    'avance_score' => 0,
+    'horas_score' => 0,
+    'seguimiento_score' => 0,
+    'riesgo_score' => 0,
+];
+$healthTotal = (int) ($healthScore['total_score'] ?? 0);
+$healthTone = $healthTotal >= 80 ? 'health-green' : ($healthTotal >= 60 ? 'health-yellow' : 'health-red');
+$healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' : 'Crítica');
 ?>
 
 <section class="project-shell">
@@ -340,6 +352,12 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
                 <span class="pill neutral">Estado: <?= htmlspecialchars((string) $projectStatusLabel) ?></span>
                 <span class="pill neutral">Stage-gate: <?= htmlspecialchars($projectStage) ?></span>
             </div>
+        </div>
+
+        <div class="project-health-card <?= $healthTone ?>">
+            <div class="project-health-score">[ <?= $healthTotal ?> / 100 ]</div>
+            <div class="project-health-title">Salud Integral</div>
+            <div class="project-health-state"><?= $healthTone === 'health-green' ? '🟢' : ($healthTone === 'health-yellow' ? '🟡' : '🔴') ?> <?= htmlspecialchars($healthLabel) ?></div>
         </div>
         <div class="project-actions">
             <a class="action-btn" href="<?= htmlspecialchars($returnUrl) ?>">Volver al listado</a>
@@ -822,6 +840,13 @@ $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['cr
 <style>
     .project-shell { display:flex; flex-direction:column; gap:16px; }
     .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
+    .project-health-card { min-width: 180px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 90%, var(--background)); }
+    .project-health-score { font-size: 24px; font-weight: 800; }
+    .project-health-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+    .project-health-state { font-size: 13px; font-weight: 700; margin-top: 6px; }
+    .project-health-card.health-green { border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+    .project-health-card.health-yellow { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
+    .project-health-card.health-red { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
     .project-title-block h2 { margin:0; color: var(--text-primary); }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }

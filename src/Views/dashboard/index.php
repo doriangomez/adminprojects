@@ -86,10 +86,18 @@
     $progressByClient = $projects['progress_by_client'] ?? [];
     $staleProjects = $projects['stale_projects'] ?? [];
     $stageDistribution = $projects['stage_distribution'] ?? [];
+    $portfolioHealth = is_array($portfolioHealth ?? null) ? $portfolioHealth : ['average_score' => 0, 'projects_count' => 0];
+    $portfolioAverage = (int) ($portfolioHealth['average_score'] ?? 0);
+    $portfolioTone = $portfolioAverage >= 80 ? 'soft-green' : ($portfolioAverage >= 60 ? 'soft-amber' : 'soft-red');
     ?>
 
     <div>
         <h2 class="section-title">Resumen ejecutivo</h2>
+        <div class="card elevated" style="margin-bottom: 14px;">
+            <span class="pill <?= $portfolioTone ?>">Salud promedio del portafolio</span>
+            <p style="margin:10px 0 0; font-size: 34px; font-weight: 800;"><?= $portfolioAverage ?> / 100</p>
+            <p class="muted" style="margin-top: 4px;">Base: <?= (int) ($portfolioHealth['projects_count'] ?? 0) ?> proyectos.</p>
+        </div>
         <div class="kpi-grid">
             <div class="card kpi-card" data-tone="blue">
                 <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M8 10h8"/><path d="M8 14h4"/></svg></span>

@@ -90,6 +90,18 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
     return 'status-planning';
 };
 
+
+$healthScoreClass = static function (int $score): string {
+    if ($score >= 80) {
+        return 'score-green';
+    }
+    if ($score >= 60) {
+        return 'score-yellow';
+    }
+
+    return 'score-red';
+};
+
 $buildQuery = static function (array $overrides) use ($rawQuery): string {
     $params = array_merge($rawQuery, $overrides);
     $params = array_filter($params, static fn ($value) => $value !== null && $value !== '');
@@ -446,6 +458,11 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
     .menu-details[open] .menu-trigger { background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); }
 
+    .compact-health { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:800; padding:4px 8px; border-radius:999px; border:1px solid var(--border); }
+    .compact-health.score-green { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+    .compact-health.score-yellow { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+    .compact-health.score-red { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+
     .risk-summary { font-size: 12px; color: var(--text-secondary); }
 
     .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; }
@@ -616,6 +633,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                     <th>Stage-gate</th>
                     <th>Estado</th>
                     <th>Riesgo</th>
+                    <th>Salud</th>
                     <th>Avance</th>
                     <th>PM</th>
                     <th>Fechas</th>
@@ -653,6 +671,10 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         </td>
                         <td>
                             <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
+                        </td>
+                        <td>
+                            <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
+                            <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
                         </td>
                         <td>
                             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -737,6 +759,8 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
                         <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                         <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
+                        <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
+                        <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
                     </div>
 
                     <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
