@@ -37,9 +37,14 @@
         <label class="input">
             <span>Prioridad *</span>
             <select name="priority_code" required>
-                <?php foreach($priorities as $priority): ?>
-                    <option value="<?= htmlspecialchars($priority['code']) ?>"><?= htmlspecialchars($priority['label']) ?></option>
-                <?php endforeach; ?>
+                <option value="">Selecciona prioridad</option>
+                <?php if (empty($priorities)): ?>
+                    <option value="" disabled>No hay prioridades configuradas</option>
+                <?php else: ?>
+                    <?php foreach($priorities as $priority): ?>
+                        <option value="<?= htmlspecialchars($priority['code']) ?>"><?= htmlspecialchars($priority['label']) ?></option>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </select>
         </label>
         <label class="input">
@@ -64,12 +69,16 @@
             <small style="color: var(--text-secondary);">Formatos: PNG, JPG o SVG. Se almacenará en uploads/clients/.</small>
         </label>
         <label class="input">
-            <span>Riesgo de la relación</span>
+            <span>Salud de la relación</span>
             <select name="risk_code">
-                <option value="">Selecciona riesgo</option>
-                <?php foreach($risks as $risk): ?>
-                    <option value="<?= htmlspecialchars($risk['code']) ?>"><?= htmlspecialchars($risk['label']) ?></option>
-                <?php endforeach; ?>
+                <option value="">Selecciona salud</option>
+                <?php if (empty($risks)): ?>
+                    <option value="" disabled>No hay opciones de salud configuradas</option>
+                <?php else: ?>
+                    <?php foreach($risks as $risk): ?>
+                        <option value="<?= htmlspecialchars($risk['code']) ?>"><?= htmlspecialchars($risk['label']) ?></option>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </select>
         </label>
         <label class="input">
