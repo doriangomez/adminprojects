@@ -167,6 +167,21 @@ class TalentsRepository
         return $talent ?: null;
     }
 
+
+    public function findByUserId(int $userId): ?array
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $talent = $this->db->fetchOne(
+            'SELECT id, user_id, name FROM talents WHERE user_id = :user_id LIMIT 1',
+            [':user_id' => $userId]
+        );
+
+        return $talent ?: null;
+    }
+
     public function create(array $payload): int
     {
         $columns = [

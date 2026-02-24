@@ -55,7 +55,11 @@ class TalentsController extends Controller
                 ]
             );
 
-            $flashKey = !empty($payload['is_outsourcing']) ? 'created_outsourcing' : 'created';
+            $flashKey = match ($created['status'] ?? '') {
+                'existing_user_reused' => 'created_existing_user',
+                'talent_without_access' => 'created_without_access',
+                default => !empty($payload['is_outsourcing']) ? 'created_outsourcing' : 'created',
+            };
             header('Location: /talents?saved=' . $flashKey);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
