@@ -171,13 +171,17 @@ $flashMessageText = match ($flashMessage) {
                     </select>
                 </label>
             </div>
-            <label class="checkbox">
-                <input type="checkbox" id="requires-approval" name="requiere_aprobacion_horas" value="1" <?= !empty($editingTalent['requiere_aprobacion_horas']) ? 'checked' : '' ?>>
-                Requiere aprobación de horas
+            <?php
+            $requiresApproval = !empty($editingTalent['requiere_aprobacion_horas']);
+            $selectedApprover = (int) ($editingTalent['timesheet_approver_user_id'] ?? 0);
+            ?>
+            <label class="toggle-switch toggle-switch--state toggle-switch--row" aria-label="Requiere aprobación de horas">
+                <span class="toggle-label">Requiere aprobación de horas</span>
+                <input type="checkbox" id="requires-approval" name="requiere_aprobacion_horas" value="1" <?= $requiresApproval ? 'checked' : '' ?>>
+                <span class="toggle-slider" aria-hidden="true"></span>
             </label>
-            <label>Jefe aprobador
-                <?php $selectedApprover = (int) ($editingTalent['timesheet_approver_user_id'] ?? 0); ?>
-                <select name="timesheet_approver_user_id" id="timesheet-approver-select" <?= !empty($editingTalent['requiere_aprobacion_horas']) ? 'required' : '' ?>>
+            <label id="timesheet-approver-field" <?= !$requiresApproval ? 'hidden' : '' ?>>Jefe aprobador
+                <select name="timesheet_approver_user_id" id="timesheet-approver-select" <?= $requiresApproval ? 'required' : '' ?> <?= !$requiresApproval ? 'disabled' : '' ?>>
                     <option value="">Selecciona un jefe aprobador</option>
                     <?php foreach ($timesheetApproverOptions as $approver): ?>
                         <option value="<?= (int) ($approver['id'] ?? 0) ?>" <?= $selectedApprover === (int) ($approver['id'] ?? 0) ? 'selected' : '' ?>>
@@ -185,7 +189,7 @@ $flashMessageText = match ($flashMessage) {
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <small class="section-muted">Obligatorio si el talento requiere aprobación de horas.</small>
+                <small class="section-muted">Solo se muestran usuarios activos con permiso para aprobar timesheets.</small>
             </label>
 
             <div class="divider"></div>
@@ -470,7 +474,6 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; }
-    .checkbox { flex-direction:row; align-items:center; gap:8px; }
     .divider { border-top:1px dashed var(--border); margin:8px 0; }
     .talent-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
     .talent-card { border:1px solid color-mix(in srgb, var(--border) 70%, var(--surface) 30%); border-radius:18px; padding:16px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:14px; }
@@ -490,6 +493,15 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     .pill-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); }
     .pill-success { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--surface) 65%); }
     .pill-warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); color:var(--warning); border-color:color-mix(in srgb, var(--warning) 35%, var(--surface) 65%); }
+    .toggle-switch--row { justify-content:space-between; width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); }
+    .toggle-switch { display:inline-flex; align-items:center; gap:10px; position:relative; }
+    .toggle-switch .toggle-label { font-weight:600; color:var(--text-primary); }
+    .toggle-switch input { position:absolute; opacity:0; width:1px; height:1px; }
+    .toggle-switch .toggle-slider { width:46px; height:26px; border-radius:999px; background:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); border:1px solid var(--border); position:relative; transition:all .2s ease; }
+    .toggle-switch .toggle-slider::after { content:''; position:absolute; width:20px; height:20px; top:2px; left:2px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(15,23,42,.25); transition:transform .2s ease; }
+    .toggle-switch input:checked + .toggle-slider { background:#0b2a6f; border-color:#0b2a6f; }
+    .toggle-switch input:checked + .toggle-slider::after { transform:translateX(20px); }
+    .toggle-switch input:focus-visible + .toggle-slider { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color:var(--text-primary); border-color: var(--primary); }
     .action-btn.small { padding:6px 10px; font-size:12px; width:max-content; }
@@ -534,16 +546,23 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
 
 <script>
 (() => {
-    const approvalCheckbox = document.getElementById('requires-approval');
+    const approvalToggle = document.getElementById('requires-approval');
+    const approverField = document.getElementById('timesheet-approver-field');
     const approverSelect = document.getElementById('timesheet-approver-select');
-    if (!approvalCheckbox || !approverSelect) return;
-    const toggleApproverField = () => {
-        approverSelect.required = approvalCheckbox.checked;
-        if (!approvalCheckbox.checked) {
+    if (!approvalToggle || !approverField || !approverSelect) return;
+
+    const syncApproverField = () => {
+        const requiresApproval = approvalToggle.checked;
+        approverField.hidden = !requiresApproval;
+        approverField.setAttribute('aria-hidden', requiresApproval ? 'false' : 'true');
+        approverSelect.required = requiresApproval;
+        approverSelect.disabled = !requiresApproval;
+        if (!requiresApproval) {
             approverSelect.value = '';
         }
     };
-    approvalCheckbox.addEventListener('change', toggleApproverField);
-    toggleApproverField();
+
+    approvalToggle.addEventListener('change', syncApproverField);
+    syncApproverField();
 })();
 </script>
