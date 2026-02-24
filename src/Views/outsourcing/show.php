@@ -17,6 +17,7 @@ $timesheetSummary = is_array($timesheetSummary ?? null)
         'period_end' => null,
     ];
 $canManage = !empty($canManage);
+$canDelete = !empty($canDelete);
 
 $serviceStatusLabels = [
     'active' => 'Activo',
@@ -117,6 +118,9 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
                 </span>
                 Evidencias
             </a>
+            <?php if ($canDelete): ?>
+                <button type="button" class="action-btn danger" id="open-delete-service-modal">Eliminar servicio</button>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -147,6 +151,38 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
             Evidencias
         </a>
     </nav>
+
+    <?php if ($canDelete): ?>
+        <?php
+        $op1 = random_int(1, 10);
+        $op2 = random_int(1, 10);
+        $operator = random_int(0, 1) === 1 ? '+' : '-';
+        ?>
+        <dialog class="delete-service-modal" id="delete-service-modal">
+            <form method="dialog" class="delete-service-modal__backdrop-form">
+                <button type="submit" class="delete-service-modal__backdrop" aria-label="Cerrar"></button>
+            </form>
+            <div class="delete-service-modal__content">
+                <header class="delete-service-modal__header">
+                    <h4>Eliminar servicio de outsourcing</h4>
+                    <button type="button" class="action-btn ghost small" id="close-delete-service-modal">Cerrar</button>
+                </header>
+                <p class="section-muted">Esta acción elimina el servicio, sus seguimientos y su carpeta de evidencias asociada. Requiere permiso desde Gobierno y confirmación matemática.</p>
+                <form method="POST" action="<?= $basePath ?>/outsourcing/<?= (int) ($service['id'] ?? 0) ?>/delete" id="delete-service-form" class="followup-form delete-service-form">
+                    <input type="hidden" name="math_operand1" value="<?= $op1 ?>">
+                    <input type="hidden" name="math_operand2" value="<?= $op2 ?>">
+                    <input type="hidden" name="math_operator" value="<?= $operator ?>">
+                    <label>Confirmación matemática: <?= $op1 . ' ' . $operator . ' ' . $op2 ?> = ?
+                        <input type="number" name="math_result" id="delete-math-result" required>
+                    </label>
+                    <div class="delete-service-form__actions">
+                        <button type="button" class="action-btn ghost" id="cancel-delete-service">Cancelar</button>
+                        <button type="submit" class="action-btn danger" id="confirm-delete-service" disabled>Eliminar definitivamente</button>
+                    </div>
+                </form>
+            </div>
+        </dialog>
+    <?php endif; ?>
 
     <section class="outsourcing-overview" id="resumen">
         <div class="overview-card">
@@ -467,6 +503,70 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
     </section>
 </section>
 
+
+<?php if ($canDelete): ?>
+<script>
+(function () {
+    const openButton = document.getElementById('open-delete-service-modal');
+    const closeButton = document.getElementById('close-delete-service-modal');
+    const cancelButton = document.getElementById('cancel-delete-service');
+    const modal = document.getElementById('delete-service-modal');
+    const form = document.getElementById('delete-service-form');
+    const resultInput = document.getElementById('delete-math-result');
+    const submitButton = document.getElementById('confirm-delete-service');
+    if (!openButton || !modal || !form || !resultInput || !submitButton) {
+        return;
+    }
+
+    const closeModal = function () {
+        if (typeof modal.close === 'function' && modal.open) {
+            modal.close();
+        }
+    };
+
+    openButton.addEventListener('click', function () {
+        if (typeof modal.showModal === 'function') {
+            modal.showModal();
+            resultInput.focus();
+            return;
+        }
+        modal.setAttribute('open', 'open');
+        resultInput.focus();
+    });
+
+    if (closeButton) {
+        closeButton.addEventListener('click', closeModal);
+    }
+
+    if (cancelButton) {
+        cancelButton.addEventListener('click', closeModal);
+    }
+
+    const isValid = function () {
+        const operand1 = Number(form.querySelector('input[name="math_operand1"]').value || '0');
+        const operand2 = Number(form.querySelector('input[name="math_operand2"]').value || '0');
+        const operator = form.querySelector('input[name="math_operator"]').value;
+        const expected = operator === '+' ? operand1 + operand2 : operand1 - operand2;
+        const provided = Number(resultInput.value || 'NaN');
+        return Number.isFinite(provided) && provided === expected;
+    };
+
+    resultInput.addEventListener('input', function () {
+        submitButton.disabled = !isValid();
+    });
+
+    form.addEventListener('submit', function (event) {
+        if (!isValid()) {
+            event.preventDefault();
+            window.alert('La confirmación matemática es incorrecta.');
+            return;
+        }
+        closeModal();
+    });
+})();
+</script>
+<?php endif; ?>
+
 <style>
     .outsourcing-shell { display:flex; flex-direction:column; gap:18px; }
     .outsourcing-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); }
@@ -527,4 +627,15 @@ $periodLabel = ($timesheetSummary['period_start'] ?? null)
     .btn-icon { display:inline-flex; width:16px; height:16px; }
     .btn-icon svg { width:16px; height:16px; }
     .inline-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    .action-btn.danger { background: color-mix(in srgb, var(--danger) 16%, var(--surface)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+    .action-btn.danger:hover { background: color-mix(in srgb, var(--danger) 24%, var(--surface)); }
+    .delete-service-modal { border:none; padding:0; width:min(640px, calc(100% - 2rem)); background:transparent; }
+    .delete-service-modal::backdrop { background: rgba(15, 23, 42, 0.45); }
+    .delete-service-modal__content { border:1px solid color-mix(in srgb, var(--danger) 32%, var(--border)); border-radius:14px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2); }
+    .delete-service-modal__header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .delete-service-modal__header h4 { margin:0; }
+    .delete-service-form__actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+    .delete-service-modal__backdrop-form { margin:0; padding:0; }
+    .delete-service-modal__backdrop { display:none; }
 </style>

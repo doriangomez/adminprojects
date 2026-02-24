@@ -28,6 +28,7 @@ class App
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
         $migrator->ensureTimesheetPermissions();
+        $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
         $migrator->ensureNotificationsLog();
@@ -365,6 +366,10 @@ class App
             }
             if (preg_match('#^/outsourcing/(\\d+)/followups/(\\d+)/close$#', $path, $matches) && $method === 'POST') {
                 $controller->closeFollowup((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/outsourcing/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->destroy((int) $matches[1]);
                 return;
             }
             if ($path === '/outsourcing/talents' && $method === 'POST') {
