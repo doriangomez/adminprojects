@@ -112,7 +112,11 @@ $talents = is_array($talents ?? null) ? $talents : [];
             </label>
         </div>
         <div class="checkbox-grid">
-            <label><input type="checkbox" name="is_external" value="1"> Es externo</label>
+            <label class="toggle-field" for="is-external">
+                <input id="is-external" type="checkbox" name="is_external" value="1" class="toggle-input">
+                <span class="toggle-switch" aria-hidden="true"></span>
+                <span>Es externo</span>
+            </label>
             <span class="section-muted">El reporte y la aprobación de horas se definen en la ficha del talento.</span>
         </div>
         <button type="submit" class="action-btn primary">Guardar asignación</button>
@@ -130,7 +134,14 @@ $talents = is_array($talents ?? null) ? $talents : [];
     .talent-row { display:grid; grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr); gap:10px; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
     .talent-head { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); font-weight:700; font-size:12px; text-transform:uppercase; color: var(--text-secondary); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; }
-    .checkbox-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:8px; }
+    .checkbox-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:8px; align-items:center; }
+    .toggle-field { display:inline-flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; }
+    .toggle-input { position:absolute; opacity:0; pointer-events:none; }
+    .toggle-switch { width:44px; height:24px; border-radius:999px; background: color-mix(in srgb, var(--text-secondary) 40%, var(--background)); border:1px solid var(--border); position:relative; transition:background 0.2s ease; flex-shrink:0; }
+    .toggle-switch::after { content:""; width:18px; height:18px; border-radius:50%; background: var(--surface); position:absolute; top:2px; left:2px; transition:transform 0.2s ease; box-shadow:0 1px 2px rgba(0,0,0,0.25); }
+    .toggle-input:checked + .toggle-switch { background: var(--primary); border-color: var(--primary); }
+    .toggle-input:checked + .toggle-switch::after { transform:translateX(20px); }
+    .toggle-input:focus-visible + .toggle-switch { outline:2px solid color-mix(in srgb, var(--primary) 70%, white); outline-offset:2px; }
     .badge { display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid var(--background); }
     .status-muted { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color: var(--text-primary); border-color: var(--border); }
     .status-success { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--background)); }
