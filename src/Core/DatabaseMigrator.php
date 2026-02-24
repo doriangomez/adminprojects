@@ -493,6 +493,10 @@ class DatabaseMigrator
                 $this->db->execute('ALTER TABLE users ADD COLUMN can_delete_timesheet_workflow_records TINYINT(1) DEFAULT 0 AFTER can_manage_timesheet_workflow');
             }
 
+            if (!$this->db->columnExists('users', 'can_manage_advanced_timesheets')) {
+                $this->db->execute('ALTER TABLE users ADD COLUMN can_manage_advanced_timesheets TINYINT(1) DEFAULT 0 AFTER can_delete_timesheet_workflow_records');
+            }
+
             if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
                 return;
             }
@@ -517,10 +521,20 @@ class DatabaseMigrator
                     ':name' => 'Eliminar historial de flujo de timesheets',
                 ]
             );
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => 'timesheets.advanced_manage',
+                    ':code_check' => 'timesheets.advanced_manage',
+                    ':name' => 'Gestión avanzada de timesheets (edición/eliminación masiva)',
+                ]
+            );
 
             $roles = $this->db->fetchAll("SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')");
             foreach ($roles as $role) {
-                foreach (['timesheets.reopen', 'timesheets.delete'] as $code) {
+                foreach (['timesheets.reopen', 'timesheets.delete', 'timesheets.advanced_manage'] as $code) {
                     $this->db->execute(
                         'INSERT INTO role_permissions (role_id, permission_id)
                          SELECT :role_id_value, p.id

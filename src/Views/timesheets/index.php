@@ -4,6 +4,7 @@ $canReport = !empty($canReport);
 $canApprove = !empty($canApprove);
 $canManageWorkflow = !empty($canManageWorkflow);
 $canDeleteWeek = !empty($canDeleteWeek);
+$canManageAdvanced = !empty($canManageAdvanced);
 $weekStart = $weekStart ?? new DateTimeImmutable('monday this week');
 $weekEnd = $weekEnd ?? $weekStart->modify('+6 days');
 $weekValue = $weekValue ?? $weekStart->format('o-\\WW');
@@ -28,6 +29,9 @@ $approvedWeeks = is_array($approvedWeeks ?? null) ? $approvedWeeks : [];
 $talentBreakdown = is_array($talentBreakdown ?? null) ? $talentBreakdown : [];
 $projectBreakdown = is_array($projectBreakdown ?? null) ? $projectBreakdown : [];
 $talentSort = (string) ($talentSort ?? 'load_desc');
+$managedWeekEntries = is_array($managedWeekEntries ?? null) ? $managedWeekEntries : [];
+$talentOptions = is_array($talentOptions ?? null) ? $talentOptions : [];
+$talentFilter = (int) ($talentFilter ?? 0);
 
 $statusMap = [
     'approved' => ['label' => 'Aprobada', 'class' => 'approved'],
@@ -175,6 +179,65 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
                     <?php endforeach; ?>
                 </div>
             </section>
+
+            <?php if (($canApprove || $canManageAdvanced)): ?>
+            <section class="card" id="manager-view">
+                <h3>Control gerencial operativo</h3>
+                <p class="section-muted">Aprobación/rechazo por registro, edición controlada, reapertura y eliminación con auditoría.</p>
+                <form method="GET" class="filters-grid" style="grid-template-columns:repeat(4,minmax(120px,1fr));margin-bottom:12px;">
+                    <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
+                    <label>Talento
+                        <select name="talent_id">
+                            <option value="0">Todos</option>
+                            <?php foreach ($talentOptions as $tal): ?>
+                                <option value="<?= (int) ($tal['id'] ?? 0) ?>" <?= $talentFilter === (int) ($tal['id'] ?? 0) ? 'selected' : '' ?>><?= htmlspecialchars((string) ($tal['name'] ?? '')) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <button type="submit" class="primary-button">Filtrar gestión</button>
+                </form>
+                <div class="table-wrap"><table class="clean-table"><thead><tr><th>Fecha</th><th>Talento</th><th>Proyecto</th><th>Horas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+                <?php foreach ($managedWeekEntries as $entry): ?>
+                    <tr>
+                        <td><?= htmlspecialchars((string) ($entry['date'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($entry['talent_name'] ?? $entry['user_name'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($entry['project_name'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) round((float) ($entry['hours'] ?? 0), 2)) ?></td>
+                        <td><span class="badge-state <?= htmlspecialchars((string) ($entry['status'] ?? 'draft')) ?>"><?= htmlspecialchars((string) ($entry['status'] ?? 'draft')) ?></span></td>
+                        <td>
+                            <?php if ($canApprove && in_array((string) ($entry['status'] ?? ''), ['submitted','pending','pending_approval'], true)): ?>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) ($entry['id'] ?? 0) ?>/approve" class="inline-form"><button type="submit" class="action-btn small primary">Aprobar</button></form>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/<?= (int) ($entry['id'] ?? 0) ?>/reject" class="inline-form"><input type="text" name="comment" placeholder="Motivo" required><button type="submit" class="action-btn small danger">Rechazar</button></form>
+                            <?php endif; ?>
+                            <?php if ($canManageAdvanced): ?>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/admin-action" class="inline-form"><input type="hidden" name="admin_action" value="update_hours"><input type="hidden" name="timesheet_id" value="<?= (int) ($entry['id'] ?? 0) ?>"><input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>"><input type="number" step="0.25" min="0" max="24" name="hours" value="<?= htmlspecialchars((string) ($entry['hours'] ?? 0)) ?>" required><input type="text" name="reason" placeholder="Motivo auditoría" required><button type="submit" class="action-btn small">Editar</button></form>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/admin-action" class="inline-form"><input type="hidden" name="admin_action" value="delete_entry"><input type="hidden" name="timesheet_id" value="<?= (int) ($entry['id'] ?? 0) ?>"><input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>"><input type="text" name="reason" placeholder="Motivo auditoría" required><button type="submit" class="action-btn small danger">Eliminar</button></form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody></table></div>
+
+                <?php if ($canManageAdvanced): ?>
+                    <h4>Eliminación masiva controlada</h4>
+                    <form method="POST" action="<?= $basePath ?>/timesheets/admin-action" class="filters-grid" style="grid-template-columns:repeat(4,minmax(140px,1fr));">
+                        <input type="hidden" name="admin_action" value="delete_week">
+                        <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
+                        <input type="hidden" name="week_start" value="<?= htmlspecialchars($weekStart->format('Y-m-d')) ?>">
+                        <label>Talento afectado
+                            <select name="talent_id"><option value="0">Toda la semana</option><?php foreach ($talentOptions as $tal): ?><option value="<?= (int) ($tal['id'] ?? 0) ?>"><?= htmlspecialchars((string) ($tal['name'] ?? '')) ?></option><?php endforeach; ?></select>
+                        </label>
+                        <label>Motivo
+                            <input type="text" name="reason" required placeholder="Ej: limpieza de carga masiva">
+                        </label>
+                        <label>Confirmación explícita
+                            <input type="text" name="confirm_token" required placeholder="ELIMINAR MASIVO">
+                        </label>
+                        <button type="submit" class="action-btn danger">Eliminar masivo</button>
+                    </form>
+                <?php endif; ?>
+            </section>
+            <?php endif; ?>
 
             <?php if ($canReport): ?>
             <section class="card" id="table-view">
