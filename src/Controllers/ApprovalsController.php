@@ -37,7 +37,7 @@ class ApprovalsController extends Controller
         }
 
         $timesheetApprovals = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->pendingApprovals($user)
+            ? (new TimesheetsRepository($this->db))->pendingApprovalsByWeek($user)
             : [];
 
         $this->render('approvals/index', [

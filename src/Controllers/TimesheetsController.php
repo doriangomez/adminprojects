@@ -37,6 +37,7 @@ class TimesheetsController extends Controller
             'kpis' => $repo->kpis($user),
             'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
             'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
+            'weeklyGrid' => $canReport ? $repo->weeklyGridForUser($userId, $weekStart) : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0],
             'canApprove' => $canApprove,
             'canReport' => $canReport,
             'timesheetsEnabled' => $timesheetsEnabled,
@@ -46,115 +47,105 @@ class TimesheetsController extends Controller
         ]);
     }
 
-    public function create(): void
+    public function saveCell(): void
     {
-        $repo = new TimesheetsRepository($this->db);
-        $user = $this->auth->user() ?? [];
-        $userId = (int) ($user['id'] ?? 0);
-
         if (!$this->auth->canAccessTimesheets()) {
             http_response_code(403);
             exit('Acceso denegado');
         }
 
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+
         $projectId = (int) ($_POST['project_id'] ?? 0);
         $date = trim((string) ($_POST['date'] ?? ''));
-        $hours = (float) ($_POST['hours'] ?? 0);
+        $hours = max(0, (float) ($_POST['hours'] ?? 0));
         $comment = trim((string) ($_POST['comment'] ?? ''));
-        $billable = isset($_POST['billable']) ? 1 : 0;
 
-        if ($projectId <= 0 || $date === '' || $hours <= 0 || $comment === '') {
+        if ($projectId <= 0 || $date === '') {
             http_response_code(400);
-            exit('Completa los datos requeridos para registrar horas.');
+            exit('Proyecto y fecha son requeridos.');
         }
-
-        $assignment = $repo->assignmentForProject($projectId, $userId);
-        if (!$assignment) {
-            http_response_code(403);
-            exit('No tienes una asignación habilitada para reportar horas en este proyecto.');
-        }
-
-        $talentId = (int) ($assignment['talent_id'] ?? 0);
-        if ($talentId <= 0) {
-            http_response_code(400);
-            exit('Tu usuario no tiene un talento asociado.');
-        }
-
-        if ((int) ($assignment['talent_requires_report'] ?? 0) !== 1) {
-            http_response_code(403);
-            exit('Tu perfil de talento no tiene habilitado el registro de horas.');
-        }
-
-        $requiresApproval = (int) ($assignment['talent_requires_approval'] ?? 0) === 1;
-        $approverUserId = $requiresApproval ? (int) ($assignment['timesheet_approver_user_id'] ?? 0) : 0;
-
-        if ($requiresApproval && $approverUserId <= 0) {
-            http_response_code(400);
-            exit('Tu talento requiere aprobación de horas, pero no tiene jefe aprobador configurado.');
-        }
-
-        $status = $requiresApproval ? 'pending_approval' : 'approved';
-        $approvedBy = $requiresApproval ? null : $userId;
-        $approvedAt = $requiresApproval ? null : date('Y-m-d H:i:s');
 
         try {
-            $taskId = $repo->resolveTimesheetTaskId($projectId);
-            $timesheetId = $repo->createTimesheet([
-                'task_id' => $taskId,
-                'project_id' => $projectId,
-                'talent_id' => $talentId,
-                'user_id' => $userId,
-                'assignment_id' => $assignment['id'] ?? null,
-                'approver_user_id' => $requiresApproval ? $approverUserId : null,
-                'date' => $date,
-                'hours' => $hours,
-                'status' => $status,
-                'comment' => $comment,
-                'billable' => $billable,
-                'approved_by' => $approvedBy,
-                'approved_at' => $approvedAt,
-            ]);
+            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error autoguardando celda de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'No se pudo guardar la celda.']);
+        }
+    }
 
-            (new AuditLogRepository($this->db))->log(
-                $userId,
-                'timesheet',
-                $timesheetId,
-                $requiresApproval ? 'submitted' : 'auto_approved',
-                [
-                    'task_id' => $taskId,
-                    'project_id' => $projectId,
-                    'hours' => $hours,
-                    'date' => $date,
-                    'comment' => $comment,
-                ]
-            );
+    public function submitWeek(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
 
-            try {
-                (new NotificationService($this->db))->notify(
-                    'timesheet.submitted',
-                    [
-                        'timesheet_id' => $timesheetId,
-                        'task_id' => $taskId,
-                        'project_id' => $projectId,
-                        'hours' => $hours,
-                        'date' => $date,
-                        'status' => $status,
-                        'target_user_id' => $userId,
-                    ],
-                    $userId
-                );
-            } catch (\Throwable $e) {
-                error_log('Error al notificar timesheet: ' . $e->getMessage());
-            }
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
 
-            header('Location: /timesheets');
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+        $weekStart = DateTimeImmutable::createFromFormat('o-\\WW', $weekValue);
+        if (!$weekStart instanceof DateTimeImmutable) {
+            http_response_code(400);
+            exit('Semana inválida.');
+        }
+        $weekStart = $weekStart->modify('monday this week');
+
+        try {
+            $repo->submitWeek($userId, $weekStart);
+            header('Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW')));
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
+        }
+    }
+
+    public function create(): void
+    {
+        // Mantener compatibilidad con formulario anterior.
+        $this->saveCell();
+    }
+
+    public function approveWeek(): void
+    {
+        if (!$this->auth->canApproveTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $status = trim((string) ($_POST['status'] ?? 'approved'));
+        $weekStart = trim((string) ($_POST['week_start'] ?? ''));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            http_response_code(400);
+            exit('Estado inválido.');
+        }
+        if ($status === 'rejected' && $comment === '') {
+            http_response_code(400);
+            exit('Debes indicar un comentario para rechazar la semana.');
+        }
+
+        try {
+            $repo->updateWeekApprovalStatus($userId, $weekStart, $status, $comment !== '' ? $comment : null);
+            header('Location: /approvals');
         } catch (\Throwable $e) {
-            error_log('Error al registrar horas: ' . $e->getMessage());
+            error_log('Error al aprobar semana de timesheets: ' . $e->getMessage());
             http_response_code(500);
-            exit('No se pudo registrar el timesheet.');
+            exit('No se pudo actualizar la aprobación semanal.');
         }
     }
 
