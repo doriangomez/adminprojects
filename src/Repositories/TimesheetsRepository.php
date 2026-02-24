@@ -368,24 +368,29 @@ class TimesheetsRepository
         $params = [
             ':status' => $status,
             ':comment' => $comment,
-            ':approver' => $approverUserId,
+            ':approver_set' => $approverUserId,
+            ':approver_where' => $approverUserId,
             ':start' => $start->format('Y-m-d'),
             ':end' => $end->format('Y-m-d'),
         ];
 
-        $column = $status === 'approved' ? 'approved_by = :approver, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL' : 'rejected_by = :approver, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
-        $this->db->execute(
-            'UPDATE timesheets
+        $column = $status === 'approved'
+            ? 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
+            : 'rejected_by = :approver_set, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
+
+        $sql = 'UPDATE timesheets
              SET status = :status,
                  approval_comment = :comment,
                  ' . $column . ',
                  updated_at = NOW()
-             WHERE approver_user_id = :approver
+             WHERE approver_user_id = :approver_where
                AND date BETWEEN :start AND :end
-               AND status IN ("submitted", "pending", "pending_approval")'
-            ,
-            $params
-        );
+               AND status IN ("submitted", "pending", "pending_approval")';
+
+        error_log('Timesheets weekly approval SQL: ' . $sql);
+        error_log('Timesheets weekly approval params: ' . json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        $this->db->execute($sql, $params);
 
         $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
         return (int) ($row['total'] ?? 0);
