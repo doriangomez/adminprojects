@@ -145,6 +145,59 @@ class TimesheetsController extends Controller
 
 
 
+
+    public function reopenWeek(): void
+    {
+        if (!$this->auth->canManageTimesheetWorkflow()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekStart = trim((string) ($_POST['week_start'] ?? ''));
+        $approverUserId = (int) ($_POST['approver_user_id'] ?? $userId);
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        try {
+            $updated = $repo->reopenWeek($userId, $weekStart, $approverUserId, $comment !== '' ? $comment : null);
+            if ($updated <= 0) {
+                http_response_code(400);
+                exit('No hay semanas aprobadas o rechazadas para reabrir.');
+            }
+            header('Location: /approvals');
+        } catch (\Throwable $e) {
+            error_log('Error al reabrir semana de timesheets: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo reabrir la semana.');
+        }
+    }
+
+    public function deleteWeekWorkflow(): void
+    {
+        if (!$this->auth->canDeleteTimesheetWorkflowRecords()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekStart = trim((string) ($_POST['week_start'] ?? ''));
+        $approverUserId = (int) ($_POST['approver_user_id'] ?? $userId);
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        try {
+            $repo->softDeleteWeekWorkflow($userId, $weekStart, $approverUserId, $comment !== '' ? $comment : null);
+            header('Location: /approvals');
+        } catch (\Throwable $e) {
+            error_log('Error al eliminar workflow de semana de timesheets: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo eliminar el workflow de la semana.');
+        }
+    }
+
     private function parseWeekValue(string $weekValue): ?DateTimeImmutable
     {
         if (!preg_match('/^(\d{4})-W(\d{2})$/', $weekValue, $matches)) {

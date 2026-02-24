@@ -5,6 +5,9 @@ $validationQueue = is_array($validationQueue ?? null) ? $validationQueue : [];
 $approvalQueue = is_array($approvalQueue ?? null) ? $approvalQueue : [];
 $dispatchQueue = is_array($dispatchQueue ?? null) ? $dispatchQueue : [];
 $timesheetApprovals = is_array($timesheetApprovals ?? null) ? $timesheetApprovals : [];
+$timesheetHistory = is_array($timesheetHistory ?? null) ? $timesheetHistory : [];
+$canManageTimesheetWorkflow = (bool) ($canManageTimesheetWorkflow ?? false);
+$canDeleteTimesheetWorkflowRecords = (bool) ($canDeleteTimesheetWorkflowRecords ?? false);
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
 
 $statusMeta = [
@@ -167,7 +170,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
         <section class="approvals-section" data-queue="timesheets">
             <header>
                 <h3>Timesheets por aprobar</h3>
-                <p class="section-muted">Horas agrupadas por semana con resumen por proyecto.</p>
+                <p class="section-muted">Horas agrupadas por semana con resumen por proyecto e historial auditable.</p>
             </header>
             <?php if (empty($timesheetApprovals)): ?>
                 <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
@@ -198,7 +201,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                 <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
                                     <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
                                     <input type="hidden" name="status" value="approved">
-                                    <input type="text" name="comment" placeholder="Comentario (opcional)">
+                                    <input type="text" name="comment" placeholder="Detalle aprobación (opcional)">
                                     <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
                                 </form>
                                 <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
@@ -216,6 +219,56 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
+
+            <div class="history-panel" style="margin-top:16px;">
+                <span class="meta-label">Historial de decisiones semanales</span>
+                <?php if (empty($timesheetHistory)): ?>
+                    <p class="section-muted" style="margin:4px 0 0;">Aún no hay eventos registrados.</p>
+                <?php else: ?>
+                    <ul class="history-list">
+                        <?php foreach ($timesheetHistory as $event): ?>
+                            <?php
+                            $action = (string) ($event['action'] ?? 'updated');
+                            $labels = [
+                                'approved' => 'Aprobado',
+                                'rejected' => 'Rechazado',
+                                'reopened' => 'Reabierto',
+                                'deleted' => 'Eliminado',
+                            ];
+                            $statusClass = $action === 'approved' ? 'status-success' : ($action === 'rejected' ? 'status-danger' : ($action === 'reopened' ? 'status-info' : 'status-muted'));
+                            ?>
+                            <li>
+                                <span class="status-pill <?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars($labels[$action] ?? ucfirst($action)) ?></span>
+                                Semana <?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?> a <?= htmlspecialchars((string) ($event['week_end'] ?? '')) ?> ·
+                                por <?= htmlspecialchars((string) ($event['actor_name'] ?? 'Sistema')) ?> ·
+                                <?= htmlspecialchars((string) ($event['created_at'] ?? '')) ?>
+                                <?php if (!empty($event['action_comment'])): ?>
+                                    <div class="meta-line">Comentario: <?= htmlspecialchars((string) $event['action_comment']) ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($event['previous_status']) || !empty($event['resulting_status'])): ?>
+                                    <div class="meta-line">Cambio: <?= htmlspecialchars((string) ($event['previous_status'] ?? 'n/a')) ?> → <?= htmlspecialchars((string) ($event['resulting_status'] ?? 'n/a')) ?></div>
+                                <?php endif; ?>
+                                <?php if ($canManageTimesheetWorkflow): ?>
+                                    <form method="POST" action="<?= $basePath ?>/timesheets/reopen-week" class="inline-form" style="margin-top:6px;">
+                                        <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
+                                        <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
+                                        <input type="text" name="comment" placeholder="Comentario de reapertura (opcional)">
+                                        <button type="submit" class="action-btn small">↩️ Reabrir semana</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($canDeleteTimesheetWorkflowRecords): ?>
+                                    <form method="POST" action="<?= $basePath ?>/timesheets/delete-week-workflow" class="inline-form" style="margin-top:6px;">
+                                        <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
+                                        <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
+                                        <input type="text" name="comment" placeholder="Motivo eliminación (opcional)">
+                                        <button type="submit" class="action-btn small danger">🗑️ Eliminar registro</button>
+                                    </form>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
         </section>
 
         <?php if (!empty($dispatchQueue) && ($roleFlags['can_manage'] ?? false)): ?>

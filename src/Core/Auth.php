@@ -293,6 +293,60 @@ class Auth
         return ((int) ($row['can_approve_timesheets'] ?? 0)) === 1;
     }
 
+    public function canManageTimesheetWorkflow(): bool
+    {
+        if ($this->can('timesheets.reopen')) {
+            return true;
+        }
+
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        if (!$this->db->columnExists('users', 'can_manage_timesheet_workflow')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_manage_timesheet_workflow FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_manage_timesheet_workflow'] ?? 0)) === 1;
+    }
+
+    public function canDeleteTimesheetWorkflowRecords(): bool
+    {
+        if ($this->can('timesheets.delete')) {
+            return true;
+        }
+
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        if (!$this->db->columnExists('users', 'can_delete_timesheet_workflow_records')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT can_delete_timesheet_workflow_records FROM users WHERE id = :id LIMIT 1',
+            [':id' => (int) $user['id']]
+        );
+
+        return ((int) ($row['can_delete_timesheet_workflow_records'] ?? 0)) === 1;
+    }
+
     public function isTimesheetsEnabled(): bool
     {
         return $this->timesheetsEnabled();

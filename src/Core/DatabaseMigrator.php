@@ -453,6 +453,96 @@ class DatabaseMigrator
         }
     }
 
+
+    public function ensureTimesheetWorkflowSchema(): void
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->tableExists('timesheet_week_actions')) {
+                $this->db->execute(
+                    'CREATE TABLE timesheet_week_actions (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        week_key VARCHAR(32) NOT NULL,
+                        week_start DATE NOT NULL,
+                        week_end DATE NOT NULL,
+                        action VARCHAR(20) NOT NULL,
+                        action_comment TEXT NULL,
+                        actor_user_id INT NULL,
+                        previous_status VARCHAR(20) NULL,
+                        resulting_status VARCHAR(20) NOT NULL,
+                        target_approver_user_id INT NULL,
+                        deleted_at DATETIME NULL,
+                        deleted_by INT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (actor_user_id) REFERENCES users(id),
+                        FOREIGN KEY (target_approver_user_id) REFERENCES users(id),
+                        FOREIGN KEY (deleted_by) REFERENCES users(id)
+                    ) ENGINE=InnoDB'
+                );
+            }
+
+            if (!$this->db->columnExists('users', 'can_manage_timesheet_workflow')) {
+                $this->db->execute('ALTER TABLE users ADD COLUMN can_manage_timesheet_workflow TINYINT(1) DEFAULT 0 AFTER can_approve_timesheets');
+            }
+
+            if (!$this->db->columnExists('users', 'can_delete_timesheet_workflow_records')) {
+                $this->db->execute('ALTER TABLE users ADD COLUMN can_delete_timesheet_workflow_records TINYINT(1) DEFAULT 0 AFTER can_manage_timesheet_workflow');
+            }
+
+            if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
+                return;
+            }
+
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => 'timesheets.reopen',
+                    ':code_check' => 'timesheets.reopen',
+                    ':name' => 'Reabrir semanas de timesheets',
+                ]
+            );
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => 'timesheets.delete',
+                    ':code_check' => 'timesheets.delete',
+                    ':name' => 'Eliminar historial de flujo de timesheets',
+                ]
+            );
+
+            $roles = $this->db->fetchAll("SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO')");
+            foreach ($roles as $role) {
+                foreach (['timesheets.reopen', 'timesheets.delete'] as $code) {
+                    $this->db->execute(
+                        'INSERT INTO role_permissions (role_id, permission_id)
+                         SELECT :role_id_value, p.id
+                         FROM permissions p
+                         WHERE p.code = :code_value
+                         AND NOT EXISTS (
+                            SELECT 1 FROM role_permissions rp
+                            WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                        )',
+                        [
+                            ':role_id_value' => (int) $role['id'],
+                            ':role_id_check' => (int) $role['id'],
+                            ':code_value' => $code,
+                        ]
+                    );
+                }
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando workflow de aprobación semanal de timesheets: ' . $e->getMessage());
+        }
+    }
+
     public function ensureTimesheetSchema(): void
     {
         if (!$this->db->tableExists('timesheets')) {

@@ -39,6 +39,9 @@ class ApprovalsController extends Controller
         $timesheetApprovals = $this->auth->canApproveTimesheets()
             ? (new TimesheetsRepository($this->db))->pendingApprovalsByWeek($user)
             : [];
+        $timesheetHistory = $this->auth->canApproveTimesheets()
+            ? (new TimesheetsRepository($this->db))->weekApprovalHistoryByApprover($user)
+            : [];
 
         $this->render('approvals/index', [
             'title' => 'Bandeja de Aprobaciones',
@@ -48,6 +51,9 @@ class ApprovalsController extends Controller
             'dispatchQueue' => $dispatchQueue,
             'roleFlags' => $roleFlags,
             'timesheetApprovals' => $timesheetApprovals,
+            'timesheetHistory' => $timesheetHistory,
+            'canManageTimesheetWorkflow' => $this->auth->canManageTimesheetWorkflow(),
+            'canDeleteTimesheetWorkflowRecords' => $this->auth->canDeleteTimesheetWorkflowRecords(),
         ]);
     }
 }
