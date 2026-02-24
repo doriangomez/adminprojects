@@ -31,7 +31,8 @@ class ProjectsController extends Controller
         'closed' => ['closed'],
     ];
     private const DOCUMENT_STATUSES = [
-        'borrador',
+        'final',
+        'publicado',
         'en_revision',
         'revisado',
         'en_validacion',
@@ -1706,12 +1707,18 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Selecciona un revisor para iniciar el flujo.');
         }
 
+        if (!$startFlow) {
+            $reviewerId = null;
+            $validatorId = null;
+            $approverId = null;
+        }
+
         return [
             'document_type' => $documentType,
             'document_tags' => $documentTags,
             'document_version' => $documentVersion,
             'description' => $description,
-            'document_status' => $startFlow ? 'en_revision' : 'borrador',
+            'document_status' => $startFlow ? 'en_revision' : 'final',
             'reviewer_id' => $reviewerId,
             'validator_id' => $validatorId,
             'approver_id' => $approverId,
@@ -1897,7 +1904,7 @@ class ProjectsController extends Controller
             'send_approval' => 'en_aprobacion',
             'approved' => 'aprobado',
             'rejected' => 'rechazado',
-            default => 'borrador',
+            default => 'final',
         };
     }
 
@@ -1905,6 +1912,12 @@ class ProjectsController extends Controller
     {
         $transitions = [
             'borrador' => [
+                'en_revision' => 'send_review',
+            ],
+            'final' => [
+                'en_revision' => 'send_review',
+            ],
+            'publicado' => [
                 'en_revision' => 'send_review',
             ],
             'en_revision' => [
@@ -1943,7 +1956,7 @@ class ProjectsController extends Controller
             if (!$canManage) {
                 throw new \InvalidArgumentException('No tienes permisos para enviar a revisión.');
             }
-            if ($currentStatus !== 'borrador') {
+            if (!in_array($currentStatus, ['borrador', 'final', 'publicado'], true)) {
                 throw new \InvalidArgumentException('El documento no está disponible para enviar a revisión.');
             }
             if ($reviewerId === 0) {
@@ -2032,7 +2045,7 @@ class ProjectsController extends Controller
         $currentUserId = (int) ($this->auth->user()['id'] ?? 0);
 
         $nodeFlow = $repo->documentFlowForNode($projectId, $nodeId);
-        $currentStatus = $nodeFlow['document_status'] ?? 'borrador';
+        $currentStatus = $nodeFlow['document_status'] ?? 'final';
 
         if ($action !== '' && $documentStatus !== '') {
             $expectedStatus = $this->statusFromDocumentAction($action);

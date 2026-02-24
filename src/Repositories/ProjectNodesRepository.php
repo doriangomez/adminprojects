@@ -251,7 +251,7 @@ class ProjectNodesRepository
             $reviewerId = isset($meta['reviewer_id']) && $meta['reviewer_id'] !== '' ? (int) $meta['reviewer_id'] : null;
             $validatorId = isset($meta['validator_id']) && $meta['validator_id'] !== '' ? (int) $meta['validator_id'] : null;
             $approverId = isset($meta['approver_id']) && $meta['approver_id'] !== '' ? (int) $meta['approver_id'] : null;
-            $documentStatus = $meta['document_status'] ?? 'borrador';
+            $documentStatus = $meta['document_status'] ?? 'final';
             $documentTags = $this->normalizeDocumentTags($meta['document_tags'] ?? $meta['tags'] ?? null);
             $documentVersion = trim((string) ($meta['document_version'] ?? $meta['version'] ?? ''));
             $documentVersion = $documentVersion !== '' ? $documentVersion : null;
@@ -479,7 +479,7 @@ class ProjectNodesRepository
                     'validated_at' => $node['validated_at'] ?? null,
                     'approved_by' => $node['approved_by'] !== null ? (int) $node['approved_by'] : null,
                     'approved_at' => $node['approved_at'] ?? null,
-                    'document_status' => $node['document_status'] ?? 'borrador',
+                    'document_status' => $node['document_status'] ?? 'final',
                     'tags' => $this->normalizeDocumentTags($node['document_tags'] ?? null),
                     'version' => $node['document_version'] ?? null,
                     'document_type' => $node['document_type'] ?? null,
@@ -554,7 +554,7 @@ class ProjectNodesRepository
                 ':reviewer_id' => $reviewerId,
                 ':validator_id' => $validatorId,
                 ':approver_id' => $approverId,
-                ':document_status' => $payload['document_status'] ?? ($node['document_status'] ?? 'borrador'),
+                ':document_status' => $payload['document_status'] ?? ($node['document_status'] ?? 'final'),
                 ':id' => $fileNodeId,
                 ':project_id' => $projectId,
             ]
@@ -572,7 +572,7 @@ class ProjectNodesRepository
         }
 
         $fields = [
-            'document_status' => $payload['document_status'] ?? 'borrador',
+            'document_status' => $payload['document_status'] ?? 'final',
             'reviewed_by' => $payload['reviewed_by'] ?? null,
             'reviewed_at' => $payload['reviewed_at'] ?? null,
             'validated_by' => $payload['validated_by'] ?? null,
@@ -660,7 +660,7 @@ class ProjectNodesRepository
             'validated_at' => $row['validated_at'] ?? null,
             'approved_by' => $row['approved_by'] !== null ? (int) $row['approved_by'] : null,
             'approved_at' => $row['approved_at'] ?? null,
-            'document_status' => $row['document_status'] ?? 'borrador',
+            'document_status' => $row['document_status'] ?? 'final',
         ];
     }
 
@@ -751,7 +751,7 @@ class ProjectNodesRepository
                 'file_name' => $row['file_name'] ?? '',
                 'file_path' => $row['file_path'] ?? null,
                 'created_at' => $row['created_at'] ?? null,
-                'document_status' => $row['document_status'] ?? 'borrador',
+                'document_status' => $row['document_status'] ?? 'final',
                 'document_tags' => $this->normalizeDocumentTags($row['document_tags'] ?? null),
                 'document_version' => $row['document_version'] ?? null,
                 'document_type' => $row['document_type'] ?? null,

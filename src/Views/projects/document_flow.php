@@ -299,7 +299,7 @@ foreach ($documentExpectedItems as $doc) {
                          data-reviewer-id="<?= htmlspecialchars((string) ($file['reviewer_id'] ?? '')) ?>"
                          data-validator-id="<?= htmlspecialchars((string) ($file['validator_id'] ?? '')) ?>"
                          data-approver-id="<?= htmlspecialchars((string) ($file['approver_id'] ?? '')) ?>"
-                         data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'borrador')) ?>"
+                         data-document-status="<?= htmlspecialchars((string) ($file['document_status'] ?? 'final')) ?>"
                          data-tags="<?= htmlspecialchars(implode('|', array_map('strval', $file['tags'] ?? []))) ?>"
                          data-document-version="<?= htmlspecialchars((string) ($file['version'] ?? '')) ?>"
                          data-document-type="<?= htmlspecialchars((string) ($file['document_type'] ?? '')) ?>"
@@ -512,6 +512,8 @@ foreach ($documentExpectedItems as $doc) {
 
         const statusConfig = {
             borrador: { label: 'Borrador', className: 'status-pending' },
+            final: { label: 'Final', className: 'status-approved' },
+            publicado: { label: 'Publicado', className: 'status-approved' },
             en_revision: { label: 'En revisión', className: 'status-review' },
             revisado: { label: 'Revisado', className: 'status-review' },
             en_validacion: { label: 'En validación', className: 'status-review' },
@@ -575,7 +577,7 @@ foreach ($documentExpectedItems as $doc) {
             root.querySelectorAll('[data-file-row]').forEach(row => {
                 const tags = row.dataset.tags ? row.dataset.tags.split('|').filter(Boolean) : [];
                 const type = row.dataset.documentType ? [row.dataset.documentType] : [];
-                const status = row.dataset.documentStatus || 'borrador';
+                const status = row.dataset.documentStatus || 'final';
                 [...tags, ...type].forEach(tag => {
                     if (summary[tag]) {
                         if (status === 'aprobado') {
@@ -655,7 +657,7 @@ foreach ($documentExpectedItems as $doc) {
             row.dataset.reviewerId = data.reviewer_id ?? '';
             row.dataset.validatorId = data.validator_id ?? '';
             row.dataset.approverId = data.approver_id ?? '';
-            row.dataset.documentStatus = data.document_status ?? 'borrador';
+            row.dataset.documentStatus = data.document_status ?? 'final';
             row.dataset.tags = Array.isArray(data.tags) ? data.tags.join('|') : '';
             row.dataset.documentVersion = data.version ?? '';
             row.dataset.documentType = data.document_type ?? '';
@@ -734,7 +736,7 @@ foreach ($documentExpectedItems as $doc) {
             const existingTags = parseTagString(row.dataset.tags);
             updateTagsDisplay(row, existingTags);
             applyTagSelection(row, existingTags);
-            const status = row.dataset.documentStatus || 'borrador';
+            const status = row.dataset.documentStatus || 'final';
             updateStatus(row, status);
             updateTraceFromData(row);
             updateFlowSummary(row);
@@ -815,7 +817,7 @@ foreach ($documentExpectedItems as $doc) {
         };
 
         const updateStatus = (row, statusKey, traceNote) => {
-            const config = statusConfig[statusKey] || statusConfig.borrador;
+            const config = statusConfig[statusKey] || statusConfig.final;
             const label = row.querySelector('[data-status-label]');
             if (label) {
                 label.textContent = config.label;
@@ -833,7 +835,7 @@ foreach ($documentExpectedItems as $doc) {
         const updateTraceFromData = (row) => {
             const trace = row.querySelector('[data-file-trace]');
             if (!trace) return;
-            const status = row.dataset.documentStatus || 'borrador';
+            const status = row.dataset.documentStatus || 'final';
             const traceMap = [
                 { status: 'aprobado', by: row.dataset.approvedBy, at: row.dataset.approvedAt, label: 'Aprobado' },
                 { status: 'en_aprobacion', by: row.dataset.validatedBy, at: row.dataset.validatedAt, label: 'En aprobación' },
@@ -855,8 +857,8 @@ foreach ($documentExpectedItems as $doc) {
         const toggleSendReview = (row) => {
             const button = row.querySelector('[data-send-review]');
             if (!button) return;
-            const status = row.dataset.documentStatus || 'borrador';
-            button.hidden = status !== 'borrador';
+            const status = row.dataset.documentStatus || 'final';
+            button.hidden = !['borrador', 'final', 'publicado'].includes(status);
         };
 
         const setRoleSelectLoading = (select) => {
@@ -1137,7 +1139,7 @@ foreach ($documentExpectedItems as $doc) {
             row.dataset.reviewerId = data.reviewer_id ?? '';
             row.dataset.validatorId = data.validator_id ?? '';
             row.dataset.approverId = data.approver_id ?? '';
-            row.dataset.documentStatus = data.document_status ?? 'borrador';
+            row.dataset.documentStatus = data.document_status ?? 'final';
             row.dataset.reviewedBy = data.reviewed_by ?? '';
             row.dataset.reviewedAt = data.reviewed_at ?? '';
             row.dataset.validatedBy = data.validated_by ?? '';
