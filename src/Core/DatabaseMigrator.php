@@ -616,6 +616,29 @@ class DatabaseMigrator
         );
     }
 
+    public function ensureProjectHealthHistoryTable(): void
+    {
+        if ($this->db->tableExists('project_health_history')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'CREATE TABLE project_health_history (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    project_id INT NOT NULL,
+                    score INT NOT NULL,
+                    breakdown_json JSON NOT NULL,
+                    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_project_health_history_project_date (project_id, calculated_at),
+                    CONSTRAINT fk_project_health_history_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tabla project_health_history: ' . $e->getMessage());
+        }
+    }
+
     public function resetProjectModuleDataOnce(): void
     {
         if (!$this->db->tableExists('projects')) {

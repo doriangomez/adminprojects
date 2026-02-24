@@ -151,6 +151,17 @@ CREATE TABLE projects (
     FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
+
+CREATE TABLE project_health_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    score INT NOT NULL,
+    breakdown_json JSON NOT NULL,
+    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_project_health_history_project_date (project_id, calculated_at),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
 CREATE TABLE project_design_inputs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,

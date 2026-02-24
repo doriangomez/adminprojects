@@ -119,6 +119,30 @@
             </div>
         </div>
 
+
+        <div class="card config-card governance-block">
+            <div class="card-content">
+                <header class="governance-block-header">
+                    <div class="governance-block-title-line">
+                        <span class="governance-block-icon" aria-hidden="true">📊</span>
+                        <h3 class="governance-block-title">Gobierno de Salud Integral</h3>
+                    </div>
+                    <p class="governance-block-subtitle">Pesos, umbrales y límites operativos configurables.</p>
+                </header>
+                <div class="config-form-grid">
+                    <label class="input-stack"><span>Peso documental</span><input name="health_weight_documental" form="governance-config-form" type="number" step="0.01" min="0" max="1" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['weights']['documental'] ?? 0.25)) ?>"></label>
+                    <label class="input-stack"><span>Peso avance</span><input name="health_weight_avance" form="governance-config-form" type="number" step="0.01" min="0" max="1" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['weights']['avance'] ?? 0.25)) ?>"></label>
+                    <label class="input-stack"><span>Peso horas</span><input name="health_weight_horas" form="governance-config-form" type="number" step="0.01" min="0" max="1" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['weights']['horas'] ?? 0.20)) ?>"></label>
+                    <label class="input-stack"><span>Peso seguimiento</span><input name="health_weight_seguimiento" form="governance-config-form" type="number" step="0.01" min="0" max="1" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['weights']['seguimiento'] ?? 0.15)) ?>"></label>
+                    <label class="input-stack"><span>Peso riesgo</span><input name="health_weight_riesgo" form="governance-config-form" type="number" step="0.01" min="0" max="1" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['weights']['riesgo'] ?? 0.15)) ?>"></label>
+                    <label class="input-stack"><span>Umbral salud óptima</span><input name="health_threshold_optimal" form="governance-config-form" type="number" min="0" max="100" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['thresholds']['optimal'] ?? 90)) ?>"></label>
+                    <label class="input-stack"><span>Umbral atención</span><input name="health_threshold_attention" form="governance-config-form" type="number" min="0" max="100" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['thresholds']['attention'] ?? 75)) ?>"></label>
+                    <label class="input-stack"><span>Días máximos sin seguimiento</span><input name="health_max_days_without_followup" form="governance-config-form" type="number" min="1" max="90" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['max_days_without_followup'] ?? 14)) ?>"></label>
+                    <label class="input-stack"><span>% máximo horas pendientes</span><input name="health_max_pending_hours_ratio" form="governance-config-form" type="number" step="0.01" min="0" max="1" value="<?= htmlspecialchars((string) ($configData['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? 0.20)) ?>"></label>
+                </div>
+            </div>
+        </div>
+
         <div class="card config-card governance-block governance-block--critical">
             <div class="card-content">
                 <header class="governance-block-header">

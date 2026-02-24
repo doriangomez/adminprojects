@@ -167,6 +167,7 @@ class ProjectsController extends Controller
             $repo->updateProject($id, $payload, (int) ($this->auth->user()['id'] ?? 0));
             $this->logRiskAudit($auditRepo, $project['id'], $previousEvaluations, $payload['risk_evaluations'] ?? []);
             $this->logProjectChange($auditRepo, $project, $payload);
+            (new ProjectService($this->db))->recordHealthSnapshot($id);
 
             if ($methodologyChanged || $phaseChanged) {
                 (new ProjectNodesRepository($this->db))->markTreeOutdated($id);
@@ -861,6 +862,8 @@ class ProjectsController extends Controller
                 'justification' => $justification,
             ]
         );
+
+        (new ProjectService($this->db))->recordHealthSnapshot($id);
 
         header('Location: /projects/' . $id . '?progress=updated');
     }
@@ -1621,12 +1624,15 @@ class ProjectsController extends Controller
         $loggedHours = $repo->timesheetHoursForProject($id);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
-        $healthScore = (new ProjectService($this->db))->calculateProjectHealthScore($id);
+        $projectService = new ProjectService($this->db);
+        $healthScore = $projectService->calculateProjectHealthReport($id);
+        $healthHistory = $projectService->history($id, 30);
 
         return array_merge([
             'title' => 'Detalle de proyecto',
             'project' => $project,
             'healthScore' => $healthScore,
+            'healthHistory' => $healthHistory,
             'assignments' => $assignments,
             'currentUser' => $this->auth->user() ?? [],
             'canManage' => $this->auth->can('projects.manage'),
@@ -2145,6 +2151,8 @@ class ProjectsController extends Controller
                 error_log('Error al notificar flujo documental: ' . $e->getMessage());
             }
         }
+
+        (new ProjectService($this->db))->recordHealthSnapshot($projectId);
 
         return $updated;
     }

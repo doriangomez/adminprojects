@@ -212,6 +212,79 @@ class DashboardService
         ];
     }
 
+
+    public function portfolioHealthInsights(array $user): array
+    {
+        [$where, $params] = $this->visibilityForUser($user);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+
+        $rows = $this->db->fetchAll(
+            "SELECT p.id, p.name, c.name AS client
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}",
+            $params
+        );
+
+        $service = new ProjectService($this->db);
+        $projects = [];
+        foreach ($rows as $row) {
+            $projectId = (int) ($row['id'] ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+
+            $report = $service->calculateProjectHealthReport($projectId);
+            $history = $service->history($projectId, 30);
+            $first = $history[0]['score'] ?? ($report['total_score'] ?? 0);
+            $last = $history !== [] ? ($history[count($history) - 1]['score'] ?? ($report['total_score'] ?? 0)) : ($report['total_score'] ?? 0);
+
+            $projects[] = [
+                'id' => $projectId,
+                'name' => (string) ($row['name'] ?? ''),
+                'client' => (string) ($row['client'] ?? ''),
+                'score' => (int) ($report['total_score'] ?? 0),
+                'level' => (string) ($report['level'] ?? 'critical'),
+                'trend_delta' => (int) $last - (int) $first,
+            ];
+        }
+
+        usort($projects, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+        $ranking = $projects;
+
+        usort($projects, static fn (array $a, array $b): int => $a['score'] <=> $b['score']);
+        $topRisk = array_slice($projects, 0, 5);
+
+        $avgTrend = 0;
+        if ($ranking !== []) {
+            $sum = array_reduce($ranking, static fn (int $carry, array $item): int => $carry + (int) ($item['trend_delta'] ?? 0), 0);
+            $avgTrend = (int) round($sum / count($ranking));
+        }
+
+        $heatmap = [];
+        foreach ($ranking as $item) {
+            $client = $item['client'] ?: 'Sin cliente';
+            if (!isset($heatmap[$client])) {
+                $heatmap[$client] = ['client' => $client, 'projects' => 0, 'avg_score' => 0, 'risk_count' => 0];
+            }
+            $heatmap[$client]['projects']++;
+            $heatmap[$client]['avg_score'] += (int) $item['score'];
+            if ((int) $item['score'] < 75) {
+                $heatmap[$client]['risk_count']++;
+            }
+        }
+        foreach ($heatmap as $client => $item) {
+            $heatmap[$client]['avg_score'] = $item['projects'] > 0 ? (int) round($item['avg_score'] / $item['projects']) : 0;
+        }
+
+        return [
+            'ranking' => $ranking,
+            'top_risk' => $topRisk,
+            'portfolio_trend_avg' => $avgTrend,
+            'client_heatmap' => array_values($heatmap),
+        ];
+    }
+
     public function timesheetOverview(array $user): array
     {
         [$where, $params] = $this->visibilityForUser($user);

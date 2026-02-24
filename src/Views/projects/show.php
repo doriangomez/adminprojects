@@ -337,8 +337,12 @@ $healthScore = is_array($healthScore ?? null) ? $healthScore : [
     'riesgo_score' => 0,
 ];
 $healthTotal = (int) ($healthScore['total_score'] ?? 0);
-$healthTone = $healthTotal >= 80 ? 'health-green' : ($healthTotal >= 60 ? 'health-yellow' : 'health-red');
-$healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' : 'Crítica');
+$healthTone = $healthTotal >= 90 ? 'health-green' : ($healthTotal >= 75 ? 'health-yellow' : 'health-red');
+$healthLabel = $healthTotal >= 90 ? 'Salud óptima' : ($healthTotal >= 75 ? 'Atención' : 'Crítico');
+$healthBreakdown = is_array($healthScore['breakdown'] ?? null) ? $healthScore['breakdown'] : [];
+$healthRecommendations = is_array($healthScore['recommendations'] ?? null) ? $healthScore['recommendations'] : [];
+$healthHistory = is_array($healthHistory ?? null) ? $healthHistory : [];
+$healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal' : ($healthTotal >= 75 ? 'attention' : 'critical')));
 ?>
 
 <section class="project-shell">
@@ -354,10 +358,28 @@ $healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' 
             </div>
         </div>
 
-        <div class="project-health-card <?= $healthTone ?>">
+        <div class="project-health-card <?= $healthTone ?>" data-health-popover-root>
             <div class="project-health-score">[ <?= $healthTotal ?> / 100 ]</div>
             <div class="project-health-title">Salud Integral</div>
             <div class="project-health-state"><?= $healthTone === 'health-green' ? '🟢' : ($healthTone === 'health-yellow' ? '🟡' : '🔴') ?> <?= htmlspecialchars($healthLabel) ?></div>
+            <button type="button" class="action-btn" data-toggle-health-popover>Ver desglose</button>
+            <button type="button" class="action-btn primary" data-open-modal="health-modal">Ver análisis completo</button>
+            <div class="health-popover" data-health-popover>
+                <h4>📊 Desglose Salud Integral</h4>
+                <p><strong>Salud total: <?= $healthTotal ?> / 100</strong></p>
+                <?php foreach ($healthBreakdown as $dimension => $item): ?>
+                    <?php
+                    $percentage = (int) ($item['percentage'] ?? 0);
+                    $tone = $percentage >= 85 ? 'dim-green' : ($percentage >= 70 ? 'dim-yellow' : 'dim-red');
+                    $label = ucfirst($dimension);
+                    $issues = is_array($item['issues'] ?? null) ? $item['issues'] : [];
+                    ?>
+                    <div class="health-dimension <?= $tone ?>">
+                        <strong><?= htmlspecialchars($label) ?>:</strong> <?= $percentage ?>% (<?= (int) ($item['score'] ?? 0) ?>/<?= (int) ($item['max'] ?? 0) ?>)
+                        <?php if ($issues): ?><div>⚠ <?= htmlspecialchars((string) $issues[0]) ?></div><?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         </div>
         <div class="project-actions">
             <a class="action-btn" href="<?= htmlspecialchars($returnUrl) ?>">Volver al listado</a>
@@ -774,6 +796,51 @@ $healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' 
 </section>
 
 <?php if ($canUpdateProgress): ?>
+
+    <div class="progress-modal" id="health-modal" aria-hidden="true">
+        <div class="modal__backdrop" data-close-modal></div>
+        <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="health-modal-title">
+            <div class="modal__header">
+                <h3 id="health-modal-title">Análisis completo de Salud Integral</h3>
+                <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal__body">
+                <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+                    <svg width="120" height="120" viewBox="0 0 120 120" aria-label="Score general">
+                        <circle cx="60" cy="60" r="50" stroke="var(--border)" stroke-width="12" fill="none"></circle>
+                        <circle cx="60" cy="60" r="50" stroke="var(--primary)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="<?= 314 - (314 * $healthTotal / 100) ?>" transform="rotate(-90 60 60)"></circle>
+                        <text x="60" y="66" text-anchor="middle" font-size="24" font-weight="700"><?= $healthTotal ?></text>
+                    </svg>
+                    <div>
+                        <p style="margin:0;"><strong><?= htmlspecialchars($healthLabel) ?></strong></p>
+                        <p class="muted" style="margin:0;">Nivel: <?= htmlspecialchars($healthLevel) ?></p>
+                    </div>
+                </div>
+                <div>
+                    <?php foreach ($healthBreakdown as $dimension => $item): ?>
+                        <?php $p = (int) ($item['percentage'] ?? 0); ?>
+                        <div style="margin-bottom:8px;">
+                            <div style="display:flex;justify-content:space-between;"><span><?= htmlspecialchars(ucfirst($dimension)) ?></span><strong><?= $p ?>%</strong></div>
+                            <div class="project-progress__bar"><div style="width: <?= $p ?>%;"></div></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div>
+                    <h4>Recomendaciones</h4>
+                    <ul>
+                        <?php foreach ($healthRecommendations as $recommendation): ?>
+                            <li><?= htmlspecialchars((string) $recommendation) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Tendencia últimos 30 días</h4>
+                    <p class="muted"><?= count($healthHistory) ?> snapshots registrados.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="progress-modal" id="progress-modal" aria-hidden="true">
         <div class="modal__backdrop" data-close-modal></div>
         <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="progress-modal-title">
@@ -801,6 +868,12 @@ $healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' 
 
 <script>
     const progressModal = document.getElementById('progress-modal');
+    const healthModal = document.getElementById('health-modal');
+    const openHealthButtons = document.querySelectorAll('[data-open-modal="health-modal"]');
+    const closeHealthButtons = healthModal ? healthModal.querySelectorAll('[data-close-modal]') : [];
+    const healthPopoverRoot = document.querySelector('[data-health-popover-root]');
+    const healthPopover = document.querySelector('[data-health-popover]');
+    const toggleHealthPopover = document.querySelector('[data-toggle-health-popover]');
     const openProgressButtons = document.querySelectorAll('[data-open-modal="progress-modal"]');
     const closeProgressButtons = progressModal ? progressModal.querySelectorAll('[data-close-modal]') : [];
 
@@ -828,6 +901,28 @@ $healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' 
         });
     }
 
+    if (healthModal) {
+        openHealthButtons.forEach((button) => button.addEventListener('click', () => {
+            healthModal.classList.add('is-visible');
+            healthModal.setAttribute('aria-hidden', 'false');
+        }));
+        closeHealthButtons.forEach((button) => button.addEventListener('click', () => {
+            healthModal.classList.remove('is-visible');
+            healthModal.setAttribute('aria-hidden', 'true');
+        }));
+    }
+
+    if (toggleHealthPopover && healthPopover) {
+        toggleHealthPopover.addEventListener('click', () => {
+            healthPopover.classList.toggle('is-visible');
+        });
+        document.addEventListener('click', (event) => {
+            if (healthPopoverRoot && !healthPopoverRoot.contains(event.target)) {
+                healthPopover.classList.remove('is-visible');
+            }
+        });
+    }
+
     if (progressModal) {
         progressModal.addEventListener('click', (event) => {
             if (event.target === progressModal) {
@@ -847,6 +942,13 @@ $healthLabel = $healthTotal >= 80 ? 'Buena' : ($healthTotal >= 60 ? 'Atención' 
     .project-health-card.health-green { border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
     .project-health-card.health-yellow { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
     .project-health-card.health-red { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+    .health-popover { display:none; position:absolute; margin-top:8px; right:0; width:min(420px, 90vw); padding:12px; border-radius:12px; background:var(--surface); border:1px solid var(--border); box-shadow:0 10px 24px color-mix(in srgb, var(--text-primary) 20%, var(--background)); z-index:3; }
+    .health-popover.is-visible { display:block; }
+    .project-health-card { position:relative; }
+    .health-dimension { font-size:12px; margin:8px 0; padding:6px 8px; border-radius:8px; }
+    .dim-green { background: color-mix(in srgb, var(--success) 12%, var(--background)); }
+    .dim-yellow { background: color-mix(in srgb, var(--warning) 12%, var(--background)); }
+    .dim-red { background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
     .project-title-block h2 { margin:0; color: var(--text-primary); }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }

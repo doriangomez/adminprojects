@@ -14,6 +14,7 @@ class DashboardController extends Controller
             'summary' => $service->executiveSummary($user),
             'projects' => $service->projectHealth($user),
             'portfolioHealth' => $service->portfolioHealthAverage($user),
+            'portfolioInsights' => $service->portfolioHealthInsights($user),
             'timesheets' => $service->timesheetOverview($user),
             'outsourcing' => $service->outsourcingOverview($user),
             'governance' => $service->governanceOverview($user),

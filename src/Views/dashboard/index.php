@@ -89,6 +89,7 @@
     $portfolioHealth = is_array($portfolioHealth ?? null) ? $portfolioHealth : ['average_score' => 0, 'projects_count' => 0];
     $portfolioAverage = (int) ($portfolioHealth['average_score'] ?? 0);
     $portfolioTone = $portfolioAverage >= 80 ? 'soft-green' : ($portfolioAverage >= 60 ? 'soft-amber' : 'soft-red');
+    $portfolioInsights = is_array($portfolioInsights ?? null) ? $portfolioInsights : ['ranking' => [], 'top_risk' => [], 'portfolio_trend_avg' => 0, 'client_heatmap' => []];
     ?>
 
     <div>
@@ -192,6 +193,45 @@
             </div>
         </div>
     </div>
+
+
+    <div>
+        <h2 class="section-title">Vista de portafolio</h2>
+        <div class="section-grid">
+            <div class="card">
+                <h4>Ranking de proyectos por salud</h4>
+                <table>
+                    <thead><tr><th>Proyecto</th><th>Cliente</th><th class="text-right">Score</th></tr></thead>
+                    <tbody>
+                    <?php foreach (array_slice($portfolioInsights['ranking'], 0, 8) as $row): ?>
+                        <tr><td><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td><td class="text-right"><?= (int) ($row['score'] ?? 0) ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card">
+                <h4>Top 5 en riesgo</h4>
+                <ul class="list">
+                    <?php foreach ($portfolioInsights['top_risk'] as $row): ?>
+                        <li><?= htmlspecialchars((string) ($row['name'] ?? '')) ?> — <strong><?= (int) ($row['score'] ?? 0) ?></strong></li>
+                    <?php endforeach; ?>
+                </ul>
+                <p class="muted">Tendencia promedio del portafolio (30 días): <?= (int) ($portfolioInsights['portfolio_trend_avg'] ?? 0) ?> pts</p>
+            </div>
+            <div class="card">
+                <h4>Heatmap por cliente</h4>
+                <table>
+                    <thead><tr><th>Cliente</th><th class="text-right">Promedio</th><th class="text-right">En riesgo</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($portfolioInsights['client_heatmap'] as $row): ?>
+                        <tr><td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td><td class="text-right"><?= (int) ($row['avg_score'] ?? 0) ?></td><td class="text-right"><?= (int) ($row['risk_count'] ?? 0) ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 
     <div>
         <h2 class="section-title">Talento y timesheets</h2>
