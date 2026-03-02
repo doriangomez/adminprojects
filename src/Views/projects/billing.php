@@ -53,7 +53,10 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
                         aria-checked="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'true' : 'false' ?>"
                         aria-label="Toggle de facturación"
                     >
-                        <span class="billable-switch-thumb" aria-hidden="true"></span>
+                        <svg class="billable-switch-svg" viewBox="0 0 52 30" width="52" height="30" aria-hidden="true">
+                            <rect class="billable-switch-track" x="1" y="1" width="50" height="28" rx="14" fill="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#22a35a' : '#b8bec8' ?>" stroke="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#1d8b4c' : 'rgba(0,0,0,.14)' ?>" stroke-width="1"></rect>
+                            <circle class="billable-switch-thumb" cx="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '36' : '15' ?>" cy="15" r="11" fill="#ffffff"></circle>
+                        </svg>
                     </button>
                     <span id="billable-badge" class="billable-badge <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>">
                         <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
@@ -81,7 +84,10 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
                         aria-label="Estado de facturación (solo lectura)"
                         disabled
                     >
-                        <span class="billable-switch-thumb" aria-hidden="true"></span>
+                        <svg class="billable-switch-svg" viewBox="0 0 52 30" width="52" height="30" aria-hidden="true">
+                            <rect class="billable-switch-track" x="1" y="1" width="50" height="28" rx="14" fill="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#22a35a' : '#b8bec8' ?>" stroke="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#1d8b4c' : 'rgba(0,0,0,.14)' ?>" stroke-width="1"></rect>
+                            <circle class="billable-switch-thumb" cx="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '36' : '15' ?>" cy="15" r="11" fill="#ffffff"></circle>
+                        </svg>
                     </button>
                     <span class="billable-badge <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>">
                         <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
@@ -206,6 +212,20 @@ const billingForm = document.getElementById('billing-config-form');
 
 if (billableToggle && billableFields) {
   const isBillableOn = () => billableToggle.value === '1';
+  const renderBillableSwitch = (on) => {
+    if (!billableSwitch) {
+      return;
+    }
+    const track = billableSwitch.querySelector('.billable-switch-track');
+    const thumb = billableSwitch.querySelector('.billable-switch-thumb');
+    if (track) {
+      track.setAttribute('fill', on ? '#22a35a' : '#b8bec8');
+      track.setAttribute('stroke', on ? '#1d8b4c' : 'rgba(0,0,0,.14)');
+    }
+    if (thumb) {
+      thumb.setAttribute('cx', on ? '36' : '15');
+    }
+  };
 
   const syncBillable = () => {
     const on = isBillableOn();
@@ -222,6 +242,7 @@ if (billableToggle && billableFields) {
       billableSwitch.setAttribute('aria-checked', on ? 'true' : 'false');
       billableSwitch.classList.toggle('is-on', on);
       billableSwitch.classList.toggle('is-off', !on);
+      renderBillableSwitch(on);
     }
     billableFields.querySelectorAll('input, select, textarea').forEach((field) => {
       field.disabled = !on;
@@ -291,9 +312,9 @@ if (billingForm) {
 .contract-title { font-weight:700; }
 .contract-switch-row .toggle-switch { width:52px; height:30px; border-radius:999px; border:1px solid rgba(0,0,0,.14); background:#b8bec8; padding:2px; display:inline-flex; align-items:center; justify-content:flex-start; cursor:pointer; transition:background-color .2s ease, border-color .2s ease; box-sizing:border-box; }
 .contract-switch-row .toggle-switch.is-disabled { opacity:.65; cursor:not-allowed; }
-.contract-switch-row .billable-switch-thumb { width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 3px 8px rgba(0,0,0,.2); transition:transform .2s ease; transform:translateX(0); display:block; }
+.contract-switch-row .billable-switch-svg { display:block; filter: drop-shadow(0 3px 8px rgba(0,0,0,.16)); }
+.contract-switch-row .billable-switch-thumb { transition:cx .2s ease; }
 .contract-switch-row .toggle-switch.is-on { background:#22a35a; border-color:#1d8b4c; }
-.contract-switch-row .toggle-switch.is-on .billable-switch-thumb { transform:translateX(22px); }
 .billable-badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent; }
 .billable-badge.is-on { background:color-mix(in srgb, var(--success) 18%, var(--background)); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--background)); }
 .billable-badge.is-off { background:color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color:var(--text-secondary); border-color:color-mix(in srgb, var(--text-secondary) 30%, var(--background)); }
