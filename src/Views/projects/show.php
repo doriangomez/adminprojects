@@ -12,6 +12,15 @@ $isManualProgress = ($project['progress_mode'] ?? $project['progress_type'] ?? '
 $canUpdateProgress = !empty($canUpdateProgress) && $isManualProgress;
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
 $progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
+$billingConfig = is_array($billingConfig ?? null) ? $billingConfig : [];
+$projectInvoices = is_array($projectInvoices ?? null) ? $projectInvoices : [];
+$billingTotals = is_array($billingTotals ?? null) ? $billingTotals : [];
+$missingMonthlyPeriods = is_array($missingMonthlyPeriods ?? null) ? $missingMonthlyPeriods : [];
+$approvedHoursPendingInvoicing = (float) ($approvedHoursPendingInvoicing ?? 0);
+$canViewBilling = !empty($canViewBilling);
+$canManageBilling = !empty($canManageBilling);
+$canMarkInvoicePaid = !empty($canMarkInvoicePaid);
+$canVoidInvoice = !empty($canVoidInvoice);
 $projectNotes = is_array($projectNotes ?? null) ? $projectNotes : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
@@ -516,6 +525,106 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                 </div>
             </article>
         </section>
+
+
+
+        <?php if ($canViewBilling): ?>
+            <section class="progress-history">
+                <div class="history-card">
+                    <div class="history-header">
+                        <div>
+                            <p class="eyebrow">Configuración de Facturación</p>
+                            <h4>Control financiero por proyecto</h4>
+                        </div>
+                        <a class="action-btn" href="<?= $basePath ?>/projects/billing-report?project_id=<?= (int) ($project['id'] ?? 0) ?>">Exportar CSV</a>
+                    </div>
+
+                    <?php if ($canManageBilling): ?>
+                        <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="outsourcing-form">
+                            <label>¿Facturable?
+                                <select name="is_billable">
+                                    <option value="1" <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'selected' : '' ?>>Sí</option>
+                                    <option value="0" <?= ((int) ($billingConfig['is_billable'] ?? 0) === 0) ? 'selected' : '' ?>>No</option>
+                                </select>
+                            </label>
+                            <label>Tipo
+                                <select name="billing_type">
+                                    <?php foreach (($billingTypes ?? []) as $type): ?>
+                                        <option value="<?= htmlspecialchars($type) ?>" <?= (($billingConfig['billing_type'] ?? '') === $type) ? 'selected' : '' ?>><?= htmlspecialchars($type) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Periodicidad
+                                <select name="billing_periodicity">
+                                    <?php foreach (($billingPeriodicities ?? []) as $periodicity): ?>
+                                        <option value="<?= htmlspecialchars($periodicity) ?>" <?= (($billingConfig['billing_periodicity'] ?? '') === $periodicity) ? 'selected' : '' ?>><?= htmlspecialchars($periodicity) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Valor contrato<input type="number" step="0.01" min="0" name="contract_value" value="<?= htmlspecialchars((string) ($billingConfig['contract_value'] ?? '0')) ?>"></label>
+                            <label>Moneda<input type="text" maxlength="3" name="currency_code" value="<?= htmlspecialchars((string) ($billingConfig['currency_code'] ?? 'USD')) ?>"></label>
+                            <label>Inicio facturación<input type="date" name="billing_start_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '')) ?>"></label>
+                            <label>Fin facturación<input type="date" name="billing_end_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '')) ?>"></label>
+                            <label>Tarifa hora<input type="number" step="0.01" min="0" name="hourly_rate" value="<?= htmlspecialchars((string) ($billingConfig['hourly_rate'] ?? '0')) ?>"></label>
+                            <div><button class="action-btn primary" type="submit">Guardar configuración</button></div>
+                        </form>
+                    <?php endif; ?>
+
+                    <div class="indicator-grid" style="margin-top:12px;">
+                        <article class="indicator-card"><div><span>Total contratado</span><strong><?= number_format((float) ($billingConfig['contract_value'] ?? 0), 2) ?> <?= htmlspecialchars((string) ($billingConfig['currency_code'] ?? 'USD')) ?></strong></div></article>
+                        <article class="indicator-card"><div><span>Total facturado</span><strong><?= number_format((float) ($billingTotals['total_invoiced'] ?? 0), 2) ?></strong></div></article>
+                        <article class="indicator-card"><div><span>Total pagado</span><strong><?= number_format((float) ($billingTotals['total_paid'] ?? 0), 2) ?></strong></div></article>
+                        <article class="indicator-card"><div><span>Saldo por cobrar</span><strong><?= number_format((float) ($billingTotals['total_due'] ?? 0), 2) ?></strong></div></article>
+                        <article class="indicator-card"><div><span>Horas aprobadas sin facturar</span><strong><?= number_format($approvedHoursPendingInvoicing, 2) ?></strong></div></article>
+                    </div>
+
+                    <?php if (!empty($missingMonthlyPeriods)): ?>
+                        <p class="section-muted">⚠ Periodos pendientes: <?= htmlspecialchars(implode(', ', array_slice($missingMonthlyPeriods, 0, 3))) ?></p>
+                    <?php endif; ?>
+
+                    <?php if ($canManageBilling): ?>
+                        <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices" class="outsourcing-form" style="margin-top:12px;">
+                            <label>Número<input type="text" name="invoice_number" required></label>
+                            <label>Emisión<input type="date" name="issued_at" value="<?= date('Y-m-d') ?>" required></label>
+                            <label>Desde<input type="date" name="period_start"></label>
+                            <label>Hasta<input type="date" name="period_end"></label>
+                            <label>Valor<input type="number" step="0.01" min="0" name="amount" required></label>
+                            <label>Estado
+                                <select name="status">
+                                    <?php foreach (($invoiceStatuses ?? []) as $status): ?>
+                                        <?php if ($status === 'paid' && !$canMarkInvoicePaid) { continue; } ?>
+                                        <?php if ($status === 'void' && !$canVoidInvoice) { continue; } ?>
+                                        <option value="<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($status) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Fecha pago<input type="date" name="paid_at"></label>
+                            <label>Adjunto (ruta)<input type="text" name="attachment_path"></label>
+                            <label style="grid-column:1 / -1;">Observaciones<textarea name="notes" rows="2"></textarea></label>
+                            <div><button class="action-btn primary" type="submit">Registrar factura</button></div>
+                        </form>
+                    <?php endif; ?>
+
+                    <div class="table-wrapper" style="margin-top:12px;">
+                        <table>
+                            <thead><tr><th>#</th><th>Emisión</th><th>Periodo</th><th>Valor</th><th>Estado</th><th>Pago</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($projectInvoices as $inv): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars((string) ($inv['invoice_number'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars((string) ($inv['issued_at'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars((string) (($inv['period_start'] ?? '-') . ' a ' . ($inv['period_end'] ?? '-'))) ?></td>
+                                    <td><?= number_format((float) ($inv['amount'] ?? 0), 2) ?></td>
+                                    <td><?= htmlspecialchars((string) ($inv['status'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars((string) ($inv['paid_at'] ?? '-')) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        <?php endif; ?>
 
         <section class="progress-history">
             <div class="history-card">

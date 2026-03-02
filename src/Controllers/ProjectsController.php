@@ -6,6 +6,7 @@ use App\Repositories\AuditLogRepository;
 use App\Repositories\ClientsRepository;
 use App\Repositories\MasterFilesRepository;
 use App\Repositories\OutsourcingRepository;
+use App\Repositories\ProjectBillingRepository;
 use App\Repositories\ProjectNodesRepository;
 use App\Repositories\ProjectsRepository;
 use App\Repositories\TalentsRepository;
@@ -51,6 +52,10 @@ class ProjectsController extends Controller
         'Implementación',
         'Scale',
     ];
+
+    private const BILLING_TYPES = ['fixed', 'hours', 'milestones', 'mixed'];
+    private const BILLING_PERIODICITIES = ['monthly', 'biweekly', 'deliverable', 'one_time', 'custom'];
+    private const INVOICE_STATUSES = ['issued', 'sent', 'paid', 'overdue', 'void'];
 
     public function index(): void
     {
@@ -1627,6 +1632,14 @@ class ProjectsController extends Controller
         $projectService = new ProjectService($this->db);
         $healthScore = $projectService->calculateProjectHealthReport($id);
         $healthHistory = $projectService->history($id, 30);
+        $billingRepo = new ProjectBillingRepository($this->db);
+        $billingConfig = $billingRepo->config($id);
+        $invoices = $billingRepo->invoices($id);
+        $invoiceTotals = $billingRepo->invoiceTotals($id);
+        $approvedHoursPendingInvoicing = $billingRepo->approvedHoursNotInvoiced($id);
+        $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
+            ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
+            : [];
 
         return array_merge([
             'title' => 'Detalle de proyecto',
@@ -1648,7 +1661,144 @@ class ProjectsController extends Controller
                 'pending_controls' => $pendingControls,
                 'logged_hours' => $loggedHours,
             ],
+            'billingConfig' => $billingConfig,
+            'projectInvoices' => $invoices,
+            'billingTotals' => $invoiceTotals,
+            'approvedHoursPendingInvoicing' => $approvedHoursPendingInvoicing,
+            'missingMonthlyPeriods' => $missingMonthlyPeriods,
+            'canViewBilling' => $this->canViewBilling(),
+            'canManageBilling' => $this->auth->can('project.billing.manage'),
+            'canMarkInvoicePaid' => $this->auth->can('project.billing.mark_paid'),
+            'canVoidInvoice' => $this->auth->can('project.billing.void'),
+            'billingTypes' => self::BILLING_TYPES,
+            'billingPeriodicities' => self::BILLING_PERIODICITIES,
+            'invoiceStatuses' => self::INVOICE_STATUSES,
         ], $deleteContext);
+    }
+
+    public function saveBillingConfig(int $projectId): void
+    {
+        $this->requirePermission('project.billing.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $payload = $this->billingPayloadFromRequest($project);
+        (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
+        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_config', $projectId, 'updated', $payload);
+        header('Location: /projects/' . $projectId . '?view=resumen');
+    }
+
+    public function createInvoice(int $projectId): void
+    {
+        $this->requirePermission('project.billing.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $payload = $this->invoicePayloadFromRequest();
+        if ($payload['status'] === 'paid' && !$this->auth->can('project.billing.mark_paid')) {
+            http_response_code(403);
+            exit('No cuentas con permisos para marcar facturas como pagadas.');
+        }
+        if ($payload['status'] === 'void' && !$this->auth->can('project.billing.void')) {
+            http_response_code(403);
+            exit('No cuentas con permisos para anular facturas.');
+        }
+
+        $invoiceId = (new ProjectBillingRepository($this->db))->createInvoice($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
+        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_invoice', $invoiceId, 'created', ['project_id' => $projectId] + $payload);
+        header('Location: /projects/' . $projectId . '?view=resumen');
+    }
+
+    public function billingReport(): void
+    {
+        $this->requirePermission('project.billing.view');
+        $projectId = (int) ($_GET['project_id'] ?? 0);
+        if ($projectId <= 0) {
+            http_response_code(400);
+            exit('project_id es obligatorio');
+        }
+
+        $rows = (new ProjectBillingRepository($this->db))->invoices($projectId);
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="project-billing-' . $projectId . '.csv"');
+        $out = fopen('php://output', 'wb');
+        fputcsv($out, ['invoice_number', 'issued_at', 'period_start', 'period_end', 'amount', 'status', 'paid_at', 'notes']);
+        foreach ($rows as $row) {
+            fputcsv($out, [
+                $row['invoice_number'] ?? '',
+                $row['issued_at'] ?? '',
+                $row['period_start'] ?? '',
+                $row['period_end'] ?? '',
+                $row['amount'] ?? '',
+                $row['status'] ?? '',
+                $row['paid_at'] ?? '',
+                $row['notes'] ?? '',
+            ]);
+        }
+        fclose($out);
+    }
+
+    private function canViewBilling(): bool
+    {
+        if (!$this->auth->can('project.billing.view')) {
+            return false;
+        }
+
+        return !$this->auth->hasRole('Talento');
+    }
+
+    private function billingPayloadFromRequest(array $current): array
+    {
+        $isBillable = isset($_POST['is_billable']) && $_POST['is_billable'] === '1';
+        $type = (string) ($_POST['billing_type'] ?? ($current['billing_type'] ?? 'fixed'));
+        $periodicity = (string) ($_POST['billing_periodicity'] ?? ($current['billing_periodicity'] ?? 'monthly'));
+
+        if (!in_array($type, self::BILLING_TYPES, true)) {
+            $type = 'fixed';
+        }
+        if (!in_array($periodicity, self::BILLING_PERIODICITIES, true)) {
+            $periodicity = 'monthly';
+        }
+
+        return [
+            'is_billable' => $isBillable ? 1 : 0,
+            'billing_type' => $type,
+            'billing_periodicity' => $periodicity,
+            'contract_value' => (float) ($_POST['contract_value'] ?? ($current['contract_value'] ?? 0)),
+            'currency_code' => strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD')))) ?: 'USD',
+            'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
+            'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
+            'hourly_rate' => (float) ($_POST['hourly_rate'] ?? ($current['hourly_rate'] ?? 0)),
+        ];
+    }
+
+    private function invoicePayloadFromRequest(): array
+    {
+        $status = (string) ($_POST['status'] ?? 'issued');
+        if (!in_array($status, self::INVOICE_STATUSES, true)) {
+            $status = 'issued';
+        }
+
+        return [
+            'invoice_number' => trim((string) ($_POST['invoice_number'] ?? '')),
+            'issued_at' => $this->nullableDate($_POST['issued_at'] ?? date('Y-m-d')),
+            'period_start' => $this->nullableDate($_POST['period_start'] ?? null),
+            'period_end' => $this->nullableDate($_POST['period_end'] ?? null),
+            'amount' => (float) ($_POST['amount'] ?? 0),
+            'status' => $status,
+            'paid_at' => $this->nullableDate($_POST['paid_at'] ?? null),
+            'notes' => trim((string) ($_POST['notes'] ?? '')),
+            'attachment_path' => trim((string) ($_POST['attachment_path'] ?? '')),
+            'timesheet_ids' => is_array($_POST['timesheet_ids'] ?? null) ? $_POST['timesheet_ids'] : [],
+        ];
     }
 
     private function userCanUpdateProjectProgress(): bool
@@ -2314,6 +2464,14 @@ class ProjectsController extends Controller
             'risk_score' => $riskScore,
             'risk_level' => $riskLevel,
             'risk_catalog' => $delivery['risks'],
+            'is_billable' => isset($_POST['is_billable']) ? (int) ($_POST['is_billable'] === '1') : (int) ($current['is_billable'] ?? 0),
+            'billing_type' => (string) ($_POST['billing_type'] ?? ($current['billing_type'] ?? 'fixed')),
+            'billing_periodicity' => (string) ($_POST['billing_periodicity'] ?? ($current['billing_periodicity'] ?? 'monthly')),
+            'contract_value' => (float) ($_POST['contract_value'] ?? ($current['contract_value'] ?? 0)),
+            'currency_code' => strtoupper((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD'))),
+            'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
+            'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
+            'hourly_rate' => (float) ($_POST['hourly_rate'] ?? ($current['hourly_rate'] ?? 0)),
         ];
     }
 
@@ -2888,6 +3046,14 @@ class ProjectsController extends Controller
             'risks' => $riskAssessment['selected'],
             'risk_evaluations' => $riskAssessment['evaluations'],
             'risk_catalog' => $filteredRisks,
+            'is_billable' => isset($_POST['is_billable']) ? (int) ($_POST['is_billable'] === '1') : 0,
+            'billing_type' => (string) ($_POST['billing_type'] ?? 'fixed'),
+            'billing_periodicity' => (string) ($_POST['billing_periodicity'] ?? 'monthly'),
+            'contract_value' => (float) ($_POST['contract_value'] ?? 0),
+            'currency_code' => strtoupper((string) ($_POST['currency_code'] ?? 'USD')),
+            'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? null),
+            'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? null),
+            'hourly_rate' => (float) ($_POST['hourly_rate'] ?? 0),
         ];
 
         $payload = $this->applyMethodologyRules($payload, $delivery['phases'] ?? []);
