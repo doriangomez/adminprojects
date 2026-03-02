@@ -240,16 +240,37 @@ class RequirementsRepository
             return [];
         }
 
+        $changedByNameSelect = 'NULL AS changed_by_name';
+        $usersJoin = '';
+        if ($this->db->tableExists('users')) {
+            $usersJoin = 'LEFT JOIN users u ON u.id = l.changed_by';
+            $userDisplayColumn = $this->resolveUserDisplayColumn();
+            if ($userDisplayColumn !== null) {
+                $changedByNameSelect = sprintf('u.%s AS changed_by_name', $userDisplayColumn);
+            }
+        }
+
         return $this->db->fetchAll(
-            'SELECT l.*, u.nombre AS changed_by_name, r.name AS requirement_name
+            'SELECT l.*, ' . $changedByNameSelect . ', r.name AS requirement_name
              FROM requirement_audit_log l
-             LEFT JOIN users u ON u.id = l.changed_by
+             ' . $usersJoin . '
              LEFT JOIN project_requirements r ON r.id = l.requirement_id
              WHERE l.project_id = :project_id
              ORDER BY l.changed_at DESC
              LIMIT 100',
             [':project_id' => $projectId]
         );
+    }
+
+    private function resolveUserDisplayColumn(): ?string
+    {
+        foreach (['name', 'nombre', 'full_name', 'username'] as $column) {
+            if ($this->db->columnExists('users', $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     private function buildIndicator(array $rows): array
