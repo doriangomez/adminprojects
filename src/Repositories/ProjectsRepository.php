@@ -1032,6 +1032,54 @@ class ProjectsRepository
                 }
             }
 
+            if ($this->db->columnExists('projects', 'is_billable')) {
+                $columns[] = 'is_billable';
+                $placeholders[] = ':is_billable';
+                $params[':is_billable'] = (int) ($payload['is_billable'] ?? 0);
+            }
+
+            if ($this->db->columnExists('projects', 'billing_type')) {
+                $columns[] = 'billing_type';
+                $placeholders[] = ':billing_type';
+                $params[':billing_type'] = $payload['billing_type'] ?? 'fixed';
+            }
+
+            if ($this->db->columnExists('projects', 'billing_periodicity')) {
+                $columns[] = 'billing_periodicity';
+                $placeholders[] = ':billing_periodicity';
+                $params[':billing_periodicity'] = $payload['billing_periodicity'] ?? 'monthly';
+            }
+
+            if ($this->db->columnExists('projects', 'contract_value')) {
+                $columns[] = 'contract_value';
+                $placeholders[] = ':contract_value';
+                $params[':contract_value'] = (float) ($payload['contract_value'] ?? 0);
+            }
+
+            if ($this->db->columnExists('projects', 'currency_code')) {
+                $columns[] = 'currency_code';
+                $placeholders[] = ':currency_code';
+                $params[':currency_code'] = strtoupper((string) ($payload['currency_code'] ?? 'USD'));
+            }
+
+            if ($this->db->columnExists('projects', 'billing_start_date')) {
+                $columns[] = 'billing_start_date';
+                $placeholders[] = ':billing_start_date';
+                $params[':billing_start_date'] = $payload['billing_start_date'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'billing_end_date')) {
+                $columns[] = 'billing_end_date';
+                $placeholders[] = ':billing_end_date';
+                $params[':billing_end_date'] = $payload['billing_end_date'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'hourly_rate')) {
+                $columns[] = 'hourly_rate';
+                $placeholders[] = ':hourly_rate';
+                $params[':hourly_rate'] = (float) ($payload['hourly_rate'] ?? 0);
+            }
+
             error_log('Project insert payload: ' . json_encode(['columns' => $columns, 'params' => $params]));
 
             $projectId = $this->db->insert(
@@ -1169,6 +1217,46 @@ class ProjectsRepository
         if ($this->db->columnExists('projects', 'end_date')) {
             $fields[] = 'end_date = :end_date';
             $params[':end_date'] = $payload['end_date'];
+        }
+
+        if ($this->db->columnExists('projects', 'is_billable')) {
+            $fields[] = 'is_billable = :is_billable';
+            $params[':is_billable'] = (int) ($payload['is_billable'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'billing_type')) {
+            $fields[] = 'billing_type = :billing_type';
+            $params[':billing_type'] = $payload['billing_type'] ?? 'fixed';
+        }
+
+        if ($this->db->columnExists('projects', 'billing_periodicity')) {
+            $fields[] = 'billing_periodicity = :billing_periodicity';
+            $params[':billing_periodicity'] = $payload['billing_periodicity'] ?? 'monthly';
+        }
+
+        if ($this->db->columnExists('projects', 'contract_value')) {
+            $fields[] = 'contract_value = :contract_value';
+            $params[':contract_value'] = (float) ($payload['contract_value'] ?? 0);
+        }
+
+        if ($this->db->columnExists('projects', 'currency_code')) {
+            $fields[] = 'currency_code = :currency_code';
+            $params[':currency_code'] = strtoupper((string) ($payload['currency_code'] ?? 'USD'));
+        }
+
+        if ($this->db->columnExists('projects', 'billing_start_date')) {
+            $fields[] = 'billing_start_date = :billing_start_date';
+            $params[':billing_start_date'] = $payload['billing_start_date'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'billing_end_date')) {
+            $fields[] = 'billing_end_date = :billing_end_date';
+            $params[':billing_end_date'] = $payload['billing_end_date'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'hourly_rate')) {
+            $fields[] = 'hourly_rate = :hourly_rate';
+            $params[':hourly_rate'] = (float) ($payload['hourly_rate'] ?? 0);
         }
 
         if (array_key_exists('design_review_done', $payload)) {

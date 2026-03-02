@@ -36,6 +36,7 @@ class App
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();
+        $migrator->ensureProjectBillingModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -259,6 +260,18 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/notes$#', $path, $matches) && $method === 'POST') {
                 $controller->createNote((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/billing-config$#', $path, $matches) && $method === 'POST') {
+                $controller->saveBillingConfig((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/invoices$#', $path, $matches) && $method === 'POST') {
+                $controller->createInvoice((int) $matches[1]);
+                return;
+            }
+            if ($path === '/projects/billing-report' && $method === 'GET') {
+                $controller->billingReport();
                 return;
             }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {

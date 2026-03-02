@@ -145,6 +145,14 @@ CREATE TABLE projects (
     start_date DATE,
     end_date DATE,
     active TINYINT(1) DEFAULT 1,
+    is_billable TINYINT(1) NOT NULL DEFAULT 0,
+    billing_type ENUM('fixed','hours','milestones','mixed') NOT NULL DEFAULT 'fixed',
+    billing_periodicity ENUM('monthly','biweekly','deliverable','one_time','custom') NOT NULL DEFAULT 'monthly',
+    contract_value DECIMAL(14,2) NOT NULL DEFAULT 0,
+    currency_code CHAR(3) NOT NULL DEFAULT 'USD',
+    billing_start_date DATE NULL,
+    billing_end_date DATE NULL,
+    hourly_rate DECIMAL(12,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -460,6 +468,39 @@ CREATE TABLE timesheets (
     FOREIGN KEY (rejected_by) REFERENCES users(id)
 );
 
+
+CREATE TABLE project_invoices (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    invoice_number VARCHAR(80) NOT NULL,
+    issued_at DATE NOT NULL,
+    period_start DATE NULL,
+    period_end DATE NULL,
+    amount DECIMAL(14,2) NOT NULL,
+    status ENUM('issued','sent','paid','overdue','void') NOT NULL DEFAULT 'issued',
+    paid_at DATE NULL,
+    notes TEXT NULL,
+    attachment_path VARCHAR(255) NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_project_invoice_number (project_id, invoice_number),
+    INDEX idx_project_invoices_project_date (project_id, issued_at),
+    INDEX idx_project_invoices_status (status),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE project_invoice_timesheets (
+    invoice_id BIGINT NOT NULL,
+    timesheet_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (invoice_id, timesheet_id),
+    UNIQUE KEY uq_invoice_timesheet_unique (timesheet_id),
+    FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE CASCADE,
+    FOREIGN KEY (timesheet_id) REFERENCES timesheets(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE project_outsourcing_settings (
     project_id INT NOT NULL PRIMARY KEY,
     followup_frequency ENUM('weekly', 'biweekly', 'monthly') NOT NULL DEFAULT 'monthly',
@@ -571,6 +612,10 @@ INSERT INTO permissions (code, name) VALUES
     ('timesheets.view', 'Ver timesheets'),
     ('timesheets.approve', 'Aprobar timesheets'),
     ('timesheets.advanced_manage', 'Gestión avanzada de timesheets'),
+    ('project.billing.view', 'Ver facturación de proyectos'),
+    ('project.billing.manage', 'Registrar y editar facturas de proyecto'),
+    ('project.billing.mark_paid', 'Cambiar estado de facturas a pagado'),
+    ('project.billing.void', 'Anular facturas de proyecto'),
     ('config.manage', 'Administrar configuración');
 
 INSERT INTO config_settings (config_key, config_value) VALUES
