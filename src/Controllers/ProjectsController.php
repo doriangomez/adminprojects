@@ -3129,4 +3129,78 @@ POST crudo:
 
         return $default;
     }
+
+    public function requirements(int $id): void
+    {
+        $data = $this->projectDetailData($id);
+        $repo = new RequirementsRepository($this->db);
+        $config = (new ConfigService($this->db))->getConfig();
+
+        $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
+        $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
+
+        $indicator = $repo->indicatorForProject($id, $start, $end);
+        $history = $repo->auditByProject($id);
+
+        $data['requirements'] = $repo->listByProject($id);
+        $data['requirementsIndicator'] = $indicator;
+        $data['requirementsAudit'] = $history;
+        $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
+        $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
+
+        $this->render('projects/requirements', $data);
+    }
+
+    public function storeRequirement(int $projectId): void
+    {
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->find($projectId);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $repo = new RequirementsRepository($this->db);
+        $repo->create([
+            'project_id' => $projectId,
+            'client_id' => (int) ($project['client_id'] ?? 0),
+            'created_by' => (int) ($user['id'] ?? 0),
+            'name' => $_POST['name'] ?? '',
+            'description' => $_POST['description'] ?? '',
+            'version' => $_POST['version'] ?? '1.0',
+            'delivery_date' => $_POST['delivery_date'] ?? null,
+            'status' => $_POST['status'] ?? 'borrador',
+            'approved_first_delivery' => ($_POST['approved_first_delivery'] ?? '0') === '1',
+        ]);
+
+        header('Location: /projects/' . $projectId . '/requirements?saved=1');
+        exit;
+    }
+
+    public function updateRequirementStatus(int $projectId, int $requirementId): void
+    {
+        $user = $this->auth->user() ?? [];
+        $status = (string) ($_POST['status'] ?? 'borrador');
+        $allowed = ['borrador', 'entregado', 'aprobado', 'rechazado'];
+        if (!in_array($status, $allowed, true)) {
+            $status = 'borrador';
+        }
+
+        (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
+        header('Location: /projects/' . $projectId . '/requirements?updated=1');
+        exit;
+    }
+
+    public function deleteRequirement(int $projectId, int $requirementId): void
+    {
+        $user = $this->auth->user() ?? [];
+        if (((int) ($user['can_delete_requirement_history'] ?? 0)) !== 1) {
+            $this->denyAccess('Solo administrador puede borrar requisitos históricos.');
+        }
+
+        (new RequirementsRepository($this->db))->delete($requirementId);
+        header('Location: /projects/' . $projectId . '/requirements?deleted=1');
+        exit;
+    }
+
 }

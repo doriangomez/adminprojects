@@ -162,6 +162,62 @@ CREATE TABLE project_health_history (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+
+
+CREATE TABLE project_requirements (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    client_id INT NOT NULL,
+    created_by INT NOT NULL,
+    name VARCHAR(190) NOT NULL,
+    description TEXT NULL,
+    version VARCHAR(40) NOT NULL DEFAULT '1.0',
+    delivery_date DATE NULL,
+    approval_date DATE NULL,
+    status ENUM('borrador','entregado','aprobado','rechazado') NOT NULL DEFAULT 'borrador',
+    approved_first_delivery TINYINT(1) NOT NULL DEFAULT 0,
+    reprocess_count INT NOT NULL DEFAULT 0,
+    is_final_version TINYINT(1) NOT NULL DEFAULT 1,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_requirements_project_date (project_id, delivery_date),
+    INDEX idx_requirements_status (status),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE requirement_audit_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    requirement_id BIGINT NOT NULL,
+    project_id INT NOT NULL,
+    changed_by INT NOT NULL,
+    from_status VARCHAR(20) NULL,
+    to_status VARCHAR(20) NOT NULL,
+    notes VARCHAR(255) NULL,
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_requirement_audit_project_date (project_id, changed_at),
+    FOREIGN KEY (requirement_id) REFERENCES project_requirements(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE requirement_indicator_snapshots (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    total_requirements INT NOT NULL DEFAULT 0,
+    approved_without_reprocess INT NOT NULL DEFAULT 0,
+    indicator_value DECIMAL(5,2) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'no_aplica',
+    frozen_at TIMESTAMP NULL DEFAULT NULL,
+    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_requirement_snapshot_project_period (project_id, period_start, period_end),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE project_design_inputs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,

@@ -233,6 +233,27 @@
     </div>
 
 
+
+    <div>
+        <h2 class="section-title">Cumplimiento de requisitos del cliente</h2>
+        <div class="card">
+            <table>
+                <thead><tr><th>Proyecto</th><th>Cliente</th><th class="text-right">Indicador</th><th class="text-right">Aprobados/Total</th><th class="text-right">Estado</th></tr></thead>
+                <tbody>
+                <?php foreach (($requirements['ranking'] ?? []) as $row): ?>
+                    <tr>
+                        <td><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td>
+                        <td class="text-right"><?= ($row['indicator'] ?? null) === null ? 'N/A' : number_format((float) $row['indicator'], 2, ',', '.') . '%' ?></td>
+                        <td class="text-right"><?= (int) ($row['approved_without_reprocess'] ?? 0) ?>/<?= (int) ($row['total'] ?? 0) ?></td>
+                        <td class="text-right"><?= htmlspecialchars((string) ($row['status'] ?? 'no_aplica')) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div>
         <h2 class="section-title">Talento y timesheets</h2>
         <div class="section-grid">

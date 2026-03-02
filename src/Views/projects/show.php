@@ -335,6 +335,7 @@ $healthScore = is_array($healthScore ?? null) ? $healthScore : [
     'horas_score' => 0,
     'seguimiento_score' => 0,
     'riesgo_score' => 0,
+    'calidad_requisitos_score' => 0,
 ];
 $healthTotal = (int) ($healthScore['total_score'] ?? 0);
 $healthTone = $healthTotal >= 90 ? 'health-green' : ($healthTotal >= 75 ? 'health-yellow' : 'health-red');
@@ -371,7 +372,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                     <?php
                     $percentage = (int) ($item['percentage'] ?? 0);
                     $tone = $percentage >= 85 ? 'dim-green' : ($percentage >= 70 ? 'dim-yellow' : 'dim-red');
-                    $label = ucfirst($dimension);
+                    $label = ucfirst(str_replace('_', ' ', (string) $dimension));
                     $issues = is_array($item['issues'] ?? null) ? $item['issues'] : [];
                     ?>
                     <div class="health-dimension <?= $tone ?>">
@@ -820,7 +821,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                     <?php foreach ($healthBreakdown as $dimension => $item): ?>
                         <?php $p = (int) ($item['percentage'] ?? 0); ?>
                         <div style="margin-bottom:8px;">
-                            <div style="display:flex;justify-content:space-between;"><span><?= htmlspecialchars(ucfirst($dimension)) ?></span><strong><?= $p ?>%</strong></div>
+                            <div style="display:flex;justify-content:space-between;"><span><?= htmlspecialchars(ucfirst(str_replace('_', ' ', (string) $dimension))) ?></span><strong><?= $p ?>%</strong></div>
                             <div class="project-progress__bar"><div style="width: <?= $p ?>%;"></div></div>
                         </div>
                     <?php endforeach; ?>

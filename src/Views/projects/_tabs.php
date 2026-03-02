@@ -23,6 +23,11 @@ $tabs = [
         'href' => $basePath . '/projects/' . $projectId . '?view=seguimiento',
         'icon' => '📝',
     ],
+    'requisitos' => [
+        'label' => 'Requisitos',
+        'href' => $basePath . '/projects/' . $projectId . '/requirements',
+        'icon' => '📌',
+    ],
     'tareas' => [
         'label' => 'Tareas',
         'href' => $basePath . '/projects/' . $projectId . '/tasks',

@@ -35,6 +35,7 @@ class App
         $migrator->ensureTimesheetSchema();
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
+        $migrator->ensureRequirementsModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -302,7 +303,23 @@ class App
                     return;
                 }
             }
-            if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method === 'GET') {
+                        if (preg_match('#^/projects/(\d+)/requirements$#', $path, $matches) && $method === 'GET') {
+                $controller->requirements((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/requirements$#', $path, $matches) && $method === 'POST') {
+                $controller->storeRequirement((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/requirements/(\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateRequirementStatus((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/requirements/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteRequirement((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method === 'GET') {
                 $controller->outsourcing((int) $matches[1]);
                 return;
             }

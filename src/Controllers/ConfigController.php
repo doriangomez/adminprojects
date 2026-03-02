@@ -217,7 +217,8 @@ class ConfigController extends Controller
                         'avance' => $this->toFloat($_POST['health_weight_avance'] ?? '0.25'),
                         'horas' => $this->toFloat($_POST['health_weight_horas'] ?? '0.20'),
                         'seguimiento' => $this->toFloat($_POST['health_weight_seguimiento'] ?? '0.15'),
-                        'riesgo' => $this->toFloat($_POST['health_weight_riesgo'] ?? '0.15'),
+                        'riesgo' => $this->toFloat($_POST['health_weight_riesgo'] ?? '0.10'),
+                        'calidad_requisitos' => $this->toFloat($_POST['health_weight_calidad_requisitos'] ?? '0.15'),
                     ],
                     'thresholds' => [
                         'optimal' => (int) ($_POST['health_threshold_optimal'] ?? 90),
@@ -225,6 +226,10 @@ class ConfigController extends Controller
                     ],
                     'max_days_without_followup' => (int) ($_POST['health_max_days_without_followup'] ?? 14),
                     'max_pending_hours_ratio' => $this->toFloat($_POST['health_max_pending_hours_ratio'] ?? '0.20'),
+                    'requirements_indicator' => [
+                        'target' => (int) ($_POST['requirements_target'] ?? 95),
+                        'yellow_min' => (int) ($_POST['requirements_yellow_min'] ?? 85),
+                    ],
                 ],
             ],
         ];

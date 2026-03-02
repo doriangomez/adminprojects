@@ -39,6 +39,7 @@ class ProjectService
                 'horas_score' => 0,
                 'seguimiento_score' => 0,
                 'riesgo_score' => 0,
+                'calidad_requisitos_score' => 0,
                 'breakdown' => [],
                 'recommendations' => [],
             ];
@@ -55,7 +56,8 @@ class ProjectService
             'avance' => (float) ($rules['weights']['avance'] ?? 0.25),
             'horas' => (float) ($rules['weights']['horas'] ?? 0.20),
             'seguimiento' => (float) ($rules['weights']['seguimiento'] ?? 0.15),
-            'riesgo' => (float) ($rules['weights']['riesgo'] ?? 0.15),
+            'riesgo' => (float) ($rules['weights']['riesgo'] ?? 0.10),
+            'calidad_requisitos' => (float) ($rules['weights']['calidad_requisitos'] ?? 0.15),
         ];
 
         $thresholds = [
@@ -68,7 +70,8 @@ class ProjectService
             'avance' => (int) ($rules['max_points']['avance'] ?? 25),
             'horas' => (int) ($rules['max_points']['horas'] ?? 20),
             'seguimiento' => (int) ($rules['max_points']['seguimiento'] ?? 15),
-            'riesgo' => (int) ($rules['max_points']['riesgo'] ?? 15),
+            'riesgo' => (int) ($rules['max_points']['riesgo'] ?? 10),
+            'calidad_requisitos' => (int) ($rules['max_points']['calidad_requisitos'] ?? 15),
         ];
 
         $rawScores = [
@@ -77,6 +80,7 @@ class ProjectService
             'horas' => $this->calculateHorasScore($projectId, $project),
             'seguimiento' => $this->calculateSeguimientoScore($projectId, $project),
             'riesgo' => $this->calculateRiesgoScore($projectId, $project),
+            'calidad_requisitos' => $this->calculateRequisitosScore($projectId),
         ];
 
         $breakdown = [];
@@ -111,6 +115,7 @@ class ProjectService
             'horas_score' => $rawScores['horas'],
             'seguimiento_score' => $rawScores['seguimiento'],
             'riesgo_score' => $rawScores['riesgo'],
+            'calidad_requisitos_score' => $rawScores['calidad_requisitos'],
             'breakdown' => $breakdown,
             'recommendations' => $this->buildRecommendations($breakdown),
             'calculated_at' => date('Y-m-d H:i:s'),
@@ -164,6 +169,7 @@ class ProjectService
             'horas' => 'Existe desviación de horas respecto al avance.',
             'seguimiento' => 'Proyecto sin actualización reciente.',
             'riesgo' => 'Riesgos críticos sin mitigación.',
+            'calidad_requisitos' => 'Requisitos con baja aprobación en primera entrega.',
             default => 'Requiere atención ejecutiva.',
         };
     }
@@ -250,6 +256,24 @@ class ProjectService
         }
 
         return $issues === [] ? ['Revisar dimensión para mejorar desempeño.'] : $issues;
+    }
+
+    private function calculateRequisitosScore(int $projectId): int
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return 100;
+        }
+
+        $repo = new RequirementsRepository($this->db);
+        $start = date('Y-m-01');
+        $end = date('Y-m-t');
+        $indicator = $repo->indicatorForProject($projectId, $start, $end);
+
+        if (!(bool) ($indicator['applicable'] ?? false)) {
+            return 100;
+        }
+
+        return $this->clampScore((int) round((float) ($indicator['value'] ?? 0)));
     }
 
     private function buildRecommendations(array $breakdown): array

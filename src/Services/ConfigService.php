@@ -202,14 +202,16 @@ class ConfigService
                     'avance' => 0.25,
                     'horas' => 0.20,
                     'seguimiento' => 0.15,
-                    'riesgo' => 0.15,
+                    'riesgo' => 0.10,
+                    'calidad_requisitos' => 0.15,
                 ],
                 'max_points' => [
                     'documental' => 25,
                     'avance' => 25,
                     'horas' => 20,
                     'seguimiento' => 15,
-                    'riesgo' => 15,
+                    'riesgo' => 10,
+                    'calidad_requisitos' => 15,
                 ],
                 'thresholds' => [
                     'optimal' => 90,
@@ -217,6 +219,10 @@ class ConfigService
                 ],
                 'max_days_without_followup' => 14,
                 'max_pending_hours_ratio' => 0.20,
+                'requirements_indicator' => [
+                    'target' => 95,
+                    'yellow_min' => 85,
+                ],
             ],
         ],
         'notifications' => [
