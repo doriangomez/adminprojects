@@ -337,6 +337,8 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     .badge.risk-low { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: color-mix(in srgb, var(--success) 70%, var(--text-primary)); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
     .badge.risk-medium { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: color-mix(in srgb, var(--warning) 75%, var(--text-primary)); border-color: color-mix(in srgb, var(--warning) 35%, var(--background)); }
     .badge.risk-high { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: color-mix(in srgb, var(--danger) 75%, var(--text-primary)); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
+    .badge.billable-on { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
+    .badge.billable-off { background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--background)); }
 
     .progress-track { width: 120px; height: 8px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
     .progress-bar { height: 100%; border-radius: 999px; background: color-mix(in srgb, var(--primary) 60%, var(--success) 40%); }
@@ -569,6 +571,14 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
             Fin hasta
             <input type="date" name="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? '') ?>">
         </label>
+        <label>
+            Facturación
+            <select name="billable">
+                <option value="">Todos</option>
+                <option value="yes" <?= ($filters['billable'] ?? '') === 'yes' ? 'selected' : '' ?>>Solo facturables</option>
+                <option value="no" <?= ($filters['billable'] ?? '') === 'no' ? 'selected' : '' ?>>Solo no facturables</option>
+            </select>
+        </label>
     </div>
 </form>
 
@@ -637,6 +647,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                     <th>Avance</th>
                     <th>PM</th>
                     <th>Fechas</th>
+                    <th>Facturación</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -688,6 +699,10 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         <td>
                             <span><?= htmlspecialchars($project['start_date'] ?? 'Sin inicio') ?></span><br>
                             <span class="text-muted">→ <?= htmlspecialchars($project['end_date'] ?? 'Sin fin') ?></span>
+                        </td>
+                        <td>
+                            <?php $isBillable = (int) ($project['is_billable'] ?? 0) === 1; ?>
+                            <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? '🟢 Facturable' : '⚪ No facturable' ?></span>
                         </td>
                         <td>
                             <div class="table-actions">

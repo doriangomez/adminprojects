@@ -67,6 +67,7 @@ class ProjectsController extends Controller
             'status' => trim((string) ($_GET['status'] ?? '')),
             'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
             'methodology' => trim((string) ($_GET['methodology'] ?? '')),
+            'billable' => trim((string) ($_GET['billable'] ?? '')),
             'start_date' => $_GET['start_date'] ?? '',
             'end_date' => $_GET['end_date'] ?? '',
         ];
@@ -1690,6 +1691,44 @@ class ProjectsController extends Controller
         ], $deleteContext);
     }
 
+
+    public function toggleBillingConfig(int $projectId): void
+    {
+        $this->requirePermission('project.billing.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'error', 'message' => 'Proyecto no encontrado']);
+            return;
+        }
+
+        $rawBody = file_get_contents('php://input') ?: '';
+        $decoded = json_decode($rawBody, true);
+        $isBillable = (int) ($decoded['is_billable'] ?? $_POST['is_billable'] ?? 0) === 1;
+
+        $current = (new ProjectBillingRepository($this->db))->config($projectId);
+        $payload = $isBillable
+            ? array_merge($current, ['is_billable' => 1])
+            : [
+                'is_billable' => 0,
+                'billing_type' => 'fixed',
+                'billing_periodicity' => 'monthly',
+                'contract_value' => 0,
+                'currency_code' => 'USD',
+                'billing_start_date' => null,
+                'billing_end_date' => null,
+                'hourly_rate' => 0,
+            ];
+
+        (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
+        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_toggle', $projectId, 'updated', ['is_billable' => $payload['is_billable']]);
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['status' => 'ok', 'is_billable' => (int) $payload['is_billable']]);
+    }
+
     public function saveBillingConfig(int $projectId): void
     {
         $this->requirePermission('project.billing.manage');
@@ -1703,6 +1742,14 @@ class ProjectsController extends Controller
         $payload = $this->billingPayloadFromRequest($project);
         (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
         (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_config', $projectId, 'updated', $payload);
+
+        $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+        if ($isAjax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'ok']);
+            return;
+        }
+
         header('Location: /projects/' . $projectId . '/billing');
     }
 

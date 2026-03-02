@@ -266,6 +266,10 @@ class App
                 $controller->saveBillingConfig((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\d+)/billing-toggle$#', $path, $matches) && $method === 'PATCH') {
+                $controller->toggleBillingConfig((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\d+)/invoices$#', $path, $matches) && $method === 'POST') {
                 $controller->createInvoice((int) $matches[1]);
                 return;
