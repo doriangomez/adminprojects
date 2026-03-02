@@ -71,6 +71,22 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
                 </div>
             </form>
 <?php else: ?>
+                <div class="contract-switch-row">
+                    <span class="contract-title">Contrato</span>
+                    <button
+                        type="button"
+                        class="toggle-switch <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?> is-disabled"
+                        role="switch"
+                        aria-checked="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'true' : 'false' ?>"
+                        aria-label="Estado de facturación (solo lectura)"
+                        disabled
+                    >
+                        <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+                    </button>
+                    <span class="billable-badge <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>">
+                        <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
+                    </span>
+                </div>
                 <p class="section-muted">Solo administradores y PM pueden editar la configuración contractual.</p>
             <?php endif; ?>
         </article>
@@ -274,6 +290,7 @@ if (billingForm) {
 .contract-switch-row { grid-column: 1 / -1; display:flex; align-items:center; gap:12px; }
 .contract-title { font-weight:700; }
 .toggle-switch { border:0; background:transparent; padding:0; display:inline-flex; align-items:center; cursor:pointer; }
+.toggle-switch.is-disabled { opacity:.65; cursor:not-allowed; }
 .toggle-track { width:52px; height:30px; border-radius:999px; background:#b8bec8; position:relative; transition:background-color .2s ease; padding:3px; box-sizing:border-box; }
 .toggle-thumb { width:24px; height:24px; border-radius:50%; background:#fff; display:block; box-shadow:0 3px 8px rgba(0,0,0,.2); transition:transform .2s ease; }
 .toggle-switch.is-on .toggle-track { background:#22a35a; }
