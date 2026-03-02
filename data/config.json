@@ -221,6 +221,34 @@
         "approvals": {
             "external_talent_requires_approval": true,
             "budget_change_requires_approval": true
+        },
+        "health_scoring": {
+            "weights": {
+                "documental": 0.25,
+                "avance": 0.25,
+                "horas": 0.2,
+                "seguimiento": 0.15,
+                "riesgo": 0.1,
+                "calidad_requisitos": 0.15
+            },
+            "max_points": {
+                "documental": 25,
+                "avance": 25,
+                "horas": 20,
+                "seguimiento": 15,
+                "riesgo": 10,
+                "calidad_requisitos": 15
+            },
+            "thresholds": {
+                "optimal": 90,
+                "attention": 75
+            },
+            "max_days_without_followup": 14,
+            "max_pending_hours_ratio": 0.2,
+            "requirements_indicator": {
+                "target": 95,
+                "yellow_min": 85
+            }
         }
     }
 }

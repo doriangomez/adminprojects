@@ -18,6 +18,7 @@ class DashboardController extends Controller
             'timesheets' => $service->timesheetOverview($user),
             'outsourcing' => $service->outsourcingOverview($user),
             'governance' => $service->governanceOverview($user),
+            'requirements' => $service->requirementsOverview($user),
             'alerts' => $service->alerts($user),
         ]);
     }
