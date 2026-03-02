@@ -291,8 +291,8 @@ if (billingForm) {
 .contract-title { font-weight:700; }
 .toggle-switch { border:0; background:transparent; padding:0; display:inline-flex; align-items:center; cursor:pointer; }
 .toggle-switch.is-disabled { opacity:.65; cursor:not-allowed; }
-.toggle-track { width:52px; height:30px; border-radius:999px; background:#b8bec8; position:relative; transition:background-color .2s ease; padding:3px; box-sizing:border-box; }
-.toggle-thumb { width:24px; height:24px; border-radius:50%; background:#fff; display:block; box-shadow:0 3px 8px rgba(0,0,0,.2); transition:transform .2s ease; }
+.toggle-track { width:52px; height:30px; display:inline-flex; align-items:center; border-radius:999px; background:#b8bec8; border:1px solid rgba(0,0,0,.12); position:relative; transition:background-color .2s ease; padding:3px; box-sizing:border-box; }
+.toggle-thumb { width:24px; height:24px; border-radius:50%; background:#fff; display:block; box-shadow:0 3px 8px rgba(0,0,0,.2); transition:transform .2s ease; transform:translateX(0); }
 .toggle-switch.is-on .toggle-track { background:#22a35a; }
 .toggle-switch.is-on .toggle-thumb { transform:translateX(22px); }
 .billable-badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent; }
