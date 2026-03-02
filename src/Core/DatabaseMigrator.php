@@ -765,6 +765,7 @@ class DatabaseMigrator
         try {
             $this->ensureProjectBillingColumns();
             $this->ensureProjectInvoicesTable();
+            $this->ensureProjectInvoiceStatusEnum();
             $this->ensureProjectInvoiceTimesheetsTable();
             $this->ensureBillingPermissions();
         } catch (\PDOException $e) {
@@ -2285,7 +2286,7 @@ class DatabaseMigrator
                 period_start DATE NULL,
                 period_end DATE NULL,
                 amount DECIMAL(14,2) NOT NULL,
-                status ENUM("issued","sent","paid","overdue","void") NOT NULL DEFAULT "issued",
+                status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued",
                 paid_at DATE NULL,
                 notes TEXT NULL,
                 attachment_path VARCHAR(255) NULL,
@@ -2317,6 +2318,18 @@ class DatabaseMigrator
                 CONSTRAINT fk_invoice_timesheets_invoice FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE CASCADE,
                 CONSTRAINT fk_invoice_timesheets_timesheet FOREIGN KEY (timesheet_id) REFERENCES timesheets(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
+
+    private function ensureProjectInvoiceStatusEnum(): void
+    {
+        if (!$this->db->tableExists('project_invoices')) {
+            return;
+        }
+
+        $this->db->execute(
+            'ALTER TABLE project_invoices
+             MODIFY COLUMN status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued"'
         );
     }
 

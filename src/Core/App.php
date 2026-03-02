@@ -270,8 +270,28 @@ class App
                 $controller->createInvoice((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateInvoice((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/mark-paid$#', $path, $matches) && $method === 'POST') {
+                $controller->markInvoicePaid((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/cancel$#', $path, $matches) && $method === 'POST') {
+                $controller->cancelInvoice((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteInvoice((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if ($path === '/projects/billing-report' && $method === 'GET') {
                 $controller->billingReport();
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/billing$#', $path, $matches) && $method === 'GET') {
+                $controller->billing((int) $matches[1]);
                 return;
             }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
