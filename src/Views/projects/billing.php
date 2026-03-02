@@ -44,14 +44,22 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
             <p class="section-muted">Contrato</p>
             <?php if ($canManageBilling): ?>
             <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form">
-                <label>¿Facturable?<input type="checkbox" name="is_billable" value="1" <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'checked' : '' ?>></label>
-                <label>Tipo de facturación<select name="billing_type" id="billing-type"><?php foreach (($billingTypes ?? []) as $t): ?><option value="<?= htmlspecialchars($t) ?>" <?= (($billingConfig['billing_type'] ?? '') === $t) ? 'selected' : '' ?>><?= htmlspecialchars($billingTypeLabels[$t] ?? $t) ?></option><?php endforeach; ?></select></label>
-                <label>Periodicidad<select name="billing_periodicity"><?php foreach (($billingPeriodicities ?? []) as $p): ?><option value="<?= htmlspecialchars($p) ?>" <?= (($billingConfig['billing_periodicity'] ?? '') === $p) ? 'selected' : '' ?>><?= htmlspecialchars($periodicityLabels[$p] ?? $p) ?></option><?php endforeach; ?></select></label>
-                <label>Valor del contrato<input type="number" step="0.01" min="0" name="contract_value" value="<?= htmlspecialchars((string) ($billingConfig['contract_value'] ?? '0')) ?>"></label>
-                <label>Moneda<select name="currency_code"><option value="USD" <?= $currency === 'USD' ? 'selected' : '' ?>>USD</option><option value="COP" <?= $currency === 'COP' ? 'selected' : '' ?>>COP</option></select></label>
-                <label>Fecha inicio facturación<input type="date" name="billing_start_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '')) ?>"></label>
-                <label>Fecha fin facturación<input type="date" name="billing_end_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '')) ?>"></label>
-                <label id="hourly-rate-field" style="display:<?= (($billingConfig['billing_type'] ?? '') === 'hours') ? 'block' : 'none' ?>;">Tarifa por hora<input type="number" step="0.01" min="0" name="hourly_rate" value="<?= htmlspecialchars((string) ($billingConfig['hourly_rate'] ?? '0')) ?>"></label>
+                <label class="switch-field">¿Facturable?
+                    <span class="switch-wrap">
+                        <input type="checkbox" id="is-billable" name="is_billable" value="1" <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'checked' : '' ?>>
+                        <span class="switch-slider" aria-hidden="true"></span>
+                        <span id="billable-label"><?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'ON' : 'OFF' ?></span>
+                    </span>
+                </label>
+                <div id="billable-config-fields" class="grid-form-inner" style="display:<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'contents' : 'none' ?>;">
+                    <label>Tipo de facturación<select name="billing_type" id="billing-type"><?php foreach (($billingTypes ?? []) as $t): ?><option value="<?= htmlspecialchars($t) ?>" <?= (($billingConfig['billing_type'] ?? '') === $t) ? 'selected' : '' ?>><?= htmlspecialchars($billingTypeLabels[$t] ?? $t) ?></option><?php endforeach; ?></select></label>
+                    <label>Periodicidad<select name="billing_periodicity"><?php foreach (($billingPeriodicities ?? []) as $p): ?><option value="<?= htmlspecialchars($p) ?>" <?= (($billingConfig['billing_periodicity'] ?? '') === $p) ? 'selected' : '' ?>><?= htmlspecialchars($periodicityLabels[$p] ?? $p) ?></option><?php endforeach; ?></select></label>
+                    <label>Valor del contrato<input type="number" step="0.01" min="0" name="contract_value" value="<?= htmlspecialchars((string) ($billingConfig['contract_value'] ?? '0')) ?>"></label>
+                    <label>Moneda<select name="currency_code"><option value="USD" <?= $currency === 'USD' ? 'selected' : '' ?>>USD</option><option value="COP" <?= $currency === 'COP' ? 'selected' : '' ?>>COP</option></select></label>
+                    <label>Fecha inicio facturación<input type="date" name="billing_start_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '')) ?>"></label>
+                    <label>Fecha fin facturación<input type="date" name="billing_end_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '')) ?>"></label>
+                    <label id="hourly-rate-field" style="display:<?= (($billingConfig['billing_type'] ?? '') === 'hours') ? 'block' : 'none' ?>;">Tarifa por hora<input type="number" step="0.01" min="0" name="hourly_rate" value="<?= htmlspecialchars((string) ($billingConfig['hourly_rate'] ?? '0')) ?>"></label>
+                </div>
                 <div><button class="action-btn primary" type="submit">Guardar configuración</button></div>
             </form>
             <?php else: ?>
@@ -161,4 +169,31 @@ if (billingType) {
   const syncRate = () => document.getElementById('hourly-rate-field').style.display = billingType.value === 'hours' ? 'block' : 'none';
   billingType.addEventListener('change', syncRate); syncRate();
 }
+const billableToggle = document.getElementById('is-billable');
+const billableFields = document.getElementById('billable-config-fields');
+const billableLabel = document.getElementById('billable-label');
+if (billableToggle && billableFields) {
+  const syncBillable = () => {
+    const on = billableToggle.checked;
+    billableFields.style.display = on ? 'contents' : 'none';
+    if (billableLabel) {
+      billableLabel.textContent = on ? 'ON' : 'OFF';
+    }
+    billableFields.querySelectorAll('input, select, textarea').forEach((field) => {
+      field.disabled = !on;
+    });
+  };
+  billableToggle.addEventListener('change', syncBillable);
+  syncBillable();
+}
 </script>
+
+<style>
+.switch-field { grid-column: 1 / -1; display:flex; flex-direction:column; gap:8px; font-weight:600; }
+.switch-wrap { display:inline-flex; align-items:center; gap:10px; }
+.switch-wrap input { position:absolute; opacity:0; pointer-events:none; }
+.switch-slider { width:46px; height:26px; border-radius:999px; background:var(--border); position:relative; transition:all .2s ease; }
+.switch-slider::after { content:""; width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px; transition:all .2s ease; }
+.switch-wrap input:checked + .switch-slider { background: var(--primary); }
+.switch-wrap input:checked + .switch-slider::after { left:23px; }
+</style>

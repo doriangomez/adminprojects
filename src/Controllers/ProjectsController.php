@@ -1822,6 +1822,20 @@ class ProjectsController extends Controller
     private function billingPayloadFromRequest(array $current): array
     {
         $isBillable = isset($_POST['is_billable']) && $_POST['is_billable'] === '1';
+
+        if (!$isBillable) {
+            return [
+                'is_billable' => 0,
+                'billing_type' => 'fixed',
+                'billing_periodicity' => 'monthly',
+                'contract_value' => 0,
+                'currency_code' => 'USD',
+                'billing_start_date' => null,
+                'billing_end_date' => null,
+                'hourly_rate' => 0,
+            ];
+        }
+
         $type = (string) ($_POST['billing_type'] ?? ($current['billing_type'] ?? 'fixed'));
         $periodicity = (string) ($_POST['billing_periodicity'] ?? ($current['billing_periodicity'] ?? 'monthly'));
 
