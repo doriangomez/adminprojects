@@ -1708,25 +1708,31 @@ class ProjectsController extends Controller
         $decoded = json_decode($rawBody, true);
         $isBillable = (int) ($decoded['is_billable'] ?? $_POST['is_billable'] ?? 0) === 1;
 
-        $current = (new ProjectBillingRepository($this->db))->config($projectId);
-        $payload = $isBillable
-            ? array_merge($current, ['is_billable' => 1])
-            : [
-                'is_billable' => 0,
-                'billing_type' => 'fixed',
-                'billing_periodicity' => 'monthly',
-                'contract_value' => 0,
-                'currency_code' => 'USD',
-                'billing_start_date' => null,
-                'billing_end_date' => null,
-                'hourly_rate' => 0,
-            ];
+        $billingRepo = new ProjectBillingRepository($this->db);
 
-        (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
-        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_toggle', $projectId, 'updated', ['is_billable' => $payload['is_billable']]);
+        try {
+            $billingRepo->updateBillableStatus($projectId, $isBillable ? 1 : 0);
+            $updated = $billingRepo->config($projectId);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'No se pudo guardar el estado de facturación.',
+            ]);
+            return;
+        }
+
+        (new AuditLogRepository($this->db))->log(
+            (int) ($this->auth->user()['id'] ?? 0),
+            'project_billing_toggle',
+            $projectId,
+            'updated',
+            ['is_billable' => (int) ($updated['is_billable'] ?? 0)]
+        );
 
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['status' => 'ok', 'is_billable' => (int) $payload['is_billable']]);
+        echo json_encode(['status' => 'ok', 'is_billable' => (int) ($updated['is_billable'] ?? 0)]);
     }
 
     public function saveBillingConfig(int $projectId): void
