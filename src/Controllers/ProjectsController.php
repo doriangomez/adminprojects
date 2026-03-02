@@ -55,7 +55,7 @@ class ProjectsController extends Controller
 
     private const BILLING_TYPES = ['fixed', 'hours', 'milestones', 'mixed'];
     private const BILLING_PERIODICITIES = ['monthly', 'biweekly', 'deliverable', 'one_time', 'custom'];
-    private const INVOICE_STATUSES = ['issued', 'sent', 'paid', 'overdue', 'void'];
+    private const INVOICE_STATUSES = ['issued', 'paid', 'draft', 'cancelled'];
 
     public function index(): void
     {
@@ -361,6 +361,17 @@ class ProjectsController extends Controller
             'isClosed' => $isClosed,
             'talents' => $talents,
         ]);
+    }
+
+    public function billing(int $id): void
+    {
+        $this->requirePermission('projects.view');
+        if (!$this->canViewBilling()) {
+            http_response_code(403);
+            exit('No tienes permisos para visualizar facturación.');
+        }
+
+        $this->render('projects/billing', $this->projectDetailData($id));
     }
 
     public function storeTask(int $id): void
@@ -1637,6 +1648,7 @@ class ProjectsController extends Controller
         $invoices = $billingRepo->invoices($id);
         $invoiceTotals = $billingRepo->invoiceTotals($id);
         $approvedHoursPendingInvoicing = $billingRepo->approvedHoursNotInvoiced($id);
+        $approvedHoursTotal = $billingRepo->approvedHoursTotal($id);
         $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
             ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
             : [];
@@ -1665,9 +1677,11 @@ class ProjectsController extends Controller
             'projectInvoices' => $invoices,
             'billingTotals' => $invoiceTotals,
             'approvedHoursPendingInvoicing' => $approvedHoursPendingInvoicing,
+            'approvedHoursTotal' => $approvedHoursTotal,
             'missingMonthlyPeriods' => $missingMonthlyPeriods,
             'canViewBilling' => $this->canViewBilling(),
-            'canManageBilling' => $this->auth->can('project.billing.manage'),
+            'canManageBilling' => $this->canRegisterBilling(),
+            'canDeleteInvoice' => $this->auth->hasRole('Administrador'),
             'canMarkInvoicePaid' => $this->auth->can('project.billing.mark_paid'),
             'canVoidInvoice' => $this->auth->can('project.billing.void'),
             'billingTypes' => self::BILLING_TYPES,
@@ -1689,12 +1703,15 @@ class ProjectsController extends Controller
         $payload = $this->billingPayloadFromRequest($project);
         (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
         (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_config', $projectId, 'updated', $payload);
-        header('Location: /projects/' . $projectId . '?view=resumen');
+        header('Location: /projects/' . $projectId . '/billing');
     }
 
     public function createInvoice(int $projectId): void
     {
-        $this->requirePermission('project.billing.manage');
+        if (!$this->canRegisterBilling()) {
+            http_response_code(403);
+            exit('Solo Admin y PM pueden registrar facturas.');
+        }
         $repo = new ProjectsRepository($this->db);
         $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
         if (!$project) {
@@ -1707,14 +1724,53 @@ class ProjectsController extends Controller
             http_response_code(403);
             exit('No cuentas con permisos para marcar facturas como pagadas.');
         }
-        if ($payload['status'] === 'void' && !$this->auth->can('project.billing.void')) {
+        if ($payload['status'] === 'cancelled' && !$this->auth->can('project.billing.void')) {
             http_response_code(403);
             exit('No cuentas con permisos para anular facturas.');
         }
 
+        $billingConfig = (new ProjectBillingRepository($this->db))->config($projectId);
+        $invoiceTotals = (new ProjectBillingRepository($this->db))->invoiceTotals($projectId);
+        $this->validateInvoiceAgainstContract($payload, $billingConfig, $invoiceTotals);
+
         $invoiceId = (new ProjectBillingRepository($this->db))->createInvoice($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
         (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_invoice', $invoiceId, 'created', ['project_id' => $projectId] + $payload);
-        header('Location: /projects/' . $projectId . '?view=resumen');
+        header('Location: /projects/' . $projectId . '/billing');
+    }
+
+    public function updateInvoice(int $projectId, int $invoiceId): void
+    {
+        if (!$this->canRegisterBilling()) {
+            http_response_code(403);
+            exit('Solo Admin y PM pueden editar facturas.');
+        }
+        $payload = $this->invoicePayloadFromRequest();
+        (new ProjectBillingRepository($this->db))->updateInvoice($projectId, $invoiceId, $payload);
+        header('Location: /projects/' . $projectId . '/billing');
+    }
+
+    public function markInvoicePaid(int $projectId, int $invoiceId): void
+    {
+        $this->requirePermission('project.billing.mark_paid');
+        (new ProjectBillingRepository($this->db))->updateInvoiceStatus($projectId, $invoiceId, 'paid', date('Y-m-d'));
+        header('Location: /projects/' . $projectId . '/billing');
+    }
+
+    public function cancelInvoice(int $projectId, int $invoiceId): void
+    {
+        $this->requirePermission('project.billing.void');
+        (new ProjectBillingRepository($this->db))->updateInvoiceStatus($projectId, $invoiceId, 'cancelled');
+        header('Location: /projects/' . $projectId . '/billing');
+    }
+
+    public function deleteInvoice(int $projectId, int $invoiceId): void
+    {
+        if (!$this->auth->hasRole('Administrador')) {
+            http_response_code(403);
+            exit('Solo administradores pueden eliminar facturas.');
+        }
+        (new ProjectBillingRepository($this->db))->deleteInvoice($projectId, $invoiceId);
+        header('Location: /projects/' . $projectId . '/billing');
     }
 
     public function billingReport(): void
@@ -1752,12 +1808,34 @@ class ProjectsController extends Controller
             return false;
         }
 
-        return !$this->auth->hasRole('Talento');
+        return true;
+    }
+
+    private function canRegisterBilling(): bool
+    {
+        return $this->auth->hasRole('Administrador')
+            || $this->auth->hasRole('PMO')
+            || $this->auth->hasRole('Líder de Proyecto')
+            || $this->auth->hasRole('PM');
     }
 
     private function billingPayloadFromRequest(array $current): array
     {
         $isBillable = isset($_POST['is_billable']) && $_POST['is_billable'] === '1';
+
+        if (!$isBillable) {
+            return [
+                'is_billable' => 0,
+                'billing_type' => 'fixed',
+                'billing_periodicity' => 'monthly',
+                'contract_value' => 0,
+                'currency_code' => 'USD',
+                'billing_start_date' => null,
+                'billing_end_date' => null,
+                'hourly_rate' => 0,
+            ];
+        }
+
         $type = (string) ($_POST['billing_type'] ?? ($current['billing_type'] ?? 'fixed'));
         $periodicity = (string) ($_POST['billing_periodicity'] ?? ($current['billing_periodicity'] ?? 'monthly'));
 
@@ -1773,7 +1851,9 @@ class ProjectsController extends Controller
             'billing_type' => $type,
             'billing_periodicity' => $periodicity,
             'contract_value' => (float) ($_POST['contract_value'] ?? ($current['contract_value'] ?? 0)),
-            'currency_code' => strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD')))) ?: 'USD',
+            'currency_code' => in_array(strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD')))), ['USD', 'COP'], true)
+                ? strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD'))))
+                : 'USD',
             'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
             'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
             'hourly_rate' => (float) ($_POST['hourly_rate'] ?? ($current['hourly_rate'] ?? 0)),
@@ -1794,11 +1874,24 @@ class ProjectsController extends Controller
             'period_end' => $this->nullableDate($_POST['period_end'] ?? null),
             'amount' => (float) ($_POST['amount'] ?? 0),
             'status' => $status,
-            'paid_at' => $this->nullableDate($_POST['paid_at'] ?? null),
+            'paid_at' => $status === 'paid' ? $this->nullableDate($_POST['paid_at'] ?? date('Y-m-d')) : null,
             'notes' => trim((string) ($_POST['notes'] ?? '')),
             'attachment_path' => trim((string) ($_POST['attachment_path'] ?? '')),
             'timesheet_ids' => is_array($_POST['timesheet_ids'] ?? null) ? $_POST['timesheet_ids'] : [],
         ];
+    }
+
+    private function validateInvoiceAgainstContract(array $payload, array $billingConfig, array $invoiceTotals): void
+    {
+        $nextAmount = (float) ($payload['amount'] ?? 0);
+        if (($billingConfig['billing_type'] ?? '') === 'fixed') {
+            $contractValue = (float) ($billingConfig['contract_value'] ?? 0);
+            $alreadyInvoiced = (float) ($invoiceTotals['total_invoiced'] ?? 0);
+            if (($alreadyInvoiced + $nextAmount) > $contractValue) {
+                http_response_code(422);
+                exit('La factura supera el valor contratado para un proyecto de tipo Fijo.');
+            }
+        }
     }
 
     private function userCanUpdateProjectProgress(): bool

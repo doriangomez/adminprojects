@@ -43,6 +43,11 @@ $tabs = [
         'href' => $basePath . '/projects/' . $projectId . '/costs',
         'icon' => '💵',
     ],
+    'facturacion' => [
+        'label' => 'Facturación',
+        'href' => $basePath . '/projects/' . $projectId . '/billing',
+        'icon' => '🧾',
+    ],
 ];
 if ($projectType === 'outsourcing') {
     $tabs['outsourcing'] = [
