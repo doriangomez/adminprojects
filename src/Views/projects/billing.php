@@ -31,7 +31,6 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
             <small class="section-muted">Gestión financiera contractual y de facturas del proyecto.</small>
         </div>
         <div class="project-actions">
-            <a class="action-btn" href="<?= $basePath ?>/projects/billing-report?project_id=<?= (int) ($project['id'] ?? 0) ?>">Exportar CSV</a>
             <?php if ($canManageBilling): ?><button class="action-btn primary" type="button" data-open-modal="invoice-modal">Registrar factura</button><?php endif; ?>
         </div>
     </header>
@@ -41,16 +40,19 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
     <section class="billing-layout">
         <article class="card">
             <h3>A. Configuración contractual</h3>
-            <p class="section-muted">Contrato</p>
             <?php if ($canManageBilling): ?>
-            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form">
-                <label class="switch-field">¿Facturable?
-                    <span class="switch-wrap">
+            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form" id="billing-config-form">
+                <div class="contract-switch-row">
+                    <span class="contract-title">Contrato</span>
+                    <label class="toggle-switch" for="is-billable" aria-label="Toggle de facturación">
                         <input type="checkbox" id="is-billable" name="is_billable" value="1" <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'checked' : '' ?>>
-                        <span class="switch-slider" aria-hidden="true"></span>
-                        <span id="billable-label"><?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'ON' : 'OFF' ?></span>
+                        <span class="toggle-track" aria-hidden="true"></span>
+                    </label>
+                    <span id="billable-badge" class="billable-badge <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>">
+                        <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
                     </span>
-                </label>
+                </div>
+                <p id="billable-off-message" class="section-muted" style="display:none;">Este proyecto no genera facturación.</p>
                 <div id="billable-config-fields" class="grid-form-inner" style="display:<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'contents' : 'none' ?>;">
                     <label>Tipo de facturación<select name="billing_type" id="billing-type"><?php foreach (($billingTypes ?? []) as $t): ?><option value="<?= htmlspecialchars($t) ?>" <?= (($billingConfig['billing_type'] ?? '') === $t) ? 'selected' : '' ?>><?= htmlspecialchars($billingTypeLabels[$t] ?? $t) ?></option><?php endforeach; ?></select></label>
                     <label>Periodicidad<select name="billing_periodicity"><?php foreach (($billingPeriodicities ?? []) as $p): ?><option value="<?= htmlspecialchars($p) ?>" <?= (($billingConfig['billing_periodicity'] ?? '') === $p) ? 'selected' : '' ?>><?= htmlspecialchars($periodicityLabels[$p] ?? $p) ?></option><?php endforeach; ?></select></label>
@@ -60,7 +62,6 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
                     <label>Fecha fin facturación<input type="date" name="billing_end_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '')) ?>"></label>
                     <label id="hourly-rate-field" style="display:<?= (($billingConfig['billing_type'] ?? '') === 'hours') ? 'block' : 'none' ?>;">Tarifa por hora<input type="number" step="0.01" min="0" name="hourly_rate" value="<?= htmlspecialchars((string) ($billingConfig['hourly_rate'] ?? '0')) ?>"></label>
                 </div>
-                <div><button class="action-btn primary" type="submit">Guardar configuración</button></div>
             </form>
             <?php else: ?>
                 <p class="section-muted">Solo administradores y PM pueden editar la configuración contractual.</p>
@@ -82,6 +83,9 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
             <?php if ($hoursBillableAmount !== null): ?>
                 <p class="section-muted">Facturable por horas: <strong><?= $fmtMoney($hoursBillableAmount) ?></strong> · Diferencia vs facturado: <strong><?= $fmtMoney((float) $hoursDelta) ?></strong>.</p>
             <?php endif; ?>
+            <div style="margin-top:12px;">
+                <a class="action-btn" href="<?= $basePath ?>/projects/billing-report?project_id=<?= (int) ($project['id'] ?? 0) ?>">Exportar CSV</a>
+            </div>
         </article>
 
         <article class="card">
@@ -169,31 +173,94 @@ if (billingType) {
   const syncRate = () => document.getElementById('hourly-rate-field').style.display = billingType.value === 'hours' ? 'block' : 'none';
   billingType.addEventListener('change', syncRate); syncRate();
 }
+
 const billableToggle = document.getElementById('is-billable');
 const billableFields = document.getElementById('billable-config-fields');
-const billableLabel = document.getElementById('billable-label');
+const billableBadge = document.getElementById('billable-badge');
+const billableOffMessage = document.getElementById('billable-off-message');
+const billingForm = document.getElementById('billing-config-form');
+
 if (billableToggle && billableFields) {
   const syncBillable = () => {
     const on = billableToggle.checked;
     billableFields.style.display = on ? 'contents' : 'none';
-    if (billableLabel) {
-      billableLabel.textContent = on ? 'ON' : 'OFF';
+    if (billableOffMessage) {
+      billableOffMessage.style.display = on ? 'none' : 'block';
+    }
+    if (billableBadge) {
+      billableBadge.textContent = on ? 'Facturable' : 'No facturable';
+      billableBadge.classList.toggle('is-on', on);
+      billableBadge.classList.toggle('is-off', !on);
     }
     billableFields.querySelectorAll('input, select, textarea').forEach((field) => {
       field.disabled = !on;
     });
   };
-  billableToggle.addEventListener('change', syncBillable);
+
+  const autoSaveBillable = async () => {
+    try {
+      const response = await fetch(`<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-toggle`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ is_billable: billableToggle.checked ? 1 : 0 }),
+      });
+      const payload = await response.json();
+      if (payload?.status !== 'ok') {
+        console.error('Respuesta inválida del toggle de facturación', payload);
+      }
+    } catch (error) {
+      console.error('No fue posible guardar el estado de facturación', error);
+    }
+  };
+
+  billableToggle.addEventListener('change', () => {
+    syncBillable();
+    autoSaveBillable();
+  });
   syncBillable();
+}
+
+if (billingForm) {
+  billingForm.addEventListener('change', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    if (target.id === 'is-billable') {
+      return;
+    }
+
+    const formData = new FormData(billingForm);
+    if (billableToggle && billableToggle.checked) {
+      formData.set('is_billable', '1');
+    }
+
+    try {
+      await fetch(billingForm.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData,
+      });
+    } catch (error) {
+      console.error('No fue posible autoguardar la configuración', error);
+    }
+  });
 }
 </script>
 
 <style>
-.switch-field { grid-column: 1 / -1; display:flex; flex-direction:column; gap:8px; font-weight:600; }
-.switch-wrap { display:inline-flex; align-items:center; gap:10px; }
-.switch-wrap input { position:absolute; opacity:0; pointer-events:none; }
-.switch-slider { width:46px; height:26px; border-radius:999px; background:var(--border); position:relative; transition:all .2s ease; }
-.switch-slider::after { content:""; width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px; transition:all .2s ease; }
-.switch-wrap input:checked + .switch-slider { background: var(--primary); }
-.switch-wrap input:checked + .switch-slider::after { left:23px; }
+.contract-switch-row { grid-column: 1 / -1; display:flex; align-items:center; gap:12px; }
+.contract-title { font-weight:700; }
+.toggle-switch { position: relative; display:inline-flex; align-items:center; cursor:pointer; }
+.toggle-switch input { position:absolute; opacity:0; pointer-events:none; appearance:none; -webkit-appearance:none; }
+.toggle-track { width:48px; height:24px; border-radius:999px; background:#b8bec8; position:relative; transition:background-color .2s ease; }
+.toggle-track::after { content:""; width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; left:2px; top:2px; box-shadow:0 2px 6px rgba(0,0,0,.2); transition:transform .2s ease; }
+.toggle-switch input:checked + .toggle-track { background:#22a35a; }
+.toggle-switch input:checked + .toggle-track::after { transform:translateX(24px); }
+.billable-badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent; }
+.billable-badge.is-on { background:color-mix(in srgb, var(--success) 18%, var(--background)); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--background)); }
+.billable-badge.is-off { background:color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color:var(--text-secondary); border-color:color-mix(in srgb, var(--text-secondary) 30%, var(--background)); }
 </style>

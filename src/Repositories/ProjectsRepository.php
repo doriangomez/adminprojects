@@ -35,6 +35,7 @@ class ProjectsRepository
         $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
         $hasActiveColumn = $this->db->columnExists('projects', 'active');
+        $hasBillableColumn = $this->db->columnExists('projects', 'is_billable');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -59,6 +60,14 @@ class ProjectsRepository
         if (!empty($filters['methodology'])) {
             $conditions[] = 'p.methodology = :methodology';
             $params[':methodology'] = $filters['methodology'];
+        }
+
+        if (($filters['billable'] ?? '') === 'yes' && $hasBillableColumn) {
+            $conditions[] = 'p.is_billable = 1';
+        }
+
+        if (($filters['billable'] ?? '') === 'no' && $hasBillableColumn) {
+            $conditions[] = 'p.is_billable = 0';
         }
 
         if (!empty($filters['start_date'])) {
@@ -90,6 +99,7 @@ class ProjectsRepository
             'p.project_stage',
             'prisk.risks AS risk_codes',
             'c.name AS client',
+            $hasBillableColumn ? 'p.is_billable' : '0 AS is_billable',
         ];
 
         $joins = [
