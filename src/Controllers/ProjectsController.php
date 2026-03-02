@@ -1695,6 +1695,12 @@ class ProjectsController extends Controller
     public function toggleBillingConfig(int $projectId): void
     {
         $this->requirePermission('project.billing.manage');
+        if (!$this->isBillingModuleEnabled()) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'error', 'message' => 'La facturación de proyectos está deshabilitada en Gobierno.']);
+            return;
+        }
         $repo = new ProjectsRepository($this->db);
         $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
         if (!$project) {
@@ -1708,25 +1714,31 @@ class ProjectsController extends Controller
         $decoded = json_decode($rawBody, true);
         $isBillable = (int) ($decoded['is_billable'] ?? $_POST['is_billable'] ?? 0) === 1;
 
-        $current = (new ProjectBillingRepository($this->db))->config($projectId);
-        $payload = $isBillable
-            ? array_merge($current, ['is_billable' => 1])
-            : [
-                'is_billable' => 0,
-                'billing_type' => 'fixed',
-                'billing_periodicity' => 'monthly',
-                'contract_value' => 0,
-                'currency_code' => 'USD',
-                'billing_start_date' => null,
-                'billing_end_date' => null,
-                'hourly_rate' => 0,
-            ];
+        $billingRepo = new ProjectBillingRepository($this->db);
 
-        (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
-        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_toggle', $projectId, 'updated', ['is_billable' => $payload['is_billable']]);
+        try {
+            $billingRepo->updateBillableStatus($projectId, $isBillable ? 1 : 0);
+            $updated = $billingRepo->config($projectId);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'No se pudo guardar el estado de facturación.',
+            ]);
+            return;
+        }
+
+        (new AuditLogRepository($this->db))->log(
+            (int) ($this->auth->user()['id'] ?? 0),
+            'project_billing_toggle',
+            $projectId,
+            'updated',
+            ['is_billable' => (int) ($updated['is_billable'] ?? 0)]
+        );
 
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['status' => 'ok', 'is_billable' => (int) $payload['is_billable']]);
+        echo json_encode(['status' => 'ok', 'is_billable' => (int) ($updated['is_billable'] ?? 0)]);
     }
 
     public function saveBillingConfig(int $projectId): void
@@ -1851,6 +1863,10 @@ class ProjectsController extends Controller
 
     private function canViewBilling(): bool
     {
+        if (!$this->isBillingModuleEnabled()) {
+            return false;
+        }
+
         if (!$this->auth->can('project.billing.view')) {
             return false;
         }
@@ -1860,10 +1876,22 @@ class ProjectsController extends Controller
 
     private function canRegisterBilling(): bool
     {
+        if (!$this->isBillingModuleEnabled()) {
+            return false;
+        }
+
         return $this->auth->hasRole('Administrador')
             || $this->auth->hasRole('PMO')
             || $this->auth->hasRole('Líder de Proyecto')
             || $this->auth->hasRole('PM');
+    }
+
+
+    private function isBillingModuleEnabled(): bool
+    {
+        $config = (new ConfigService($this->db))->getConfig();
+
+        return (bool) ($config['operational_rules']['billing']['enabled'] ?? true);
     }
 
     private function billingPayloadFromRequest(array $current): array

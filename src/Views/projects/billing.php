@@ -249,30 +249,39 @@ if (billableToggle && billableFields) {
     });
   };
 
-  const autoSaveBillable = async () => {
+  const autoSaveBillable = async (previousValue) => {
     try {
       const response = await fetch(`<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-toggle`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ is_billable: isBillableOn() ? 1 : 0 }),
       });
+
       const payload = await response.json();
-      if (payload?.status !== 'ok') {
-        console.error('Respuesta inválida del toggle de facturación', payload);
+      if (!response.ok || payload?.status !== 'ok') {
+        throw new Error(payload?.message || 'No se pudo actualizar el estado de facturación.');
       }
+
+      const persisted = payload?.is_billable === 1 ? '1' : '0';
+      billableToggle.value = persisted;
+      syncBillable();
     } catch (error) {
+      billableToggle.value = previousValue;
+      syncBillable();
+      window.alert(error instanceof Error ? error.message : 'No se pudo guardar el estado de facturación. Inténtalo nuevamente.');
       console.error('No fue posible guardar el estado de facturación', error);
     }
   };
 
   if (billableSwitch) {
     billableSwitch.addEventListener('click', () => {
+      const previousValue = billableToggle.value;
       billableToggle.value = isBillableOn() ? '0' : '1';
       syncBillable();
-      autoSaveBillable();
+      autoSaveBillable(previousValue);
     });
   }
 

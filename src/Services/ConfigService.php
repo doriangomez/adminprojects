@@ -196,6 +196,9 @@ class ConfigService
             'timesheets' => [
                 'enabled' => false,
             ],
+            'billing' => [
+                'enabled' => true,
+            ],
             'health_scoring' => [
                 'weights' => [
                     'documental' => 0.25,
@@ -310,6 +313,10 @@ class ConfigService
                     $this->defaults['operational_rules']['timesheets'],
                     $stored['operational_rules']['timesheets'] ?? []
                 ),
+                'billing' => array_merge(
+                    $this->defaults['operational_rules']['billing'],
+                    $stored['operational_rules']['billing'] ?? []
+                ),
                 'health_scoring' => [
                     'weights' => array_merge(
                         $this->defaults['operational_rules']['health_scoring']['weights'],
@@ -390,6 +397,10 @@ class ConfigService
                 'timesheets' => array_merge(
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
+                ),
+                'billing' => array_merge(
+                    $current['operational_rules']['billing'] ?? [],
+                    $payload['operational_rules']['billing'] ?? []
                 ),
                 'health_scoring' => [
                     'weights' => array_merge(

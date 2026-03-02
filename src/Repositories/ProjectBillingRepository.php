@@ -56,6 +56,20 @@ class ProjectBillingRepository
         );
     }
 
+    public function updateBillableStatus(int $projectId, int $isBillable): void
+    {
+        $this->db->execute(
+            'UPDATE projects
+             SET is_billable = :is_billable,
+                 updated_at = NOW()
+             WHERE id = :project_id',
+            [
+                ':project_id' => $projectId,
+                ':is_billable' => $isBillable === 1 ? 1 : 0,
+            ]
+        );
+    }
+
     public function invoices(int $projectId): array
     {
         return $this->db->fetchAll(

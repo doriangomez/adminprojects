@@ -266,7 +266,7 @@ class App
                 $controller->saveBillingConfig((int) $matches[1]);
                 return;
             }
-            if (preg_match('#^/projects/(\d+)/billing-toggle$#', $path, $matches) && $method === 'PATCH') {
+            if (preg_match('#^/projects/(\d+)/billing-toggle$#', $path, $matches) && in_array($method, ['PATCH', 'POST'], true)) {
                 $controller->toggleBillingConfig((int) $matches[1]);
                 return;
             }
