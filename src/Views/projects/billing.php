@@ -63,7 +63,7 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
                     <label id="hourly-rate-field" style="display:<?= (($billingConfig['billing_type'] ?? '') === 'hours') ? 'block' : 'none' ?>;">Tarifa por hora<input type="number" step="0.01" min="0" name="hourly_rate" value="<?= htmlspecialchars((string) ($billingConfig['hourly_rate'] ?? '0')) ?>"></label>
                 </div>
             </form>
-            <?php else: ?>
+<?php else: ?>
                 <p class="section-muted">Solo administradores y PM pueden editar la configuración contractual.</p>
             <?php endif; ?>
         </article>
