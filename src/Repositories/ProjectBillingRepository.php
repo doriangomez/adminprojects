@@ -82,16 +82,29 @@ class ProjectBillingRepository
         return (float) ($row['total'] ?? 0);
     }
 
+    public function approvedHoursTotal(int $projectId): float
+    {
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(ts.hours), 0) AS total
+             FROM timesheets ts
+             WHERE ts.project_id = :project_id
+               AND ts.status = "approved"',
+            [':project_id' => $projectId]
+        );
+
+        return (float) ($row['total'] ?? 0);
+    }
+
     public function invoiceTotals(int $projectId): array
     {
         $row = $this->db->fetchOne(
             'SELECT
                 COALESCE(SUM(amount), 0) AS total_invoiced,
                 COALESCE(SUM(CASE WHEN status = "paid" THEN amount ELSE 0 END), 0) AS total_paid,
-                COALESCE(SUM(CASE WHEN status IN ("issued","sent","overdue") THEN amount ELSE 0 END), 0) AS total_due
+                COALESCE(SUM(CASE WHEN status = "issued" THEN amount ELSE 0 END), 0) AS total_due
              FROM project_invoices
              WHERE project_id = :project_id
-               AND status <> "void"',
+               AND status <> "cancelled"',
             [':project_id' => $projectId]
         ) ?? [];
 
@@ -159,7 +172,7 @@ class ProjectBillingRepository
         $existing = $this->db->fetchAll(
             'SELECT DISTINCT DATE_FORMAT(period_start, "%Y-%m") AS ym
              FROM project_invoices
-             WHERE project_id = :project_id AND period_start IS NOT NULL AND status <> "void"',
+             WHERE project_id = :project_id AND period_start IS NOT NULL AND status <> "cancelled"',
             [':project_id' => $projectId]
         );
         $indexed = [];
@@ -176,5 +189,61 @@ class ProjectBillingRepository
         }
 
         return $missing;
+    }
+
+    public function updateInvoice(int $projectId, int $invoiceId, array $payload): void
+    {
+        $this->db->execute(
+            'UPDATE project_invoices
+             SET invoice_number = :invoice_number,
+                 issued_at = :issued_at,
+                 period_start = :period_start,
+                 period_end = :period_end,
+                 amount = :amount,
+                 status = :status,
+                 paid_at = :paid_at,
+                 notes = :notes,
+                 attachment_path = :attachment_path,
+                 updated_at = NOW()
+             WHERE id = :invoice_id AND project_id = :project_id',
+            [
+                ':invoice_id' => $invoiceId,
+                ':project_id' => $projectId,
+                ':invoice_number' => trim((string) ($payload['invoice_number'] ?? '')),
+                ':issued_at' => $payload['issued_at'] ?? null,
+                ':period_start' => $payload['period_start'] ?? null,
+                ':period_end' => $payload['period_end'] ?? null,
+                ':amount' => (float) ($payload['amount'] ?? 0),
+                ':status' => $payload['status'] ?? 'issued',
+                ':paid_at' => $payload['paid_at'] ?? null,
+                ':notes' => trim((string) ($payload['notes'] ?? '')),
+                ':attachment_path' => trim((string) ($payload['attachment_path'] ?? '')) ?: null,
+            ]
+        );
+    }
+
+    public function updateInvoiceStatus(int $projectId, int $invoiceId, string $status, ?string $paidAt = null): void
+    {
+        $this->db->execute(
+            'UPDATE project_invoices
+             SET status = :status,
+                 paid_at = :paid_at,
+                 updated_at = NOW()
+             WHERE id = :invoice_id AND project_id = :project_id',
+            [
+                ':status' => $status,
+                ':paid_at' => $paidAt,
+                ':invoice_id' => $invoiceId,
+                ':project_id' => $projectId,
+            ]
+        );
+    }
+
+    public function deleteInvoice(int $projectId, int $invoiceId): void
+    {
+        $this->db->execute('DELETE FROM project_invoices WHERE id = :invoice_id AND project_id = :project_id', [
+            ':invoice_id' => $invoiceId,
+            ':project_id' => $projectId,
+        ]);
     }
 }
