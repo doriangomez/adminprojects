@@ -252,7 +252,7 @@ if (billableToggle && billableFields) {
   const autoSaveBillable = async (previousValue) => {
     try {
       const response = await fetch(`<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-toggle`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',

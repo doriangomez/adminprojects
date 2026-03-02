@@ -211,6 +211,9 @@ class ConfigController extends Controller
                 'timesheets' => [
                     'enabled' => isset($_POST['timesheets_enabled']),
                 ],
+                'billing' => [
+                    'enabled' => isset($_POST['billing_enabled']),
+                ],
                 'health_scoring' => [
                     'weights' => [
                         'documental' => $this->toFloat($_POST['health_weight_documental'] ?? '0.25'),

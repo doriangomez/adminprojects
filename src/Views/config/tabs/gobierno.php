@@ -97,6 +97,16 @@
                     </div>
                     <div class="governance-module-row">
                         <div class="governance-module-info">
+                            <span class="governance-module-title">Facturación de proyectos</span>
+                            <p class="governance-module-desc">Habilita la gestión y activación del estado Facturable en proyectos.</p>
+                        </div>
+                        <label class="toggle-switch toggle-switch--solo" aria-label="Habilitar módulo de facturación">
+                            <input type="checkbox" name="billing_enabled" form="governance-config-form" <?= !empty($configData['operational_rules']['billing']['enabled']) ? 'checked' : '' ?>>
+                            <span class="toggle-track" aria-hidden="true"></span>
+                        </label>
+                    </div>
+                    <div class="governance-module-row">
+                        <div class="governance-module-info">
                             <span class="governance-module-title">Outsourcing</span>
                             <p class="governance-module-desc">Disponible para gestión de talento externo y proveedores.</p>
                         </div>

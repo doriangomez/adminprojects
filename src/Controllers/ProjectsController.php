@@ -1695,6 +1695,12 @@ class ProjectsController extends Controller
     public function toggleBillingConfig(int $projectId): void
     {
         $this->requirePermission('project.billing.manage');
+        if (!$this->isBillingModuleEnabled()) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['status' => 'error', 'message' => 'La facturación de proyectos está deshabilitada en Gobierno.']);
+            return;
+        }
         $repo = new ProjectsRepository($this->db);
         $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
         if (!$project) {
@@ -1857,6 +1863,10 @@ class ProjectsController extends Controller
 
     private function canViewBilling(): bool
     {
+        if (!$this->isBillingModuleEnabled()) {
+            return false;
+        }
+
         if (!$this->auth->can('project.billing.view')) {
             return false;
         }
@@ -1866,10 +1876,22 @@ class ProjectsController extends Controller
 
     private function canRegisterBilling(): bool
     {
+        if (!$this->isBillingModuleEnabled()) {
+            return false;
+        }
+
         return $this->auth->hasRole('Administrador')
             || $this->auth->hasRole('PMO')
             || $this->auth->hasRole('Líder de Proyecto')
             || $this->auth->hasRole('PM');
+    }
+
+
+    private function isBillingModuleEnabled(): bool
+    {
+        $config = (new ConfigService($this->db))->getConfig();
+
+        return (bool) ($config['operational_rules']['billing']['enabled'] ?? true);
     }
 
     private function billingPayloadFromRequest(array $current): array
