@@ -591,25 +591,157 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
         $areaLabel = ['tiempo' => 'Tiempo', 'alcance' => 'Alcance', 'costo' => 'Costo', 'calidad' => 'Calidad'];
         $statusLabel = ['abierto' => 'Abierto', 'en_gestion' => 'En gestión', 'escalado' => 'Escalado', 'resuelto' => 'Resuelto', 'cerrado' => 'Cerrado'];
         $impactClass = static function (string $impact): string { return match ($impact) { 'critico' => 'status-danger', 'alto' => 'status-warning', 'medio' => 'status-info', default => 'status-success', }; };
+        $impactMeta = [
+            'critico' => ['label' => 'Críticos', 'icon' => '🚨', 'cardClass' => 'critical'],
+            'alto' => ['label' => 'Altos', 'icon' => '⚠️', 'cardClass' => 'high'],
+            'medio' => ['label' => 'Medios', 'icon' => '📋', 'cardClass' => 'medium'],
+            'bajo' => ['label' => 'Bajos', 'icon' => '✅', 'cardClass' => 'low'],
+        ];
+        $today = new \DateTimeImmutable('today');
+        $monthlyTrend = [];
+        $impactTotals = ['critico' => 0, 'alto' => 0, 'medio' => 0, 'bajo' => 0];
+        $impactAvgDays = ['critico' => 0.0, 'alto' => 0.0, 'medio' => 0.0, 'bajo' => 0.0];
+        $impactCountsForAvg = ['critico' => 0, 'alto' => 0, 'medio' => 0, 'bajo' => 0];
+        $openCount = 0;
+        $closedCount = 0;
+        $kanban = ['critico' => [], 'alto' => [], 'medio' => [], 'bajo' => []];
+
+        foreach ($stoppers as $stopper) {
+            $impact = (string) ($stopper['impact_level'] ?? 'bajo');
+            if (!isset($impactTotals[$impact])) {
+                $impact = 'bajo';
+            }
+            $detectedAtRaw = (string) ($stopper['detected_at'] ?? '');
+            $detectedAt = $detectedAtRaw !== '' ? new \DateTimeImmutable($detectedAtRaw) : null;
+            $daysOpen = $detectedAt ? max(0, (int) $detectedAt->diff($today)->format('%a')) : 0;
+            $monthKey = $detectedAt ? $detectedAt->format('Y-m') : $today->format('Y-m');
+
+            $monthlyTrend[$monthKey] = ($monthlyTrend[$monthKey] ?? 0) + 1;
+            $impactTotals[$impact] += 1;
+            $impactAvgDays[$impact] += $daysOpen;
+            $impactCountsForAvg[$impact] += 1;
+
+            if (($stopper['status'] ?? '') === 'cerrado') {
+                $closedCount++;
+                continue;
+            }
+
+            $openCount++;
+            $kanban[$impact][] = [
+                'title' => (string) ($stopper['title'] ?? 'Bloqueo sin título'),
+                'responsible' => (string) ($stopper['responsible_name'] ?? 'Sin asignar'),
+                'status' => $statusLabel[$stopper['status'] ?? ''] ?? (string) ($stopper['status'] ?? 'Pendiente'),
+                'days_open' => $daysOpen,
+            ];
+        }
+
+        ksort($monthlyTrend);
+        $monthlyTrend = array_slice($monthlyTrend, -6, 6, true);
+        $maxByImpact = max($impactTotals ?: [1]);
+        $maxTrendValue = max($monthlyTrend ?: [1]);
+        $totalForDonut = max(1, $openCount + $closedCount);
+        $openPct = (int) round(($openCount / $totalForDonut) * 100);
+        $circumference = 2 * pi() * 52;
+        $donutOpen = ($openPct / 100) * $circumference;
         ?>
-        <section class="summary-layout">
-            <article class="info-card">
-                <div class="info-card__header"><div><p class="eyebrow">Módulo operativo</p><h4>KPIs de bloqueos</h4></div></div>
-                <div class="info-list">
-                    <div><span>Bloqueos abiertos</span><strong><?= (int) ($stopperMetrics['open_total'] ?? 0) ?></strong></div>
-                    <div><span>Críticos abiertos</span><strong><?= (int) ($stopperMetrics['critical_open'] ?? 0) ?></strong></div>
-                    <div><span>Días promedio abiertos</span><strong><?= number_format((float) ($stopperMetrics['avg_days_open'] ?? 0), 1, ',', '.') ?></strong></div>
-                </div>
-                <p class="section-muted">Regla de cierre: no se permite pasar a fase de cierre con bloqueos abiertos.</p>
-            </article>
-            <article class="info-card">
-                <div class="info-card__header"><div><p class="eyebrow">Tablero visual</p><h4>Bloqueos por severidad</h4></div></div>
-                <div class="stoppers-board">
-                    <?php foreach (['critico' => 'Críticos', 'alto' => 'Altos', 'medio' => 'Medios', 'bajo' => 'Bajos'] as $key => $label): ?>
-                        <div class="stoppers-col <?= $impactClass($key) ?>"><span><?= $label ?></span><strong><?= (int) ($stopperBoard[$key] ?? 0) ?></strong></div>
-                    <?php endforeach; ?>
-                </div>
-            </article>
+        <section class="stoppers-analytics card">
+            <div class="analytics-grid">
+                <article class="chart-panel">
+                    <h4>Bloqueos por nivel de impacto</h4>
+                    <div class="impact-bars" role="img" aria-label="Distribución de bloqueos por nivel de impacto">
+                        <?php foreach ($impactMeta as $impact => $meta): ?>
+                            <?php $barPct = $maxByImpact > 0 ? (int) round((($impactTotals[$impact] ?? 0) / $maxByImpact) * 100) : 0; ?>
+                            <div class="impact-bar impact-bar--<?= htmlspecialchars($meta['cardClass']) ?>">
+                                <div class="impact-bar__label"><span><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span><strong><?= (int) ($impactTotals[$impact] ?? 0) ?></strong></div>
+                                <div class="impact-bar__track"><div style="width: <?= $barPct ?>%"></div></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </article>
+
+                <article class="chart-panel">
+                    <h4>Tendencia mensual de bloqueos</h4>
+                    <svg class="trend-chart" viewBox="0 0 360 160" role="img" aria-label="Tendencia mensual de bloqueos">
+                        <?php
+                        $points = [];
+                        $countMonths = max(1, count($monthlyTrend));
+                        $index = 0;
+                        foreach ($monthlyTrend as $value) {
+                            $x = 30 + (($index / max(1, $countMonths - 1)) * 300);
+                            $y = 130 - (($value / max(1, $maxTrendValue)) * 90);
+                            $points[] = number_format($x, 2, '.', '') . ',' . number_format($y, 2, '.', '');
+                            $index++;
+                        }
+                        ?>
+                        <polyline class="trend-line" points="<?= htmlspecialchars(implode(' ', $points)) ?>"></polyline>
+                        <?php
+                        $index = 0;
+                        foreach ($monthlyTrend as $month => $value):
+                            $x = 30 + (($index / max(1, $countMonths - 1)) * 300);
+                            $y = 130 - (($value / max(1, $maxTrendValue)) * 90);
+                        ?>
+                            <circle cx="<?= number_format($x, 2, '.', '') ?>" cy="<?= number_format($y, 2, '.', '') ?>" r="4"></circle>
+                            <text x="<?= number_format($x, 2, '.', '') ?>" y="150" text-anchor="middle"><?= htmlspecialchars(date('M', strtotime($month . '-01'))) ?></text>
+                        <?php $index++; endforeach; ?>
+                    </svg>
+                </article>
+
+                <article class="chart-panel donut-panel">
+                    <h4>% abiertos vs cerrados</h4>
+                    <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Porcentaje de bloqueos abiertos y cerrados">
+                        <circle cx="70" cy="70" r="52" class="donut-track"></circle>
+                        <circle cx="70" cy="70" r="52" class="donut-open" stroke-dasharray="<?= number_format($donutOpen, 2, '.', '') . ' ' . number_format($circumference - $donutOpen, 2, '.', '') ?>"></circle>
+                        <text x="70" y="70" text-anchor="middle" class="donut-value"><?= $openPct ?>%</text>
+                        <text x="70" y="88" text-anchor="middle" class="donut-label">Abiertos</text>
+                    </svg>
+                    <div class="donut-legend">
+                        <span><i class="legend-open"></i> Abiertos: <?= $openCount ?></span>
+                        <span><i class="legend-closed"></i> Cerrados: <?= $closedCount ?></span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="impact-cards-grid">
+            <?php foreach ($impactMeta as $impact => $meta): ?>
+                <?php
+                $totalByImpact = (int) ($impactTotals[$impact] ?? 0);
+                $avgByImpact = $impactCountsForAvg[$impact] > 0 ? $impactAvgDays[$impact] / $impactCountsForAvg[$impact] : 0;
+                $trendIcon = $avgByImpact >= 7 ? '↑' : '↓';
+                ?>
+                <article class="impact-card impact-card--<?= htmlspecialchars($meta['cardClass']) ?>">
+                    <div class="impact-card__title">
+                        <span><?= htmlspecialchars($meta['icon']) ?></span>
+                        <strong><?= htmlspecialchars($meta['label']) ?></strong>
+                        <span class="impact-trend"><?= $trendIcon ?></span>
+                    </div>
+                    <div class="impact-card__value"><?= $totalByImpact ?></div>
+                    <p>Días promedio abiertos: <strong><?= number_format($avgByImpact, 1, ',', '.') ?></strong></p>
+                </article>
+            <?php endforeach; ?>
+        </section>
+
+        <section class="kanban-block card">
+            <h4>Tablero Kanban de bloqueos</h4>
+            <div class="kanban-grid">
+                <?php foreach ($impactMeta as $impact => $meta): ?>
+                    <article class="kanban-column kanban-column--<?= htmlspecialchars($meta['cardClass']) ?>">
+                        <header><span><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span><strong><?= count($kanban[$impact] ?? []) ?></strong></header>
+                        <?php if (empty($kanban[$impact])): ?>
+                            <p class="kanban-empty">Sin bloqueos activos.</p>
+                        <?php else: ?>
+                            <?php foreach ($kanban[$impact] as $item): ?>
+                                <div class="kanban-item">
+                                    <h5><?= htmlspecialchars($item['title']) ?></h5>
+                                    <p><strong>Responsable:</strong> <?= htmlspecialchars($item['responsible']) ?></p>
+                                    <p><strong>Días abiertos:</strong> <?= (int) $item['days_open'] ?></p>
+                                    <span class="badge"><?= htmlspecialchars($item['status']) ?></span>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </article>
+                <?php endforeach; ?>
+            </div>
         </section>
 
         <section class="card">
@@ -1140,9 +1272,58 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     .phase-tab.disabled { opacity:0.5; cursor:not-allowed; }
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
     .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
-    .stoppers-board { display:grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap:10px; }
-    .stoppers-col { border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:6px; }
-    .stoppers-col strong { font-size:20px; }
+    .stoppers-analytics { box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 10%, transparent); }
+    .analytics-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:14px; }
+    .chart-panel { border:1px solid var(--border); border-radius:14px; padding:14px; background: var(--surface); box-shadow: 0 8px 16px color-mix(in srgb, var(--text-primary) 8%, transparent); }
+    .chart-panel h4 { margin:0 0 12px; }
+    .impact-bars { display:flex; flex-direction:column; gap:10px; }
+    .impact-bar { display:flex; flex-direction:column; gap:6px; }
+    .impact-bar__label { display:flex; justify-content:space-between; gap:8px; font-weight:700; color:var(--text-primary); }
+    .impact-bar__track { height:10px; border-radius:999px; background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); overflow:hidden; }
+    .impact-bar__track div { height:100%; border-radius:999px; }
+    .impact-bar--critical .impact-bar__track div { background:#dc2626; }
+    .impact-bar--high .impact-bar__track div { background:#f97316; }
+    .impact-bar--medium .impact-bar__track div { background:#facc15; }
+    .impact-bar--low .impact-bar__track div { background:#16a34a; }
+    .trend-chart { width:100%; height:auto; }
+    .trend-chart .trend-line { fill:none; stroke:#2563eb; stroke-width:3; }
+    .trend-chart circle { fill:#2563eb; }
+    .trend-chart text { fill:var(--text-secondary); font-size:11px; }
+    .donut-panel { display:flex; flex-direction:column; align-items:center; }
+    .donut-track, .donut-open { fill:none; stroke-width:14; transform:rotate(-90deg); transform-origin:70px 70px; }
+    .donut-track { stroke: color-mix(in srgb, var(--text-secondary) 25%, var(--background)); }
+    .donut-open { stroke:#2563eb; stroke-linecap:round; }
+    .donut-value { font-size:22px; font-weight:700; fill:var(--text-primary); }
+    .donut-label { font-size:12px; fill:var(--text-secondary); }
+    .donut-legend { display:flex; flex-direction:column; gap:6px; width:100%; }
+    .donut-legend span { display:flex; align-items:center; gap:8px; color:var(--text-primary); font-weight:600; }
+    .donut-legend i { width:10px; height:10px; border-radius:999px; display:inline-block; }
+    .legend-open { background:#2563eb; }
+    .legend-closed { background:#64748b; }
+    .impact-cards-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin:14px 0; }
+    .impact-card { border-radius:14px; padding:14px; box-shadow:0 8px 18px color-mix(in srgb, var(--text-primary) 10%, transparent); }
+    .impact-card__title { display:flex; align-items:center; justify-content:space-between; font-size:15px; gap:8px; }
+    .impact-card__value { font-size:32px; font-weight:800; line-height:1; margin:10px 0; }
+    .impact-card p { margin:0; font-weight:500; }
+    .impact-card--critical { background:#b91c1c; color:#fff; }
+    .impact-card--high { background:#fb923c; color:#1f2937; }
+    .impact-card--medium { background:#fde047; color:#1f2937; }
+    .impact-card--low { background:#4ade80; color:#14532d; }
+    .impact-card strong { color:inherit; }
+    .impact-trend { font-size:18px; font-weight:800; }
+    .kanban-block { box-shadow:0 10px 24px color-mix(in srgb, var(--text-primary) 10%, transparent); }
+    .kanban-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:12px; }
+    .kanban-column { border-radius:14px; padding:12px; border:1px solid var(--border); min-height:180px; display:flex; flex-direction:column; gap:10px; }
+    .kanban-column header { display:flex; justify-content:space-between; align-items:center; font-weight:700; }
+    .kanban-column--critical { background: color-mix(in srgb, #b91c1c 16%, var(--surface)); }
+    .kanban-column--high { background: color-mix(in srgb, #fb923c 20%, var(--surface)); }
+    .kanban-column--medium { background: color-mix(in srgb, #fde047 28%, var(--surface)); }
+    .kanban-column--low { background: color-mix(in srgb, #4ade80 20%, var(--surface)); }
+    .kanban-item { background:var(--surface); border:1px solid color-mix(in srgb, var(--text-secondary) 18%, var(--background)); border-radius:12px; padding:10px; box-shadow:0 4px 10px color-mix(in srgb, var(--text-primary) 8%, transparent); }
+    .kanban-item h5 { margin:0 0 6px; color:var(--text-primary); font-size:14px; }
+    .kanban-item p { margin:2px 0; color:var(--text-primary); font-size:13px; }
+    .kanban-item .badge { margin-top:6px; display:inline-flex; background:#e2e8f0; color:#0f172a; }
+    .kanban-empty { color:var(--text-primary); font-weight:600; opacity:0.75; margin:0; }
     .phase-warning { color: var(--danger); margin:0; }
     .progress-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
     .progress-modal.is-visible { display:flex; }
