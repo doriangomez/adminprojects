@@ -649,6 +649,63 @@ class DashboardService
         ];
     }
 
+    public function stoppersOverview(array $user): array
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return [
+                'top_active' => [],
+                'monthly_trend' => [],
+                'critical_projects' => [],
+            ];
+        }
+
+        [$where, $params] = $this->visibilityForUser($user);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+
+        $topActive = $this->db->fetchAll(
+            "SELECT p.id AS project_id, p.name AS project, c.name AS client, COUNT(*) AS active_total
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+             GROUP BY p.id, p.name, c.name
+             ORDER BY active_total DESC, p.name ASC
+             LIMIT 10",
+            $params
+        );
+
+        $monthlyTrend = $this->db->fetchAll(
+            "SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS month_key, COUNT(*) AS total
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+             GROUP BY month_key
+             ORDER BY month_key ASC",
+            $params
+        );
+
+        $criticalProjects = $this->db->fetchAll(
+            "SELECT DISTINCT p.id AS project_id, p.name AS project, c.name AS client
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+             AND s.impact_level = 'critico'
+             ORDER BY p.name ASC",
+            $params
+        );
+
+        return [
+            'top_active' => $topActive,
+            'monthly_trend' => $monthlyTrend,
+            'critical_projects' => $criticalProjects,
+        ];
+    }
+
     public function alerts(array $user): array
     {
         $alerts = [];

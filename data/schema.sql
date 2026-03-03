@@ -566,6 +566,32 @@ CREATE TABLE outsourcing_followups (
     FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
+
+CREATE TABLE project_stoppers (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    title VARCHAR(190) NOT NULL,
+    description TEXT NOT NULL,
+    stopper_type ENUM('cliente','tecnico','interno','proveedor','financiero','legal') NOT NULL,
+    impact_level ENUM('bajo','medio','alto','critico') NOT NULL,
+    affected_area ENUM('tiempo','alcance','costo','calidad') NOT NULL,
+    responsible_id INT NOT NULL,
+    detected_at DATE NOT NULL,
+    estimated_resolution_at DATE NOT NULL,
+    status ENUM('abierto','en_gestion','escalado','resuelto','cerrado') NOT NULL DEFAULT 'abierto',
+    closure_comment TEXT NULL,
+    created_by INT NULL,
+    updated_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project_stoppers_project_status (project_id, status),
+    INDEX idx_project_stoppers_impact (project_id, impact_level),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (responsible_id) REFERENCES users(id),
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (updated_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
 CREATE TABLE costs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
@@ -616,6 +642,9 @@ INSERT INTO permissions (code, name) VALUES
     ('project.billing.manage', 'Registrar y editar facturas de proyecto'),
     ('project.billing.mark_paid', 'Cambiar estado de facturas a pagado'),
     ('project.billing.void', 'Anular facturas de proyecto'),
+    ('project.stoppers.view', 'Ver bloqueos de proyectos'),
+    ('project.stoppers.manage', 'Crear y actualizar bloqueos de proyectos'),
+    ('project.stoppers.close', 'Cerrar bloqueos de proyectos'),
     ('config.manage', 'Administrar configuración');
 
 INSERT INTO config_settings (config_key, config_value) VALUES

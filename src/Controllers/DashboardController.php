@@ -20,6 +20,7 @@ class DashboardController extends Controller
             'governance' => $service->governanceOverview($user),
             'requirements' => $service->requirementsOverview($user),
             'alerts' => $service->alerts($user),
+            'stoppers' => $service->stoppersOverview($user),
         ]);
     }
 }

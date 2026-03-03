@@ -773,6 +773,21 @@ class DatabaseMigrator
         }
     }
 
+
+    public function ensureProjectStoppersModule(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        try {
+            $this->ensureProjectStoppersTable();
+            $this->ensureProjectStoppersPermissions();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando módulo de bloqueos por proyecto: ' . $e->getMessage());
+        }
+    }
+
     public function resetProjectModuleDataOnce(): void
     {
         if (!$this->db->tableExists('projects')) {
@@ -2370,6 +2385,100 @@ class DatabaseMigrator
             if (!$role) {
                 continue;
             }
+            foreach ($codes as $code) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :role_id_value, p.id
+                     FROM permissions p
+                     WHERE p.code = :code_value
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                     )',
+                    [
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => $code,
+                    ]
+                );
+            }
+        }
+    }
+
+
+    private function ensureProjectStoppersTable(): void
+    {
+        if ($this->db->tableExists('project_stoppers')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_stoppers (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                title VARCHAR(190) NOT NULL,
+                description TEXT NOT NULL,
+                stopper_type ENUM("cliente","tecnico","interno","proveedor","financiero","legal") NOT NULL,
+                impact_level ENUM("bajo","medio","alto","critico") NOT NULL,
+                affected_area ENUM("tiempo","alcance","costo","calidad") NOT NULL,
+                responsible_id INT NOT NULL,
+                detected_at DATE NOT NULL,
+                estimated_resolution_at DATE NOT NULL,
+                status ENUM("abierto","en_gestion","escalado","resuelto","cerrado") NOT NULL DEFAULT "abierto",
+                closure_comment TEXT NULL,
+                created_by INT NULL,
+                updated_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_project_stoppers_project_status (project_id, status),
+                INDEX idx_project_stoppers_impact (project_id, impact_level),
+                CONSTRAINT fk_project_stoppers_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_stoppers_responsible FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE RESTRICT,
+                CONSTRAINT fk_project_stoppers_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT fk_project_stoppers_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
+
+    private function ensureProjectStoppersPermissions(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
+            return;
+        }
+
+        $permissions = [
+            'project.stoppers.view' => 'Ver bloqueos de proyectos',
+            'project.stoppers.manage' => 'Crear y actualizar bloqueos de proyectos',
+            'project.stoppers.close' => 'Cerrar bloqueos de proyectos',
+        ];
+
+        foreach ($permissions as $code => $name) {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => $code,
+                    ':code_check' => $code,
+                    ':name' => $name,
+                ]
+            );
+        }
+
+        $grants = [
+            'Administrador' => array_keys($permissions),
+            'PMO' => ['project.stoppers.view', 'project.stoppers.manage', 'project.stoppers.close'],
+            'Líder de Proyecto' => ['project.stoppers.view', 'project.stoppers.manage'],
+            'Talento' => ['project.stoppers.view'],
+            'Visualizador' => ['project.stoppers.view'],
+        ];
+
+        foreach ($grants as $roleName => $codes) {
+            $role = $this->db->fetchOne('SELECT id FROM roles WHERE nombre = :name LIMIT 1', [':name' => $roleName]);
+            if (!$role) {
+                continue;
+            }
+
             foreach ($codes as $code) {
                 $this->db->execute(
                     'INSERT INTO role_permissions (role_id, permission_id)
