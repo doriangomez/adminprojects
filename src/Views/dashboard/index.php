@@ -253,6 +253,40 @@
             </table>
         </div>
     </div>
+    <div>
+        <h2 class="section-title">Bloqueos operativos (Stoppers)</h2>
+        <div class="section-grid">
+            <div class="card">
+                <h4>Proyectos con más bloqueos activos</h4>
+                <table>
+                    <thead><tr><th>Proyecto</th><th>Cliente</th><th class="text-right">Activos</th></tr></thead>
+                    <tbody>
+                    <?php foreach (($stoppers['top_active'] ?? []) as $row): ?>
+                        <tr><td><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td><td class="text-right"><?= (int) ($row['active_total'] ?? 0) ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card">
+                <h4>Tendencia mensual de bloqueos</h4>
+                <ul class="list">
+                    <?php foreach (($stoppers['monthly_trend'] ?? []) as $row): ?>
+                        <li><?= htmlspecialchars((string) ($row['month_key'] ?? '')) ?> — <strong><?= (int) ($row['total'] ?? 0) ?></strong></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <div class="card">
+                <h4>Proyectos con bloqueos críticos abiertos</h4>
+                <ul class="list">
+                    <?php foreach (($stoppers['critical_projects'] ?? []) as $row): ?>
+                        <li><?= htmlspecialchars((string) ($row['project'] ?? '')) ?> <span class="muted">(<?= htmlspecialchars((string) ($row['client'] ?? '')) ?>)</span></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+
 
     <div>
         <h2 class="section-title">Talento y timesheets</h2>

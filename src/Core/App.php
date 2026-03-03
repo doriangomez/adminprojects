@@ -37,6 +37,7 @@ class App
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();
         $migrator->ensureProjectBillingModule();
+        $migrator->ensureProjectStoppersModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -260,6 +261,18 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/notes$#', $path, $matches) && $method === 'POST') {
                 $controller->createNote((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/stoppers$#', $path, $matches) && $method === 'POST') {
+                $controller->createStopper((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/stoppers/(\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateStopper((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/stoppers/(\d+)/close$#', $path, $matches) && $method === 'POST') {
+                $controller->closeStopper((int) $matches[1], (int) $matches[2]);
                 return;
             }
             if (preg_match('#^/projects/(\d+)/billing-config$#', $path, $matches) && $method === 'POST') {

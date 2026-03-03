@@ -6,6 +6,7 @@ class ProjectService
 {
     private const FOLLOWUP_EXPECTED_DAYS = 7;
     private const FOLLOWUP_EVALUATION_DAYS = 28;
+    private const STOPPER_HIGH_OVERDUE_DAYS = 7;
 
     /** @var array<int, array<string, mixed>> */
     private static array $healthCache = [];
@@ -83,6 +84,8 @@ class ProjectService
             'calidad_requisitos' => $this->calculateRequisitosScore($projectId),
         ];
 
+        $stopperPenalty = $this->stopperPenalty($projectId);
+
         $breakdown = [];
         $weightedTotal = 0.0;
         foreach ($rawScores as $dimension => $rawScore) {
@@ -102,8 +105,11 @@ class ProjectService
             }
         }
 
-        $total = $this->clampScore((int) round($weightedTotal));
+        $total = $this->clampScore((int) round($weightedTotal) - (int) ($stopperPenalty['points'] ?? 0));
         $level = $total >= $thresholds['optimal'] ? 'optimal' : ($total >= $thresholds['attention'] ? 'attention' : 'critical');
+        if ((int) ($stopperPenalty['critical_open'] ?? 0) > 0 && $level === 'optimal') {
+            $level = 'attention';
+        }
         $label = $level === 'optimal' ? 'Salud óptima' : ($level === 'attention' ? 'Atención' : 'Crítico');
 
         $result = [
@@ -118,6 +124,7 @@ class ProjectService
             'calidad_requisitos_score' => $rawScores['calidad_requisitos'],
             'breakdown' => $breakdown,
             'recommendations' => $this->buildRecommendations($breakdown),
+            'stoppers_penalty' => $stopperPenalty,
             'calculated_at' => date('Y-m-d H:i:s'),
         ];
 
@@ -274,6 +281,45 @@ class ProjectService
         }
 
         return $this->clampScore((int) round((float) ($indicator['value'] ?? 0)));
+    }
+
+    private function stopperPenalty(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return ['points' => 0, 'critical_open' => 0, 'high_overdue' => 0, 'active_total' => 0];
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT
+                SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") THEN 1 ELSE 0 END) AS active_total,
+                SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND impact_level = "critico" THEN 1 ELSE 0 END) AS critical_open,
+                SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND impact_level = "alto" AND DATEDIFF(CURDATE(), detected_at) > :high_days THEN 1 ELSE 0 END) AS high_overdue
+             FROM project_stoppers
+             WHERE project_id = :project_id',
+            [
+                ':project_id' => $projectId,
+                ':high_days' => self::STOPPER_HIGH_OVERDUE_DAYS,
+            ]
+        ) ?? [];
+
+        $active = (int) ($row['active_total'] ?? 0);
+        $critical = (int) ($row['critical_open'] ?? 0);
+        $highOverdue = (int) ($row['high_overdue'] ?? 0);
+
+        $points = 0;
+        if ($highOverdue > 0) {
+            $points += min(12, $highOverdue * 4);
+        }
+        if ($active > 3) {
+            $points += 8;
+        }
+
+        return [
+            'points' => $points,
+            'critical_open' => $critical,
+            'high_overdue' => $highOverdue,
+            'active_total' => $active,
+        ];
     }
 
     private function buildRecommendations(array $breakdown): array

@@ -22,9 +22,18 @@ $canManageBilling = !empty($canManageBilling);
 $canMarkInvoicePaid = !empty($canMarkInvoicePaid);
 $canVoidInvoice = !empty($canVoidInvoice);
 $projectNotes = is_array($projectNotes ?? null) ? $projectNotes : [];
+$stoppers = is_array($stoppers ?? null) ? $stoppers : [];
+$stopperMetrics = is_array($stopperMetrics ?? null) ? $stopperMetrics : [];
+$stopperBoard = is_array($stopperBoard ?? null) ? $stopperBoard : [];
+$stopperTypeOptions = is_array($stopperTypeOptions ?? null) ? $stopperTypeOptions : [];
+$stopperImpactOptions = is_array($stopperImpactOptions ?? null) ? $stopperImpactOptions : [];
+$stopperAreaOptions = is_array($stopperAreaOptions ?? null) ? $stopperAreaOptions : [];
+$stopperStatusOptions = is_array($stopperStatusOptions ?? null) ? $stopperStatusOptions : [];
+$responsibleUsers = is_array($responsibleUsers ?? null) ? $responsibleUsers : [];
+$canCloseStoppers = !empty($canCloseStoppers);
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
-$view = in_array($view, ['resumen', 'documentos', 'seguimiento'], true) ? $view : 'documentos';
+$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -420,6 +429,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     $activeTab = match ($view) {
         'resumen' => 'resumen',
         'seguimiento' => 'seguimiento',
+        'bloqueos' => 'bloqueos',
         default => 'documents',
     };
     require __DIR__ . '/_tabs.php';
@@ -574,6 +584,93 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                 <?php endif; ?>
             </div>
         </section>
+    <?php elseif ($view === 'bloqueos'): ?>
+        <?php
+        $impactLabel = ['bajo' => 'Bajo', 'medio' => 'Medio', 'alto' => 'Alto', 'critico' => 'Crítico'];
+        $typeLabel = ['cliente' => 'Cliente', 'tecnico' => 'Técnico', 'interno' => 'Interno', 'proveedor' => 'Proveedor', 'financiero' => 'Financiero', 'legal' => 'Legal'];
+        $areaLabel = ['tiempo' => 'Tiempo', 'alcance' => 'Alcance', 'costo' => 'Costo', 'calidad' => 'Calidad'];
+        $statusLabel = ['abierto' => 'Abierto', 'en_gestion' => 'En gestión', 'escalado' => 'Escalado', 'resuelto' => 'Resuelto', 'cerrado' => 'Cerrado'];
+        $impactClass = static function (string $impact): string { return match ($impact) { 'critico' => 'status-danger', 'alto' => 'status-warning', 'medio' => 'status-info', default => 'status-success', }; };
+        ?>
+        <section class="summary-layout">
+            <article class="info-card">
+                <div class="info-card__header"><div><p class="eyebrow">Módulo operativo</p><h4>KPIs de bloqueos</h4></div></div>
+                <div class="info-list">
+                    <div><span>Bloqueos abiertos</span><strong><?= (int) ($stopperMetrics['open_total'] ?? 0) ?></strong></div>
+                    <div><span>Críticos abiertos</span><strong><?= (int) ($stopperMetrics['critical_open'] ?? 0) ?></strong></div>
+                    <div><span>Días promedio abiertos</span><strong><?= number_format((float) ($stopperMetrics['avg_days_open'] ?? 0), 1, ',', '.') ?></strong></div>
+                </div>
+                <p class="section-muted">Regla de cierre: no se permite pasar a fase de cierre con bloqueos abiertos.</p>
+            </article>
+            <article class="info-card">
+                <div class="info-card__header"><div><p class="eyebrow">Tablero visual</p><h4>Bloqueos por severidad</h4></div></div>
+                <div class="stoppers-board">
+                    <?php foreach (['critico' => 'Críticos', 'alto' => 'Altos', 'medio' => 'Medios', 'bajo' => 'Bajos'] as $key => $label): ?>
+                        <div class="stoppers-col <?= $impactClass($key) ?>"><span><?= $label ?></span><strong><?= (int) ($stopperBoard[$key] ?? 0) ?></strong></div>
+                    <?php endforeach; ?>
+                </div>
+            </article>
+        </section>
+
+        <section class="card">
+            <h4>Registrar bloqueo</h4>
+            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/stoppers" class="form-grid">
+                <label>Título<input name="title" required></label>
+                <label>Responsable
+                    <select name="responsible_id" required>
+                        <option value="">Selecciona</option>
+                        <?php foreach ($responsibleUsers as $responsible): ?>
+                            <option value="<?= (int) ($responsible['id'] ?? 0) ?>"><?= htmlspecialchars((string) ($responsible['name'] ?? '')) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>Tipo
+                    <select name="stopper_type" required><?php foreach ($stopperTypeOptions as $option): ?><option value="<?= htmlspecialchars($option) ?>"><?= htmlspecialchars($typeLabel[$option] ?? ucfirst($option)) ?></option><?php endforeach; ?></select>
+                </label>
+                <label>Impacto
+                    <select name="impact_level" required><?php foreach ($stopperImpactOptions as $option): ?><option value="<?= htmlspecialchars($option) ?>"><?= htmlspecialchars($impactLabel[$option] ?? ucfirst($option)) ?></option><?php endforeach; ?></select>
+                </label>
+                <label>Área
+                    <select name="affected_area" required><?php foreach ($stopperAreaOptions as $option): ?><option value="<?= htmlspecialchars($option) ?>"><?= htmlspecialchars($areaLabel[$option] ?? ucfirst($option)) ?></option><?php endforeach; ?></select>
+                </label>
+                <label>Estado
+                    <select name="status" required><?php foreach ($stopperStatusOptions as $option): ?><option value="<?= htmlspecialchars($option) ?>"><?= htmlspecialchars($statusLabel[$option] ?? ucfirst($option)) ?></option><?php endforeach; ?></select>
+                </label>
+                <label>Fecha detección<input type="date" name="detected_at" required></label>
+                <label>Fecha estimada resolución<input type="date" name="estimated_resolution_at" required></label>
+                <label style="grid-column: 1 / -1;">Descripción<textarea name="description" rows="3" required></textarea></label>
+                <button type="submit" class="action-btn primary">Crear bloqueo</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h4>Listado de bloqueos</h4>
+            <div class="table-wrapper"><table><thead><tr><th>Título</th><th>Tipo</th><th>Impacto</th><th>Área</th><th>Responsable</th><th>Estado</th><th>Detección</th><th>Resolución estimada</th><th>Cierre</th></tr></thead><tbody>
+            <?php foreach ($stoppers as $stopper): ?>
+                <tr>
+                    <td><?= htmlspecialchars((string) ($stopper['title'] ?? '')) ?><br><small><?= htmlspecialchars((string) ($stopper['description'] ?? '')) ?></small></td>
+                    <td><?= htmlspecialchars($typeLabel[$stopper['stopper_type'] ?? ''] ?? (string) ($stopper['stopper_type'] ?? '')) ?></td>
+                    <td><span class="badge status-badge <?= $impactClass((string) ($stopper['impact_level'] ?? '')) ?>"><?= htmlspecialchars($impactLabel[$stopper['impact_level'] ?? ''] ?? '') ?></span></td>
+                    <td><?= htmlspecialchars($areaLabel[$stopper['affected_area'] ?? ''] ?? '') ?></td>
+                    <td><?= htmlspecialchars((string) ($stopper['responsible_name'] ?? '')) ?></td>
+                    <td><?= htmlspecialchars($statusLabel[$stopper['status'] ?? ''] ?? '') ?></td>
+                    <td><?= htmlspecialchars((string) ($stopper['detected_at'] ?? '')) ?></td>
+                    <td><?= htmlspecialchars((string) ($stopper['estimated_resolution_at'] ?? '')) ?></td>
+                    <td>
+                        <?php if (($stopper['status'] ?? '') !== 'cerrado' && $canCloseStoppers): ?>
+                            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/stoppers/<?= (int) ($stopper['id'] ?? 0) ?>/close">
+                                <textarea name="closure_comment" rows="2" placeholder="Comentario de cierre" required></textarea>
+                                <button class="action-btn" type="submit">Cerrar</button>
+                            </form>
+                        <?php else: ?>
+                            <?= htmlspecialchars((string) ($stopper['closure_comment'] ?? '-')) ?>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody></table></div>
+        </section>
+
     <?php elseif ($view === 'seguimiento'): ?>
         <section class="notes-grid" id="project-notes">
             <article class="notes-card">
@@ -1043,6 +1140,9 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     .phase-tab.disabled { opacity:0.5; cursor:not-allowed; }
     .phase-tab-panel { display:flex; flex-direction:column; gap:12px; }
     .phase-tab-panel__header { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
+    .stoppers-board { display:grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap:10px; }
+    .stoppers-col { border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:6px; }
+    .stoppers-col strong { font-size:20px; }
     .phase-warning { color: var(--danger); margin:0; }
     .progress-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
     .progress-modal.is-visible { display:flex; }

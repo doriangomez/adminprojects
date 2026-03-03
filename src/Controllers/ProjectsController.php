@@ -8,6 +8,7 @@ use App\Repositories\MasterFilesRepository;
 use App\Repositories\OutsourcingRepository;
 use App\Repositories\ProjectBillingRepository;
 use App\Repositories\ProjectNodesRepository;
+use App\Repositories\ProjectStoppersRepository;
 use App\Repositories\ProjectsRepository;
 use App\Repositories\TalentsRepository;
 use App\Repositories\TasksRepository;
@@ -56,6 +57,10 @@ class ProjectsController extends Controller
     private const BILLING_TYPES = ['fixed', 'hours', 'milestones', 'mixed'];
     private const BILLING_PERIODICITIES = ['monthly', 'biweekly', 'deliverable', 'one_time', 'custom'];
     private const INVOICE_STATUSES = ['issued', 'paid', 'draft', 'cancelled'];
+    private const STOPPER_TYPES = ['cliente', 'tecnico', 'interno', 'proveedor', 'financiero', 'legal'];
+    private const STOPPER_IMPACT_LEVELS = ['bajo', 'medio', 'alto', 'critico'];
+    private const STOPPER_AFFECTED_AREAS = ['tiempo', 'alcance', 'costo', 'calidad'];
+    private const STOPPER_STATUSES = ['abierto', 'en_gestion', 'escalado', 'resuelto', 'cerrado'];
 
     public function index(): void
     {
@@ -918,6 +923,90 @@ class ProjectsController extends Controller
         header('Location: /projects/' . $id . '?view=seguimiento');
     }
 
+    public function createStopper(int $id): void
+    {
+        $this->requirePermission('project.stoppers.manage');
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        try {
+            $payload = $this->stopperPayloadFromRequest();
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+
+        if ($payload['status'] === 'cerrado') {
+            http_response_code(400);
+            exit('Un bloqueo nuevo no puede iniciar cerrado.');
+        }
+
+        (new ProjectStoppersRepository($this->db))->create($id, $payload, (int) ($user['id'] ?? 0));
+        (new ProjectService($this->db))->recordHealthSnapshot($id);
+
+        header('Location: /projects/' . $id . '?view=bloqueos');
+    }
+
+    public function updateStopper(int $id, int $stopperId): void
+    {
+        $this->requirePermission('project.stoppers.manage');
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        try {
+            $payload = $this->stopperPayloadFromRequest();
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+
+        if ($payload['status'] === 'cerrado') {
+            http_response_code(400);
+            exit('Para cerrar un bloqueo utiliza la acción de cierre con comentario obligatorio.');
+        }
+
+        (new ProjectStoppersRepository($this->db))->update($id, $stopperId, $payload, (int) ($user['id'] ?? 0));
+        (new ProjectService($this->db))->recordHealthSnapshot($id);
+
+        header('Location: /projects/' . $id . '?view=bloqueos');
+    }
+
+    public function closeStopper(int $id, int $stopperId): void
+    {
+        $this->requirePermission('project.stoppers.close');
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $closureComment = trim((string) ($_POST['closure_comment'] ?? ''));
+        if ($closureComment === '') {
+            http_response_code(400);
+            exit('No se puede cerrar un bloqueo sin comentario de cierre.');
+        }
+
+        (new ProjectStoppersRepository($this->db))->close($id, $stopperId, $closureComment, (int) ($user['id'] ?? 0));
+        (new ProjectService($this->db))->recordHealthSnapshot($id);
+
+        header('Location: /projects/' . $id . '?view=bloqueos');
+    }
+
     public function destroy(): void
     {
         if (!$this->canDeleteProjects()) {
@@ -1645,6 +1734,7 @@ class ProjectsController extends Controller
         $healthScore = $projectService->calculateProjectHealthReport($id);
         $healthHistory = $projectService->history($id, 30);
         $billingRepo = new ProjectBillingRepository($this->db);
+        $stoppersRepo = new ProjectStoppersRepository($this->db);
         $billingConfig = $billingRepo->config($id);
         $invoices = $billingRepo->invoices($id);
         $invoiceTotals = $billingRepo->invoiceTotals($id);
@@ -1653,6 +1743,8 @@ class ProjectsController extends Controller
         $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
             ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
             : [];
+        $stopperMetrics = $stoppersRepo->metricsForProject($id);
+        $stopperBoard = $stoppersRepo->byImpactOpen($id);
 
         return array_merge([
             'title' => 'Detalle de proyecto',
@@ -1688,6 +1780,15 @@ class ProjectsController extends Controller
             'billingTypes' => self::BILLING_TYPES,
             'billingPeriodicities' => self::BILLING_PERIODICITIES,
             'invoiceStatuses' => self::INVOICE_STATUSES,
+            'stoppers' => $stoppersRepo->forProject($id),
+            'stopperMetrics' => $stopperMetrics,
+            'stopperBoard' => $stopperBoard,
+            'stopperTypeOptions' => self::STOPPER_TYPES,
+            'stopperImpactOptions' => self::STOPPER_IMPACT_LEVELS,
+            'stopperAreaOptions' => self::STOPPER_AFFECTED_AREAS,
+            'stopperStatusOptions' => array_values(array_filter(self::STOPPER_STATUSES, static fn (string $status): bool => $status !== 'cerrado')),
+            'canCloseStoppers' => $this->auth->can('project.stoppers.close'),
+            'responsibleUsers' => (new UsersRepository($this->db))->findByRoleNames(['Administrador', 'PMO', 'Líder de Proyecto', 'Talento']),
         ], $deleteContext);
     }
 
@@ -1715,6 +1816,7 @@ class ProjectsController extends Controller
         $isBillable = (int) ($decoded['is_billable'] ?? $_POST['is_billable'] ?? 0) === 1;
 
         $billingRepo = new ProjectBillingRepository($this->db);
+        $stoppersRepo = new ProjectStoppersRepository($this->db);
 
         try {
             $billingRepo->updateBillableStatus($projectId, $isBillable ? 1 : 0);
@@ -1892,6 +1994,63 @@ class ProjectsController extends Controller
         $config = (new ConfigService($this->db))->getConfig();
 
         return (bool) ($config['operational_rules']['billing']['enabled'] ?? true);
+    }
+
+    private function stopperPayloadFromRequest(): array
+    {
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $description = trim((string) ($_POST['description'] ?? ''));
+        $stopperType = strtolower(trim((string) ($_POST['stopper_type'] ?? '')));
+        $impactLevel = strtolower(trim((string) ($_POST['impact_level'] ?? '')));
+        $affectedArea = strtolower(trim((string) ($_POST['affected_area'] ?? '')));
+        $status = strtolower(trim((string) ($_POST['status'] ?? 'abierto')));
+        $responsibleId = (int) ($_POST['responsible_id'] ?? 0);
+        $detectedAt = trim((string) ($_POST['detected_at'] ?? ''));
+        $estimatedResolutionAt = trim((string) ($_POST['estimated_resolution_at'] ?? ''));
+
+        if ($title === '' || $description === '') {
+            throw new \InvalidArgumentException('Título y descripción son obligatorios para registrar un bloqueo.');
+        }
+
+        if (!in_array($stopperType, self::STOPPER_TYPES, true)) {
+            throw new \InvalidArgumentException('Tipo de bloqueo no permitido.');
+        }
+
+        if (!in_array($impactLevel, self::STOPPER_IMPACT_LEVELS, true)) {
+            throw new \InvalidArgumentException('Nivel de impacto no permitido.');
+        }
+
+        if (!in_array($affectedArea, self::STOPPER_AFFECTED_AREAS, true)) {
+            throw new \InvalidArgumentException('Área afectada no permitida.');
+        }
+
+        if (!in_array($status, self::STOPPER_STATUSES, true)) {
+            throw new \InvalidArgumentException('Estado de bloqueo no permitido.');
+        }
+
+        if ($responsibleId <= 0) {
+            throw new \InvalidArgumentException('Responsable es obligatorio.');
+        }
+
+        if ($detectedAt === '' || $estimatedResolutionAt === '') {
+            throw new \InvalidArgumentException('La fecha de detección y la fecha estimada de resolución son obligatorias.');
+        }
+
+        if (strtotime($estimatedResolutionAt) < strtotime($detectedAt)) {
+            throw new \InvalidArgumentException('La fecha estimada de resolución no puede ser anterior a la detección.');
+        }
+
+        return [
+            'title' => $title,
+            'description' => $description,
+            'stopper_type' => $stopperType,
+            'impact_level' => $impactLevel,
+            'affected_area' => $affectedArea,
+            'responsible_id' => $responsibleId,
+            'detected_at' => $detectedAt,
+            'estimated_resolution_at' => $estimatedResolutionAt,
+            'status' => $status,
+        ];
     }
 
     private function billingPayloadFromRequest(array $current): array
@@ -2667,6 +2826,10 @@ class ProjectsController extends Controller
                 throw new \InvalidArgumentException('No puedes cerrar un proyecto con tareas abiertas (' . $openTasks . ').');
             }
 
+            $openStoppers = (new ProjectStoppersRepository($this->db))->openCount((int) $current['id']);
+            if ($openStoppers > 0) {
+                throw new \InvalidArgumentException('No puedes mover el proyecto a cierre con bloqueos abiertos (' . $openStoppers . ').');
+            }
         }
 
         if ($repo->hasTasks((int) $current['id']) && ($payload['methodology'] ?? '') !== ($current['methodology'] ?? '')) {
