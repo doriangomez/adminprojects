@@ -332,6 +332,106 @@ class DashboardService
 
         $riskExposure = ($criticalBlockers * 4) + ((int) ($highRiskRow['total'] ?? 0) * 3) + ((int) ($staleRow['total'] ?? 0) * 2);
 
+        $portfolioTotalRow = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+            $params
+        );
+        $portfolioTotal = max(1, (int) ($portfolioTotalRow['total'] ?? 0));
+        $highRiskProjects = (int) ($highRiskRow['total'] ?? 0);
+        $highRiskPct = ($highRiskProjects / $portfolioTotal) * 100;
+
+        $progressMovement = $this->movementBetweenMonths(
+            "SELECT DATE_FORMAT(p.updated_at, '%Y-%m') AS month_key, AVG(p.progress) AS metric
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.updated_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+             GROUP BY month_key
+             ORDER BY month_key DESC
+             LIMIT 2",
+            $params
+        );
+
+        $scoreGeneral = (float) ($scoreMovement['current'] ?? 0);
+        if ($scoreGeneral <= 0) {
+            $scoreGeneral = (float) ($this->portfolioHealthAverage($user)['average_score'] ?? 0);
+        }
+
+        $activeBlockers = (int) round((float) ($blockerMovement['current'] ?? 0));
+        $monthlyTrend = (float) ($scoreMovement['delta_pct'] ?? 0);
+        $avgProgress = (float) ($progressMovement['current'] ?? 0);
+        $billingPlanPct = (float) $financialExecution;
+
+        $flags = [];
+        if ($criticalBlockers > 0) {
+            $flags[] = [
+                'type' => 'prioritaria',
+                'title' => 'Alerta prioritaria por bloqueos críticos',
+                'detail' => "Se identificaron {$criticalBlockers} bloqueos críticos activos que requieren escalamiento inmediato.",
+            ];
+        }
+        if ($highRiskPct > 20) {
+            $flags[] = [
+                'type' => 'advertencia',
+                'title' => 'Advertencia por exposición de riesgo',
+                'detail' => 'El porcentaje de proyectos en riesgo alto supera el 20% del portafolio activo.',
+            ];
+        }
+        if ((float) ($progressMovement['delta_pct'] ?? 0) < 0) {
+            $flags[] = [
+                'type' => 'negativa',
+                'title' => 'Señal negativa en avance',
+                'detail' => 'El avance promedio cayó frente al mes anterior y puede afectar compromisos de entrega.',
+            ];
+        }
+        if ($billingPlanPct < 70) {
+            $flags[] = [
+                'type' => 'financiera',
+                'title' => 'Alerta financiera',
+                'detail' => 'La ejecución de facturación está por debajo del 70% del plan contratado.',
+            ];
+        }
+
+        $criticalityLevel = 'Baja';
+        if ($criticalBlockers > 0 || $billingPlanPct < 70 || $highRiskPct > 20) {
+            $criticalityLevel = 'Alta';
+        } elseif ((float) ($progressMovement['delta_pct'] ?? 0) < 0 || $highRiskPct > 12) {
+            $criticalityLevel = 'Media';
+        }
+
+        $diagnosis = 'Portafolio estable y bajo control, sin señales de deterioro relevante.';
+        if ($criticalityLevel === 'Alta') {
+            $diagnosis = 'El portafolio presenta desviaciones críticas en riesgo, ejecución o continuidad operativa que exigen intervención ejecutiva inmediata.';
+        } elseif ($criticalityLevel === 'Media') {
+            $diagnosis = 'Se observan señales tempranas de deterioro que requieren seguimiento cercano y planes correctivos preventivos.';
+        }
+
+        $recommendations = [];
+        if ($criticalBlockers > 0) {
+            $recommendations[] = 'Convocar comité de desbloqueo en las próximas 24 horas y asignar dueño ejecutivo por cada bloqueo crítico.';
+        }
+        if ($highRiskPct > 20) {
+            $recommendations[] = 'Repriorizar el portafolio con foco en proyectos de mayor valor y activar planes de mitigación de riesgo por frente.';
+        }
+        if ((float) ($progressMovement['delta_pct'] ?? 0) < 0) {
+            $recommendations[] = 'Implementar plan de recuperación de avance con hitos semanales y revisión PMO en tablero de control.';
+        }
+        if ($billingPlanPct < 70) {
+            $recommendations[] = 'Ejecutar plan de aceleración de facturación: cierre de hitos pendientes, validaciones con cliente y calendario de emisión.';
+        }
+        if ($recommendations === []) {
+            $recommendations = [
+                'Mantener cadencia de seguimiento semanal con foco en prevención de bloqueos y riesgos emergentes.',
+                'Consolidar lecciones aprendidas de proyectos con mejor desempeño para replicarlas en todo el portafolio.',
+                'Sostener disciplina financiera validando avance contra hitos facturables en cada comité mensual.',
+            ];
+        }
+        $recommendations = array_slice($recommendations, 0, 3);
+
         return [
             'alerts' => [
                 'stale_projects' => (int) ($staleRow['total'] ?? 0),
@@ -351,6 +451,22 @@ class DashboardService
                 'total_collected' => $totalCollected,
                 'execution_pct' => $financialExecution,
                 'budget_deviation_pct' => $budgetDeviation,
+            ],
+            'intelligent_analysis' => [
+                'inputs' => [
+                    'score_general' => round($scoreGeneral, 1),
+                    'projects_at_risk' => $highRiskProjects,
+                    'projects_at_risk_pct' => round($highRiskPct, 1),
+                    'active_blockers' => $activeBlockers,
+                    'monthly_trend_pct' => round($monthlyTrend, 1),
+                    'billing_execution_pct' => round($billingPlanPct, 1),
+                    'average_progress' => round($avgProgress, 1),
+                    'progress_delta_pct' => round((float) ($progressMovement['delta_pct'] ?? 0), 1),
+                ],
+                'flags' => $flags,
+                'diagnosis' => $diagnosis,
+                'recommendations' => $recommendations,
+                'criticality' => $criticalityLevel,
             ],
             'risk_exposure' => $riskExposure,
         ];
