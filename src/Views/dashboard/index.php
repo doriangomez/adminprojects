@@ -3,7 +3,7 @@
         .executive-dashboard {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 10px;
             padding-bottom: 10px;
         }
         .section-title {
@@ -17,7 +17,7 @@
             background: color-mix(in srgb, var(--surface) 92%, var(--background));
             border: 1px solid color-mix(in srgb, var(--border) 86%, var(--background));
             border-radius: 16px;
-            padding: 18px;
+            padding: 14px;
             box-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 10%, transparent);
         }
         .card.dark {
@@ -33,7 +33,7 @@
         .hero-main {
             display: grid;
             grid-template-columns: 260px 1fr;
-            gap: 14px;
+            gap: 10px;
             align-items: center;
         }
         .score-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto; }
@@ -73,7 +73,7 @@
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(220px, 1fr));
-            gap: 14px;
+            gap: 10px;
         }
         .kpi-card { display: flex; align-items: center; gap: 12px; }
         .kpi-icon {
@@ -96,12 +96,12 @@
         .layout-two {
             display: grid;
             grid-template-columns: 1.3fr .9fr;
-            gap: 14px;
+            gap: 10px;
         }
         .inner-two {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 14px;
+            gap: 10px;
         }
         .chart-card h4 { margin: 0 0 10px; font-size: 16px; color: var(--text-primary); }
         .chart-card canvas { width: 100%; min-height: 250px; }
@@ -137,7 +137,7 @@
         .split-three {
             display: grid;
             grid-template-columns: repeat(3, minmax(220px, 1fr));
-            gap: 14px;
+            gap: 10px;
         }
         .metric-big { font-size: 34px; font-weight: 900; color: var(--text-primary); line-height: 1; }
         .metric-label { font-size: 12px; letter-spacing: .05em; color: var(--text-secondary); text-transform: uppercase; }
@@ -179,7 +179,36 @@
 
     $portfolioRows = array_slice($portfolioInsights['ranking'] ?? [], 0, 10);
     usort($portfolioRows, static fn (array $a, array $b): int => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
+    $executiveIntel = is_array($executiveIntel ?? null) ? $executiveIntel : [];
+    $alertStrip = $executiveIntel['alerts'] ?? [];
+    $movement = $executiveIntel['movement'] ?? [];
+    $financialImpact = $executiveIntel['financial_impact'] ?? [];
+    $riskExposure = (int) ($executiveIntel['risk_exposure'] ?? 0);
+    $projectHeatmapPoints = array_slice($portfolioInsights['ranking'] ?? [], 0, 30);
+    $topBlockersProjects = array_slice($stoppers['top_active'] ?? [], 0, 5);
+    $topTalents = array_slice($timesheets['hours_by_talent'] ?? [], 0, 5);
+
+    $movementBadge = static function (array $metric, bool $inverse = false): string {
+        $delta = (float) ($metric['delta_pct'] ?? 0);
+        $isPositive = $inverse ? ($delta <= 0) : ($delta >= 0);
+        $arrow = $delta >= 0 ? '↑' : '↓';
+        $class = $isPositive ? 'trend-positive' : 'trend-negative';
+
+        return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
+    };
     ?>
+
+    <section>
+        <div class="card alerts-critical" style="padding:10px 14px;">
+            <h3 style="margin-bottom:6px;">Centro de alertas</h3>
+            <div class="gov-grid" style="grid-template-columns:repeat(4,minmax(170px,1fr));">
+                <div class="gov-item"><div class="metric-label">⚠ Sin actualización &gt; 7 días</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['stale_projects'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label">🔴 Proyectos con riesgo alto</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['high_risk_projects'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label">⛔ Bloqueos críticos abiertos</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['critical_blockers'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label">💰 Facturación pendiente</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['billing_pending'] ?? 0) ?></strong></div>
+            </div>
+        </div>
+    </section>
 
     <section>
         <h2 class="section-title">Resumen Ejecutivo</h2>
@@ -191,6 +220,7 @@
                         <div class="score-center">
                             <span class="score-main"><?= $score ?> / 100</span>
                             <span class="score-sub">Score general</span>
+                            <?= $movementBadge($movement['score'] ?? []) ?>
                         </div>
                     </div>
                     <div>
@@ -205,11 +235,21 @@
                     <div class="stat-tile"><div class="stat-label">En riesgo</div><div class="stat-value"><?= $riskProjects ?></div></div>
                     <div class="stat-tile"><div class="stat-label">Críticos</div><div class="stat-value"><?= $criticalProjects ?></div></div>
                     <div class="stat-tile">
-                        <div class="stat-label">Tendencia vs mes anterior</div>
-                        <div class="stat-value <?= $trend >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $trend >= 0 ? '↑' : '↓' ?> <?= abs($trend) ?> pts</div>
+                        <div class="stat-label">Exposición total al riesgo</div>
+                        <div class="stat-value <?= $riskExposure > 40 ? 'trend-negative' : 'trend-positive' ?>"><?= $riskExposure ?></div>
                     </div>
                 </div>
             </article>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Tendencia real vs mes anterior</h2>
+        <div class="kpi-grid">
+            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Score general</span><span class="value"><?= number_format((float) (($movement['score']['current'] ?? 0)), 1, ',', '.') ?></span><?= $movementBadge($movement['score'] ?? []) ?></div></article>
+            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Proyectos en riesgo</span><span class="value"><?= (int) round((float) (($movement['risk_projects']['current'] ?? 0))) ?></span><?= $movementBadge($movement['risk_projects'] ?? [], true) ?></div></article>
+            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Bloqueos activos</span><span class="value"><?= (int) round((float) (($movement['active_blockers']['current'] ?? 0))) ?></span><?= $movementBadge($movement['active_blockers'] ?? [], true) ?></div></article>
+            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Facturación pendiente ($)</span><span class="value"><?= number_format((float) (($movement['billing_pending']['current'] ?? 0)), 0, ',', '.') ?></span><?= $movementBadge($movement['billing_pending'] ?? [], true) ?></div></article>
         </div>
     </section>
 
@@ -249,6 +289,25 @@
                 </div>
             </article>
         </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Nivel 2: Riesgo + Finanzas</h2>
+        <div class="split-three">
+            <article class="card"><div class="metric-label">Total contratado</div><div class="metric-big">$<?= number_format((float) ($financialImpact['total_contracted'] ?? 0), 0, ',', '.') ?></div></article>
+            <article class="card"><div class="metric-label">Total facturado</div><div class="metric-big">$<?= number_format((float) ($financialImpact['total_invoiced'] ?? 0), 0, ',', '.') ?></div></article>
+            <article class="card"><div class="metric-label">Total cobrado</div><div class="metric-big">$<?= number_format((float) ($financialImpact['total_collected'] ?? 0), 0, ',', '.') ?></div></article>
+        </div>
+        <div class="split-three" style="margin-top:10px;">
+            <article class="card"><div class="metric-label">% ejecución financiera</div><div class="metric-big"><?= number_format((float) ($financialImpact['execution_pct'] ?? 0), 1, ',', '.') ?>%</div></article>
+            <article class="card"><div class="metric-label">Desviación presupuestal</div><div class="metric-big <?= ((float) ($financialImpact['budget_deviation_pct'] ?? 0)) <= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= number_format((float) ($financialImpact['budget_deviation_pct'] ?? 0), 1, ',', '.') ?>%</div></article>
+            <article class="card"><div class="metric-label">Exposición total al riesgo</div><div class="metric-big <?= $riskExposure > 40 ? 'trend-negative' : 'trend-positive' ?>"><?= $riskExposure ?></div></article>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Mapa de calor del portafolio (Riesgo x Avance)</h2>
+        <article class="card chart-card"><canvas id="portfolioHeatmapChart" height="220"></canvas></article>
     </section>
 
     <section>
@@ -340,12 +399,19 @@
         <div class="split-three">
             <article class="card"><div class="metric-label">Total abiertos</div><div class="metric-big"><?= (int) ($stoppers['open_total'] ?? 0) ?></div></article>
             <article class="card"><div class="metric-label">Críticos</div><div class="metric-big" style="color:var(--danger)"><?= (int) ($stoppers['critical_total'] ?? 0) ?></div></article>
-            <article class="card"><div class="metric-label">Días promedio abiertos</div><div class="metric-big"><?= (int) ($stoppers['avg_open_days'] ?? 0) ?></div></article>
+            <article class="card"><div class="metric-label">Tiempo promedio de resolución</div><div class="metric-big"><?= (int) ($stoppers['avg_open_days'] ?? 0) ?> días</div></article>
         </div>
-        <article class="card chart-card" style="margin-top:14px;">
+        <article class="card chart-card" style="margin-top:10px;">
             <h4>Tendencia mensual de bloqueos</h4>
             <canvas id="stoppersTrendChart" height="220"></canvas>
         </article>
+        <div class="split-three" style="margin-top:10px;">
+            <article class="card">
+                <div class="metric-label">Top proyectos con más bloqueos</div>
+                <ul class="alerts-list"><?php foreach ($topBlockersProjects as $item): ?><li><?= htmlspecialchars((string) ($item['project'] ?? 'Proyecto')) ?> (<?= (int) ($item['active_total'] ?? 0) ?>)</li><?php endforeach; ?></ul>
+            </article>
+            <article class="card" style="grid-column: span 2;"><div class="metric-label">Distribución por tipo</div><canvas id="blockersByTypeChart" height="120"></canvas></article>
+        </div>
     </section>
 
     <section>
@@ -356,6 +422,11 @@
             <article class="card"><div class="metric-label">Talentos sin reporte</div><div class="metric-big" style="color:<?= ($timesheets['talents_without_report'] ?? 0) > 0 ? 'var(--danger)' : 'var(--success)' ?>"><?= (int) ($timesheets['talents_without_report'] ?? 0) ?></div></article>
         </div>
         <p class="muted">Semana <?= htmlspecialchars((string) ($timesheets['period_start'] ?? '')) ?> - <?= htmlspecialchars((string) ($timesheets['period_end'] ?? '')) ?></p>
+        <div class="split-three" style="margin-top:10px;">
+            <article class="card"><div class="metric-label">Top 5 talentos por horas</div><ul class="alerts-list"><?php foreach ($topTalents as $talent): ?><li><?= htmlspecialchars((string) ($talent['talent'] ?? 'Talento')) ?> (<?= number_format((float) ($talent['total_hours'] ?? 0), 1, ',', '.') ?>h)</li><?php endforeach; ?></ul></article>
+            <article class="card"><div class="metric-label">Talentos con menor cumplimiento</div><ul class="alerts-list"><?php foreach (array_reverse($topTalents) as $talent): ?><li><?= htmlspecialchars((string) ($talent['talent'] ?? 'Talento')) ?></li><?php endforeach; ?></ul></article>
+            <article class="card"><div class="metric-label">% utilización promedio</div><div class="metric-big"><?= number_format($timesheetCompliance, 1, ',', '.') ?>%</div></article>
+        </div>
     </section>
 
     <section>
@@ -400,6 +471,17 @@
     ]) ?>;
     const stoppersMonthlyLabels = <?= json_encode(array_map(static fn ($row) => $row['month_key'] ?? '', $stoppers['monthly_trend'] ?? [])) ?>;
     const stoppersMonthlyData = <?= json_encode(array_map(static fn ($row) => (int) ($row['total'] ?? 0), $stoppers['monthly_trend'] ?? [])) ?>;
+    const heatmapPoints = <?= json_encode(array_map(static fn (array $row) => [
+        'x' => max(0, min(100, 100 - (int) ($row['score'] ?? 0))),
+        'y' => max(0, min(100, (int) ($row['score'] ?? 0))),
+        'label' => ($row['name'] ?? 'Proyecto') . ' · ' . ($row['client'] ?? 'Cliente'),
+    ], $projectHeatmapPoints)) ?>;
+    const blockersByTypeData = <?= json_encode([
+        (int) (($stoppers['severity_counts']['critico'] ?? 0)),
+        (int) (($stoppers['severity_counts']['alto'] ?? 0)),
+        (int) (($stoppers['severity_counts']['medio'] ?? 0)),
+        (int) (($stoppers['severity_counts']['bajo'] ?? 0)),
+    ]) ?>;
 
     new Chart(document.getElementById('executiveScoreChart'), {
         type: 'doughnut',
@@ -444,5 +526,40 @@
             datasets: [{ label: 'Bloqueos', data: stoppersMonthlyData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.18)', fill: true, tension: .35 }]
         },
         options: { plugins: { legend: { display: true } } }
+    });
+
+    new Chart(document.getElementById('portfolioHeatmapChart'), {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Proyectos',
+                data: heatmapPoints,
+                pointRadius: 6,
+                backgroundColor: '#2563eb'
+            }]
+        },
+        options: {
+            scales: {
+                x: { min: 0, max: 100, title: { display: true, text: 'Riesgo' } },
+                y: { min: 0, max: 100, title: { display: true, text: 'Avance' } }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ctx.raw?.label || 'Proyecto'
+                    }
+                },
+                legend: { display: false }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('blockersByTypeChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Cliente', 'Técnico', 'Operativo', 'Otros'],
+            datasets: [{ data: blockersByTypeData, backgroundColor: ['#dc2626', '#f97316', '#facc15', '#22c55e'], borderRadius: 8 }]
+        },
+        options: { plugins: { legend: { display: false } } }
     });
 </script>

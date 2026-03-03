@@ -21,6 +21,7 @@ class DashboardController extends Controller
             'requirements' => $service->requirementsOverview($user),
             'alerts' => $service->alerts($user),
             'stoppers' => $service->stoppersOverview($user),
+            'executiveIntel' => $service->executiveIntelligence($user),
         ]);
     }
 }

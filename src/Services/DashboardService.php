@@ -186,6 +186,176 @@ class DashboardService
         ];
     }
 
+    public function executiveIntelligence(array $user): array
+    {
+        [$where, $params] = $this->visibilityForUser($user);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+        $statusColumn = $this->projectStatusColumn();
+        $healthColumn = $this->projectHealthColumn();
+        $statusExpr = $statusColumn !== null ? "p.{$statusColumn}" : "''";
+
+        $staleRow = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.updated_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+             AND p.progress < 100
+             AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+            $params
+        );
+
+        $highRiskRow = ['total' => 0];
+        if ($healthColumn !== null) {
+            $highRiskRow = $this->db->fetchOne(
+                "SELECT COUNT(*) AS total
+                 FROM projects p
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND p.{$healthColumn} IN ('critical','red','at_risk')
+                 AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+                $params
+            );
+        }
+
+        $criticalBlockers = 0;
+        if ($this->db->tableExists('project_stoppers')) {
+            $criticalRow = $this->db->fetchOne(
+                "SELECT COUNT(*) AS total
+                 FROM project_stoppers s
+                 JOIN projects p ON p.id = s.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+                 AND s.impact_level = 'critico'",
+                $params
+            );
+            $criticalBlockers = (int) ($criticalRow['total'] ?? 0);
+        }
+
+        $billingPending = 0;
+        $totalInvoiced = 0.0;
+        $totalCollected = 0.0;
+        if ($this->db->tableExists('project_invoices')) {
+            $invoiceRows = $this->db->fetchAll(
+                "SELECT i.amount, i.status
+                 FROM project_invoices i
+                 JOIN projects p ON p.id = i.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}",
+                $params
+            );
+            foreach ($invoiceRows as $invoice) {
+                $amount = (float) ($invoice['amount'] ?? 0);
+                $status = (string) ($invoice['status'] ?? '');
+                if (in_array($status, ['issued', 'sent', 'overdue'], true)) {
+                    $billingPending += 1;
+                }
+                if ($status !== 'void') {
+                    $totalInvoiced += $amount;
+                }
+                if ($status === 'paid') {
+                    $totalCollected += $amount;
+                }
+            }
+        }
+
+        $totalContracted = (float) (($this->db->fetchOne(
+            "SELECT SUM(p.contract_value) AS total
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}",
+            $params
+        )['total'] ?? 0));
+
+        $financialExecution = $totalContracted > 0 ? ($totalInvoiced / $totalContracted) * 100 : 0;
+        $budgetDeviation = $totalContracted > 0 ? (($totalInvoiced - $totalContracted) / $totalContracted) * 100 : 0;
+
+        $scoreMovement = ['current' => 0.0, 'previous' => 0.0, 'delta_pct' => 0.0];
+        if ($this->db->tableExists('project_health_history')) {
+            $scoreMovement = $this->movementBetweenMonths(
+                "SELECT DATE_FORMAT(h.calculated_at, '%Y-%m') AS month_key, AVG(h.score) AS metric
+                 FROM project_health_history h
+                 JOIN projects p ON p.id = h.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND h.calculated_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+                 GROUP BY month_key
+                 ORDER BY month_key DESC
+                 LIMIT 2",
+                $params
+            );
+        }
+
+        $riskMovement = $this->movementBetweenMonths(
+            "SELECT DATE_FORMAT(p.updated_at, '%Y-%m') AS month_key,
+                    SUM(CASE WHEN " . ($healthColumn !== null ? "p.{$healthColumn}" : "''") . " IN ('critical','red','at_risk') THEN 1 ELSE 0 END) AS metric
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.updated_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+             GROUP BY month_key
+             ORDER BY month_key DESC
+             LIMIT 2",
+            $params
+        );
+
+        $blockerMovement = $this->movementBetweenMonths(
+            "SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS month_key, COUNT(*) AS metric
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+             AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+             GROUP BY month_key
+             ORDER BY month_key DESC
+             LIMIT 2",
+            $params,
+            !$this->db->tableExists('project_stoppers')
+        );
+
+        $billingMovement = $this->movementBetweenMonths(
+            "SELECT DATE_FORMAT(i.issued_at, '%Y-%m') AS month_key,
+                    SUM(CASE WHEN i.status IN ('issued','sent','overdue') THEN i.amount ELSE 0 END) AS metric
+             FROM project_invoices i
+             JOIN projects p ON p.id = i.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND i.issued_at >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+             GROUP BY month_key
+             ORDER BY month_key DESC
+             LIMIT 2",
+            $params,
+            !$this->db->tableExists('project_invoices')
+        );
+
+        $riskExposure = ($criticalBlockers * 4) + ((int) ($highRiskRow['total'] ?? 0) * 3) + ((int) ($staleRow['total'] ?? 0) * 2);
+
+        return [
+            'alerts' => [
+                'stale_projects' => (int) ($staleRow['total'] ?? 0),
+                'high_risk_projects' => (int) ($highRiskRow['total'] ?? 0),
+                'critical_blockers' => $criticalBlockers,
+                'billing_pending' => $billingPending,
+            ],
+            'movement' => [
+                'score' => $scoreMovement,
+                'risk_projects' => $riskMovement,
+                'active_blockers' => $blockerMovement,
+                'billing_pending' => $billingMovement,
+            ],
+            'financial_impact' => [
+                'total_contracted' => $totalContracted,
+                'total_invoiced' => $totalInvoiced,
+                'total_collected' => $totalCollected,
+                'execution_pct' => $financialExecution,
+                'budget_deviation_pct' => $budgetDeviation,
+            ],
+            'risk_exposure' => $riskExposure,
+        ];
+    }
+
 
 
     public function portfolioHealthAverage(array $user): array
@@ -791,6 +961,24 @@ class DashboardService
         }
 
         return 'Crítico';
+    }
+
+    private function movementBetweenMonths(string $sql, array $params, bool $disabled = false): array
+    {
+        if ($disabled) {
+            return ['current' => 0.0, 'previous' => 0.0, 'delta_pct' => 0.0];
+        }
+
+        $rows = $this->db->fetchAll($sql, $params);
+        $current = isset($rows[0]['metric']) ? (float) $rows[0]['metric'] : 0.0;
+        $previous = isset($rows[1]['metric']) ? (float) $rows[1]['metric'] : 0.0;
+        $delta = $previous !== 0.0 ? (($current - $previous) / abs($previous)) * 100 : 0.0;
+
+        return [
+            'current' => $current,
+            'previous' => $previous,
+            'delta_pct' => $delta,
+        ];
     }
 
     public function alerts(array $user): array
