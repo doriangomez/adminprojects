@@ -3,469 +3,381 @@
         .executive-dashboard {
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 20px;
+            padding-bottom: 10px;
         }
         .section-title {
-            font-size: 18px;
+            margin: 0 0 12px;
+            font-size: 20px;
             font-weight: 800;
+            letter-spacing: .01em;
             color: var(--text-primary);
-            margin: 0 0 10px;
-        }
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 14px;
         }
         .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 16px 18px;
-            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 12%, var(--background));
+            background: color-mix(in srgb, var(--surface) 92%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 86%, var(--background));
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 10%, transparent);
         }
-        .card.elevated { box-shadow: 0 12px 28px color-mix(in srgb, var(--text-primary) 12%, var(--background)); }
-        .kpi-card {
-            display: flex;
-            align-items: center;
+        .card.dark {
+            background: linear-gradient(140deg, #0f172a 0%, #111827 50%, #1e293b 100%);
+            border-color: rgba(148, 163, 184, 0.25);
+            color: #e2e8f0;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 16px;
+        }
+        .hero-main {
+            display: grid;
+            grid-template-columns: 260px 1fr;
             gap: 14px;
-            padding: 14px 16px;
-            background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%);
-            border: 1px solid color-mix(in srgb, var(--border) 80%, var(--background));
+            align-items: center;
         }
+        .score-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+        .score-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .score-main { font-size: 42px; font-weight: 900; line-height: 1; }
+        .score-sub { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; opacity: .75; }
+        .hero-title { margin: 0; font-size: 26px; font-weight: 900; color: #f8fafc; }
+        .hero-copy { margin: 8px 0 0; color: #cbd5e1; font-size: 14px; line-height: 1.5; }
+        .hero-side {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        .stat-tile {
+            padding: 14px;
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--surface) 85%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
+        }
+        .dark .stat-tile {
+            background: rgba(15, 23, 42, .5);
+            border-color: rgba(148, 163, 184, .2);
+        }
+        .stat-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
+        .stat-value { margin-top: 4px; font-size: 30px; font-weight: 900; color: var(--text-primary); }
+        .dark .stat-value { color: #f8fafc; }
+        .trend-positive { color: var(--success); }
+        .trend-negative { color: var(--danger); }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(220px, 1fr));
+            gap: 14px;
+        }
+        .kpi-card { display: flex; align-items: center; gap: 12px; }
         .kpi-icon {
-            width: 46px;
-            height: 46px;
+            width: 48px;
+            height: 48px;
             border-radius: 14px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: color-mix(in srgb, var(--primary) 14%, var(--background));
+            background: color-mix(in srgb, var(--primary) 18%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--background));
             color: var(--primary);
-            border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--background));
+            flex-shrink: 0;
         }
-        .kpi-icon svg { width: 26px; height: 26px; stroke: currentColor; }
-        .kpi-card .meta { display: flex; flex-direction: column; gap: 6px; }
-        .kpi-card .label { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.01em; }
-        .kpi-card .value { font-size: 24px; font-weight: 800; color: var(--text-primary); }
-        .kpi-card[data-tone="green"] .kpi-icon { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--background)); }
-        .kpi-card[data-tone="amber"] .kpi-icon { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, var(--background)); }
-        .kpi-card[data-tone="slate"] .kpi-icon { background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); color: var(--text-primary); border-color: color-mix(in srgb, var(--text-secondary) 30%, var(--background)); }
-        .kpi-card[data-tone="blue"] .kpi-icon { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--background)); }
-        .kpi-card[data-tone="purple"] .kpi-icon { background: color-mix(in srgb, var(--secondary) 18%, var(--background)); color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 30%, var(--background)); }
-
-        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-        .chart-card h4 { margin: 0 0 6px 0; font-size: 15px; color: var(--text-primary); font-weight: 800; }
-        .chart-legend { font-size: 13px; color: var(--text-secondary); margin: 6px 0 0; }
-
-        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-        .metric-item { display: flex; flex-direction: column; gap: 6px; }
-        .metric-item .label { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
-        .metric-item .value { font-size: 20px; font-weight: 800; color: var(--text-primary); }
-
-        .list { margin: 0; padding-left: 18px; color: var(--text-primary); font-size: 14px; }
-        .list li { margin-bottom: 6px; }
-        .muted { color: var(--text-secondary); font-size: 14px; margin: 0; }
-
-        .section-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-        .pill { display: inline-flex; align-items:center; gap: 8px; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
-        .pill.soft-green { background: color-mix(in srgb, var(--success) 14%, var(--background)); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 24%, var(--background)); }
-        .pill.soft-amber { background: color-mix(in srgb, var(--warning) 14%, var(--background)); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--background)); }
-        .pill.soft-blue { background: color-mix(in srgb, var(--primary) 14%, var(--background)); color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--background)); }
-        .pill.soft-red { background: color-mix(in srgb, var(--danger) 14%, var(--background)); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--background)); }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        thead th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); padding: 10px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, var(--background)); }
-        tbody td { padding: 12px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); font-weight: 600; color: var(--text-primary); }
-        tbody tr:last-child td { border-bottom: none; }
-        tbody tr:hover td { background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
+        .kpi-icon svg { width: 24px; height: 24px; stroke: currentColor; }
+        .kpi-meta { display: flex; flex-direction: column; gap: 4px; }
+        .kpi-meta .label { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+        .kpi-meta .value { color: var(--text-primary); font-size: 30px; font-weight: 900; line-height: 1; }
+        .kpi-meta .variation { font-size: 13px; font-weight: 700; }
+        .layout-two {
+            display: grid;
+            grid-template-columns: 1.3fr .9fr;
+            gap: 14px;
+        }
+        .inner-two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .chart-card h4 { margin: 0 0 10px; font-size: 16px; color: var(--text-primary); }
+        .chart-card canvas { width: 100%; min-height: 250px; }
+        .alerts-critical {
+            border: 1px solid color-mix(in srgb, var(--danger) 60%, var(--background));
+            background: linear-gradient(120deg, color-mix(in srgb, var(--danger) 20%, var(--surface)), color-mix(in srgb, var(--danger) 10%, var(--surface)));
+        }
+        .alerts-critical h3 {
+            margin: 0 0 8px;
+            color: var(--danger);
+            font-size: 18px;
+        }
+        .alerts-list { margin: 0; padding-left: 20px; }
+        .alerts-list li { margin-bottom: 6px; font-weight: 600; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 11px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, var(--background)); }
+        th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); text-align: left; }
+        td { font-size: 14px; font-weight: 600; color: var(--text-primary); }
         .text-right { text-align: right; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .pill.green { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); }
+        .pill.amber { background: color-mix(in srgb, var(--warning) 20%, var(--background)); color: #b45309; }
+        .pill.red { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
+        .split-three {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(220px, 1fr));
+            gap: 14px;
+        }
+        .metric-big { font-size: 34px; font-weight: 900; color: var(--text-primary); line-height: 1; }
+        .metric-label { font-size: 12px; letter-spacing: .05em; color: var(--text-secondary); text-transform: uppercase; }
+        .gov-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; }
+        .gov-item { border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); }
+        .gov-item strong { display: block; font-size: 28px; color: var(--text-primary); }
+        .muted { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+        @media (max-width: 1200px) {
+            .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+            .hero-main { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 760px) {
+            .kpi-grid, .split-three, .gov-grid, .hero-side { grid-template-columns: 1fr; }
+        }
     </style>
 
     <?php
     $statusCounts = $projects['status_counts'] ?? ['planning' => 0, 'en_curso' => 0, 'en_riesgo' => 0, 'cerrado' => 0];
     $progressByClient = $projects['progress_by_client'] ?? [];
     $staleProjects = $projects['stale_projects'] ?? [];
-    $stageDistribution = $projects['stage_distribution'] ?? [];
-    $portfolioHealth = is_array($portfolioHealth ?? null) ? $portfolioHealth : ['average_score' => 0, 'projects_count' => 0];
-    $portfolioAverage = (int) ($portfolioHealth['average_score'] ?? 0);
-    $portfolioTone = $portfolioAverage >= 80 ? 'soft-green' : ($portfolioAverage >= 60 ? 'soft-amber' : 'soft-red');
-    $portfolioInsights = is_array($portfolioInsights ?? null) ? $portfolioInsights : ['ranking' => [], 'top_risk' => [], 'portfolio_trend_avg' => 0, 'client_heatmap' => []];
+    $monthlyProgressTrend = $projects['monthly_progress_trend'] ?? [];
+    $score = (int) ($portfolioHealth['average_score'] ?? 0);
+    $scoreColor = $score > 80 ? '#16a34a' : ($score >= 60 ? '#f59e0b' : '#dc2626');
+    $riskProjects = (int) ($summary['proyectos_riesgo'] ?? 0);
+    $criticalProjects = count($portfolioInsights['top_risk'] ?? []);
+    $trend = (int) ($portfolioInsights['portfolio_trend_avg'] ?? 0);
+    $progressDelta = (float) ($summary['avance_promedio'] ?? 0) - 50;
+    $hoursPlan = (float) ($summary['horas_planificadas'] ?? 0);
+    $hoursReal = (float) ($summary['horas_reales'] ?? 0);
+    $hoursDiffPct = $hoursPlan > 0 ? (($hoursReal - $hoursPlan) / $hoursPlan) * 100 : 0;
+    $budget = (float) ($summary['presupuesto_total'] ?? 0);
+    $cost = (float) ($summary['costo_real_total'] ?? 0);
+    $costDiffPct = $budget > 0 ? (($cost - $budget) / $budget) * 100 : 0;
+    $timesheetCompliance = (($timesheets['weekly_hours'] ?? 0) + ($timesheets['pending_hours'] ?? 0)) > 0
+        ? (($timesheets['weekly_hours'] ?? 0) / (($timesheets['weekly_hours'] ?? 0) + ($timesheets['pending_hours'] ?? 0))) * 100
+        : 100;
+    $hasCriticalAlerts = !empty($staleProjects) || (($stoppers['critical_total'] ?? 0) > 0) || (($governance['critical_risks'] ?? 0) > 0) || (($timesheets['talents_without_report'] ?? 0) > 0);
+
+    $portfolioRows = array_slice($portfolioInsights['ranking'] ?? [], 0, 10);
+    usort($portfolioRows, static fn (array $a, array $b): int => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
     ?>
 
-    <div>
-        <h2 class="section-title">Resumen ejecutivo</h2>
-        <div class="card elevated" style="margin-bottom: 14px;">
-            <span class="pill <?= $portfolioTone ?>">Salud promedio del portafolio</span>
-            <p style="margin:10px 0 0; font-size: 34px; font-weight: 800;"><?= $portfolioAverage ?> / 100</p>
-            <p class="muted" style="margin-top: 4px;">Base: <?= (int) ($portfolioHealth['projects_count'] ?? 0) ?> proyectos.</p>
+    <section>
+        <h2 class="section-title">Resumen Ejecutivo</h2>
+        <div class="hero-grid">
+            <article class="card dark">
+                <div class="hero-main">
+                    <div class="score-wrap">
+                        <canvas id="executiveScoreChart" width="220" height="220"></canvas>
+                        <div class="score-center">
+                            <span class="score-main"><?= $score ?> / 100</span>
+                            <span class="score-sub">Score general</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="hero-title">Control de Portafolio</h3>
+                        <p class="hero-copy">Visión integral de performance, riesgos y ejecución para toma de decisiones estratégicas del comité directivo.</p>
+                    </div>
+                </div>
+            </article>
+            <article class="card dark">
+                <div class="hero-side">
+                    <div class="stat-tile"><div class="stat-label">Proyectos activos</div><div class="stat-value"><?= (int) ($summary['proyectos_activos'] ?? 0) ?></div></div>
+                    <div class="stat-tile"><div class="stat-label">En riesgo</div><div class="stat-value"><?= $riskProjects ?></div></div>
+                    <div class="stat-tile"><div class="stat-label">Críticos</div><div class="stat-value"><?= $criticalProjects ?></div></div>
+                    <div class="stat-tile">
+                        <div class="stat-label">Tendencia vs mes anterior</div>
+                        <div class="stat-value <?= $trend >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $trend >= 0 ? '↑' : '↓' ?> <?= abs($trend) ?> pts</div>
+                    </div>
+                </div>
+            </article>
         </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">KPIs Financieros y Operativos</h2>
         <div class="kpi-grid">
-            <div class="card kpi-card" data-tone="blue">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M8 10h8"/><path d="M8 14h4"/></svg></span>
-                <div class="meta">
-                    <span class="label">Proyectos activos</span>
-                    <span class="value"><?= $summary['proyectos_activos'] ?? 0 ?></span>
-                </div>
-            </div>
-            <div class="card kpi-card" data-tone="amber">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v18"/><path d="M5 9h7"/><path d="M5 15h7"/><path d="m12 15 7-4v8Z"/></svg></span>
-                <div class="meta">
-                    <span class="label">Proyectos en riesgo</span>
-                    <span class="value"><?= $summary['proyectos_riesgo'] ?? 0 ?></span>
-                </div>
-            </div>
-            <div class="card kpi-card" data-tone="green">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 12h16"/><path d="M8 6v12"/><path d="m14 9 3 3-3 3"/></svg></span>
-                <div class="meta">
+            <article class="card kpi-card">
+                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 18h16"/><path d="M7 14V8"/><path d="M12 14V5"/><path d="M17 14v-3"/></svg></span>
+                <div class="kpi-meta">
                     <span class="label">Avance promedio</span>
-                    <span class="value"><?= number_format($summary['avance_promedio'] ?? 0, 1, ',', '.') ?>%</span>
+                    <span class="value"><?= number_format((float) ($summary['avance_promedio'] ?? 0), 1, ',', '.') ?>%</span>
+                    <span class="variation <?= $progressDelta >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $progressDelta >= 0 ? '↑' : '↓' ?> <?= number_format(abs($progressDelta), 1, ',', '.') ?> vs base</span>
                 </div>
+            </article>
+            <article class="card kpi-card">
+                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 8h18"/><path d="M6 4v16"/><path d="M18 4v16"/></svg></span>
+                <div class="kpi-meta">
+                    <span class="label">Horas ejecutadas</span>
+                    <span class="value"><?= number_format($hoursReal, 0, ',', '.') ?></span>
+                    <span class="variation <?= $hoursDiffPct <= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $hoursDiffPct <= 0 ? '↓' : '↑' ?> <?= number_format(abs($hoursDiffPct), 1, ',', '.') ?>% vs plan</span>
+                </div>
+            </article>
+            <article class="card kpi-card">
+                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></span>
+                <div class="kpi-meta">
+                    <span class="label">Costo ejecutado</span>
+                    <span class="value">$<?= number_format($cost, 0, ',', '.') ?></span>
+                    <span class="variation <?= $costDiffPct <= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $costDiffPct <= 0 ? '↓' : '↑' ?> <?= number_format(abs($costDiffPct), 1, ',', '.') ?>% vs presupuesto</span>
+                </div>
+            </article>
+            <article class="card kpi-card">
+                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 4a4 4 0 0 0-4 4v2a4 4 0 0 0 8 0V8a4 4 0 0 0-4-4Z"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span>
+                <div class="kpi-meta">
+                    <span class="label">Talento activo</span>
+                    <span class="value"><?= (int) ($summary['talentos_activos'] ?? 0) ?></span>
+                    <span class="variation <?= ($timesheets['talents_without_report'] ?? 0) > 0 ? 'trend-negative' : 'trend-positive' ?>"><?= ($timesheets['talents_without_report'] ?? 0) > 0 ? '↑' : '↓' ?> <?= (int) ($timesheets['talents_without_report'] ?? 0) ?> sin reporte</span>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Salud Operativa</h2>
+        <div class="layout-two">
+            <div class="inner-two">
+                <article class="card chart-card">
+                    <h4>Estado del portafolio</h4>
+                    <canvas id="statusChart" height="260"></canvas>
+                </article>
+                <article class="card chart-card">
+                    <h4>Avance por cliente</h4>
+                    <canvas id="progressChart" height="260"></canvas>
+                </article>
             </div>
-            <div class="card kpi-card" data-tone="slate">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h4"/></svg></span>
-                <div class="meta">
-                    <span class="label">Horas reales vs plan</span>
-                    <span class="value"><?= number_format($summary['horas_reales'] ?? 0, 0, ',', '.') ?> / <?= number_format($summary['horas_planificadas'] ?? 0, 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="card kpi-card" data-tone="purple">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="M8 10a2 2 0 1 0 0 4h8a2 2 0 1 0 0-4Z"/></svg></span>
-                <div class="meta">
-                    <span class="label">Costo real vs presupuesto</span>
-                    <span class="value">$<?= number_format($summary['costo_real_total'] ?? 0, 0, ',', '.') ?> / $<?= number_format($summary['presupuesto_total'] ?? 0, 0, ',', '.') ?></span>
-                </div>
-            </div>
-            <div class="card kpi-card" data-tone="blue">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 4a4 4 0 0 0-4 4v2a4 4 0 0 0 8 0V8a4 4 0 0 0-4-4Z"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span>
-                <div class="meta">
-                    <span class="label">Talentos activos</span>
-                    <span class="value"><?= $summary['talentos_activos'] ?? 0 ?></span>
-                </div>
-            </div>
-            <div class="card kpi-card" data-tone="slate">
-                <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M6 6h12v12H6z"/><path d="M9 9h6v6H9z"/></svg></span>
-                <div class="meta">
-                    <span class="label">Outsourcing activo</span>
-                    <span class="value"><?= $summary['outsourcing_activo'] ?? 0 ?></span>
-                </div>
+            <div class="inner-two">
+                <article class="card chart-card">
+                    <h4>Tendencia mensual de avance</h4>
+                    <canvas id="monthlyProgressChart" height="260"></canvas>
+                </article>
+                <article class="card chart-card">
+                    <h4>Bloqueos por severidad</h4>
+                    <canvas id="blockersSeverityChart" height="260"></canvas>
+                </article>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div>
-        <h2 class="section-title">Salud operativa</h2>
-        <div class="charts-grid">
-            <div class="card chart-card">
-                <h4>Proyectos por estado</h4>
-                <canvas id="statusChart" height="150"></canvas>
-                <p class="chart-legend">Planning vs ejecución, riesgo y cierre.</p>
-            </div>
-            <div class="card chart-card">
-                <h4>Avance promedio por cliente</h4>
-                <canvas id="progressChart" height="150"></canvas>
-                <p class="chart-legend">Promedio de avance consolidado.</p>
-            </div>
-            <div class="card chart-card">
-                <h4>Proyectos por Stage-gate</h4>
-                <?php if ($stageDistribution): ?>
-                    <ul class="list">
-                        <?php foreach ($stageDistribution as $stageRow): ?>
-                            <li><?= htmlspecialchars((string) ($stageRow['stage'] ?? 'Discovery')) ?>: <strong><?= (int) ($stageRow['total'] ?? 0) ?></strong></li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php else: ?>
-                    <p class="muted">Sin datos de Stage-gate para mostrar.</p>
-                <?php endif; ?>
-                <p class="chart-legend">Dimensión opcional para análisis ejecutivo por fase de innovación.</p>
-            </div>
-            <div class="card chart-card">
-                <h4>Proyectos sin avance reciente</h4>
-                <p class="muted"><?= count($staleProjects) ?> proyectos sin actualización en 14 días.</p>
-                <?php if ($staleProjects): ?>
-                    <ul class="list">
-                        <?php foreach ($staleProjects as $project): ?>
-                            <li><?= htmlspecialchars($project['name'] ?? '') ?> <span class="muted">(<?= htmlspecialchars($project['client'] ?? '') ?>)</span></li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php else: ?>
-                    <p class="muted">Sin proyectos críticos por actualización.</p>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-
-    <div>
-        <h2 class="section-title">Vista de portafolio</h2>
-        <div class="section-grid">
-            <div class="card">
-                <h4>Ranking de proyectos por salud</h4>
-                <table>
-                    <thead><tr><th>Proyecto</th><th>Cliente</th><th class="text-right">Score</th></tr></thead>
-                    <tbody>
-                    <?php foreach (array_slice($portfolioInsights['ranking'], 0, 8) as $row): ?>
-                        <tr><td><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td><td class="text-right"><?= (int) ($row['score'] ?? 0) ?></td></tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card">
-                <h4>Top 5 en riesgo</h4>
-                <ul class="list">
-                    <?php foreach ($portfolioInsights['top_risk'] as $row): ?>
-                        <li><?= htmlspecialchars((string) ($row['name'] ?? '')) ?> — <strong><?= (int) ($row['score'] ?? 0) ?></strong></li>
-                    <?php endforeach; ?>
+    <?php if ($hasCriticalAlerts): ?>
+        <section>
+            <div class="card alerts-critical">
+                <h3>⚠ Alertas críticas</h3>
+                <ul class="alerts-list">
+                    <?php if (!empty($staleProjects)): ?>
+                        <li><?= count($staleProjects) ?> proyectos sin avance reciente.</li>
+                    <?php endif; ?>
+                    <?php if (($stoppers['critical_total'] ?? 0) > 0): ?>
+                        <li><?= (int) ($stoppers['critical_total'] ?? 0) ?> bloqueos críticos abiertos.</li>
+                    <?php endif; ?>
+                    <?php if (($governance['critical_risks'] ?? 0) > 0): ?>
+                        <li><?= (int) ($governance['critical_risks'] ?? 0) ?> riesgos críticos registrados.</li>
+                    <?php endif; ?>
+                    <?php if (($timesheets['talents_without_report'] ?? 0) > 0): ?>
+                        <li><?= (int) ($timesheets['talents_without_report'] ?? 0) ?> talentos sin seguimiento de horas.</li>
+                    <?php endif; ?>
                 </ul>
-                <p class="muted">Tendencia promedio del portafolio (30 días): <?= (int) ($portfolioInsights['portfolio_trend_avg'] ?? 0) ?> pts</p>
             </div>
-            <div class="card">
-                <h4>Heatmap por cliente</h4>
-                <table>
-                    <thead><tr><th>Cliente</th><th class="text-right">Promedio</th><th class="text-right">En riesgo</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($portfolioInsights['client_heatmap'] as $row): ?>
-                        <tr><td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td><td class="text-right"><?= (int) ($row['avg_score'] ?? 0) ?></td><td class="text-right"><?= (int) ($row['risk_count'] ?? 0) ?></td></tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+        </section>
+    <?php endif; ?>
 
-
-
-    <div>
-        <h2 class="section-title">Cumplimiento de requisitos del cliente</h2>
-        <div class="card">
+    <section>
+        <h2 class="section-title">Portfolio Ranking</h2>
+        <div class="card table-wrap">
             <table>
-                <thead><tr><th>Proyecto</th><th>Cliente</th><th class="text-right">Indicador</th><th class="text-right">Aprobados/Total</th><th class="text-right">Estado</th></tr></thead>
-                <tbody>
-                <?php foreach (($requirements['ranking'] ?? []) as $row): ?>
+                <thead>
                     <tr>
-                        <td><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td>
-                        <td class="text-right"><?= ($row['indicator'] ?? null) === null ? 'N/A' : number_format((float) $row['indicator'], 2, ',', '.') . '%' ?></td>
-                        <td class="text-right"><?= (int) ($row['approved_without_reprocess'] ?? 0) ?>/<?= (int) ($row['total'] ?? 0) ?></td>
-                        <td class="text-right"><?= htmlspecialchars((string) ($row['status'] ?? 'no_aplica')) ?></td>
+                        <th>Proyecto</th>
+                        <th>Cliente</th>
+                        <th class="text-right">Score</th>
+                        <th>Riesgo</th>
+                        <th class="text-right">Bloqueos</th>
+                        <th class="text-right">Facturación</th>
+                        <th>Última actualización</th>
                     </tr>
-                <?php endforeach; ?>
+                </thead>
+                <tbody>
+                    <?php foreach ($portfolioRows as $row): ?>
+                        <?php
+                        $riskLabel = (string) ($row['risk'] ?? 'Medio');
+                        $riskClass = $riskLabel === 'Bajo' ? 'green' : ($riskLabel === 'Medio' ? 'amber' : 'red');
+                        ?>
+                        <tr>
+                            <td><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td>
+                            <td class="text-right"><?= (int) ($row['score'] ?? 0) ?></td>
+                            <td><span class="pill <?= $riskClass ?>"><?= htmlspecialchars($riskLabel) ?></span></td>
+                            <td class="text-right"><?= (int) ($row['blockers_open'] ?? 0) ?></td>
+                            <td class="text-right">$<?= number_format((float) ($row['billing'] ?? 0), 0, ',', '.') ?></td>
+                            <td><?= htmlspecialchars((string) ($row['updated_at'] ?? '-')) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
-    </div>
-    <div>
-        <h2 class="section-title">Bloqueos operativos (Stoppers)</h2>
-        <div class="section-grid">
-            <div class="card">
-                <h4>Proyectos con más bloqueos activos</h4>
-                <table>
-                    <thead><tr><th>Proyecto</th><th>Cliente</th><th class="text-right">Activos</th></tr></thead>
-                    <tbody>
-                    <?php foreach (($stoppers['top_active'] ?? []) as $row): ?>
-                        <tr><td><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td><td class="text-right"><?= (int) ($row['active_total'] ?? 0) ?></td></tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card">
-                <h4>Tendencia mensual de bloqueos</h4>
-                <ul class="list">
-                    <?php foreach (($stoppers['monthly_trend'] ?? []) as $row): ?>
-                        <li><?= htmlspecialchars((string) ($row['month_key'] ?? '')) ?> — <strong><?= (int) ($row['total'] ?? 0) ?></strong></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <div class="card">
-                <h4>Proyectos con bloqueos críticos abiertos</h4>
-                <ul class="list">
-                    <?php foreach (($stoppers['critical_projects'] ?? []) as $row): ?>
-                        <li><?= htmlspecialchars((string) ($row['project'] ?? '')) ?> <span class="muted">(<?= htmlspecialchars((string) ($row['client'] ?? '')) ?>)</span></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Stoppers (Bloqueos)</h2>
+        <div class="split-three">
+            <article class="card"><div class="metric-label">Total abiertos</div><div class="metric-big"><?= (int) ($stoppers['open_total'] ?? 0) ?></div></article>
+            <article class="card"><div class="metric-label">Críticos</div><div class="metric-big" style="color:var(--danger)"><?= (int) ($stoppers['critical_total'] ?? 0) ?></div></article>
+            <article class="card"><div class="metric-label">Días promedio abiertos</div><div class="metric-big"><?= (int) ($stoppers['avg_open_days'] ?? 0) ?></div></article>
         </div>
-    </div>
+        <article class="card chart-card" style="margin-top:14px;">
+            <h4>Tendencia mensual de bloqueos</h4>
+            <canvas id="stoppersTrendChart" height="220"></canvas>
+        </article>
+    </section>
 
-
-
-    <div>
-        <h2 class="section-title">Talento y timesheets</h2>
-        <div class="section-grid">
-            <div class="card">
-                <div class="metric-grid">
-                    <div class="metric-item">
-                        <span class="label">Horas reportadas hoy</span>
-                        <span class="value"><?= number_format($timesheets['today_hours'] ?? 0, 1, ',', '.') ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Horas cargadas semana</span>
-                        <span class="value"><?= number_format($timesheets['weekly_hours'] ?? 0, 1, ',', '.') ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Horas pendientes</span>
-                        <span class="value"><?= number_format($timesheets['pending_hours'] ?? 0, 1, ',', '.') ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Talentos sin reporte</span>
-                        <span class="value"><?= $timesheets['talents_without_report'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Aprobaciones pendientes</span>
-                        <span class="value"><?= $timesheets['pending_approvals_count'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Internos vs externos</span>
-                        <span class="value"><?= $timesheets['internal_talents'] ?? 0 ?> / <?= $timesheets['external_talents'] ?? 0 ?></span>
-                    </div>
-                </div>
-                <p class="muted">Semana <?= htmlspecialchars($timesheets['period_start'] ?? '') ?> - <?= htmlspecialchars($timesheets['period_end'] ?? '') ?></p>
-            </div>
-            <div class="card">
-                <h4>Horas por proyecto</h4>
-                <canvas id="hoursProjectChart" height="130"></canvas>
-                <?php if (!empty($timesheets['hours_by_project'])): ?>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Proyecto</th>
-                                <th class="text-right">Horas aprobadas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($timesheets['hours_by_project'] as $row): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['project'] ?? '') ?></td>
-                                    <td class="text-right"><?= number_format((float) ($row['total_hours'] ?? 0), 1, ',', '.') ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <p class="muted">Sin horas aprobadas para mostrar.</p>
-                <?php endif; ?>
-            </div>
-            <div class="card">
-                <h4>Horas por talento</h4>
-                <canvas id="hoursTalentChart" height="130"></canvas>
-                <?php if (!empty($timesheets['hours_by_talent'])): ?>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Talento</th>
-                                <th class="text-right">Horas aprobadas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($timesheets['hours_by_talent'] as $row): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['talent'] ?? '') ?></td>
-                                    <td class="text-right"><?= number_format((float) ($row['total_hours'] ?? 0), 1, ',', '.') ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <p class="muted">Sin horas aprobadas para mostrar.</p>
-                <?php endif; ?>
-            </div>
+    <section>
+        <h2 class="section-title">Talento y Timesheets</h2>
+        <div class="split-three">
+            <article class="card"><div class="metric-label">Cumplimiento</div><div class="metric-big"><?= number_format($timesheetCompliance, 1, ',', '.') ?>%</div></article>
+            <article class="card"><div class="metric-label">Horas vs plan</div><div class="metric-big"><?= number_format((float) ($timesheets['weekly_hours'] ?? 0), 1, ',', '.') ?> / <?= number_format($hoursPlan > 0 ? $hoursPlan / 4 : 0, 1, ',', '.') ?></div></article>
+            <article class="card"><div class="metric-label">Talentos sin reporte</div><div class="metric-big" style="color:<?= ($timesheets['talents_without_report'] ?? 0) > 0 ? 'var(--danger)' : 'var(--success)' ?>"><?= (int) ($timesheets['talents_without_report'] ?? 0) ?></div></article>
         </div>
-    </div>
+        <p class="muted">Semana <?= htmlspecialchars((string) ($timesheets['period_start'] ?? '')) ?> - <?= htmlspecialchars((string) ($timesheets['period_end'] ?? '')) ?></p>
+    </section>
 
-    <div>
-        <h2 class="section-title">Outsourcing</h2>
-        <div class="section-grid">
-            <div class="card">
-                <div class="metric-grid">
-                    <div class="metric-item">
-                        <span class="label">Servicios activos</span>
-                        <span class="value"><?= $outsourcing['active_services'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Seguimientos abiertos</span>
-                        <span class="value"><?= $outsourcing['open_followups'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Servicios amarillo/rojo</span>
-                        <span class="value"><?= $outsourcing['attention_services'] ?? 0 ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="card">
-                <h4>Último seguimiento por cliente</h4>
-                <?php if (!empty($outsourcing['last_followups'])): ?>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Cliente</th>
-                                <th>Estado</th>
-                                <th class="text-right">Periodo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($outsourcing['last_followups'] as $followup): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($followup['client'] ?? '') ?></td>
-                                    <td>
-                                        <span class="pill <?= ($followup['service_health'] ?? '') === 'red' ? 'soft-red' : ((($followup['service_health'] ?? '') === 'yellow') ? 'soft-amber' : 'soft-green') ?>">
-                                            <?= htmlspecialchars($followup['service_health'] ?? 'green') ?>
-                                        </span>
-                                    </td>
-                                    <td class="text-right"><?= htmlspecialchars($followup['period_end'] ?? '') ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <p class="muted">Sin seguimientos recientes registrados.</p>
-                <?php endif; ?>
-            </div>
+    <section>
+        <h2 class="section-title">Gobierno y Control</h2>
+        <div class="gov-grid">
+            <?php
+            $govItems = [
+                ['label' => 'Documentos pendientes', 'value' => (int) (($governance['documents_revision'] ?? 0) + ($governance['documents_validacion'] ?? 0) + ($governance['documents_aprobacion'] ?? 0)), 'icon' => '📄'],
+                ['label' => 'Cambios sin aprobar', 'value' => (int) ($governance['scope_changes_pending'] ?? 0), 'icon' => '🔄'],
+                ['label' => 'Riesgos críticos', 'value' => (int) ($governance['critical_risks'] ?? 0), 'icon' => '⛔'],
+                ['label' => 'Facturación pendiente', 'value' => (int) ($outsourcing['open_followups'] ?? 0), 'icon' => '💳'],
+            ];
+            foreach ($govItems as $item):
+                $tone = $item['value'] > 0 ? 'var(--danger)' : 'var(--success)';
+            ?>
+                <article class="gov-item">
+                    <div class="metric-label"><?= $item['icon'] ?> <?= htmlspecialchars($item['label']) ?></div>
+                    <strong style="color:<?= $tone ?>"><?= (int) $item['value'] ?></strong>
+                </article>
+            <?php endforeach; ?>
         </div>
-    </div>
-
-    <div>
-        <h2 class="section-title">Gobierno y control</h2>
-        <div class="section-grid">
-            <div class="card">
-                <div class="metric-grid">
-                    <div class="metric-item">
-                        <span class="label">Docs en revisión</span>
-                        <span class="value"><?= $governance['documents_revision'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Docs en validación</span>
-                        <span class="value"><?= $governance['documents_validacion'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Docs en aprobación</span>
-                        <span class="value"><?= $governance['documents_aprobacion'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Cambios de alcance</span>
-                        <span class="value"><?= $governance['scope_changes_pending'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Riesgos críticos</span>
-                        <span class="value"><?= $governance['critical_risks'] ?? 0 ?></span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="label">Outsourcing vencido</span>
-                        <span class="value"><?= $governance['outsourcing_overdue'] ?? 0 ?></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div>
-        <h2 class="section-title">Alertas inteligentes</h2>
-        <div class="card elevated">
-            <ul class="list">
-                <?php foreach ($alerts as $alert): ?>
-                    <li><?= htmlspecialchars($alert) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
-    </div>
+    </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -476,90 +388,61 @@
         <?= (int) ($statusCounts['en_riesgo'] ?? 0) ?>,
         <?= (int) ($statusCounts['cerrado'] ?? 0) ?>,
     ];
-
     const progressLabels = <?= json_encode(array_map(static fn ($row) => $row['client'] ?? '', $progressByClient)) ?>;
     const progressData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['avg_progress'] ?? 0), 1), $progressByClient)) ?>;
-    const projectHourLabels = <?= json_encode(array_map(static fn ($row) => $row['project'] ?? '', $timesheets['hours_by_project'] ?? [])) ?>;
-    const projectHourData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['total_hours'] ?? 0), 1), $timesheets['hours_by_project'] ?? [])) ?>;
-    const talentHourLabels = <?= json_encode(array_map(static fn ($row) => $row['talent'] ?? '', $timesheets['hours_by_talent'] ?? [])) ?>;
-    const talentHourData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['total_hours'] ?? 0), 1), $timesheets['hours_by_talent'] ?? [])) ?>;
+    const monthlyProgressLabels = <?= json_encode(array_map(static fn ($row) => $row['month_key'] ?? '', $monthlyProgressTrend)) ?>;
+    const monthlyProgressData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['avg_progress'] ?? 0), 1), $monthlyProgressTrend)) ?>;
+    const blockersSeverityData = <?= json_encode([
+        (int) (($stoppers['severity_counts']['critico'] ?? 0)),
+        (int) (($stoppers['severity_counts']['alto'] ?? 0)),
+        (int) (($stoppers['severity_counts']['medio'] ?? 0)),
+        (int) (($stoppers['severity_counts']['bajo'] ?? 0)),
+    ]) ?>;
+    const stoppersMonthlyLabels = <?= json_encode(array_map(static fn ($row) => $row['month_key'] ?? '', $stoppers['monthly_trend'] ?? [])) ?>;
+    const stoppersMonthlyData = <?= json_encode(array_map(static fn ($row) => (int) ($row['total'] ?? 0), $stoppers['monthly_trend'] ?? [])) ?>;
 
-    const chartPalette = {
-        grid: 'rgba(148, 163, 184, 0.6)',
-        textMain: '#0f172a',
-        textMuted: '#475569',
-        primaryFill: 'rgba(37, 99, 235, 0.9)',
-        primaryBorder: 'rgba(30, 64, 175, 0.95)',
-        secondaryFill: 'rgba(16, 185, 129, 0.9)',
-        secondaryBorder: 'rgba(4, 120, 87, 0.95)',
-        accentFill: 'rgba(245, 158, 11, 0.9)',
-        accentBorder: 'rgba(180, 83, 9, 0.95)',
-        mutedFill: 'rgba(100, 116, 139, 0.9)',
-        mutedBorder: 'rgba(51, 65, 85, 0.95)'
-    };
-
-    const statusCtx = document.getElementById('statusChart').getContext('2d');
-    new Chart(statusCtx, {
+    new Chart(document.getElementById('executiveScoreChart'), {
         type: 'doughnut',
         data: {
-            labels: ['Planning', 'En curso', 'En riesgo', 'Cerrado'],
-            datasets: [{ data: statusData, backgroundColor: [chartPalette.secondaryFill, chartPalette.primaryFill, chartPalette.accentFill, chartPalette.mutedFill], borderColor: [chartPalette.secondaryBorder, chartPalette.primaryBorder, chartPalette.accentBorder, chartPalette.mutedBorder], borderWidth: 1.4 }]
+            labels: ['Score', 'Pendiente'],
+            datasets: [{ data: [<?= $score ?>, <?= max(0, 100 - $score) ?>], backgroundColor: ['<?= $scoreColor ?>', 'rgba(148,163,184,.24)'], borderWidth: 0 }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: chartPalette.textMain } } }, cutout: '62%' }
+        options: { cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
     });
 
-    const progressCtx = document.getElementById('progressChart').getContext('2d');
-    new Chart(progressCtx, {
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: { labels: ['Planning', 'En curso', 'En riesgo', 'Cerrado'], datasets: [{ data: statusData, backgroundColor: ['#38bdf8', '#2563eb', '#f97316', '#64748b'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '62%' }
+    });
+
+    new Chart(document.getElementById('progressChart'), {
+        type: 'bar',
+        data: { labels: progressLabels, datasets: [{ data: progressData, borderRadius: 10, backgroundColor: '#2563eb' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+    });
+
+    new Chart(document.getElementById('monthlyProgressChart'), {
+        type: 'line',
+        data: { labels: monthlyProgressLabels, datasets: [{ data: monthlyProgressData, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.15)', fill: true, tension: .35 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+    });
+
+    new Chart(document.getElementById('blockersSeverityChart'), {
         type: 'bar',
         data: {
-            labels: progressLabels,
-            datasets: [{ label: 'Avance %', data: progressData, backgroundColor: chartPalette.primaryFill, borderColor: chartPalette.primaryBorder, borderWidth: 1.4, borderRadius: 10 }]
+            labels: ['Crítico', 'Alto', 'Medio', 'Bajo'],
+            datasets: [{ data: blockersSeverityData, backgroundColor: ['#dc2626', '#f97316', '#facc15', '#22c55e'], borderRadius: 10 }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, max: 100, grid: { color: chartPalette.grid }, ticks: { color: chartPalette.textMuted, callback: value => value + '%' } },
-                x: { grid: { display: false }, ticks: { color: chartPalette.textMuted } }
-            }
-        }
+        options: { plugins: { legend: { display: false } } }
     });
 
-    const hoursProjectCanvas = document.getElementById('hoursProjectChart');
-    if (hoursProjectCanvas && projectHourLabels.length) {
-        new Chart(hoursProjectCanvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: projectHourLabels,
-                datasets: [{ label: 'Horas', data: projectHourData, backgroundColor: chartPalette.secondaryFill, borderColor: chartPalette.secondaryBorder, borderWidth: 1.2, borderRadius: 8 }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: chartPalette.grid }, ticks: { color: chartPalette.textMuted } },
-                    x: { grid: { display: false }, ticks: { color: chartPalette.textMuted } }
-                }
-            }
-        });
-    }
-
-    const hoursTalentCanvas = document.getElementById('hoursTalentChart');
-    if (hoursTalentCanvas && talentHourLabels.length) {
-        new Chart(hoursTalentCanvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: talentHourLabels,
-                datasets: [{ label: 'Horas', data: talentHourData, backgroundColor: chartPalette.accentFill, borderColor: chartPalette.accentBorder, borderWidth: 1.2, borderRadius: 8 }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: chartPalette.grid }, ticks: { color: chartPalette.textMuted } },
-                    x: { grid: { display: false }, ticks: { color: chartPalette.textMuted } }
-                }
-            }
-        });
-    }
+    new Chart(document.getElementById('stoppersTrendChart'), {
+        type: 'line',
+        data: {
+            labels: stoppersMonthlyLabels,
+            datasets: [{ label: 'Bloqueos', data: stoppersMonthlyData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.18)', fill: true, tension: .35 }]
+        },
+        options: { plugins: { legend: { display: true } } }
+    });
 </script>
