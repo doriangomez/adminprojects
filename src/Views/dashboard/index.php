@@ -145,10 +145,49 @@
         .gov-item { border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); }
         .gov-item strong { display: block; font-size: 28px; color: var(--text-primary); }
         .muted { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+        .ai-highlight {
+            border: 1px solid color-mix(in srgb, #2563eb 45%, var(--border));
+            background: linear-gradient(125deg, color-mix(in srgb, #1d4ed8 18%, var(--surface)), color-mix(in srgb, #0ea5e9 12%, var(--surface)));
+        }
+        .ai-title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+        .ai-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            font-weight: 900;
+            font-size: 13px;
+            color: #1e3a8a;
+            background: color-mix(in srgb, #93c5fd 70%, white);
+        }
+        .ai-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 12px; margin-top: 10px; }
+        .ai-list { margin: 8px 0 0; padding-left: 18px; }
+        .ai-list li { margin-bottom: 6px; font-weight: 600; color: var(--text-primary); }
+        .criticality-pill {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            margin-left: 8px;
+        }
+        .criticality-pill.baja { background: color-mix(in srgb, var(--success) 20%, var(--background)); color: var(--success); }
+        .criticality-pill.media { background: color-mix(in srgb, var(--warning) 24%, var(--background)); color: #b45309; }
+        .criticality-pill.alta { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
         @media (max-width: 1200px) {
             .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
             .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
             .hero-main { grid-template-columns: 1fr; }
+            .ai-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 760px) {
             .kpi-grid, .split-three, .gov-grid, .hero-side { grid-template-columns: 1fr; }
@@ -184,6 +223,11 @@
     $movement = $executiveIntel['movement'] ?? [];
     $financialImpact = $executiveIntel['financial_impact'] ?? [];
     $riskExposure = (int) ($executiveIntel['risk_exposure'] ?? 0);
+    $intelligentAnalysis = $executiveIntel['intelligent_analysis'] ?? [];
+    $analysisInputs = $intelligentAnalysis['inputs'] ?? [];
+    $analysisFlags = $intelligentAnalysis['flags'] ?? [];
+    $analysisRecommendations = $intelligentAnalysis['recommendations'] ?? [];
+    $analysisCriticality = strtolower((string) ($intelligentAnalysis['criticality'] ?? 'baja'));
     $projectHeatmapPoints = array_slice($portfolioInsights['ranking'] ?? [], 0, 30);
     $topBlockersProjects = array_slice($stoppers['top_active'] ?? [], 0, 5);
     $topTalents = array_slice($timesheets['hours_by_talent'] ?? [], 0, 5);
@@ -197,6 +241,44 @@
         return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
     };
     ?>
+
+    <section>
+        <div class="card ai-highlight">
+            <h3 class="ai-title"><span class="ai-chip">IA</span> Análisis Inteligente
+                <span class="criticality-pill <?= htmlspecialchars($analysisCriticality) ?>"><?= htmlspecialchars((string) ($intelligentAnalysis['criticality'] ?? 'Baja')) ?></span>
+            </h3>
+            <p class="muted" style="margin-top:6px;"><?= htmlspecialchars((string) ($intelligentAnalysis['diagnosis'] ?? 'Sin diagnóstico disponible.')) ?></p>
+            <div class="ai-grid">
+                <div>
+                    <div class="metric-label">Diagnóstico resumido</div>
+                    <div class="gov-grid" style="grid-template-columns:repeat(2,minmax(170px,1fr)); margin-top:8px;">
+                        <div class="gov-item"><div class="metric-label">Score general</div><strong><?= number_format((float) ($analysisInputs['score_general'] ?? 0), 1, ',', '.') ?></strong></div>
+                        <div class="gov-item"><div class="metric-label">Proyectos en riesgo</div><strong><?= (int) ($analysisInputs['projects_at_risk'] ?? 0) ?> (<?= number_format((float) ($analysisInputs['projects_at_risk_pct'] ?? 0), 1, ',', '.') ?>%)</strong></div>
+                        <div class="gov-item"><div class="metric-label">Bloqueos activos</div><strong><?= (int) ($analysisInputs['active_blockers'] ?? 0) ?></strong></div>
+                        <div class="gov-item"><div class="metric-label">Tendencia mensual</div><strong class="<?= ((float) ($analysisInputs['monthly_trend_pct'] ?? 0)) >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= ((float) ($analysisInputs['monthly_trend_pct'] ?? 0)) >= 0 ? '↑' : '↓' ?> <?= number_format(abs((float) ($analysisInputs['monthly_trend_pct'] ?? 0)), 1, ',', '.') ?>%</strong></div>
+                        <div class="gov-item"><div class="metric-label">Facturación vs plan</div><strong><?= number_format((float) ($analysisInputs['billing_execution_pct'] ?? 0), 1, ',', '.') ?>%</strong></div>
+                        <div class="gov-item"><div class="metric-label">Avance promedio</div><strong><?= number_format((float) ($analysisInputs['average_progress'] ?? 0), 1, ',', '.') ?>%</strong></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="metric-label">Top 3 recomendaciones accionables</div>
+                    <ol class="ai-list">
+                        <?php foreach ($analysisRecommendations as $recommendation): ?>
+                            <li><?= htmlspecialchars((string) $recommendation) ?></li>
+                        <?php endforeach; ?>
+                    </ol>
+                    <?php if (!empty($analysisFlags)): ?>
+                        <div class="metric-label" style="margin-top:12px;">Reglas activadas</div>
+                        <ul class="ai-list">
+                            <?php foreach ($analysisFlags as $flag): ?>
+                                <li><strong><?= htmlspecialchars((string) ($flag['title'] ?? 'Alerta')) ?>:</strong> <?= htmlspecialchars((string) ($flag['detail'] ?? '')) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <section>
         <div class="card alerts-critical" style="padding:10px 14px;">
