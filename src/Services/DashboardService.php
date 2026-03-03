@@ -165,12 +165,24 @@ class DashboardService
             );
         }
 
+        $monthlyProgressTrend = $this->db->fetchAll(
+            "SELECT DATE_FORMAT(p.updated_at, '%Y-%m') AS month_key, AVG(p.progress) AS avg_progress
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.updated_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+             GROUP BY month_key
+             ORDER BY month_key ASC",
+            $params
+        );
+
         return [
             'status_counts' => $statusCounts,
             'progress_by_client' => $progressByClient,
             'stale_projects' => $staleProjects,
             'stale_count' => count($staleProjects),
             'stage_distribution' => $stageDistribution,
+            'monthly_progress_trend' => $monthlyProgressTrend,
         ];
     }
 
@@ -219,7 +231,7 @@ class DashboardService
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         $rows = $this->db->fetchAll(
-            "SELECT p.id, p.name, c.name AS client
+            "SELECT p.id, p.name, c.name AS client, p.updated_at, p.budget
              FROM projects p
              JOIN clients c ON c.id = p.client_id
              {$projectsCondition}",
@@ -239,6 +251,18 @@ class DashboardService
             $first = $history[0]['score'] ?? ($report['total_score'] ?? 0);
             $last = $history !== [] ? ($history[count($history) - 1]['score'] ?? ($report['total_score'] ?? 0)) : ($report['total_score'] ?? 0);
 
+            $blockersOpen = 0;
+            if ($this->db->tableExists('project_stoppers')) {
+                $openStopper = $this->db->fetchOne(
+                    "SELECT COUNT(*) AS total
+                     FROM project_stoppers s
+                     WHERE s.project_id = :projectId
+                     AND s.status IN ('abierto','en_gestion','escalado','resuelto')",
+                    [':projectId' => $projectId]
+                );
+                $blockersOpen = (int) ($openStopper['total'] ?? 0);
+            }
+
             $projects[] = [
                 'id' => $projectId,
                 'name' => (string) ($row['name'] ?? ''),
@@ -246,6 +270,10 @@ class DashboardService
                 'score' => (int) ($report['total_score'] ?? 0),
                 'level' => (string) ($report['level'] ?? 'critical'),
                 'trend_delta' => (int) $last - (int) $first,
+                'risk' => $this->riskLabel((int) ($report['total_score'] ?? 0)),
+                'blockers_open' => $blockersOpen,
+                'billing' => (float) ($row['budget'] ?? 0),
+                'updated_at' => (string) ($row['updated_at'] ?? ''),
             ];
         }
 
@@ -656,6 +684,10 @@ class DashboardService
                 'top_active' => [],
                 'monthly_trend' => [],
                 'critical_projects' => [],
+                'severity_counts' => ['critico' => 0, 'alto' => 0, 'medio' => 0, 'bajo' => 0],
+                'open_total' => 0,
+                'critical_total' => 0,
+                'avg_open_days' => 0,
             ];
         }
 
@@ -699,11 +731,66 @@ class DashboardService
             $params
         );
 
+        $severityRows = $this->db->fetchAll(
+            "SELECT COALESCE(NULLIF(TRIM(s.impact_level), ''), 'medio') AS severity, COUNT(*) AS total
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+             GROUP BY severity",
+            $params
+        );
+
+        $severityCounts = ['critico' => 0, 'alto' => 0, 'medio' => 0, 'bajo' => 0];
+        foreach ($severityRows as $row) {
+            $severity = strtolower((string) ($row['severity'] ?? 'medio'));
+            if (array_key_exists($severity, $severityCounts)) {
+                $severityCounts[$severity] = (int) ($row['total'] ?? 0);
+            }
+        }
+
+        $openTotalRow = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.status IN ('abierto','en_gestion','escalado','resuelto')",
+            $params
+        );
+
+        $avgDaysRow = $this->db->fetchOne(
+            "SELECT AVG(DATEDIFF(CURDATE(), DATE(s.created_at))) AS avg_days
+             FROM project_stoppers s
+             JOIN projects p ON p.id = s.project_id
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND s.status IN ('abierto','en_gestion','escalado','resuelto')",
+            $params
+        );
+
         return [
             'top_active' => $topActive,
             'monthly_trend' => $monthlyTrend,
             'critical_projects' => $criticalProjects,
+            'severity_counts' => $severityCounts,
+            'open_total' => (int) ($openTotalRow['total'] ?? 0),
+            'critical_total' => (int) ($severityCounts['critico'] ?? 0),
+            'avg_open_days' => (int) round((float) ($avgDaysRow['avg_days'] ?? 0)),
         ];
+    }
+
+    private function riskLabel(int $score): string
+    {
+        if ($score >= 80) {
+            return 'Bajo';
+        }
+        if ($score >= 60) {
+            return 'Medio';
+        }
+
+        return 'Crítico';
     }
 
     public function alerts(array $user): array
