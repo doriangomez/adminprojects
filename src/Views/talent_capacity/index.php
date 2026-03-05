@@ -156,6 +156,9 @@ $maxAvailable = 0.0;
 foreach ($availableTalents as $item) {
     $maxAvailable = max($maxAvailable, (float) ($item['available'] ?? 0));
 }
+
+$activeTab = 'vista';
+require __DIR__ . '/_tabs.php';
 ?>
 
 <section class="capacity-shell">

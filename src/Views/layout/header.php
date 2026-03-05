@@ -160,6 +160,11 @@ error_log(sprintf(
         }
         .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--text-primary); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
         .nav-divider { height: 1px; background: color-mix(in srgb, var(--border) 65%, var(--background)); margin: 4px 10px; }
+        .nav-group { display: flex; flex-direction: column; gap: 4px; }
+        .nav-group-label { display: flex; align-items: center; gap: 12px; padding: 10px 12px; font-weight: 700; font-size: 14px; color: var(--text-secondary); }
+        .nav-group-label .nav-icon { width: 36px; height: 36px; }
+        .nav-link.nav-sub { padding: 10px 12px 10px 48px; font-size: 13px; }
+        .nav-link.nav-sub .nav-icon { display: none; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             --nav-tone: var(--primary);
@@ -667,10 +672,18 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
-            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
-                <span class="nav-label">Carga talento</span>
-            </a>
+            <div class="nav-group <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'expanded' : '' ?>" data-tone="blue">
+                <span class="nav-group-label">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
+                    <span class="nav-label">Carga talento</span>
+                </span>
+                <a href="<?= $basePath ?>/talent-capacity" class="nav-link nav-sub <?= str_starts_with($normalizedPath, '/talent-capacity') && !str_contains($normalizedPath, 'simulation') ? 'active' : '' ?>" data-tone="blue">
+                    <span class="nav-label">Vista de capacidad</span>
+                </a>
+                <a href="<?= $basePath ?>/talent-capacity/simulation" class="nav-link nav-sub <?= str_contains($normalizedPath, '/simulation') ? 'active' : '' ?>" data-tone="blue">
+                    <span class="nav-label">Simulación de capacidad</span>
+                </a>
+            </div>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>

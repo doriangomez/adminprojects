@@ -590,4 +590,268 @@ class TalentCapacityRepository
 
         return 'El equipo mantiene una capacidad libre amplia; hay espacio para acelerar nuevas asignaciones sin saturación inmediata.';
     }
+
+    /**
+     * Datos base para simulación: capacidad mensual, horas asignadas y disponibilidad por talento.
+     */
+    public function simulationData(array $filters, array $user): array
+    {
+        $range = $this->resolveRange($filters['date_from'] ?? null, $filters['date_to'] ?? null);
+        [$visibilitySql, $visibilityParams] = $this->projectVisibility($user);
+
+        $talents = $this->db->fetchAll(
+            'SELECT t.id, t.name, t.role, t.capacidad_horaria, t.weekly_capacity, t.availability
+             FROM talents t
+             ORDER BY t.name ASC',
+            []
+        );
+
+        if (empty($talents)) {
+            return [
+                'range' => $range,
+                'talents' => [],
+                'total_capacity' => 0,
+                'committed_capacity' => 0,
+                'available_capacity' => 0,
+            ];
+        }
+
+        $talentIds = array_map(static fn (array $talent): int => (int) $talent['id'], $talents);
+        $talentIndex = array_fill_keys($talentIds, true);
+        $params = array_merge($visibilityParams, [':from' => $range['start'], ':to' => $range['end']]);
+
+        $assignmentRows = $this->db->fetchAll(
+            'SELECT a.talent_id, a.project_id, a.start_date, a.end_date, a.planned_hours, a.weekly_hours
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             LEFT JOIN clients c ON c.id = p.client_id
+             WHERE a.talent_id IS NOT NULL
+               AND a.talent_id IN (' . implode(',', array_map('intval', $talentIds)) . ')
+               AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))
+               AND (a.start_date IS NULL OR a.start_date <= :to)
+               AND (a.end_date IS NULL OR a.end_date >= :from)
+               ' . $visibilitySql,
+            $params
+        );
+
+        $timesheetRows = $this->db->fetchAll(
+            'SELECT ts.talent_id, ts.date, SUM(ts.hours) AS hours
+             FROM timesheets ts
+             JOIN projects p ON p.id = COALESCE(ts.project_id, (SELECT t.project_id FROM tasks t WHERE t.id = ts.task_id LIMIT 1))
+             LEFT JOIN clients c ON c.id = p.client_id
+             WHERE ts.talent_id IN (' . implode(',', array_map('intval', $talentIds)) . ')
+               AND ts.date BETWEEN :from AND :to
+               ' . $visibilitySql . '
+             GROUP BY ts.talent_id, ts.date',
+            $params
+        );
+
+        $dailyPlanned = [];
+        foreach ($assignmentRows as $row) {
+            $talentId = (int) ($row['talent_id'] ?? 0);
+            if (!isset($talentIndex[$talentId])) {
+                continue;
+            }
+            $start = max($range['start'], (string) ($row['start_date'] ?: $range['start']));
+            $end = min($range['end'], (string) ($row['end_date'] ?: $range['end']));
+            if ($start > $end) {
+                continue;
+            }
+            $workingDays = $this->businessDays($start, $end);
+            if ($workingDays <= 0) {
+                continue;
+            }
+            $weeklyHours = (float) ($row['weekly_hours'] ?? 0);
+            $plannedHours = (float) ($row['planned_hours'] ?? 0);
+            $hoursPerDay = $weeklyHours > 0 ? ($weeklyHours / 5) : ($plannedHours > 0 ? ($plannedHours / $workingDays) : 0.0);
+
+            $cursor = new DateTimeImmutable($start);
+            $limit = new DateTimeImmutable($end);
+            while ($cursor <= $limit) {
+                $day = $cursor->format('Y-m-d');
+                if ((int) $cursor->format('N') <= 5) {
+                    $dailyPlanned[$talentId][$day] = ($dailyPlanned[$talentId][$day] ?? 0.0) + $hoursPerDay;
+                }
+                $cursor = $cursor->modify('+1 day');
+            }
+        }
+
+        $dailyLogged = [];
+        foreach ($timesheetRows as $row) {
+            $talentId = (int) ($row['talent_id'] ?? 0);
+            $day = (string) ($row['date'] ?? '');
+            if (!isset($talentIndex[$talentId]) || $day === '') {
+                continue;
+            }
+            $dailyLogged[$talentId][$day] = (float) ($row['hours'] ?? 0);
+        }
+
+        $talentsWithCapacity = [];
+        $totalCapacity = 0.0;
+        $committedCapacity = 0.0;
+
+        foreach ($talents as $talent) {
+            $talentId = (int) $talent['id'];
+            $weeklyCapacity = $this->weeklyCapacity($talent);
+            $dailyCapacity = $weeklyCapacity / 5;
+
+            $hours = 0.0;
+            $capacity = 0.0;
+            $cursor = new DateTimeImmutable($range['start']);
+            $limit = new DateTimeImmutable($range['end']);
+            while ($cursor <= $limit) {
+                if ((int) $cursor->format('N') > 5) {
+                    $cursor = $cursor->modify('+1 day');
+                    continue;
+                }
+                $day = $cursor->format('Y-m-d');
+                $dayHours = $dailyLogged[$talentId][$day] ?? ($dailyPlanned[$talentId][$day] ?? 0.0);
+                $hours += $dayHours;
+                $capacity += $dailyCapacity;
+                $cursor = $cursor->modify('+1 day');
+            }
+
+            $available = max(0.0, $capacity - $hours);
+            $totalCapacity += $capacity;
+            $committedCapacity += $hours;
+
+            $talentsWithCapacity[] = [
+                'id' => $talentId,
+                'name' => (string) ($talent['name'] ?? ''),
+                'capacity' => round($capacity, 1),
+                'hours' => round($hours, 1),
+                'available' => round($available, 1),
+                'utilization' => $capacity > 0 ? round(($hours / $capacity) * 100, 1) : 0,
+            ];
+        }
+
+        $availableCapacity = max(0.0, $totalCapacity - $committedCapacity);
+
+        return [
+            'range' => $range,
+            'talents' => $talentsWithCapacity,
+            'total_capacity' => round($totalCapacity, 1),
+            'committed_capacity' => round($committedCapacity, 1),
+            'available_capacity' => round($availableCapacity, 1),
+        ];
+    }
+
+    /**
+     * Ejecuta la simulación: distribuye horas del proyecto proporcionalmente por capacidad disponible.
+     */
+    public function runSimulation(array $data, string $projectName, float $estimatedHours): array
+    {
+        $talents = $data['talents'] ?? [];
+        $totalAvailable = 0.0;
+        foreach ($talents as $t) {
+            $totalAvailable += (float) ($t['available'] ?? 0);
+        }
+
+        $distributed = [];
+        $totalDistributed = 0.0;
+
+        foreach ($talents as $talent) {
+            $available = (float) ($talent['available'] ?? 0);
+            $simulatedHours = 0.0;
+            if ($totalAvailable > 0 && $available > 0 && $estimatedHours > 0) {
+                $share = ($available / $totalAvailable) * $estimatedHours;
+                $simulatedHours = min($available, $share);
+            }
+            $distributed[] = $simulatedHours;
+            $totalDistributed += $simulatedHours;
+        }
+
+        $remaining = $estimatedHours - $totalDistributed;
+        if ($remaining > 0.01 && $totalAvailable > 0) {
+            foreach ($talents as $i => $talent) {
+                if ($remaining <= 0) {
+                    break;
+                }
+                $available = (float) ($talent['available'] ?? 0);
+                $canAdd = $available - $distributed[$i];
+                if ($canAdd > 0) {
+                    $add = min($remaining, $canAdd);
+                    $distributed[$i] += $add;
+                    $remaining -= $add;
+                }
+            }
+        }
+
+        $results = [];
+        foreach ($talents as $i => $talent) {
+            $capacity = (float) ($talent['capacity'] ?? 0);
+            $hours = (float) ($talent['hours'] ?? 0);
+            $simulatedHours = round($distributed[$i] ?? 0, 1);
+
+            $simulatedTotal = $hours + $simulatedHours;
+            $utilization = $capacity > 0 ? (($simulatedTotal / $capacity) * 100) : 0;
+            $utilization = round($utilization, 1);
+
+            $level = 'green';
+            if ($utilization > 90) {
+                $level = 'red';
+            } elseif ($utilization >= 70) {
+                $level = 'yellow';
+            }
+
+            $results[] = [
+                'name' => (string) ($talent['name'] ?? ''),
+                'capacity' => round($capacity, 1),
+                'hours_actual' => round($hours, 1),
+                'hours_simulated' => $simulatedHours,
+                'hours_final' => round($simulatedTotal, 1),
+                'utilization' => $utilization,
+                'level' => $level,
+            ];
+        }
+
+        $totalCapacity = (float) ($data['total_capacity'] ?? 0);
+        $committedCapacity = (float) ($data['committed_capacity'] ?? 0);
+        $availableCapacity = (float) ($data['available_capacity'] ?? 0);
+        $simulatedCommitted = $committedCapacity + $estimatedHours;
+        $simulatedAvailable = max(0.0, $totalCapacity - $simulatedCommitted);
+
+        $overloadCount = 0;
+        foreach ($results as $r) {
+            if ((float) ($r['utilization'] ?? 0) > 90) {
+                $overloadCount++;
+            }
+        }
+
+        $insights = $this->buildSimulationInsights($results, $overloadCount, $availableCapacity, $simulatedAvailable, $estimatedHours);
+
+        return [
+            'project_name' => $projectName,
+            'estimated_hours' => $estimatedHours,
+            'results' => $results,
+            'total_capacity' => round($totalCapacity, 1),
+            'committed_capacity' => round($committedCapacity, 1),
+            'available_capacity' => round($availableCapacity, 1),
+            'simulated_committed' => round($simulatedCommitted, 1),
+            'simulated_available' => round($simulatedAvailable, 1),
+            'overload_count' => $overloadCount,
+            'insights' => $insights,
+        ];
+    }
+
+    private function buildSimulationInsights(array $results, int $overloadCount, float $availableBefore, float $availableAfter, float $estimatedHours): array
+    {
+        $insights = [];
+
+        if ($overloadCount > 0) {
+            $names = array_map(
+                static fn (array $r): string => (string) ($r['name'] ?? ''),
+                array_filter($results, static fn (array $r): bool => ((float) ($r['utilization'] ?? 0)) > 90)
+            );
+            $insights[] = '⚠️ ' . $overloadCount . ' talento(s) superan el 90% de capacidad: ' . implode(', ', $names);
+            $insights[] = 'El proyecto generaría sobrecarga. Considera redistribuir o ampliar el equipo.';
+        } else {
+            $insights[] = '✓ Ningún talento supera el 90% de capacidad';
+            $insights[] = 'El proyecto es viable con el equipo actual';
+        }
+
+        $insights[] = 'Capacidad disponible restante: ' . number_format($availableAfter, 1) . 'h';
+
+        return $insights;
+    }
 }

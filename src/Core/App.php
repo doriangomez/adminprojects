@@ -488,6 +488,14 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
 
         if (str_starts_with($path, '/talent-capacity')) {
             $controller = new TalentCapacityController($this->db, $this->auth);
+            if ($path === '/talent-capacity/simulation' && $method === 'GET') {
+                $controller->simulation();
+                return;
+            }
+            if ($path === '/talent-capacity/simulation' && $method === 'POST') {
+                $controller->runSimulation();
+                return;
+            }
             $controller->index();
             return;
         }

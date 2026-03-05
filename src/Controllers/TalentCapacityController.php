@@ -31,4 +31,50 @@ class TalentCapacityController extends Controller
             'dashboard' => $dashboard,
         ]);
     }
+
+    public function simulation(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $user = $this->auth->user() ?? [];
+        $filters = [
+            'date_from' => trim((string) ($_GET['date_from'] ?? date('Y-m-01'))),
+            'date_to' => trim((string) ($_GET['date_to'] ?? date('Y-m-t'))),
+        ];
+
+        $repo = new TalentCapacityRepository($this->db);
+        $data = $repo->simulationData($filters, $user);
+
+        $this->render('talent_capacity/simulation', [
+            'title' => 'Simulación de Capacidad',
+            'filters' => $filters,
+            'data' => $data,
+        ]);
+    }
+
+    public function runSimulation(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $user = $this->auth->user() ?? [];
+        $projectName = trim((string) ($_POST['project_name'] ?? ''));
+        $estimatedHours = filter_var($_POST['estimated_hours'] ?? 0, FILTER_VALIDATE_FLOAT) ?: 0.0;
+        $periodFrom = trim((string) ($_POST['period_from'] ?? date('Y-m-01')));
+        $periodTo = trim((string) ($_POST['period_to'] ?? date('Y-m-t')));
+
+        $repo = new TalentCapacityRepository($this->db);
+        $data = $repo->simulationData([
+            'date_from' => $periodFrom,
+            'date_to' => $periodTo,
+        ], $user);
+
+        $result = $repo->runSimulation($data, $projectName, $estimatedHours);
+
+        $this->render('talent_capacity/simulation', [
+            'title' => 'Simulación de Capacidad',
+            'filters' => ['date_from' => $periodFrom, 'date_to' => $periodTo],
+            'data' => $data,
+            'simulation' => $result,
+        ]);
+    }
 }
