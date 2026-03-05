@@ -2,22 +2,41 @@
     box-sizing: border-box;
 }
 
+:root {
+    --auth-ring: color-mix(in srgb, var(--primary) 22%, var(--surface) 78%);
+    --auth-gradient-a: color-mix(in srgb, var(--primary) 34%, transparent);
+    --auth-gradient-b: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
 body {
     margin: 0;
     min-height: 100vh;
     font-family: var(--font-family, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
     color: var(--text-secondary);
-    background: var(--background);
+    background:
+        radial-gradient(circle at 6% 8%, var(--auth-gradient-a), transparent 34%),
+        radial-gradient(circle at 95% 12%, var(--auth-gradient-b), transparent 38%),
+        linear-gradient(160deg, color-mix(in srgb, var(--background) 96%, #020617 4%), var(--background));
 }
 
 .page {
+    position: relative;
     min-height: 100vh;
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    gap: 40px;
-    padding: 48px clamp(24px, 5vw, 80px);
-    max-width: 1280px;
+    gap: 42px;
+    padding: 50px clamp(24px, 5vw, 86px);
+    max-width: 1360px;
     margin: 0 auto;
+}
+
+.page::before {
+    content: "";
+    position: absolute;
+    inset: 18px;
+    border-radius: 30px;
+    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    pointer-events: none;
 }
 
 .branding {
@@ -27,12 +46,18 @@ body {
 
 .brand-card {
     width: 100%;
-    max-width: 640px;
-    padding: clamp(32px, 4vw, 48px);
-    border-radius: 24px;
-    background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
-    box-shadow: 0 24px 52px color-mix(in srgb, var(--text-primary) 8%, var(--background));
-    border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border) 88%);
+    max-width: 660px;
+    padding: clamp(34px, 4vw, 52px);
+    border-radius: 28px;
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--surface) 94%, var(--background) 6%),
+        color-mix(in srgb, var(--surface) 84%, var(--background) 16%)
+    );
+    box-shadow:
+        0 32px 58px color-mix(in srgb, #020617 14%, transparent),
+        inset 0 1px 0 color-mix(in srgb, var(--surface) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border) 82%);
 }
 
 .branding-content {
@@ -41,13 +66,18 @@ body {
     gap: 16px;
 }
 
-.logo-wrapper { display: inline-flex; align-items: center; gap: 10px; }
+.logo-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .logo {
-    height: 52px;
+    height: 54px;
     width: auto;
     max-width: 220px;
     object-fit: contain;
-    filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--text-primary) 10%, var(--background)));
+    filter: drop-shadow(0 8px 18px color-mix(in srgb, #0f172a 16%, transparent));
 }
 
 .logo-fallback {
@@ -56,22 +86,26 @@ body {
     letter-spacing: 0.06em;
     color: var(--text-primary);
 }
-.logo-fallback.is-hidden { display: none; }
+
+.logo-fallback.is-hidden {
+    display: none;
+}
 
 .claim {
     margin: 0;
-    font-size: clamp(28px, 3vw, 34px);
-    line-height: 1.2;
+    font-size: clamp(30px, 3vw, 38px);
+    line-height: 1.15;
     color: var(--text-primary);
     letter-spacing: -0.02em;
+    text-wrap: balance;
 }
 
 .subtitle {
     margin: 0;
-    max-width: 440px;
+    max-width: 460px;
     color: var(--text-secondary);
     font-size: 16px;
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .bullets {
@@ -82,31 +116,37 @@ body {
 
 .bullet {
     display: grid;
-    grid-template-columns: 40px 1fr;
+    grid-template-columns: 42px 1fr;
     gap: 12px;
-    padding: 12px 14px;
+    padding: 13px 14px;
     border-radius: 16px;
-    background: var(--surface);
-    border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border) 88%);
-    box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 6%, var(--background));
+    background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
+    border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border) 86%);
+    box-shadow: 0 12px 24px color-mix(in srgb, #0f172a 7%, transparent);
     align-items: center;
 }
 
 .bullet-icon {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     border-radius: 12px;
     display: grid;
     place-items: center;
-    background: color-mix(in srgb, var(--primary) 55%, var(--accent) 45%);
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--primary) 78%, var(--accent) 22%),
+        color-mix(in srgb, var(--primary) 52%, var(--accent) 48%)
+    );
     color: var(--text-primary);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 60%, var(--background));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 55%, transparent);
 }
 
 .bullet-icon svg {
     width: 20px;
     height: 20px;
     stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .bullet-text {
@@ -115,7 +155,7 @@ body {
     color: var(--text-primary);
     letter-spacing: -0.01em;
     font-size: 15px;
-    line-height: 1.4;
+    line-height: 1.45;
 }
 
 .auth {
@@ -124,30 +164,39 @@ body {
 }
 
 .card {
-    width: min(460px, 100%);
-    background: var(--surface);
-    border-radius: 22px;
-    padding: clamp(28px, 3vw, 36px);
-    box-shadow: 0 22px 44px color-mix(in srgb, var(--text-primary) 12%, var(--background));
-    border: 1px solid var(--border);
+    width: min(470px, 100%);
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--surface) 96%, var(--background) 4%),
+        color-mix(in srgb, var(--surface) 88%, var(--background) 12%)
+    );
+    border-radius: 24px;
+    padding: clamp(30px, 3vw, 38px);
+    box-shadow:
+        0 30px 54px color-mix(in srgb, #020617 18%, transparent),
+        inset 0 1px 0 color-mix(in srgb, var(--surface) 86%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
 }
 
 .pill {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 7px 12px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%);
+    background: color-mix(in srgb, var(--primary) 14%, var(--surface) 86%);
     color: var(--text-primary);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border));
 }
 
 .card h1 {
     margin: 14px 0 6px;
-    font-size: 22px;
+    font-size: 24px;
     color: var(--text-primary);
+    letter-spacing: -0.02em;
 }
 
 .subtitle-card {
@@ -197,18 +246,19 @@ label {
 input {
     width: 100%;
     padding: 12px 14px 12px 44px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
+    border-radius: 13px;
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+    background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%);
     color: var(--text-primary);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     font-size: 15px;
 }
 
 input:focus {
     outline: none;
     border-color: color-mix(in srgb, var(--primary) 70%, var(--accent) 30%);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, var(--surface) 88%);
+    box-shadow: 0 0 0 4px var(--auth-ring);
+    transform: translateY(-1px);
 }
 
 input::placeholder {
@@ -218,7 +268,7 @@ input::placeholder {
 .alert-error {
     background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
     color: color-mix(in srgb, var(--accent) 80%, var(--secondary) 20%);
-    padding: 10px 12px;
+    padding: 11px 12px;
     border-radius: 12px;
     border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--surface) 60%);
     font-size: 14px;
@@ -232,9 +282,13 @@ input::placeholder {
 
 .primary-btn {
     width: 100%;
-    height: 46px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--primary) 70%, var(--accent) 30%);
+    height: 48px;
+    border-radius: 13px;
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--primary) 72%, var(--accent) 28%),
+        color-mix(in srgb, var(--primary) 58%, var(--accent) 42%)
+    );
     color: var(--text-primary);
     border: none;
     font-weight: 700;
@@ -244,19 +298,19 @@ input::placeholder {
     justify-content: center;
     gap: 10px;
     cursor: pointer;
-    box-shadow: 0 16px 32px color-mix(in srgb, var(--primary) 28%, var(--background));
+    box-shadow: 0 18px 34px color-mix(in srgb, var(--primary) 28%, transparent);
     transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .primary-btn:hover {
     transform: translateY(-1px);
-    filter: brightness(1.02);
-    box-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 28%, var(--background));
+    filter: brightness(1.03);
+    box-shadow: 0 22px 38px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .primary-btn:disabled {
     cursor: not-allowed;
-    filter: saturate(0.7);
+    filter: saturate(0.75);
     box-shadow: none;
 }
 
@@ -294,13 +348,21 @@ input::placeholder {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @media (max-width: 960px) {
     .page {
         grid-template-columns: 1fr;
-        padding: 32px 20px 40px;
+        padding: 30px 20px 38px;
+        gap: 26px;
+    }
+
+    .page::before {
+        inset: 8px;
+        border-radius: 20px;
     }
 
     .branding {
@@ -312,13 +374,13 @@ input::placeholder {
     }
 
     .auth {
-        padding-bottom: 32px;
+        padding-bottom: 24px;
     }
 }
 
 @media (max-width: 600px) {
     .page {
-        gap: 24px;
+        gap: 22px;
     }
 
     .logo {
@@ -327,5 +389,10 @@ input::placeholder {
 
     .logo-fallback {
         font-size: 32px;
+    }
+
+    .card {
+        border-radius: 20px;
+        padding: 24px;
     }
 }
