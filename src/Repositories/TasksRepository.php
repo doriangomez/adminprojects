@@ -26,7 +26,16 @@ class TasksRepository
             'done' => [],
         ];
         foreach ($tasks as $task) {
-            $grouped[$task['status']][] = $task;
+            $status = (string) ($task['status'] ?? 'todo');
+            if ($status === 'pending') {
+                $status = 'todo';
+            } elseif ($status === 'completed') {
+                $status = 'done';
+            }
+            if (!array_key_exists($status, $grouped)) {
+                $status = 'todo';
+            }
+            $grouped[$status][] = $task;
         }
         return $grouped;
     }
@@ -84,25 +93,35 @@ class TasksRepository
 
     public function updateTask(int $taskId, array $payload): void
     {
+        $isCompleted = in_array((string) ($payload['status'] ?? ''), ['done', 'completed'], true);
+        $set = [
+            'title = :title',
+            'status = :status',
+            'priority = :priority',
+            'estimated_hours = :estimated',
+            'due_date = :due_date',
+            'assignee_id = :assignee',
+            'updated_at = NOW()',
+        ];
+        $params = [
+            ':title' => $payload['title'],
+            ':status' => $payload['status'],
+            ':priority' => $payload['priority'],
+            ':estimated' => $payload['estimated_hours'],
+            ':due_date' => $payload['due_date'],
+            ':assignee' => $payload['assignee_id'],
+            ':id' => $taskId,
+        ];
+        if ($this->db->columnExists('tasks', 'completed_at')) {
+            $set[] = 'completed_at = :completed_at';
+            $params[':completed_at'] = $isCompleted ? date('Y-m-d H:i:s') : null;
+        }
+
         $this->db->execute(
             'UPDATE tasks
-             SET title = :title,
-                 status = :status,
-                 priority = :priority,
-                 estimated_hours = :estimated,
-                 due_date = :due_date,
-                 assignee_id = :assignee,
-                 updated_at = NOW()
+             SET ' . implode(', ', $set) . '
              WHERE id = :id',
-            [
-                ':title' => $payload['title'],
-                ':status' => $payload['status'],
-                ':priority' => $payload['priority'],
-                ':estimated' => $payload['estimated_hours'],
-                ':due_date' => $payload['due_date'],
-                ':assignee' => $payload['assignee_id'],
-                ':id' => $taskId,
-            ]
+            $params
         );
     }
 
@@ -126,12 +145,19 @@ class TasksRepository
 
     public function updateStatus(int $taskId, string $status): void
     {
+        $params = [
+            ':status' => $status,
+            ':id' => $taskId,
+        ];
+        $set = 'status = :status, updated_at = NOW()';
+        if ($this->db->columnExists('tasks', 'completed_at')) {
+            $set .= ', completed_at = :completed_at';
+            $params[':completed_at'] = in_array($status, ['done', 'completed'], true) ? date('Y-m-d H:i:s') : null;
+        }
+
         $this->db->execute(
-            'UPDATE tasks SET status = :status, updated_at = NOW() WHERE id = :id',
-            [
-                ':status' => $status,
-                ':id' => $taskId,
-            ]
+            'UPDATE tasks SET ' . $set . ' WHERE id = :id',
+            $params
         );
     }
 

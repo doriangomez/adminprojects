@@ -4,10 +4,12 @@ $task = is_array($task ?? null) ? $task : [];
 $talents = is_array($talents ?? null) ? $talents : [];
 $statusOptions = [
     'todo' => 'Pendiente',
+    'pending' => 'Pendiente',
     'in_progress' => 'En progreso',
     'review' => 'En revisión',
     'blocked' => 'Bloqueada',
     'done' => 'Completada',
+    'completed' => 'Completada',
 ];
 $priorityOptions = [
     'low' => 'Baja',

@@ -8,7 +8,7 @@ use App\Repositories\ProjectsRepository;
 
 class TasksController extends Controller
 {
-    private const ALLOWED_STATUSES = ['todo', 'in_progress', 'review', 'blocked', 'done'];
+    private const ALLOWED_STATUSES = ['todo', 'pending', 'in_progress', 'review', 'blocked', 'done', 'completed'];
     private const ALLOWED_PRIORITIES = ['low', 'medium', 'high'];
 
     public function index(): void
