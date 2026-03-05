@@ -7,6 +7,90 @@ use App\Repositories\TimesheetsRepository;
 
 class TimesheetsController extends Controller
 {
+    public function analytics(): void
+    {
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+        $weekValue = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
+        $weekEnd = $weekStart->modify('+6 days');
+        $weekValue = $weekStart->format('o-\\WW');
+        $periodType = trim((string) ($_GET['period'] ?? 'month'));
+        if (!in_array($periodType, ['month', 'custom'], true)) {
+            $periodType = 'month';
+        }
+        $rangeStartRaw = trim((string) ($_GET['range_start'] ?? ''));
+        $rangeEndRaw = trim((string) ($_GET['range_end'] ?? ''));
+        $periodStart = $periodType === 'custom' ? $this->parseDateValue($rangeStartRaw) : null;
+        $periodEnd = $periodType === 'custom' ? $this->parseDateValue($rangeEndRaw) : null;
+        if (!$periodStart || !$periodEnd || $periodStart > $periodEnd) {
+            $periodType = 'month';
+            $periodStart = $weekStart->modify('first day of this month')->setTime(0, 0);
+            $periodEnd = $weekStart->modify('last day of this month')->setTime(0, 0);
+        }
+        $projectFilter = (int) ($_GET['project_id'] ?? 0);
+        $talentSort = trim((string) ($_GET['talent_sort'] ?? 'load_desc'));
+        if (!in_array($talentSort, ['load_desc', 'compliance_asc'], true)) {
+            $talentSort = 'load_desc';
+        }
+
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
+        }
+
+        $executiveSummary = $repo->executiveSummary($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $approvedWeeks = $repo->approvedWeeksByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $talentBreakdown = $repo->talentBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $talentSort);
+        $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd);
+        $activityTypeBreakdown = $repo->activityTypeBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $phaseBreakdown = $repo->phaseBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $projectsForFilter = $repo->projectsCatalog();
+        $weeksHistory = $repo->weeksHistoryForUser($userId);
+
+        $weeksRegistered = count($approvedWeeks);
+        $weeksApproved = count(array_filter($approvedWeeks, static fn($w): bool => ((int) ($w['status_weight'] ?? 0)) >= 5));
+        $weeksPending = max(0, $weeksRegistered - $weeksApproved);
+        $approvedPercent = (float) ($executiveSummary['approved_percent'] ?? 0);
+        $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
+
+        $statusMap = [
+            'approved' => ['label' => 'Aprobada', 'class' => 'approved'],
+            'rejected' => ['label' => 'Rechazada', 'class' => 'rejected'],
+            'submitted' => ['label' => 'Pendiente', 'class' => 'submitted'],
+            'draft' => ['label' => 'Borrador', 'class' => 'draft'],
+        ];
+
+        $this->render('timesheets/analytics', [
+            'title' => 'Timesheets – Analítica',
+            'basePath' => '',
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'weekValue' => $weekValue,
+            'periodType' => $periodType,
+            'periodStart' => $periodStart,
+            'periodEnd' => $periodEnd,
+            'projectFilter' => $projectFilter,
+            'projectsForFilter' => $projectsForFilter,
+            'talentSort' => $talentSort,
+            'executiveSummary' => $executiveSummary,
+            'approvedWeeks' => $approvedWeeks,
+            'talentBreakdown' => $talentBreakdown,
+            'projectBreakdown' => $projectBreakdown,
+            'activityTypeBreakdown' => $activityTypeBreakdown,
+            'phaseBreakdown' => $phaseBreakdown,
+            'weeksHistory' => $weeksHistory,
+            'weeksRegistered' => $weeksRegistered,
+            'weeksApproved' => $weeksApproved,
+            'weeksPending' => $weeksPending,
+            'approvedPercent' => $approvedPercent,
+            'compliancePercent' => $compliancePercent,
+            'statusMap' => $statusMap,
+        ]);
+    }
+
     public function index(): void
     {
         $repo = new TimesheetsRepository($this->db);
@@ -58,8 +142,9 @@ class TimesheetsController extends Controller
         $talentFilter = (int) ($_GET['talent_id'] ?? 0);
         $managedWeekEntries = ($canApprove || $canManageAdvanced) ? $repo->managedWeekEntries($weekStart, $talentFilter > 0 ? $talentFilter : null) : [];
         $talentOptions = $this->db->fetchAll('SELECT id, name FROM talents ORDER BY name ASC');
+        $projectBreakdownWeek = $repo->projectBreakdownByPeriod($user, $weekStart, $weekEnd);
 
-        $this->render('timesheets/index', [
+        $this->render('timesheets/operational', [
             'title' => 'Timesheets',
             'rows' => $repo->weekly($user),
             'kpis' => $repo->kpis($user),
@@ -91,6 +176,7 @@ class TimesheetsController extends Controller
             'approvedWeeks' => $approvedWeeks,
             'talentBreakdown' => $talentBreakdown,
             'projectBreakdown' => $projectBreakdown,
+            'projectBreakdownWeek' => $projectBreakdownWeek,
             'activityTypeBreakdown' => $activityTypeBreakdown,
             'phaseBreakdown' => $phaseBreakdown,
             'talentSort' => $talentSort,
@@ -294,8 +380,22 @@ class TimesheetsController extends Controller
         }
 
         try {
-            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, true);
+            $newId = $repo->createActivityEntry($userId, $projectId, $date, $hours, $comment, $metadata, true);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+
+            $saveAndDuplicate = filter_var($_POST['save_and_duplicate'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if ($saveAndDuplicate && $newId > 0) {
+                $dateObj = $this->parseDateValue($date);
+                if ($dateObj) {
+                    $nextDay = $dateObj->modify('+1 day')->format('Y-m-d');
+                    try {
+                        $repo->duplicateActivity($userId, $newId, $nextDay);
+                    } catch (\Throwable $e) {
+                        error_log('Timesheet duplicate after save: ' . $e->getMessage());
+                    }
+                }
+            }
+
             $weekDate = $this->parseDateValue($date);
             $weekValue = $weekDate ? $weekDate->modify('monday this week')->format('o-\\WW') : (new DateTimeImmutable('monday this week'))->format('o-\\WW');
             header('Location: /timesheets?week=' . urlencode($weekValue));
@@ -485,6 +585,155 @@ class TimesheetsController extends Controller
             return (new DateTimeImmutable($value))->setTime(0, 0);
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    public function updateActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $timesheetId = (int) ($_POST['timesheet_id'] ?? 0);
+        $data = [
+            'hours' => isset($_POST['hours']) ? (float) $_POST['hours'] : null,
+            'comment' => trim((string) ($_POST['comment'] ?? '')),
+            'task_id' => (int) ($_POST['task_id'] ?? 0),
+            'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
+            'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'blocker_description' => trim((string) ($_POST['blocker_description'] ?? '')),
+            'had_significant_progress' => filter_var($_POST['had_significant_progress'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        ];
+        $data = array_filter($data, static fn($v) => $v !== null);
+
+        try {
+            $repo->updateOwnActivity($userId, $timesheetId, $data);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function deleteActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $timesheetId = (int) ($_POST['timesheet_id'] ?? 0);
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+
+        try {
+            $repo->deleteOwnActivity($userId, $timesheetId);
+            if ($weekValue !== '') {
+                header('Location: /timesheets?week=' . urlencode($weekValue));
+            } else {
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => true]);
+            }
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
+    public function duplicateDay(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $sourceDate = trim((string) ($_POST['source_date'] ?? ''));
+        $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        $source = $this->parseDateValue($sourceDate);
+        $target = $this->parseDateValue($targetDate);
+        if (!$source || !$target) {
+            http_response_code(400);
+            exit('Fechas inválidas.');
+        }
+
+        try {
+            $count = $repo->duplicateDay($userId, $sourceDate, $targetDate);
+            $weekValue = $target->modify('monday this week')->format('o-\\WW');
+            header('Location: /timesheets?week=' . urlencode($weekValue) . '&duplicated=' . $count);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
+    public function duplicateActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $timesheetId = (int) ($_POST['timesheet_id'] ?? 0);
+        $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        $target = $this->parseDateValue($targetDate);
+        if (!$target) {
+            http_response_code(400);
+            exit('Fecha destino inválida.');
+        }
+
+        try {
+            $repo->duplicateActivity($userId, $timesheetId, $targetDate);
+            $weekValue = $target->modify('monday this week')->format('o-\\WW');
+            header('Location: /timesheets?week=' . urlencode($weekValue));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
+    public function moveActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $timesheetId = (int) ($_POST['timesheet_id'] ?? 0);
+        $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        $target = $this->parseDateValue($targetDate);
+        if (!$target) {
+            http_response_code(400);
+            exit('Fecha destino inválida.');
+        }
+
+        try {
+            $repo->moveActivity($userId, $timesheetId, $targetDate);
+            $weekValue = $target->modify('monday this week')->format('o-\\WW');
+            header('Location: /timesheets?week=' . urlencode($weekValue));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
         }
     }
 
