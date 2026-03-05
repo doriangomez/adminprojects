@@ -108,6 +108,24 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     return http_build_query($params);
 };
 
+$truncateText = static function (string $text, int $limit = 120): string {
+    $normalized = trim((string) preg_replace('/\s+/', ' ', $text));
+    if ($normalized === '' || $limit <= 0) {
+        return '';
+    }
+
+    return function_exists('mb_substr') ? mb_substr($normalized, 0, $limit) : substr($normalized, 0, $limit);
+};
+
+$stopperSeverityLabel = static function (string $impactLevel): string {
+    return match (strtolower(trim($impactLevel))) {
+        'critico' => 'Crítico',
+        'alto' => 'Alto',
+        'medio' => 'Medio',
+        default => 'Bajo',
+    };
+};
+
 ?>
 
 <style>
@@ -762,6 +780,9 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                 <col style="width: 9%;">
                 <col style="width: 8%;">
                 <col style="width: 8%;">
+                <col style="width: 12%;">
+                <col style="width: 8%;">
+                <col style="width: 8%;">
                 <col style="width: 5%;">
                 <col style="width: 9%;">
                 <col style="width: 8%;">
@@ -776,6 +797,9 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                     <th>Estado</th>
                     <th>Salud</th>
                     <th>Avance</th>
+                    <th>Notas clave</th>
+                    <th>Bloqueos</th>
+                    <th>Horas R/P</th>
                     <th>Señales</th>
                     <th>Facturación</th>
                     <th>Acciones</th>
@@ -819,12 +843,24 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                             }
                         }
 
-                        $previewText = mb_substr(preg_replace('/\s+/', ' ', $previewText), 0, 120);
+                        $previewText = $truncateText((string) $previewText, 120);
                         $previewHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
                             . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
                             . '&return=' . urlencode($returnUrl);
                         $historyHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
                             . '?view=seguimiento&return=' . urlencode($returnUrl);
+                        $notePreview = $truncateText((string) ($noteData['text'] ?? ''), 96);
+                        $hasNotes = $notePreview !== '';
+                        $blockersCount = (int) ($stopperData['total_count'] ?? 0);
+                        $blockerSeverity = $blockersCount > 0
+                            ? $stopperSeverityLabel((string) ($stopperData['impact_level'] ?? 'bajo'))
+                            : '—';
+                        $latestBlockerText = $truncateText((string) ($stopperData['text'] ?? ''), 100);
+                        $realHours = (float) ($project['actual_hours'] ?? 0);
+                        $plannedHoursValue = (float) ($project['planned_hours'] ?? 0);
+                        $hoursRatio = ($realHours > 0 || $plannedHoursValue > 0)
+                            ? number_format($realHours, 0, ',', '.') . ' / ' . number_format($plannedHoursValue, 0, ',', '.')
+                            : '—';
                     ?>
                     <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                         <td>
@@ -874,6 +910,29 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                                 <span style="font-size:12px; color: var(--text-secondary);"><?= $progress ?>%</span>
                             </div>
                         </td>
+                        <td>
+                            <?php if ($hasNotes): ?>
+                                <div class="project-context-preview" title="<?= htmlspecialchars((string) ($noteData['text'] ?? '')) ?>">
+                                    <span class="context-text"><?= htmlspecialchars($notePreview) ?></span>
+                                </div>
+                                <a class="context-history-button" data-no-row href="<?= htmlspecialchars($historyHref) ?>" title="Ver historial de notas" data-open-notes-panel data-project-name="<?= htmlspecialchars($project['name']) ?>" data-project-notes-url="<?= htmlspecialchars($historyHref) ?>">
+                                    <span class="history-icon" aria-hidden="true">🗒️</span>
+                                    Ver completo
+                                </a>
+                            <?php else: ?>
+                                <span class="muted">Sin datos</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($blockersCount > 0): ?>
+                                <span title="<?= htmlspecialchars($latestBlockerText !== '' ? $latestBlockerText : 'Sin detalle del bloqueo') ?>">
+                                    <?= $blockersCount ?> · <?= htmlspecialchars($blockerSeverity) ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="muted">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= htmlspecialchars($hoursRatio) ?></td>
                         <td>
                             <span class="indicator-cell" title="<?= $hasSignal ? htmlspecialchars(implode(' · ', $signals)) : 'Sin alertas' ?>"><?= $hasSignal ? '⚠' : '—' ?></span>
                         </td>
