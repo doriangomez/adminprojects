@@ -63,24 +63,24 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                     <div class="bullets">
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-3.9 5.5-.8L12 3z"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Panel ejecutivo alineado a los KPIs críticos de la organización.</p>
                         </div>
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 12l6-6 6 6-6 6-6-6z"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Orquestación de clientes y proyectos con trazabilidad completa.</p>
                         </div>
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 12h16M14 6l6 6-6 6"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Seguridad y gobierno de accesos centralizado para la PMO.</p>
@@ -133,18 +133,21 @@ require_once __DIR__ . '/../layout/logo_helper.php';
 
                 <?php $googleSettings = $configData['access']['google_workspace'] ?? []; ?>
                 <?php if ((bool) ($googleSettings['enabled'] ?? false)): ?>
-                    <div class="field" style="margin-top:8px; border-top:1px solid var(--border); padding-top:14px;">
-                        <label for="google_email">Acceso Google Workspace</label>
-                        <form method="POST" action="<?= htmlspecialchars($basePath) ?>/login/google" class="form" style="padding:0; margin-top:8px;" data-google-login-form>
+                    <div class="auth-divider" style="margin-top:10px;">o ingresa con</div>
+                    <form method="POST" action="<?= htmlspecialchars($basePath) ?>/login/google" class="form" style="padding:0;" data-google-login-form>
+                        <div class="field">
+                            <label for="google_email">Correo corporativo Google</label>
                             <div class="input-wrapper">
-                                <span class="input-icon" aria-hidden="true">G</span>
-                                <input type="email" name="google_email" id="google_email" placeholder="usuario@<?= htmlspecialchars($googleSettings['corporate_domain'] ?? 'aossas.com') ?>" autocomplete="email" required>
+                                <span class="input-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                                </span>
+                                <input type="email" name="google_email" id="google_email" placeholder="usuario@<?= htmlspecialchars($googleSettings['corporate_domain'] ?? 'empresa.com') ?>" autocomplete="email" required>
                             </div>
-                            <button type="submit" class="primary-btn" style="margin-top:10px;">
-                                <span class="btn-text">Ingresar con Google</span>
-                            </button>
-                        </form>
-                    </div>
+                        </div>
+                        <button type="submit" class="primary-btn" style="margin-top:4px;">
+                            <span class="btn-text">Ingresar con Google Workspace</span>
+                        </button>
+                    </form>
                 <?php endif; ?>
             </div>
         </section>
