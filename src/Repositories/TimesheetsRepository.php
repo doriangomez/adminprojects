@@ -437,14 +437,42 @@ class TimesheetsRepository
         }
 
         $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
-        if ($taskManagementMode !== 'existing') {
+        if ($taskManagementMode === 'new_task') {
+            $taskTitle = trim((string) ($metadata['new_task_title'] ?? ''));
+            if ($taskTitle === '') {
+                $taskTitle = $structured['activity_description'] !== ''
+                    ? $structured['activity_description']
+                    : trim($comment);
+            }
+            $taskPriority = trim((string) ($metadata['new_task_priority'] ?? 'medium'));
+            $taskDueDate = trim((string) ($metadata['new_task_due_date'] ?? ''));
+            $taskInitialStatus = trim((string) ($metadata['new_task_initial_status'] ?? 'pending'));
+            $taskId = $this->createTaskFromTimesheetActivity(
+                $projectId,
+                $talentId,
+                $taskTitle,
+                $taskInitialStatus === 'completed' ? 'completed' : 'pending',
+                $taskPriority,
+                $taskDueDate
+            );
+        } elseif ($taskManagementMode !== 'existing') {
             $taskTitle = $structured['activity_description'] !== ''
                 ? $structured['activity_description']
                 : trim($comment);
             $taskId = $this->createTaskFromTimesheetActivity($projectId, $talentId, $taskTitle, $taskManagementMode);
         }
 
-        return $this->createTimesheet([
+        $linkedStopperId = null;
+        if ($structured['had_blocker'] && $structured['blocker_description'] !== '') {
+            $linkedStopperId = $this->autoCreateStopperFromBlocker(
+                $projectId,
+                $taskId,
+                $structured['blocker_description'],
+                $userId
+            );
+        }
+
+        $timesheetId = $this->createTimesheet([
             'task_id' => $taskId,
             'project_id' => $projectId,
             'talent_id' => $talentId,
@@ -468,8 +496,14 @@ class TimesheetsRepository
             'had_significant_progress' => $structured['had_significant_progress'],
             'generated_deliverable' => $structured['generated_deliverable'],
             'operational_comment' => $structured['operational_comment'],
-            'linked_stopper_id' => null,
+            'linked_stopper_id' => $linkedStopperId,
         ]);
+
+        if ($structured['generated_deliverable'] && $structured['operational_comment'] !== '') {
+            $this->logProjectNote($projectId, 'Entregable registrado: ' . $structured['operational_comment'], $userId);
+        }
+
+        return $timesheetId;
     }
 
     public function updateDraftActivity(
@@ -811,7 +845,17 @@ class TimesheetsRepository
         );
 
         $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
-        return (int) ($row['total'] ?? 0);
+        $count = (int) ($row['total'] ?? 0);
+
+        if ($count > 0) {
+            try {
+                $this->generateWeeklySummaryNote($userId, $weekStart);
+            } catch (\Throwable $e) {
+                error_log('Error generating weekly summary on submit: ' . $e->getMessage());
+            }
+        }
+
+        return $count;
     }
 
     public function cancelWeekSubmission(int $userId, \DateTimeImmutable $weekStart): int
@@ -2198,7 +2242,7 @@ class TimesheetsRepository
         $row = $this->db->fetchOne(
             'SELECT COALESCE(SUM(hours), 0) AS total
              FROM timesheets
-             WHERE task_id = :task AND status = \'approved\'',
+             WHERE task_id = :task',
             [':task' => $taskId]
         );
 
@@ -2266,8 +2310,14 @@ class TimesheetsRepository
         return $this->resolveTimesheetTaskId($projectId);
     }
 
-    private function createTaskFromTimesheetActivity(int $projectId, int $talentId, string $rawTitle, string $taskManagementMode): int
-    {
+    private function createTaskFromTimesheetActivity(
+        int $projectId,
+        int $talentId,
+        string $rawTitle,
+        string $taskManagementMode,
+        string $priority = 'medium',
+        string $dueDate = ''
+    ): int {
         if (!$this->db->tableExists('tasks')) {
             throw new InvalidArgumentException('No hay tareas disponibles para registrar horas.');
         }
@@ -2275,6 +2325,11 @@ class TimesheetsRepository
         $title = $this->limitText($rawTitle, 180);
         if ($title === '') {
             $title = 'Actividad registrada desde timesheet';
+        }
+
+        $validPriorities = ['low', 'medium', 'high', 'critical'];
+        if (!in_array($priority, $validPriorities, true)) {
+            $priority = 'medium';
         }
 
         $status = $taskManagementMode === 'completed' ? 'completed' : 'pending';
@@ -2285,7 +2340,7 @@ class TimesheetsRepository
             ':project' => $projectId,
             ':title' => $title,
             ':status' => $status,
-            ':priority' => 'medium',
+            ':priority' => $priority,
         ];
 
         if ($this->db->columnExists('tasks', 'assignee_id')) {
@@ -2304,6 +2359,12 @@ class TimesheetsRepository
             $columns[] = 'completed_at';
             $values[] = ':completed_at';
             $params[':completed_at'] = $isCompleted ? date('Y-m-d H:i:s') : null;
+        }
+
+        if ($this->db->columnExists('tasks', 'due_date') && $dueDate !== '') {
+            $columns[] = 'due_date';
+            $values[] = ':due_date';
+            $params[':due_date'] = $dueDate;
         }
 
         return (int) $this->db->insert(
@@ -2714,5 +2775,149 @@ class TimesheetsRepository
         }
 
         return implode(' AND ', $conditions);
+    }
+
+    private function autoCreateStopperFromBlocker(int $projectId, int $taskId, string $description, int $userId): ?int
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return null;
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT id FROM project_stoppers
+             WHERE project_id = :project
+               AND description = :description
+               AND status IN ("abierto", "en_gestion", "escalado")
+             LIMIT 1',
+            [':project' => $projectId, ':description' => $description]
+        );
+
+        if ($existing) {
+            return (int) ($existing['id'] ?? 0);
+        }
+
+        $title = mb_substr($description, 0, 120);
+        return (int) $this->db->insert(
+            'INSERT INTO project_stoppers (
+                project_id, title, description, stopper_type, impact_level, affected_area,
+                responsible_id, detected_at, status, created_by, updated_by, created_at, updated_at
+            ) VALUES (
+                :project_id, :title, :description, "interno", "medio", "operacion",
+                NULL, CURDATE(), "abierto", :created_by, :updated_by, NOW(), NOW()
+            )',
+            [
+                ':project_id' => $projectId,
+                ':title' => $title,
+                ':description' => $description,
+                ':created_by' => $userId,
+                ':updated_by' => $userId,
+            ]
+        );
+    }
+
+    private function logProjectNote(int $projectId, string $content, int $userId): void
+    {
+        if (!$this->db->tableExists('project_notes')) {
+            return;
+        }
+
+        try {
+            $this->db->insert(
+                'INSERT INTO project_notes (project_id, content, created_by, created_at)
+                 VALUES (:project_id, :content, :created_by, NOW())',
+                [
+                    ':project_id' => $projectId,
+                    ':content' => $content,
+                    ':created_by' => $userId,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('Error logging project note: ' . $e->getMessage());
+        }
+    }
+
+    public function generateWeeklySummaryNote(int $userId, \DateTimeImmutable $weekStart): void
+    {
+        if (!$this->db->tableExists('project_notes')) {
+            return;
+        }
+
+        $weekEnd = $weekStart->modify('+4 days');
+        $weekNumber = (int) $weekStart->format('W');
+
+        $userName = '';
+        $userRow = $this->db->fetchOne(
+            'SELECT name FROM users WHERE id = :id LIMIT 1',
+            [':id' => $userId]
+        );
+        if ($userRow) {
+            $userName = (string) ($userRow['name'] ?? '');
+        }
+
+        $entries = $this->db->fetchAll(
+            'SELECT ts.project_id, ts.date, ts.hours, ts.activity_description, ts.had_blocker, ts.blocker_description,
+                    p.name AS project_name
+             FROM timesheets ts
+             LEFT JOIN projects p ON p.id = ts.project_id
+             WHERE ts.user_id = :user
+               AND ts.date BETWEEN :start AND :end
+             ORDER BY ts.project_id, ts.date ASC',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+
+        $byProject = [];
+        foreach ($entries as $entry) {
+            $pid = (int) ($entry['project_id'] ?? 0);
+            if ($pid <= 0) continue;
+            $byProject[$pid]['name'] = (string) ($entry['project_name'] ?? 'Proyecto');
+            $byProject[$pid]['entries'][] = $entry;
+        }
+
+        $dayNames = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+        foreach ($byProject as $projectId => $data) {
+            $lines = ["Semana $weekNumber", "Usuario: $userName", ''];
+            $blockers = [];
+
+            foreach ($data['entries'] as $entry) {
+                $dateObj = new \DateTimeImmutable((string) $entry['date']);
+                $dayName = $dayNames[(int) $dateObj->format('N')] ?? '';
+                $hours = round((float) ($entry['hours'] ?? 0), 2);
+                $desc = (string) ($entry['activity_description'] ?? 'Sin descripción');
+                $lines[] = "$dayName\n{$hours}h – $desc";
+
+                if (!empty($entry['had_blocker']) && !empty($entry['blocker_description'])) {
+                    $blockers[] = (string) $entry['blocker_description'];
+                }
+            }
+
+            if ($blockers !== []) {
+                $lines[] = '';
+                $lines[] = 'Bloqueo detectado:';
+                foreach (array_unique($blockers) as $b) {
+                    $lines[] = "- $b";
+                }
+            }
+
+            $content = implode("\n", $lines);
+
+            try {
+                $this->db->insert(
+                    'INSERT INTO project_notes (project_id, content, created_by, created_at)
+                     VALUES (:project_id, :content, :created_by, NOW())',
+                    [
+                        ':project_id' => $projectId,
+                        ':content' => $content,
+                        ':created_by' => $userId,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                error_log('Error generating weekly summary note: ' . $e->getMessage());
+            }
+        }
     }
 }
