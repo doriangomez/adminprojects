@@ -197,6 +197,7 @@ class TimesheetsRepository
             $activitiesByDay[$date][] = array_merge($activityItem, [
                 'project_id' => $projectId,
                 'project' => (string) ($projectMap[$projectId]['project'] ?? ''),
+                'date' => $date,
             ]);
             $dayTotals[$date] += $entryHours;
         }
@@ -386,6 +387,321 @@ class TimesheetsRepository
         }
 
         return ['id' => $id, 'updated' => false];
+    }
+
+    public function createDraftActivity(
+        int $userId,
+        int $projectId,
+        string $date,
+        float $hours,
+        string $comment,
+        array $metadata = []
+    ): int {
+        $this->assertValidDate($date);
+        if ($hours <= 0 || $hours > 24) {
+            throw new InvalidArgumentException('Las horas deben estar entre 0 y 24.');
+        }
+
+        $assignment = $this->assignmentForProject($projectId, $userId);
+        if (!$assignment) {
+            throw new InvalidArgumentException('Proyecto no asignado o inactivo para este talento.');
+        }
+
+        $talentId = (int) ($assignment['talent_id'] ?? 0);
+        if ($talentId <= 0) {
+            throw new InvalidArgumentException('Tu usuario no tiene un talento asociado.');
+        }
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE user_id = :user AND date = :date',
+            [
+                ':user' => $userId,
+                ':date' => $date,
+            ]
+        );
+        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
+        if ($currentDayTotal + $hours > 24) {
+            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
+        }
+
+        $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
+        $structured = $this->sanitizeStructuredMetadata($metadata);
+        $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+
+        return $this->createTimesheet([
+            'task_id' => $taskId,
+            'project_id' => $projectId,
+            'talent_id' => $talentId,
+            'user_id' => $userId,
+            'assignment_id' => $assignment['id'] ?? null,
+            'approver_user_id' => $approverUserId > 0 ? $approverUserId : null,
+            'date' => $date,
+            'hours' => $hours,
+            'status' => 'draft',
+            'comment' => trim($comment),
+            'approval_comment' => null,
+            'billable' => 0,
+            'approved_by' => null,
+            'approved_at' => null,
+            'phase_name' => $structured['phase_name'],
+            'subphase_name' => $structured['subphase_name'],
+            'activity_type' => $structured['activity_type'],
+            'activity_description' => $structured['activity_description'],
+            'had_blocker' => $structured['had_blocker'],
+            'blocker_description' => $structured['blocker_description'],
+            'had_significant_progress' => $structured['had_significant_progress'],
+            'generated_deliverable' => $structured['generated_deliverable'],
+            'operational_comment' => $structured['operational_comment'],
+            'linked_stopper_id' => null,
+        ]);
+    }
+
+    public function updateDraftActivity(
+        int $activityId,
+        int $userId,
+        int $projectId,
+        string $date,
+        float $hours,
+        string $comment,
+        array $metadata = []
+    ): bool {
+        $this->assertValidDate($date);
+        if ($hours <= 0 || $hours > 24) {
+            throw new InvalidArgumentException('Las horas deben estar entre 0 y 24.');
+        }
+
+        $current = $this->findUserActivity($activityId, $userId, true);
+        if (!$current) {
+            throw new InvalidArgumentException('La actividad no existe o no se puede editar.');
+        }
+
+        $assignment = $this->assignmentForProject($projectId, $userId);
+        if (!$assignment) {
+            throw new InvalidArgumentException('Proyecto no asignado o inactivo para este talento.');
+        }
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE user_id = :user AND date = :date AND id <> :id',
+            [
+                ':user' => $userId,
+                ':date' => $date,
+                ':id' => $activityId,
+            ]
+        );
+        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
+        if ($currentDayTotal + $hours > 24) {
+            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
+        }
+
+        $structured = $this->sanitizeStructuredMetadata($metadata);
+        $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+        $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
+
+        $set = [
+            'project_id = :project_id',
+            'task_id = :task_id',
+            'date = :date',
+            'hours = :hours',
+            'comment = :comment',
+            'status = :status',
+            'approval_comment = NULL',
+            'approved_by = NULL',
+            'approved_at = NULL',
+            'rejected_by = NULL',
+            'rejected_at = NULL',
+            'approver_user_id = :approver_user_id',
+            'updated_at = NOW()',
+        ];
+        $params = [
+            ':project_id' => $projectId,
+            ':task_id' => $taskId,
+            ':date' => $date,
+            ':hours' => $hours,
+            ':comment' => trim($comment),
+            ':status' => 'draft',
+            ':approver_user_id' => $approverUserId > 0 ? $approverUserId : null,
+            ':id' => $activityId,
+            ':user_id' => $userId,
+        ];
+
+        foreach ($this->structuredColumnMap() as $column => $key) {
+            if (!$this->db->columnExists('timesheets', $column)) {
+                continue;
+            }
+            $set[] = $column . ' = :' . $column;
+            $params[':' . $column] = $structured[$key];
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET ' . implode(', ', $set) . '
+             WHERE id = :id AND user_id = :user_id',
+            $params
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0) > 0;
+    }
+
+    public function deleteDraftActivity(int $activityId, int $userId): bool
+    {
+        $current = $this->findUserActivity($activityId, $userId, true);
+        if (!$current) {
+            throw new InvalidArgumentException('La actividad no existe o no se puede eliminar.');
+        }
+
+        $taskId = (int) ($current['task_id'] ?? 0);
+        $this->db->execute(
+            'DELETE FROM timesheets WHERE id = :id AND user_id = :user_id',
+            [':id' => $activityId, ':user_id' => $userId]
+        );
+
+        if ($taskId > 0) {
+            $this->refreshTaskActualHours($taskId);
+        }
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0) > 0;
+    }
+
+    public function duplicateDraftActivity(int $activityId, int $userId, string $targetDate): int
+    {
+        $this->assertValidDate($targetDate);
+        $current = $this->findUserActivity($activityId, $userId, false);
+        if (!$current) {
+            throw new InvalidArgumentException('La actividad no existe.');
+        }
+
+        $projectId = (int) ($current['resolved_project_id'] ?? 0);
+        if ($projectId <= 0) {
+            throw new InvalidArgumentException('La actividad no tiene proyecto asociado.');
+        }
+
+        return $this->createDraftActivity(
+            $userId,
+            $projectId,
+            $targetDate,
+            (float) ($current['hours'] ?? 0),
+            (string) ($current['comment'] ?? ''),
+            [
+                'task_id' => (int) ($current['task_id'] ?? 0),
+                'phase_name' => (string) ($current['phase_name'] ?? ''),
+                'subphase_name' => (string) ($current['subphase_name'] ?? ''),
+                'activity_type' => (string) ($current['activity_type'] ?? ''),
+                'activity_description' => (string) ($current['activity_description'] ?? ''),
+                'had_blocker' => (int) ($current['had_blocker'] ?? 0),
+                'blocker_description' => (string) ($current['blocker_description'] ?? ''),
+                'had_significant_progress' => (int) ($current['had_significant_progress'] ?? 0),
+                'generated_deliverable' => (int) ($current['generated_deliverable'] ?? 0),
+                'operational_comment' => (string) ($current['operational_comment'] ?? ''),
+            ]
+        );
+    }
+
+    public function moveDraftActivity(int $activityId, int $userId, string $targetDate): bool
+    {
+        $this->assertValidDate($targetDate);
+        $current = $this->findUserActivity($activityId, $userId, true);
+        if (!$current) {
+            throw new InvalidArgumentException('La actividad no existe o no se puede mover.');
+        }
+
+        if ((string) ($current['date'] ?? '') === $targetDate) {
+            return true;
+        }
+
+        $hours = (float) ($current['hours'] ?? 0);
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE user_id = :user AND date = :date AND id <> :id',
+            [
+                ':user' => $userId,
+                ':date' => $targetDate,
+                ':id' => $activityId,
+            ]
+        );
+        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
+        if ($currentDayTotal + $hours > 24) {
+            throw new InvalidArgumentException('No puedes mover la actividad: excede 24 horas en el día destino.');
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET date = :date,
+                 status = :status,
+                 updated_at = NOW()
+             WHERE id = :id AND user_id = :user',
+            [
+                ':date' => $targetDate,
+                ':status' => 'draft',
+                ':id' => $activityId,
+                ':user' => $userId,
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0) > 0;
+    }
+
+    public function duplicateDayActivities(int $userId, string $sourceDate, string $targetDate): int
+    {
+        $this->assertValidDate($sourceDate);
+        $this->assertValidDate($targetDate);
+        if ($sourceDate === $targetDate) {
+            throw new InvalidArgumentException('El día origen y destino no pueden ser iguales.');
+        }
+
+        $structuredSelect = $this->structuredTimesheetSelectColumns('ts');
+        $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+        $entries = $this->db->fetchAll(
+            'SELECT ts.id, ts.task_id, ts.project_id, ts.date, ts.hours, ts.comment' . $structuredSegment . ',
+                    COALESCE(ts.project_id, t.project_id) AS resolved_project_id
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             WHERE ts.user_id = :user
+               AND ts.date = :source
+               AND ts.status IN ("draft", "rejected")
+             ORDER BY ts.id ASC',
+            [
+                ':user' => $userId,
+                ':source' => $sourceDate,
+            ]
+        );
+
+        $created = 0;
+        foreach ($entries as $entry) {
+            $projectId = (int) ($entry['resolved_project_id'] ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+            $this->createDraftActivity(
+                $userId,
+                $projectId,
+                $targetDate,
+                (float) ($entry['hours'] ?? 0),
+                (string) ($entry['comment'] ?? ''),
+                [
+                    'task_id' => (int) ($entry['task_id'] ?? 0),
+                    'phase_name' => (string) ($entry['phase_name'] ?? ''),
+                    'subphase_name' => (string) ($entry['subphase_name'] ?? ''),
+                    'activity_type' => (string) ($entry['activity_type'] ?? ''),
+                    'activity_description' => (string) ($entry['activity_description'] ?? ''),
+                    'had_blocker' => (int) ($entry['had_blocker'] ?? 0),
+                    'blocker_description' => (string) ($entry['blocker_description'] ?? ''),
+                    'had_significant_progress' => (int) ($entry['had_significant_progress'] ?? 0),
+                    'generated_deliverable' => (int) ($entry['generated_deliverable'] ?? 0),
+                    'operational_comment' => (string) ($entry['operational_comment'] ?? ''),
+                ]
+            );
+            $created++;
+        }
+
+        return $created;
     }
 
     public function submitWeek(
@@ -1924,6 +2240,51 @@ class TimesheetsRepository
         );
 
         return $row !== null;
+    }
+
+    private function findUserActivity(int $activityId, int $userId, bool $editableOnly): ?array
+    {
+        if ($activityId <= 0 || $userId <= 0) {
+            return null;
+        }
+
+        $structuredSelect = $this->structuredTimesheetSelectColumns('ts');
+        $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+        $row = $this->db->fetchOne(
+            'SELECT ts.id, ts.task_id, ts.project_id, ts.user_id, ts.date, ts.hours, ts.status, ts.comment' . $structuredSegment . ',
+                    COALESCE(ts.project_id, t.project_id) AS resolved_project_id
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             WHERE ts.id = :id
+               AND ts.user_id = :user
+             LIMIT 1',
+            [
+                ':id' => $activityId,
+                ':user' => $userId,
+            ]
+        );
+        if (!$row) {
+            return null;
+        }
+
+        if ($editableOnly && !in_array((string) ($row['status'] ?? ''), ['draft', 'rejected'], true)) {
+            return null;
+        }
+
+        return $row;
+    }
+
+    private function assertValidDate(string $date): void
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            throw new InvalidArgumentException('Fecha inválida.');
+        }
+
+        try {
+            new \DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            throw new InvalidArgumentException('Fecha inválida.');
+        }
     }
 
     private function structuredColumnMap(): array

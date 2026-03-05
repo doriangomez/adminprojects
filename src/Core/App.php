@@ -518,6 +518,10 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
 
         if (str_starts_with($path, '/timesheets')) {
             $controller = new TimesheetsController($this->db, $this->auth);
+            if ($path === '/timesheets/analytics' && $method === 'GET') {
+                $controller->analytics();
+                return;
+            }
             if ($path === '/timesheets/cell' && $method === 'POST') {
                 $controller->saveCell();
                 return;
@@ -560,6 +564,30 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
             if ($path === '/timesheets/activity' && $method === 'POST') {
                 $controller->createActivity();
+                return;
+            }
+            if ($path === '/timesheets/activities/create' && $method === 'POST') {
+                $controller->createActivityApi();
+                return;
+            }
+            if ($path === '/timesheets/activities/update' && $method === 'POST') {
+                $controller->updateActivityApi();
+                return;
+            }
+            if ($path === '/timesheets/activities/delete' && $method === 'POST') {
+                $controller->deleteActivityApi();
+                return;
+            }
+            if ($path === '/timesheets/activities/duplicate' && $method === 'POST') {
+                $controller->duplicateActivityApi();
+                return;
+            }
+            if ($path === '/timesheets/activities/move' && $method === 'POST') {
+                $controller->moveActivityApi();
+                return;
+            }
+            if ($path === '/timesheets/duplicate-day' && $method === 'POST') {
+                $controller->duplicateDayApi();
                 return;
             }
             if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {
