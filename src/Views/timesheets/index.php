@@ -34,7 +34,6 @@ foreach ($gridDays as $day) {
     <div class="timesheet-tabs card">
         <a class="tab active" href="<?= $basePath ?>/timesheets?week=<?= urlencode($weekValue) ?>">Registro de horas</a>
         <a class="tab" href="<?= $basePath ?>/approvals">Aprobación de horas</a>
-        <a class="tab" href="<?= $basePath ?>/timesheets/analytics?week=<?= urlencode($weekValue) ?>">Analítica gerencial</a>
     </div>
 
     <?php if (!$canReport): ?>
@@ -175,9 +174,6 @@ foreach ($gridDays as $day) {
                         <label>Descripción breve*
                             <input type="text" name="activity_description" maxlength="255" required>
                         </label>
-                        <label>Comentario*
-                            <input type="text" name="comment" maxlength="255" required>
-                        </label>
                         <label>Tipo actividad
                             <select name="activity_type">
                                 <option value="">Sin clasificar</option>
@@ -186,17 +182,38 @@ foreach ($gridDays as $day) {
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="had_blocker" id="qa-blocker"> Bloqueo</label>
+                        <div class="toggle-line">
+                            <label class="switch">
+                                <input type="checkbox" name="had_blocker" id="qa-blocker">
+                                <span class="slider"></span>
+                            </label>
+                            <span>Bloqueo</span>
+                        </div>
                         <label class="conditional hidden" id="qa-blocker-wrap">Descripción del bloqueo
                             <input type="text" name="blocker_description" maxlength="500">
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="generated_deliverable" id="qa-deliverable"> Entregable</label>
-                        <label class="conditional hidden" id="qa-deliverable-wrap">Nombre / descripción de entregable
+                        <div class="toggle-line">
+                            <label class="switch">
+                                <input type="checkbox" name="generated_deliverable" id="qa-deliverable">
+                                <span class="slider"></span>
+                            </label>
+                            <span>Entregable</span>
+                        </div>
+                        <label class="conditional hidden" id="qa-deliverable-wrap">Descripción del entregable
                             <input type="text" name="deliverable_note" maxlength="255">
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="had_significant_progress" id="qa-progress"> Avance significativo</label>
+                        <div class="toggle-line">
+                            <label class="switch">
+                                <input type="checkbox" name="had_significant_progress" id="qa-progress">
+                                <span class="slider"></span>
+                            </label>
+                            <span>Avance significativo</span>
+                        </div>
                         <label class="conditional hidden" id="qa-progress-wrap">Nota de avance
                             <input type="text" name="progress_note" maxlength="255">
+                        </label>
+                        <label>Comentario*
+                            <input type="text" name="comment" maxlength="255" required>
                         </label>
                         <label>Comentario operativo (opcional)
                             <textarea name="operational_comment" rows="2"></textarea>
@@ -276,8 +293,14 @@ foreach ($gridDays as $day) {
 .quick-add-box{position:sticky;top:150px;display:flex;flex-direction:column;gap:10px}
 #quick-add-form{display:flex;flex-direction:column;gap:8px}
 #quick-add-form label{display:flex;flex-direction:column;gap:4px;font-size:13px}
-.toggle-line{flex-direction:row !important;align-items:center;gap:8px !important}
+.toggle-line{display:flex;flex-direction:row !important;align-items:center;gap:8px !important;font-size:13px;font-weight:500}
 .conditional.hidden{display:none !important}
+.switch{position:relative;display:inline-block;width:42px;height:22px;flex-shrink:0}
+.switch input{display:none}
+.slider{position:absolute;cursor:pointer;background:#c5c8d0;border-radius:22px;top:0;left:0;right:0;bottom:0;transition:.2s}
+.slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;transition:.2s;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+input:checked+.slider{background:#7c3aed}
+input:checked+.slider:before{transform:translateX(20px)}
 .quick-actions{display:grid;grid-template-columns:1fr;gap:6px}
 .quick-lists{display:flex;flex-direction:column;gap:10px}
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}

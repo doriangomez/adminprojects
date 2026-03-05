@@ -9,6 +9,7 @@ $timesheetHistory = is_array($timesheetHistory ?? null) ? $timesheetHistory : []
 $canManageTimesheetWorkflow = (bool) ($canManageTimesheetWorkflow ?? false);
 $canDeleteTimesheetWorkflowRecords = (bool) ($canDeleteTimesheetWorkflowRecords ?? false);
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
+$talentApprovedSummary = is_array($talentApprovedSummary ?? null) ? $talentApprovedSummary : [];
 
 $statusMeta = [
     'borrador' => ['label' => 'Borrador', 'class' => 'status-muted'],
@@ -123,6 +124,35 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     </header>
 
     <div class="toast" data-toast hidden></div>
+
+    <?php if (!empty($talentApprovedSummary)): ?>
+        <?php
+        $approvedH  = round((float) ($talentApprovedSummary['approved'] ?? 0), 2);
+        $monthTotal = round((float) ($talentApprovedSummary['month_total'] ?? 0), 2);
+        $capacity   = round((float) ($talentApprovedSummary['capacity'] ?? 0), 2);
+        $compliance = round((float) ($talentApprovedSummary['compliance'] ?? 0), 2);
+        ?>
+        <section class="talent-hours-summary">
+            <div class="talent-hours-summary__card">
+                <span class="talent-hours-summary__label">Horas aprobadas (mes actual)</span>
+                <strong class="talent-hours-summary__value approved"><?= $approvedH ?>h</strong>
+            </div>
+            <div class="talent-hours-summary__card">
+                <span class="talent-hours-summary__label">Horas registradas (mes actual)</span>
+                <strong class="talent-hours-summary__value"><?= $monthTotal ?>h</strong>
+            </div>
+            <?php if ($capacity > 0): ?>
+            <div class="talent-hours-summary__card">
+                <span class="talent-hours-summary__label">Capacidad mensual</span>
+                <strong class="talent-hours-summary__value"><?= $capacity ?>h</strong>
+            </div>
+            <div class="talent-hours-summary__card">
+                <span class="talent-hours-summary__label">% cumplimiento</span>
+                <strong class="talent-hours-summary__value <?= $compliance >= 80 ? 'approved' : ($compliance >= 50 ? 'partial' : 'low') ?>"><?= $compliance ?>%</strong>
+            </div>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
 
     <div class="approvals-grid">
         <section class="approvals-section" data-queue="review">
@@ -304,6 +334,13 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
 
 <style>
     .approvals-shell { display:flex; flex-direction:column; gap:16px; }
+    .talent-hours-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+    .talent-hours-summary__card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 18px; display:flex; flex-direction:column; gap:6px; box-shadow:0 6px 18px rgba(15,23,42,.05); }
+    .talent-hours-summary__label { font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+    .talent-hours-summary__value { font-size:22px; font-weight:800; color:var(--text-primary); }
+    .talent-hours-summary__value.approved { color:#7c3aed; }
+    .talent-hours-summary__value.partial { color:var(--warning,#f59e0b); }
+    .talent-hours-summary__value.low { color:var(--danger,#ef4444); }
     .approvals-grid { display:flex; flex-direction:column; gap:20px; }
     .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06); }
     .approvals-section header { display:flex; flex-direction:column; gap:4px; }
