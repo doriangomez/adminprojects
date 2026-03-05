@@ -426,9 +426,19 @@ class TimesheetsRepository
             throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
         }
 
+        if ($this->isWeekLockedForUser($userId, $date)) {
+            throw new InvalidArgumentException('La semana ya fue enviada. No puedes agregar actividades.');
+        }
+
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $structured = $this->sanitizeStructuredMetadata($metadata);
-        $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+        $taskId = $this->resolveTaskIdForActivity(
+            $projectId,
+            (int) ($structured['task_id'] ?? 0),
+            (string) ($structured['task_management_mode'] ?? ''),
+            (string) ($structured['activity_description'] ?? ''),
+            $talentId
+        );
 
         return $this->createTimesheet([
             'task_id' => $taskId,
@@ -475,6 +485,10 @@ class TimesheetsRepository
         $current = $this->findUserActivity($activityId, $userId, true);
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe o no se puede editar.');
+        }
+
+        if ($this->isWeekLockedForUser($userId, (string) ($current['date'] ?? ''))) {
+            throw new InvalidArgumentException('La semana ya fue enviada. No puedes editar actividades.');
         }
 
         $assignment = $this->assignmentForProject($projectId, $userId);
@@ -554,6 +568,10 @@ class TimesheetsRepository
             throw new InvalidArgumentException('La actividad no existe o no se puede eliminar.');
         }
 
+        if ($this->isWeekLockedForUser($userId, (string) ($current['date'] ?? ''))) {
+            throw new InvalidArgumentException('La semana ya fue enviada. No puedes eliminar actividades.');
+        }
+
         $taskId = (int) ($current['task_id'] ?? 0);
         $this->db->execute(
             'DELETE FROM timesheets WHERE id = :id AND user_id = :user_id',
@@ -574,6 +592,10 @@ class TimesheetsRepository
         $current = $this->findUserActivity($activityId, $userId, false);
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe.');
+        }
+
+        if ($this->isWeekLockedForUser($userId, (string) ($current['date'] ?? ''))) {
+            throw new InvalidArgumentException('La semana ya fue enviada. No puedes duplicar actividades.');
         }
 
         $projectId = (int) ($current['resolved_project_id'] ?? 0);
@@ -608,6 +630,10 @@ class TimesheetsRepository
         $current = $this->findUserActivity($activityId, $userId, true);
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe o no se puede mover.');
+        }
+
+        if ($this->isWeekLockedForUser($userId, (string) ($current['date'] ?? ''))) {
+            throw new InvalidArgumentException('La semana ya fue enviada. No puedes mover actividades.');
         }
 
         if ((string) ($current['date'] ?? '') === $targetDate) {
@@ -921,6 +947,19 @@ class TimesheetsRepository
              ORDER BY week_start DESC',
             [':user' => $userId]
         );
+    }
+
+    public function isWeekLockedForUser(int $userId, string $date): bool
+    {
+        try {
+            $dt = new \DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            return false;
+        }
+        $weekStart = $dt->modify('monday this week')->setTime(0, 0);
+        $summary = $this->weekSummaryForUser($userId, $weekStart);
+        $status = (string) ($summary['status'] ?? 'draft');
+        return in_array($status, ['submitted', 'partial', 'approved'], true);
     }
 
     public function weekSummaryForUser(int $userId, \DateTimeImmutable $weekStart): array
@@ -2228,6 +2267,31 @@ class TimesheetsRepository
         return $this->resolveTimesheetTaskId($projectId);
     }
 
+    /**
+     * Resolves task_id for a new activity. When task_id=0 and task_management_mode is set,
+     * creates a new task (completed or pending) from activity_description.
+     */
+    private function resolveTaskIdForActivity(
+        int $projectId,
+        int $candidateTaskId,
+        string $taskManagementMode,
+        string $activityDescription,
+        int $talentId
+    ): int {
+        if ($candidateTaskId > 0 && $this->taskBelongsToProject($candidateTaskId, $projectId)) {
+            return $candidateTaskId;
+        }
+
+        $title = trim($activityDescription);
+        if ($candidateTaskId === 0 && $title !== '' && in_array($taskManagementMode, ['completed', 'pending'], true)) {
+            $status = $taskManagementMode === 'completed' ? 'done' : 'todo';
+            $tasksRepo = new TasksRepository($this->db);
+            return $tasksRepo->createFromTimesheet($projectId, $title, $status, $talentId > 0 ? $talentId : null);
+        }
+
+        return $this->resolveTimesheetTaskId($projectId);
+    }
+
     private function taskBelongsToProject(int $taskId, int $projectId): bool
     {
         if (!$this->db->tableExists('tasks')) {
@@ -2309,8 +2373,14 @@ class TimesheetsRepository
             $activityType = '';
         }
 
+        $taskManagementMode = strtolower(trim((string) ($metadata['task_management_mode'] ?? '')));
+        if (!in_array($taskManagementMode, ['completed', 'pending'], true)) {
+            $taskManagementMode = '';
+        }
+
         return [
             'task_id' => max(0, (int) ($metadata['task_id'] ?? 0)),
+            'task_management_mode' => $taskManagementMode,
             'phase_name' => $this->limitText((string) ($metadata['phase_name'] ?? ''), 120),
             'subphase_name' => $this->limitText((string) ($metadata['subphase_name'] ?? ''), 120),
             'activity_type' => $this->limitText($activityType, 60),

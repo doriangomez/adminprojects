@@ -124,6 +124,38 @@ class TasksRepository
         );
     }
 
+    /**
+     * Creates a task from timesheet activity (quick task creation).
+     * @param int $projectId
+     * @param string $title Task title (e.g. from activity_description)
+     * @param string $status 'done' for completed, 'todo' for pending
+     * @param int|null $assigneeId Optional assignee (e.g. current user's talent)
+     */
+    public function createFromTimesheet(int $projectId, string $title, string $status, ?int $assigneeId = null): int
+    {
+        $completedAt = ($status === 'done') ? 'NOW()' : 'NULL';
+        $hasCompletedAt = $this->db->columnExists('tasks', 'completed_at');
+
+        $columns = 'project_id, title, status, priority, estimated_hours, actual_hours, due_date, assignee_id, created_at, updated_at';
+        $values = ':project_id, :title, :status, :priority, 0, 0, NULL, :assignee, NOW(), NOW()';
+
+        if ($hasCompletedAt) {
+            $columns .= ', completed_at';
+            $values .= ', ' . $completedAt;
+        }
+
+        return $this->db->insert(
+            "INSERT INTO tasks ({$columns}) VALUES ({$values})",
+            [
+                ':project_id' => $projectId,
+                ':title' => $title,
+                ':status' => $status,
+                ':priority' => 'medium',
+                ':assignee' => $assigneeId,
+            ]
+        );
+    }
+
     public function updateStatus(int $taskId, string $status): void
     {
         $this->db->execute(

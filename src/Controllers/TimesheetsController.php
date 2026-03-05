@@ -303,6 +303,7 @@ class TimesheetsController extends Controller
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
+            'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? '')),
             'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
             'subphase_name' => trim((string) ($_POST['subphase_name'] ?? '')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
@@ -351,6 +352,7 @@ class TimesheetsController extends Controller
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
+            'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? '')),
             'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
@@ -394,6 +396,7 @@ class TimesheetsController extends Controller
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
+            'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? '')),
             'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),

@@ -33,6 +33,7 @@ class App
         $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
+        $migrator->ensureTasksCompletedAt();
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();

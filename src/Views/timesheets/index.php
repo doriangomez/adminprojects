@@ -25,6 +25,7 @@ $statusMeta = [
 ];
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
 $weekLocked = $weekStatus === 'approved';
+$recordsLocked = in_array($weekStatus, ['submitted', 'partial', 'approved'], true);
 $daysJson = [];
 foreach ($gridDays as $day) {
     $daysJson[(string) ($day['key'] ?? '')] = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
@@ -58,7 +59,7 @@ foreach ($gridDays as $day) {
                 <span class="pill status <?= htmlspecialchars($status['class']) ?>">Estado: <?= htmlspecialchars($status['label']) ?></span>
             </div>
             <div class="header-actions">
-                <button type="button" class="btn primary" id="focus-quick-add">+ Registrar actividad</button>
+                <button type="button" class="btn primary" id="focus-quick-add" <?= $recordsLocked ? 'disabled' : '' ?>>+ Registrar actividad</button>
                 <button type="button" class="btn" id="duplicate-day-trigger">Duplicar día</button>
                 <form method="POST" action="<?= $basePath ?>/timesheets/submit-week">
                     <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
@@ -87,6 +88,12 @@ foreach ($gridDays as $day) {
             <article class="card indicator"><span>Proyecto mayor consumo</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
         </section>
 
+        <?php if ($recordsLocked): ?>
+            <div class="card records-locked-banner">
+                <strong>Semana enviada. Registros bloqueados.</strong>
+                <span class="section-muted">No puedes editar ni eliminar actividades hasta que la semana sea rechazada.</span>
+            </div>
+        <?php endif; ?>
         <section class="timesheet-main-layout">
             <div class="calendar-column card">
                 <div class="calendar-heading">
@@ -117,7 +124,7 @@ foreach ($gridDays as $day) {
                                         $itemDesc = trim((string) ($item['activity_description'] ?? '')) ?: trim((string) ($item['activity_type'] ?? 'Actividad'));
                                         $itemComment = (string) ($item['comment'] ?? '');
                                         ?>
-                                        <li class="activity-chip" draggable="true" data-activity-id="<?= $itemId ?>">
+                                        <li class="activity-chip" draggable="<?= $recordsLocked ? 'false' : 'true' ?>" data-activity-id="<?= $itemId ?>" <?= $recordsLocked ? 'data-locked="1"' : '' ?>>
                                             <div class="chip-main">
                                                 <strong><?= htmlspecialchars($itemProject) ?> · <?= htmlspecialchars($itemDesc) ?></strong>
                                                 <span><?= round($itemHours, 2) ?>h</span>
@@ -128,11 +135,13 @@ foreach ($gridDays as $day) {
                                                 <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
                                                 <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
                                             </div>
-                                            <div class="chip-actions">
+                                            <div class="chip-actions" <?= $recordsLocked ? 'data-locked="1"' : '' ?>>
+                                                <?php if (!$recordsLocked): ?>
                                                 <button type="button" class="btn-xs edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>Editar</button>
                                                 <button type="button" class="btn-xs duplicate-activity" data-activity-id="<?= $itemId ?>">Duplicar</button>
                                                 <button type="button" class="btn-xs move-activity" data-activity-id="<?= $itemId ?>">Mover</button>
-                                                <button type="button" class="btn-xs danger delete-activity" data-activity-id="<?= $itemId ?>">Eliminar</button>
+                                                <button type="button" class="btn-xs btn-delete-activity delete-activity" data-activity-id="<?= $itemId ?>" title="Eliminar actividad">🗑 Eliminar</button>
+                                                <?php endif; ?>
                                             </div>
                                         </li>
                                     <?php endforeach; ?>
@@ -144,10 +153,11 @@ foreach ($gridDays as $day) {
             </div>
 
             <aside class="quick-add-column">
-                <section class="card quick-add-box" id="quick-add-box">
+                <section class="card quick-add-box <?= $recordsLocked ? 'form-disabled' : '' ?>" id="quick-add-box">
                     <h3>Quick Add</h3>
                     <p class="section-muted">Captura mínima para registrar en menos de 10 segundos.</p>
-                    <form id="quick-add-form">
+                    <?php if ($recordsLocked): ?><p class="section-muted form-disabled-msg">No puedes agregar actividades mientras la semana esté enviada.</p><?php endif; ?>
+                    <form id="quick-add-form" data-records-locked="<?= $recordsLocked ? '1' : '0' ?>">
                         <input type="hidden" name="activity_id" value="">
                         <input type="hidden" name="submit_mode" value="save">
                         <label>Fecha
@@ -169,6 +179,17 @@ foreach ($gridDays as $day) {
                                 <?php endforeach; ?>
                             </select>
                         </label>
+                        <div class="task-management-block">
+                            <span class="task-management-label">Gestión de tarea</span>
+                            <label class="task-management-option">
+                                <input type="radio" name="task_management_mode" value="completed" checked>
+                                <span>Registrar actividad finalizada</span>
+                            </label>
+                            <label class="task-management-option">
+                                <input type="radio" name="task_management_mode" value="pending">
+                                <span>Crear tarea pendiente</span>
+                            </label>
+                        </div>
                         <label>Horas*
                             <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
                         </label>
@@ -310,6 +331,15 @@ foreach ($gridDays as $day) {
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
 .chip-btn{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:5px 10px;cursor:pointer;font-size:12px}
 .day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border))}
+.task-management-block{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid var(--border)}
+.task-management-label{font-size:13px;font-weight:600;color:var(--text-primary)}
+.task-management-option{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px}
+.task-management-option input{width:16px;height:16px}
+.btn-delete-activity{color:#dc2626!important;border-color:#dc2626!important;background:color-mix(in srgb,#dc2626 10%,var(--surface))!important}
+.btn-delete-activity:hover{background:color-mix(in srgb,#dc2626 20%,var(--surface))!important}
+.records-locked-banner{background:color-mix(in srgb,var(--warning) 15%,var(--surface));border-color:color-mix(in srgb,var(--warning) 40%,var(--border));display:flex;align-items:center;gap:10px}
+.form-disabled .quick-actions button,.form-disabled input,.form-disabled select,.form-disabled .chip-btn{opacity:.6;pointer-events:none}
+.form-disabled-msg{color:var(--warning);font-weight:500}
 @media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.week-calendar-grid{grid-template-columns:1fr}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
 </style>
 
@@ -409,12 +439,15 @@ foreach ($gridDays as $day) {
     const keepDate = form.querySelector('[name="date"]')?.value || '';
     const keepProject = form.querySelector('[name="project_id"]')?.value || '';
     const keepTask = form.querySelector('[name="task_id"]')?.value || '0';
+    const keepMode = form.querySelector('[name="task_management_mode"]:checked')?.value || 'completed';
     form.reset();
     form.querySelector('[name="activity_id"]').value = '';
     form.querySelector('[name="date"]').value = keepDate;
     form.querySelector('[name="project_id"]').value = keepProject;
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = keepTask;
+    const modeRadio = form.querySelector(`[name="task_management_mode"][value="${keepMode}"]`);
+    if (modeRadio) modeRadio.checked = true;
     syncToggles();
   };
 
@@ -424,6 +457,8 @@ foreach ($gridDays as $day) {
     form.querySelector('[name="project_id"]').value = String(data.project_id || '');
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = String(data.task_id || 0);
+    form.querySelector('[name="task_management_mode"][value="completed"]').checked = true;
+    form.querySelector('[name="task_management_mode"][value="pending"]').checked = false;
     form.querySelector('[name="phase_name"]').value = data.phase_name || '';
     form.querySelector('[name="hours"]').value = String(data.hours || '');
     form.querySelector('[name="activity_description"]').value = data.activity_description || '';
@@ -439,6 +474,7 @@ foreach ($gridDays as $day) {
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (form.dataset.recordsLocked === '1') return;
     const formData = new FormData(form);
     const raw = Object.fromEntries(formData.entries());
     raw.had_blocker = blockerToggle?.checked ? '1' : '0';
@@ -513,8 +549,9 @@ foreach ($gridDays as $day) {
 
   document.querySelectorAll('.delete-activity').forEach((button) => {
     button.addEventListener('click', async () => {
+      if (button.closest('[data-locked="1"]')) return;
       const activityId = Number(button.dataset.activityId || 0);
-      if (!confirm('¿Eliminar esta actividad?')) return;
+      if (!confirm('¿Eliminar actividad?')) return;
       try {
         await post('/timesheets/activities/delete', { activity_id: String(activityId) });
         window.location.href = `${basePath}/timesheets?week=${encodeURIComponent(weekValue)}`;
