@@ -566,6 +566,137 @@ error_log(sprintf(
         @media (max-width: 1180px) {
             .section-grid.twothirds, .section-grid.wide { grid-template-columns: 1fr; }
         }
+        /* ── Collapsible nav group (submenu) ── */
+        .nav-group { display: block; }
+        .nav-group > summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 13px 12px;
+            border-radius: 16px;
+            position: relative;
+            border: 1px solid color-mix(in srgb, var(--border) 72%, var(--background));
+            font-weight: 600;
+            font-size: 15px;
+            overflow: hidden;
+            transition: border-color 0.22s ease, transform 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+            --nav-tone: #3b82f6;
+        }
+        .nav-group > summary::-webkit-details-marker { display: none; }
+        .nav-group > summary::marker { content: none; }
+        .nav-group > summary::before {
+            content: '';
+            position: absolute;
+            left: 9px; top: 9px; bottom: 9px;
+            width: 3px;
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--nav-tone) 28%, transparent);
+            transition: background-color 0.22s ease;
+        }
+        .nav-group > summary::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(120deg, color-mix(in srgb, var(--nav-tone) 10%, transparent), transparent 45%);
+            opacity: 0;
+            transition: opacity 0.22s ease;
+            pointer-events: none;
+        }
+        .nav-group > summary:hover {
+            color: var(--text-primary);
+            background: color-mix(in srgb, var(--surface) 16%, var(--background));
+            border-color: color-mix(in srgb, var(--nav-tone) 52%, var(--border));
+            transform: translateX(2px);
+            box-shadow: 0 8px 18px color-mix(in srgb, var(--nav-tone) 24%, transparent);
+        }
+        .nav-group > summary:hover::after { opacity: 1; }
+        .nav-group > summary .nav-icon {
+            width: 40px; height: 40px;
+            position: relative; z-index: 1;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--nav-tone);
+            border-radius: 13px;
+            background: linear-gradient(155deg, color-mix(in srgb, var(--nav-tone) 24%, #ffffff), color-mix(in srgb, var(--nav-tone) 22%, var(--surface)));
+            border: 1px solid color-mix(in srgb, var(--nav-tone) 50%, var(--border));
+            box-shadow: 0 5px 12px color-mix(in srgb, var(--nav-tone) 20%, transparent);
+            transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, color 0.22s ease;
+            flex-shrink: 0;
+        }
+        .nav-group > summary .nav-icon svg { width: 66%; height: 66%; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+        .nav-group > summary:hover .nav-icon {
+            color: #fff;
+            background: linear-gradient(140deg, color-mix(in srgb, var(--nav-tone) 82%, #111827), var(--nav-tone));
+            box-shadow: 0 10px 18px color-mix(in srgb, var(--nav-tone) 40%, transparent);
+            transform: translateY(-1px) scale(1.06);
+        }
+        .nav-group[open] > summary {
+            color: var(--text-primary);
+            font-weight: 700;
+            background: color-mix(in srgb, var(--surface) 24%, var(--background));
+            border-color: color-mix(in srgb, var(--nav-tone) 60%, var(--border));
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-tone) 24%, transparent);
+        }
+        .nav-group[open] > summary::before { background: var(--nav-tone); }
+        .nav-group[open] > summary .nav-icon {
+            color: #fff;
+            background: linear-gradient(145deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 64%, #0f172a));
+            border-color: color-mix(in srgb, var(--nav-tone) 78%, var(--surface));
+            box-shadow: 0 12px 22px color-mix(in srgb, var(--nav-tone) 45%, transparent);
+        }
+        .nav-label-group { white-space: nowrap; position: relative; z-index: 1; flex: 1; }
+        .nav-chevron {
+            margin-left: auto;
+            display: flex; align-items: center;
+            color: var(--text-secondary);
+            transition: transform 0.22s ease;
+            position: relative; z-index: 1;
+            flex-shrink: 0;
+        }
+        .nav-chevron svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+        .nav-group[open] .nav-chevron { transform: rotate(180deg); }
+        .nav-sub {
+            display: flex; flex-direction: column; gap: 4px;
+            padding-left: 16px; padding-top: 4px;
+        }
+        .nav-sub-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px 9px 14px;
+            border-radius: 12px; font-size: 13px; font-weight: 600;
+            color: var(--text-secondary); text-decoration: none;
+            border: 1px solid transparent;
+            position: relative;
+            transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+        }
+        .sub-connector {
+            width: 14px; height: 14px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; position: relative; z-index: 1;
+        }
+        .sub-connector svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+        .nav-sub-link:hover {
+            color: var(--text-primary);
+            background: color-mix(in srgb, var(--surface) 16%, var(--background));
+            border-color: color-mix(in srgb, #3b82f6 30%, var(--border));
+            transform: translateX(2px);
+        }
+        .nav-sub-link.active {
+            color: #3b82f6; font-weight: 700;
+            background: color-mix(in srgb, #3b82f6 12%, var(--background));
+            border-color: color-mix(in srgb, #3b82f6 38%, var(--border));
+            box-shadow: 0 2px 10px color-mix(in srgb, #3b82f6 14%, transparent);
+        }
+        .nav-sub-link.active .sub-connector svg { color: #3b82f6; }
+        /* Collapsed: hide submenu and chevron */
+        .sidebar.collapsed .nav-sub { display: none; }
+        .sidebar.collapsed .nav-chevron { display: none; }
+        .sidebar.collapsed .nav-label-group { display: none; }
+        .sidebar.collapsed .nav-group > summary { justify-content: center; }
+        .sidebar.collapsed .nav-group > summary::before { display: none; }
         .menu-toggle { display: none; align-items: center; gap: 10px; font-weight: 700; color: color-mix(in srgb, var(--surface) 90%, var(--text-primary) 10%); }
         .menu-toggle label { padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); background: color-mix(in srgb, var(--surface) 12%, var(--background)); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--surface) 90%, var(--text-primary) 10%); }
         .menu-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
@@ -667,10 +798,23 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
-            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
-                <span class="nav-label">Carga talento</span>
-            </a>
+            <details class="nav-group" <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'open' : '' ?>>
+                <summary>
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
+                    <span class="nav-label-group">Carga talento</span>
+                    <span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
+                </summary>
+                <div class="nav-sub">
+                    <a href="<?= $basePath ?>/talent-capacity" class="nav-sub-link <?= ($normalizedPath === '/talent-capacity' || $normalizedPath === '/talent-capacity/') ? 'active' : '' ?>">
+                        <span class="sub-connector" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
+                        Vista de capacidad
+                    </a>
+                    <a href="<?= $basePath ?>/talent-capacity/simulation" class="nav-sub-link <?= str_starts_with($normalizedPath, '/talent-capacity/simulation') ? 'active' : '' ?>">
+                        <span class="sub-connector" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span>
+                        Simulación de capacidad
+                    </a>
+                </div>
+            </details>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
