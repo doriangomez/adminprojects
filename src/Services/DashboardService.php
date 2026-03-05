@@ -1317,4 +1317,340 @@ class DashboardService
     {
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
     }
+
+    /**
+     * Análisis automático del portafolio: genera 3-5 conclusiones en lenguaje natural.
+     */
+    public function automaticPortfolioAnalysis(array $user): array
+    {
+        $summary = $this->executiveSummary($user);
+        $projects = $this->projectHealth($user);
+        $stoppers = $this->stoppersOverview($user);
+        $execIntel = $this->executiveIntelligence($user);
+        $utilization = $this->talentUtilization($user);
+        $financial = $execIntel['financial_impact'] ?? [];
+
+        $avgProgress = (float) ($summary['avance_promedio'] ?? 0);
+        $riskCount = (int) ($summary['proyectos_riesgo'] ?? 0);
+        $activeBlockers = (int) ($stoppers['open_total'] ?? 0);
+        $utilPct = (float) ($utilization['avg_utilization'] ?? 0);
+        $monthlyTrend = $projects['monthly_progress_trend'] ?? [];
+        $billingPct = (float) ($financial['execution_pct'] ?? 0);
+
+        $trendDirection = 'estable';
+        if (count($monthlyTrend) >= 2) {
+            $last = (float) ($monthlyTrend[count($monthlyTrend) - 1]['avg_progress'] ?? 0);
+            $prev = (float) ($monthlyTrend[count($monthlyTrend) - 2]['avg_progress'] ?? 0);
+            $trendDirection = $last > $prev ? 'ascendente' : ($last < $prev ? 'descendente' : 'estable');
+        }
+
+        $conclusions = [];
+
+        $conclusions[] = sprintf(
+            'El portafolio presenta ejecución %s con avance promedio del %s%%.',
+            $avgProgress >= 70 ? 'estable' : ($avgProgress >= 50 ? 'moderada' : 'lenta'),
+            number_format($avgProgress, 1, ',', '.')
+        );
+
+        if ($activeBlockers > 0) {
+            $conclusions[] = sprintf(
+                'Existe%s %d bloqueo%s activo%s que %s atención operativa.',
+                $activeBlockers > 1 ? 'n' : '',
+                $activeBlockers,
+                $activeBlockers > 1 ? 's' : '',
+                $activeBlockers > 1 ? 's requieren' : 'requiere',
+                $activeBlockers > 1 ? 's' : ''
+            );
+        } else {
+            $conclusions[] = 'No hay bloqueos activos en el portafolio.';
+        }
+
+        if ($utilPct > 90) {
+            $conclusions[] = 'El equipo presenta alta utilización; considerar redistribución de carga.';
+        } elseif ($utilPct < 60) {
+            $conclusions[] = 'El equipo tiene capacidad disponible significativa.';
+        } else {
+            $conclusions[] = 'La utilización del talento se encuentra en rango óptimo.';
+        }
+
+        if ($riskCount > 0) {
+            $conclusions[] = sprintf('Se detectan %d proyecto%s en riesgo que requieren seguimiento.', $riskCount, $riskCount > 1 ? 's' : '');
+        } else {
+            $conclusions[] = 'No se detectan proyectos en riesgo alto.';
+        }
+
+        $conclusions[] = sprintf(
+            'La tendencia mensual de avance es %s.',
+            $trendDirection
+        );
+
+        $conclusions[] = sprintf(
+            'Facturación vs plan: %s%% %s.',
+            number_format($billingPct, 1, ',', '.'),
+            $billingPct >= 70 ? '(dentro del objetivo)' : '(por debajo del objetivo)'
+        );
+
+        return ['conclusions' => array_slice($conclusions, 0, 5)];
+    }
+
+    /**
+     * Alertas automáticas con tarjetas de color (verde/amarillo/rojo).
+     */
+    public function automaticAlerts(array $user): array
+    {
+        [$where, $params] = $this->visibilityForUser($user);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+        $statusColumn = $this->projectStatusColumn();
+        $statusExpr = $statusColumn !== null ? "p.{$statusColumn}" : "''";
+
+        $alerts = [];
+
+        $projectsAtRisk = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.progress < 70
+             AND p.progress < 100
+             AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+            $params
+        );
+        $riskCount = (int) ($projectsAtRisk['total'] ?? 0);
+        $alerts[] = [
+            'id' => 'project_risk',
+            'title' => 'Proyecto en riesgo',
+            'description' => 'Avance < 70%',
+            'value' => $riskCount,
+            'status' => $riskCount === 0 ? 'green' : ($riskCount <= 2 ? 'yellow' : 'red'),
+            'detail' => $riskCount === 0 ? 'Ningún proyecto con avance bajo' : sprintf('%d proyecto(s) con avance inferior al 70%%', $riskCount),
+        ];
+
+        $criticalBlockers = 0;
+        $blockerDetail = '';
+        if ($this->db->tableExists('project_stoppers')) {
+            $dateColumn = $this->db->columnExists('project_stoppers', 'detected_at') ? 'detected_at' : 'created_at';
+            $blockersOver5 = $this->db->fetchAll(
+                "SELECT s.id, p.name AS project, s.title, DATEDIFF(CURDATE(), s.{$dateColumn}) AS days_open
+                 FROM project_stoppers s
+                 JOIN projects p ON p.id = s.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+                 AND DATEDIFF(CURDATE(), s.{$dateColumn}) > 5
+                 ORDER BY days_open DESC",
+                $params
+            );
+            $criticalBlockers = count($blockersOver5);
+            if ($criticalBlockers > 0 && !empty($blockersOver5)) {
+                $first = $blockersOver5[0];
+                $blockerDetail = sprintf('%s (%d días)', $first['project'] ?? 'Proyecto', (int) ($first['days_open'] ?? 0));
+            }
+        }
+        $alerts[] = [
+            'id' => 'critical_blocker',
+            'title' => 'Bloqueo crítico',
+            'description' => 'Bloqueo abierto > 5 días',
+            'value' => $criticalBlockers,
+            'status' => $criticalBlockers === 0 ? 'green' : ($criticalBlockers <= 2 ? 'yellow' : 'red'),
+            'detail' => $criticalBlockers === 0 ? 'Sin bloqueos prolongados' : $blockerDetail,
+        ];
+
+        $utilization = $this->talentUtilization($user);
+        $utilPct = (float) ($utilization['avg_utilization'] ?? 0);
+        $overloadRisk = $utilPct > 90;
+        $alerts[] = [
+            'id' => 'overload_risk',
+            'title' => 'Riesgo de sobrecarga',
+            'description' => 'Utilización de talento > 90%',
+            'value' => number_format($utilPct, 1, ',', '.') . '%',
+            'status' => $overloadRisk ? 'red' : ($utilPct > 80 ? 'yellow' : 'green'),
+            'detail' => $overloadRisk ? 'Equipo sobrecargado' : 'Capacidad dentro del rango',
+        ];
+
+        $execIntel = $this->executiveIntelligence($user);
+        $billingPct = (float) (($execIntel['financial_impact']['execution_pct'] ?? 0));
+        $financialRisk = $billingPct < 70;
+        $alerts[] = [
+            'id' => 'financial_risk',
+            'title' => 'Riesgo financiero',
+            'description' => 'Facturación < 70% del plan',
+            'value' => number_format($billingPct, 1, ',', '.') . '%',
+            'status' => $financialRisk ? 'red' : ($billingPct < 85 ? 'yellow' : 'green'),
+            'detail' => $financialRisk ? 'Facturación por debajo del objetivo' : 'Facturación en rango',
+        ];
+
+        return ['alerts' => $alerts];
+    }
+
+    /**
+     * Utilización promedio del talento para el dashboard.
+     */
+    public function talentUtilization(array $user): array
+    {
+        if (!$this->db->tableExists('talents')) {
+            return ['avg_utilization' => 0, 'total_capacity' => 0, 'total_hours' => 0, 'talents_with_150h_available' => 0];
+        }
+
+        [$where, $params] = $this->visibilityForUser($user);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+        $monthStart = date('Y-m-01');
+        $monthEnd = date('Y-m-t');
+        $weeksInMonth = 4.33;
+
+        $capacityRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(GREATEST(COALESCE(t.capacidad_horaria, 0), COALESCE(t.weekly_capacity, 0)) * COALESCE(t.availability, 100) / 100), 0) AS total
+             FROM talents t
+             WHERE 1=1',
+            []
+        );
+        $totalCapacity = (float) ($capacityRow['total'] ?? 0) * $weeksInMonth;
+
+        $hoursParams = array_merge($params, [':start' => $monthStart, ':end' => $monthEnd]);
+        $hoursRow = ['total' => 0];
+        if ($this->db->tableExists('timesheets')) {
+            $hoursSql = "SELECT COALESCE(SUM(ts.hours), 0) AS total
+                 FROM timesheets ts
+                 JOIN tasks tk ON tk.id = ts.task_id
+                 JOIN projects p ON p.id = tk.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND ts.date BETWEEN :start AND :end
+                 AND ts.status = 'approved'";
+            $hoursRow = $this->db->fetchOne($hoursSql, $hoursParams);
+        }
+        $totalHours = (float) ($hoursRow['total'] ?? 0);
+        $avgUtilization = $totalCapacity > 0 ? min(150, ($totalHours / $totalCapacity) * 100) : 0;
+
+        $talents150h = 0;
+        $assignCol = $this->db->columnExists('project_talent_assignments', 'talent_id') ? 'talent_id' : 'user_id';
+        if ($this->db->tableExists('project_talent_assignments') && $this->db->columnExists('timesheets', 'talent_id') && $assignCol === 'talent_id') {
+            $talentIds = $this->db->fetchAll(
+                "SELECT DISTINCT a.{$assignCol} AS talent_id
+                 FROM project_talent_assignments a
+                 JOIN projects p ON p.id = a.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND (a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))
+                 AND a.{$assignCol} IS NOT NULL",
+                $params
+            );
+            foreach ($talentIds as $row) {
+                $tid = (int) ($row['talent_id'] ?? 0);
+                if ($tid <= 0) {
+                    continue;
+                }
+                $capRow = $this->db->fetchOne(
+                    'SELECT COALESCE(capacidad_horaria, weekly_capacity, 40) * 4.33 AS monthly_cap FROM talents WHERE id = :id',
+                    [':id' => $tid]
+                );
+                $cap = (float) ($capRow['monthly_cap'] ?? 0);
+                $usedRow = $this->db->fetchOne(
+                    'SELECT COALESCE(SUM(hours), 0) AS used FROM timesheets WHERE talent_id = :tid AND date BETWEEN :start AND :end AND status = :status',
+                    [':tid' => $tid, ':start' => $monthStart, ':end' => $monthEnd, ':status' => 'approved']
+                );
+                $used = (float) ($usedRow['used'] ?? 0);
+                if (($cap - $used) > 150) {
+                    $talents150h++;
+                }
+            }
+        }
+
+        return [
+            'avg_utilization' => round($avgUtilization, 1),
+            'total_capacity' => round($totalCapacity, 1),
+            'total_hours' => round($totalHours, 1),
+            'talents_with_150h_available' => $talents150h,
+        ];
+    }
+
+    /**
+     * Recomendaciones automáticas del sistema.
+     */
+    public function systemRecommendations(array $user): array
+    {
+        $recommendations = [];
+        $utilization = $this->talentUtilization($user);
+        $portfolioInsights = $this->portfolioHealthInsights($user);
+        $stoppers = $this->stoppersOverview($user);
+        $execIntel = $this->executiveIntelligence($user);
+        $billingPct = (float) (($execIntel['financial_impact']['execution_pct'] ?? 0));
+
+        if (($utilization['talents_with_150h_available'] ?? 0) > 0) {
+            $recommendations[] = 'Redistribuir carga hacia talentos con más de 150h disponibles.';
+        }
+
+        $blockersWithProject = [];
+        if ($this->db->tableExists('project_stoppers')) {
+            [$where, $params] = $this->visibilityForUser($user);
+            $projectsCondition = $where ?: 'WHERE 1=1';
+            $blockersWithProject = $this->db->fetchAll(
+                "SELECT p.name AS project_name
+                 FROM project_stoppers s
+                 JOIN projects p ON p.id = s.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND s.status IN ('abierto','en_gestion','escalado','resuelto')
+                 LIMIT 1",
+                $params
+            );
+        }
+        if (!empty($blockersWithProject)) {
+            $projectName = $blockersWithProject[0]['project_name'] ?? 'proyecto';
+            $recommendations[] = sprintf('Revisar el bloqueo activo en el proyecto %s.', $projectName);
+        }
+
+        $highProgressCount = 0;
+        foreach ($portfolioInsights['ranking'] ?? [] as $p) {
+            if ((float) ($p['score'] ?? 0) >= 70 && (int) ($p['blockers_open'] ?? 0) === 0) {
+                $highProgressCount++;
+            }
+        }
+        if ($highProgressCount > 0 && $billingPct < 85) {
+            $recommendations[] = 'Acelerar facturación de proyectos con avance superior al 70%.';
+        }
+
+        $lowScoreProjects = array_filter($portfolioInsights['ranking'] ?? [], static fn (array $p) => (int) ($p['score'] ?? 0) < 80);
+        if (!empty($lowScoreProjects)) {
+            $recommendations[] = 'Priorizar proyectos con score menor a 80.';
+        }
+
+        if (empty($recommendations)) {
+            $recommendations[] = 'Mantener la cadencia de seguimiento y monitoreo del portafolio.';
+        }
+
+        return ['recommendations' => array_slice($recommendations, 0, 5)];
+    }
+
+    /**
+     * Desglose del score para tooltip (factores y pesos).
+     */
+    public function scoreBreakdown(array $user): array
+    {
+        $config = (new ConfigService($this->db))->getConfig();
+        $rules = $config['operational_rules']['health_scoring'] ?? [];
+        $weights = $rules['weights'] ?? [];
+
+        $labels = [
+            'avance' => 'Avance de proyectos',
+            'documental' => 'Documentación',
+            'horas' => 'Horas y ejecución',
+            'seguimiento' => 'Seguimiento',
+            'riesgo' => 'Riesgos activos',
+            'calidad_requisitos' => 'Calidad de requisitos',
+        ];
+
+        $factors = [];
+        foreach ($weights as $key => $weight) {
+            $factors[] = [
+                'name' => $labels[$key] ?? $key,
+                'weight' => (float) $weight,
+                'weight_pct' => round((float) $weight * 100, 0),
+            ];
+        }
+
+        return [
+            'factors' => $factors,
+            'description' => 'El score del portafolio es el promedio de los scores de salud de cada proyecto. Cada proyecto considera: avance vs plan, documentación, horas, seguimiento, riesgos y calidad de requisitos. Los bloqueos activos aplican penalización al score.',
+        ];
+    }
 }

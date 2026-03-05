@@ -22,6 +22,10 @@ class DashboardController extends Controller
             'alerts' => $service->alerts($user),
             'stoppers' => $service->stoppersOverview($user),
             'executiveIntel' => $service->executiveIntelligence($user),
+            'automaticAnalysis' => $service->automaticPortfolioAnalysis($user),
+            'automaticAlerts' => $service->automaticAlerts($user),
+            'systemRecommendations' => $service->systemRecommendations($user),
+            'scoreBreakdown' => $service->scoreBreakdown($user),
         ]);
     }
 }

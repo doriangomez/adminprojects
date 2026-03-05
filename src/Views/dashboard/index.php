@@ -183,14 +183,42 @@
         .criticality-pill.baja { background: color-mix(in srgb, var(--success) 20%, var(--background)); color: var(--success); }
         .criticality-pill.media { background: color-mix(in srgb, var(--warning) 24%, var(--background)); color: #b45309; }
         .criticality-pill.alta { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
+        .automatic-analysis-card .analysis-conclusions { margin: 0; padding-left: 20px; }
+        .automatic-analysis-card .analysis-conclusions li { margin-bottom: 8px; font-weight: 600; color: var(--text-primary); }
+        .alerts-cards-grid { display: grid; grid-template-columns: repeat(4, minmax(200px, 1fr)); gap: 12px; }
+        .alert-card { display: flex; align-items: flex-start; gap: 12px; }
+        .alert-card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; flex-shrink: 0; }
+        .alert-card.alert-green { border-left: 4px solid var(--success); }
+        .alert-card.alert-green .alert-card-icon { background: color-mix(in srgb, var(--success) 25%, var(--background)); color: var(--success); }
+        .alert-card.alert-yellow { border-left: 4px solid var(--warning); }
+        .alert-card.alert-yellow .alert-card-icon { background: color-mix(in srgb, var(--warning) 25%, var(--background)); color: #b45309; }
+        .alert-card.alert-red { border-left: 4px solid var(--danger); }
+        .alert-card.alert-red .alert-card-icon { background: color-mix(in srgb, var(--danger) 25%, var(--background)); color: var(--danger); }
+        .alert-card-content { display: flex; flex-direction: column; gap: 4px; }
+        .alert-card-content .alert-desc { font-size: 12px; color: var(--text-secondary); }
+        .alert-card-content .alert-value { font-size: 20px; font-weight: 900; }
+        .alert-card-content .alert-detail { font-size: 12px; }
+        .recommendations-card .recommendations-list { margin: 0; padding-left: 20px; }
+        .recommendations-card .recommendations-list li { margin-bottom: 8px; font-weight: 600; }
+        .semaforo-indicator { font-size: 13px; font-weight: 800; display: inline-block; margin-top: 4px; }
+        .semaforo-green { color: var(--success); }
+        .semaforo-yellow { color: var(--warning); }
+        .semaforo-red { color: var(--danger); }
+        .score-tooltip-trigger { font-size: 11px; cursor: help; opacity: .85; margin-top: 4px; }
+        .score-tooltip-trigger:hover, .score-tooltip-trigger:focus { opacity: 1; text-decoration: underline; }
+        .score-breakdown-panel { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15); max-width: 320px; z-index: 100; }
+        .score-breakdown-panel h4 { margin: 0 0 8px; font-size: 14px; }
+        .score-breakdown-panel .score-factors-list { margin: 8px 0 0; padding-left: 18px; }
+        .score-wrap { position: relative; }
         @media (max-width: 1200px) {
             .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
             .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
             .hero-main { grid-template-columns: 1fr; }
             .ai-grid { grid-template-columns: 1fr; }
+            .alerts-cards-grid { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 760px) {
-            .kpi-grid, .split-three, .gov-grid, .hero-side { grid-template-columns: 1fr; }
+            .kpi-grid, .split-three, .gov-grid, .hero-side, .alerts-cards-grid { grid-template-columns: 1fr; }
         }
     </style>
 
@@ -221,6 +249,10 @@
     $executiveIntel = is_array($executiveIntel ?? null) ? $executiveIntel : [];
     $alertStrip = $executiveIntel['alerts'] ?? [];
     $movement = $executiveIntel['movement'] ?? [];
+    $automaticAnalysis = $automaticAnalysis ?? ['conclusions' => []];
+    $automaticAlerts = $automaticAlerts ?? ['alerts' => []];
+    $systemRecommendations = $systemRecommendations ?? ['recommendations' => []];
+    $scoreBreakdown = $scoreBreakdown ?? ['factors' => [], 'description' => ''];
     $financialImpact = $executiveIntel['financial_impact'] ?? [];
     $riskExposure = (int) ($executiveIntel['risk_exposure'] ?? 0);
     $intelligentAnalysis = $executiveIntel['intelligent_analysis'] ?? [];
@@ -241,6 +273,39 @@
         return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
     };
     ?>
+
+    <section>
+        <h2 class="section-title">ANÁLISIS AUTOMÁTICO DEL PORTAFOLIO</h2>
+        <div class="card automatic-analysis-card">
+            <p class="muted" style="margin:0 0 12px;">Insights generados automáticamente a partir de los datos actuales del sistema.</p>
+            <ul class="analysis-conclusions">
+                <?php foreach ($automaticAnalysis['conclusions'] as $conclusion): ?>
+                    <li><?= htmlspecialchars((string) $conclusion) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Alertas automáticas</h2>
+        <div class="alerts-cards-grid">
+            <?php foreach ($automaticAlerts['alerts'] as $alert): ?>
+                <?php
+                $status = (string) ($alert['status'] ?? 'green');
+                $icon = $status === 'green' ? '✓' : ($status === 'yellow' ? '⚠' : '✕');
+                ?>
+                <article class="card alert-card alert-<?= htmlspecialchars($status) ?>">
+                    <div class="alert-card-icon"><?= $icon ?></div>
+                    <div class="alert-card-content">
+                        <strong><?= htmlspecialchars((string) ($alert['title'] ?? '')) ?></strong>
+                        <span class="alert-desc"><?= htmlspecialchars((string) ($alert['description'] ?? '')) ?></span>
+                        <span class="alert-value"><?= htmlspecialchars((string) ($alert['value'] ?? '')) ?></span>
+                        <span class="alert-detail muted"><?= htmlspecialchars((string) ($alert['detail'] ?? '')) ?></span>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </section>
 
     <section>
         <div class="card ai-highlight">
@@ -281,6 +346,18 @@
     </section>
 
     <section>
+        <h2 class="section-title">RECOMENDACIONES DEL SISTEMA</h2>
+        <div class="card recommendations-card">
+            <p class="muted" style="margin:0 0 12px;">Recomendaciones automáticas basadas en los datos del portafolio.</p>
+            <ul class="recommendations-list">
+                <?php foreach ($systemRecommendations['recommendations'] as $rec): ?>
+                    <li><?= htmlspecialchars((string) $rec) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </section>
+
+    <section>
         <div class="card alerts-critical" style="padding:10px 14px;">
             <h3 style="margin-bottom:6px;">Centro de alertas</h3>
             <div class="gov-grid" style="grid-template-columns:repeat(4,minmax(170px,1fr));">
@@ -302,7 +379,22 @@
                         <div class="score-center">
                             <span class="score-main"><?= $score ?> / 100</span>
                             <span class="score-sub">Score general</span>
+                            <?php
+                            $semaforoStatus = $score > 85 ? 'green' : ($score >= 70 ? 'yellow' : 'red');
+                            $semaforoLabel = $score > 85 ? 'Óptimo' : ($score >= 70 ? 'Atención' : 'Crítico');
+                            ?>
+                            <span class="semaforo-indicator semaforo-<?= $semaforoStatus ?>" title="Score > 85: verde | 70-85: amarillo | &lt; 70: rojo">● <?= htmlspecialchars($semaforoLabel) ?></span>
+                            <span class="score-tooltip-trigger" data-tooltip-target="score-breakdown" tabindex="0" role="button">ℹ️ Cómo se calcula</span>
                             <?= $movementBadge($movement['score'] ?? []) ?>
+                        </div>
+                        <div id="score-breakdown" class="score-breakdown-panel" role="tooltip" hidden>
+                            <h4>Factores del score</h4>
+                            <p class="muted"><?= htmlspecialchars((string) ($scoreBreakdown['description'] ?? '')) ?></p>
+                            <ul class="score-factors-list">
+                                <?php foreach ($scoreBreakdown['factors'] ?? [] as $factor): ?>
+                                    <li><strong><?= htmlspecialchars((string) ($factor['name'] ?? '')) ?>:</strong> <?= (int) ($factor['weight_pct'] ?? 0) ?>% del score</li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
                     </div>
                     <div>
@@ -644,4 +736,22 @@
         },
         options: { plugins: { legend: { display: false } } }
     });
+
+    (function() {
+        const trigger = document.querySelector('.score-tooltip-trigger');
+        const panel = document.getElementById('score-breakdown');
+        if (trigger && panel) {
+            const toggle = () => {
+                const isHidden = panel.hidden;
+                panel.hidden = !isHidden;
+            };
+            trigger.addEventListener('click', (e) => { e.preventDefault(); toggle(); });
+            trigger.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+            document.addEventListener('click', (e) => {
+                if (!panel.hidden && !panel.contains(e.target) && !trigger.contains(e.target)) {
+                    panel.hidden = true;
+                }
+            });
+        }
+    })();
 </script>
