@@ -38,6 +38,7 @@ class App
         $migrator->ensureRequirementsModule();
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
+        $migrator->ensureDecisionCenterPermissions();
         $this->auth = new Auth($this->db);
     }
 
@@ -543,6 +544,16 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 return;
             }
 
+            $controller->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/pmo/decision-center')) {
+            $controller = new DecisionCenterController($this->db, $this->auth);
+            if ($path === '/pmo/decision-center/simulate' && $method === 'POST') {
+                $controller->simulate();
+                return;
+            }
             $controller->index();
             return;
         }

@@ -2499,4 +2499,67 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureDecisionCenterPermissions(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {
+            return;
+        }
+
+        try {
+            $permissions = [
+                'pmo_decision_center_view'   => 'Ver Centro de Decisiones PMO',
+                'pmo_decision_center_export' => 'Exportar datos del Centro de Decisiones PMO',
+                'pmo_decision_center_ai'     => 'Análisis IA en Centro de Decisiones PMO',
+            ];
+
+            foreach ($permissions as $code => $name) {
+                $this->db->execute(
+                    'INSERT INTO permissions (code, name)
+                     SELECT :code_value, :name
+                     WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                    [
+                        ':code_value' => $code,
+                        ':code_check' => $code,
+                        ':name'       => $name,
+                    ]
+                );
+            }
+
+            $grants = [
+                'Administrador' => array_keys($permissions),
+                'PMO'           => array_keys($permissions),
+            ];
+
+            foreach ($grants as $roleName => $codes) {
+                $role = $this->db->fetchOne(
+                    'SELECT id FROM roles WHERE nombre = :name LIMIT 1',
+                    [':name' => $roleName]
+                );
+                if (!$role) {
+                    continue;
+                }
+
+                foreach ($codes as $code) {
+                    $this->db->execute(
+                        'INSERT INTO role_permissions (role_id, permission_id)
+                         SELECT :role_id_value, p.id
+                         FROM permissions p
+                         WHERE p.code = :code_value
+                         AND NOT EXISTS (
+                            SELECT 1 FROM role_permissions rp
+                            WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                         )',
+                        [
+                            ':role_id_value' => (int) $role['id'],
+                            ':role_id_check' => (int) $role['id'],
+                            ':code_value'    => $code,
+                        ]
+                    );
+                }
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos del Centro de Decisiones PMO: ' . $e->getMessage());
+        }
+    }
+
 }

@@ -13,6 +13,7 @@ $normalizedPath = str_starts_with($requestPath, $basePath)
     ? (substr($requestPath, strlen($basePath)) ?: '/')
     : $requestPath;
 $isTalentCapacityRoute = str_starts_with($normalizedPath, '/talent-capacity');
+$isDecisionCenterRoute = str_starts_with($normalizedPath, '/pmo/decision-center');
 $isCapacitySimulationRoute = str_starts_with($normalizedPath, '/talent-capacity/simulation')
     || ($isTalentCapacityRoute && (($queryParams['tab'] ?? '') === 'simulation'));
 $isCapacityOverviewRoute = $isTalentCapacityRoute && !$isCapacitySimulationRoute;
@@ -716,6 +717,12 @@ error_log(sprintf(
             </div>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
+                <div class="nav-divider" aria-hidden="true"></div>
+                <span class="nav-section-label">PMO</span>
+                <a href="<?= $basePath ?>/pmo/decision-center" class="nav-link <?= $isDecisionCenterRoute ? 'active' : '' ?>" data-tone="indigo">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg></span>
+                    <span class="nav-label">Centro de decisiones</span>
+                </a>
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>
                 <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>" data-tone="orange">
