@@ -306,7 +306,6 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-table {
         width: 100%;
-        table-layout: fixed;
         border-collapse: collapse;
         background: var(--surface);
         border-radius: 14px;
@@ -316,15 +315,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-table th,
     .project-table td {
-        padding: 9px 10px;
+        padding: 10px 14px;
         border-bottom: 1px solid var(--border);
         text-align: left;
-        vertical-align: middle;
-        font-size: 14px;
-        max-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        vertical-align: top;
+        font-size: 13px;
     }
 
     .project-table th {
@@ -332,66 +327,73 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--text-secondary);
-        background: color-mix(in srgb, var(--text-secondary) 14%, var(--background));
+        background: color-mix(in srgb, var(--text-secondary) 8%, var(--background));
         font-weight: 700;
-    }
-
-    .project-row { cursor: pointer; }
-    .project-row:hover { background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
-
-    .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
-    .project-client { color: var(--text-secondary); font-size: 13px; margin: 2px 0 0; }
-
-    .project-context-preview {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        max-width: 100%;
-        margin-top: 6px;
-        padding: 4px 0;
-        color: color-mix(in srgb, var(--text-secondary) 86%, var(--background));
-        font-size: 13px;
-        line-height: 1.35;
+        padding: 10px 14px;
+        vertical-align: middle;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 
-    .project-context-preview .context-icon {
-        font-size: 12px;
-        line-height: 1;
-        flex-shrink: 0;
-    }
+    .project-row { cursor: pointer; transition: background 0.12s ease; }
+    .project-row:hover { background: color-mix(in srgb, var(--primary) 4%, var(--background)); }
 
-    .project-context-preview .context-label {
-        font-weight: 600;
-        flex-shrink: 0;
-    }
+    .project-row td:first-child { padding: 12px 14px; }
 
-    .project-context-preview .context-text {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    .project-title { font-weight: 700; color: var(--text-primary); margin: 0; font-size: 14px; line-height: 1.3; }
+    .project-client { color: var(--text-secondary); font-size: 12px; margin: 2px 0 0; font-weight: 500; }
 
-    .context-history-button {
-        display: inline-flex;
+    .project-context-line {
+        display: flex;
         align-items: center;
-        gap: 6px;
-        margin-top: 4px;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: var(--text-secondary);
+        gap: 5px;
+        margin-top: 6px;
         font-size: 12px;
+        line-height: 1.35;
+        color: color-mix(in srgb, var(--text-secondary) 90%, var(--background));
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .project-context-line .ctx-icon {
+        flex-shrink: 0;
+        font-size: 11px;
+        line-height: 1;
+    }
+
+    .project-context-line .ctx-label {
         font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    .project-context-line .ctx-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .project-context-line a {
+        color: inherit;
         text-decoration: none;
     }
 
-    .context-history-button .history-icon { font-size: 12px; }
-
-    .context-history-button:hover {
-        color: var(--text-primary);
+    .project-context-line a:hover .ctx-text {
         text-decoration: underline;
+    }
+
+    .project-meta-tags {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 5px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    .project-meta-tags .meta-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
     }
 
 
@@ -461,24 +463,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .badge.billable-on { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
     .badge.billable-off { background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--background)); }
 
-    .progress-track { width: 130px; height: 10px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
-    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 55%, var(--background)), color-mix(in srgb, var(--success) 70%, var(--background))); }
+    .progress-track { width: 80px; height: 6px; background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); border-radius: 999px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 60%, var(--background)), color-mix(in srgb, var(--success) 75%, var(--background))); }
 
-    .signal-list, .note-cell, .stopper-cell { display: flex; flex-direction: column; gap: 4px; }
-    .signal-pill { font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--warning) 80%, var(--text-primary)); }
-    .tiny-meta { font-size: 11px; color: var(--text-secondary); }
-    .interactive-cell { color: inherit; text-decoration: none; border: 1px solid transparent; border-radius: 8px; padding: 2px 4px; display: inline-block; max-width: 100%; }
-    .indicator-cell { display:inline-flex; align-items:center; gap:6px; font-weight:700; }
-    .interactive-cell:hover { border-color: var(--border); background: color-mix(in srgb, var(--text-secondary) 9%, var(--background)); }
-    .severity-dot { font-weight: 700; }
-    .severity-critico { color: var(--danger); }
-    .severity-alto { color: #f59e0b; }
-    .severity-medio { color: #facc15; }
-    .indicator-blue { color: #3b82f6; font-size: 10px; }
-    .badge.blocker-critical { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
-    .badge.blocker-high { background: color-mix(in srgb, #f59e0b 22%, var(--background)); color: #b45309; border-color: color-mix(in srgb, #f59e0b 36%, var(--background)); }
-
-    .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .progress-cell { display: flex; align-items: center; gap: 8px; }
+    .progress-cell .progress-pct { font-size: 12px; font-weight: 700; color: var(--text-primary); min-width: 32px; }
 
     .icon-button {
         width: 30px;
@@ -494,6 +483,57 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .icon-button:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); }
+
+    .row-actions { position: relative; }
+    .row-menu-details[open] .row-menu-trigger { background: color-mix(in srgb, var(--primary) 10%, var(--background)); color: var(--primary); }
+    .row-menu-trigger {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        color: var(--text-secondary);
+        transition: background 0.12s ease;
+    }
+    .row-menu-trigger:hover { background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); color: var(--text-primary); }
+    .row-menu-list {
+        position: absolute;
+        right: 0;
+        top: 36px;
+        min-width: 170px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 12px 28px color-mix(in srgb, var(--text-primary) 14%, transparent);
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 20;
+    }
+    .row-menu-list a,
+    .row-menu-list button {
+        text-decoration: none;
+        color: var(--text-primary);
+        padding: 7px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        width: 100%;
+        text-align: left;
+    }
+    .row-menu-list a:hover,
+    .row-menu-list button:hover { background: color-mix(in srgb, var(--primary) 10%, var(--background)); color: var(--primary); }
 
     .project-grid {
         display: grid;
@@ -606,8 +646,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
-        .project-table { font-size: 13px; }
-        .progress-track { width: 90px; }
+        .project-table { font-size: 12px; }
+        .progress-track { width: 60px; }
+        .project-context-line { display: none; }
     }
 </style>
 
@@ -772,56 +813,40 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     <?php if ($viewMode === 'table'): ?>
         <table class="project-table" aria-label="Listado de proyectos">
             <colgroup>
-                <col style="width: 15%;">
-                <col style="width: 11%;">
-                <col style="width: 10%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
-                <col style="width: 9%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
+                <col style="width: 38%;">
                 <col style="width: 12%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
+                <col style="width: 12%;">
+                <col style="width: 10%;">
+                <col style="width: 13%;">
+                <col style="width: 10%;">
                 <col style="width: 5%;">
-                <col style="width: 9%;">
-                <col style="width: 8%;">
             </colgroup>
             <thead>
                 <tr>
                     <th>Proyecto</th>
-                    <th>Cliente</th>
                     <th>PM</th>
-                    <th>Metodología</th>
-                    <th>Stage-gate</th>
                     <th>Estado</th>
                     <th>Salud</th>
                     <th>Avance</th>
-                    <th>Notas clave</th>
-                    <th>Bloqueos</th>
-                    <th>Horas R/P</th>
-                    <th>Señales</th>
                     <th>Facturación</th>
-                    <th>Acciones</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($projectsList as $project): ?>
                     <?php
-                        $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
+                        $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Sin estado';
                         $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
                         $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
                         $progress = (float) ($project['progress'] ?? 0);
-                        $pmName = $project['pm_name'] ?? 'Sin PM asignado';
-                        $methodology = $project['methodology'] ?? 'No definido';
+                        $pmName = $project['pm_name'] ?? 'Sin PM';
                         $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
-                        $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
                         $riskCount = count($riskCodes);
-                        $signals = is_array($project['signals'] ?? null) ? $project['signals'] : [];
                         $noteData = is_array($project['latest_note'] ?? null) ? $project['latest_note'] : [];
                         $stopperData = is_array($project['top_stopper'] ?? null) ? $project['top_stopper'] : [];
-                        $hasSignal = !empty($signals);
                         $rowLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?return=' . urlencode($returnUrl);
+                        $blockersCount = (int) ($stopperData['total_count'] ?? 0);
+
                         $previewType = '';
                         $previewLabel = '';
                         $previewIcon = '';
@@ -847,119 +872,76 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         $previewHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
                             . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
                             . '&return=' . urlencode($returnUrl);
-                        $historyHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
-                            . '?view=seguimiento&return=' . urlencode($returnUrl);
-                        $notePreview = $truncateText((string) ($noteData['text'] ?? ''), 96);
-                        $hasNotes = $notePreview !== '';
-                        $blockersCount = (int) ($stopperData['total_count'] ?? 0);
-                        $blockerSeverity = $blockersCount > 0
-                            ? $stopperSeverityLabel((string) ($stopperData['impact_level'] ?? 'bajo'))
-                            : '—';
-                        $latestBlockerText = $truncateText((string) ($stopperData['text'] ?? ''), 100);
-                        $realHours = (float) ($project['actual_hours'] ?? 0);
-                        $plannedHoursValue = (float) ($project['planned_hours'] ?? 0);
-                        $hoursRatio = ($realHours > 0 || $plannedHoursValue > 0)
-                            ? number_format($realHours, 0, ',', '.') . ' / ' . number_format($plannedHoursValue, 0, ',', '.')
-                            : '—';
+                        $compactHealth = (int) (($project['health_score']['total_score'] ?? 0));
                     ?>
                     <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                         <td>
                             <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                            <p class="project-client">Cliente: <?= htmlspecialchars($project['client'] ?? 'No registrado') ?></p>
+
                             <?php if ($previewText !== ''): ?>
-                                <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
-                                    <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
-                                    <span class="context-label"><?= $previewLabel ?>:</span>
-                                    <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
-                                </a>
+                                <div class="project-context-line">
+                                    <a data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
+                                        <span class="ctx-icon" aria-hidden="true"><?= $previewIcon ?></span>
+                                        <span class="ctx-label"><?= $previewLabel ?>:</span>
+                                        <span class="ctx-text"><?= htmlspecialchars($previewText) ?></span>
+                                    </a>
+                                </div>
                             <?php else: ?>
-                                <span class="project-context-preview" title="Sin notas o bloqueos registrados">
-                                    <span class="context-icon" aria-hidden="true">📝</span>
-                                    <span class="context-label">Nota:</span>
-                                    <span class="context-text">Sin notas o bloqueos registrados.</span>
-                                </span>
+                                <div class="project-context-line">
+                                    <span class="ctx-icon" aria-hidden="true">📝</span>
+                                    <span class="ctx-text" style="color: var(--text-secondary); opacity: 0.7;">Sin notas recientes</span>
+                                </div>
                             <?php endif; ?>
-                            <a class="context-history-button" data-no-row href="<?= htmlspecialchars($historyHref) ?>" title="Ver historial de notas" data-open-notes-panel data-project-name="<?= htmlspecialchars($project['name']) ?>" data-project-notes-url="<?= htmlspecialchars($historyHref) ?>">
-                                <span class="history-icon" aria-hidden="true">🗒️</span>
-                                Ver notas
-                            </a>
-                            <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos activos: <?= $riskCount ?></div>
+
+                            <div class="project-meta-tags">
+                                <?php if ($riskCount > 0): ?>
+                                    <span class="meta-tag" style="color: var(--warning);">⚠ Riesgos: <?= $riskCount ?></span>
+                                <?php endif; ?>
+                                <?php if ($blockersCount > 0): ?>
+                                    <span class="meta-tag" style="color: var(--danger);">⛔ Bloqueos: <?= $blockersCount ?></span>
+                                <?php endif; ?>
+                                <?php if ($riskCount === 0 && $blockersCount === 0): ?>
+                                    <span class="meta-tag">Sin riesgos ni bloqueos</span>
+                                <?php endif; ?>
+                            </div>
                         </td>
-                        <td>
-                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                        <td style="vertical-align: middle;">
+                            <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);"><?= htmlspecialchars($pmName) ?></span>
                         </td>
-                        <td><?= htmlspecialchars($pmName) ?></td>
-                        <td>
-                            <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
-                        </td>
-                        <td>
-                            <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
-                        </td>
-                        <td>
+                        <td style="vertical-align: middle;">
                             <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                         </td>
-                        <td>
-                            <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
+                        <td style="vertical-align: middle;">
                             <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
-                            <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
                         </td>
-                        <td>
-                            <div style="display:flex; flex-direction:column; gap:6px;">
+                        <td style="vertical-align: middle;">
+                            <div class="progress-cell">
                                 <div class="progress-track" aria-hidden="true">
                                     <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                 </div>
-                                <span style="font-size:12px; color: var(--text-secondary);"><?= $progress ?>%</span>
+                                <span class="progress-pct"><?= $progress ?>%</span>
                             </div>
                         </td>
-                        <td>
-                            <?php if ($hasNotes): ?>
-                                <div class="project-context-preview" title="<?= htmlspecialchars((string) ($noteData['text'] ?? '')) ?>">
-                                    <span class="context-text"><?= htmlspecialchars($notePreview) ?></span>
-                                </div>
-                                <a class="context-history-button" data-no-row href="<?= htmlspecialchars($historyHref) ?>" title="Ver historial de notas" data-open-notes-panel data-project-name="<?= htmlspecialchars($project['name']) ?>" data-project-notes-url="<?= htmlspecialchars($historyHref) ?>">
-                                    <span class="history-icon" aria-hidden="true">🗒️</span>
-                                    Ver completo
-                                </a>
-                            <?php else: ?>
-                                <span class="muted">Sin datos</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($blockersCount > 0): ?>
-                                <span title="<?= htmlspecialchars($latestBlockerText !== '' ? $latestBlockerText : 'Sin detalle del bloqueo') ?>">
-                                    <?= $blockersCount ?> · <?= htmlspecialchars($blockerSeverity) ?>
-                                </span>
-                            <?php else: ?>
-                                <span class="muted">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= htmlspecialchars($hoursRatio) ?></td>
-                        <td>
-                            <span class="indicator-cell" title="<?= $hasSignal ? htmlspecialchars(implode(' · ', $signals)) : 'Sin alertas' ?>"><?= $hasSignal ? '⚠' : '—' ?></span>
-                        </td>
-                        <td>
+                        <td style="vertical-align: middle;">
                             <?php $isBillable = (int) ($project['is_billable'] ?? 0) === 1; ?>
-                            <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? '🟢 Facturable' : '⚪ No facturable' ?></span>
+                            <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>" style="font-size: 11px; padding: 4px 8px;"><?= $isBillable ? 'Facturable' : 'No facturable' ?></span>
                         </td>
-                        <td>
-                            <div class="table-actions">
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>" title="Ver detalle" data-no-row>
-                                    👁️
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>" title="Editar" data-no-row>
-                                    ✏️
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" title="Documentos" data-no-row>
-                                    📂
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>" title="Talento" data-no-row>
-                                    👥
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>" title="Costos" data-no-row>
-                                    💵
-                                </a>
-                                <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET" style="margin:0" data-no-row>
-                                    <button class="icon-button" type="submit" title="Cerrar" data-no-row>🛑</button>
-                                </form>
+                        <td style="vertical-align: middle;">
+                            <div class="row-actions" data-no-row>
+                                <details class="row-menu-details" data-no-row>
+                                    <summary class="row-menu-trigger" aria-label="Acciones" data-no-row>⋯</summary>
+                                    <div class="row-menu-list" data-no-row>
+                                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>" data-no-row>👁️ Ver detalle</a>
+                                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>" data-no-row>✏️ Editar</a>
+                                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" data-no-row>📂 Documentos</a>
+                                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>" data-no-row>👥 Talento</a>
+                                        <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>" data-no-row>💵 Costos</a>
+                                        <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET" style="margin:0" data-no-row>
+                                            <button type="submit" data-no-row>🛑 Cerrar proyecto</button>
+                                        </form>
+                                    </div>
+                                </details>
                             </div>
                         </td>
                     </tr>
@@ -1117,6 +1099,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             const href = row.getAttribute('data-href');
             if (href) {
                 window.location.href = href;
+            }
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.row-menu-details[open]').forEach((detail) => {
+            if (!detail.contains(event.target)) {
+                detail.removeAttribute('open');
             }
         });
     });
