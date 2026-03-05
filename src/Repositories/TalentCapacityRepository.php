@@ -219,7 +219,7 @@ class TalentCapacityRepository
             $capacity = (float) ($latest['capacity'] ?? 0);
 
             $teamUtilization += $utilization;
-            if ($utilization >= 90 && $utilization <= 100) {
+            if ($utilization > 90) {
                 $riskTalents++;
             }
             if ($hours > $capacity) {
