@@ -194,11 +194,13 @@ class TalentCapacityRepository
         }
         unset($talent);
 
+        $summary = $this->buildSummary($talents);
+
         return [
             'range' => $range,
             'talents' => $talents,
             'heatmap' => $heatmap,
-            'summary' => $this->buildSummary($talents),
+            'summary' => $summary,
             'filter_options' => $this->filterOptions($visibilitySql, $visibilityParams),
         ];
     }
@@ -210,6 +212,8 @@ class TalentCapacityRepository
         $overassignedHours = 0.0;
         $riskTalents = 0;
         $idleCapacity = 0.0;
+        $criticalTalents = [];
+        $availableTalents = [];
 
         foreach ($talents as $talent) {
             $monthly = $talent['monthly'];
@@ -217,10 +221,27 @@ class TalentCapacityRepository
             $utilization = (float) ($latest['utilization'] ?? 0);
             $hours = (float) ($latest['hours'] ?? 0);
             $capacity = (float) ($latest['capacity'] ?? 0);
+            $available = max(0, $capacity - $hours);
 
             $teamUtilization += $utilization;
-            if ($utilization >= 90 && $utilization <= 100) {
+            if ($utilization > 90) {
                 $riskTalents++;
+                $criticalTalents[] = [
+                    'name' => $talent['name'] ?? '',
+                    'role' => $talent['role'] ?? '',
+                    'utilization' => $utilization,
+                    'hours' => $hours,
+                    'capacity' => $capacity,
+                ];
+            }
+            if ($utilization < 70 && $available > 0) {
+                $availableTalents[] = [
+                    'name' => $talent['name'] ?? '',
+                    'role' => $talent['role'] ?? '',
+                    'utilization' => $utilization,
+                    'available_hours' => round($available, 1),
+                    'capacity' => $capacity,
+                ];
             }
             if ($hours > $capacity) {
                 $overassignedHours += ($hours - $capacity);
@@ -230,11 +251,16 @@ class TalentCapacityRepository
             }
         }
 
+        usort($criticalTalents, static fn (array $a, array $b): int => (int) (($b['utilization'] ?? 0) <=> ($a['utilization'] ?? 0)));
+        usort($availableTalents, static fn (array $a, array $b): int => (int) (($b['available_hours'] ?? 0) <=> ($a['available_hours'] ?? 0)));
+
         return [
             'avg_team_utilization' => $teamCount > 0 ? round($teamUtilization / $teamCount, 1) : 0,
             'overassigned_hours' => round($overassignedHours, 1),
             'risk_talents' => $riskTalents,
             'idle_capacity' => round($idleCapacity, 1),
+            'critical_talents' => $criticalTalents,
+            'available_talents' => $availableTalents,
         ];
     }
 
@@ -348,6 +374,8 @@ class TalentCapacityRepository
             'overassigned_hours' => 0,
             'risk_talents' => 0,
             'idle_capacity' => 0,
+            'critical_talents' => [],
+            'available_talents' => [],
         ];
     }
 }
