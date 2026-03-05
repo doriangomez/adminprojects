@@ -8,6 +8,8 @@ $timesheetApprovals = is_array($timesheetApprovals ?? null) ? $timesheetApproval
 $timesheetHistory = is_array($timesheetHistory ?? null) ? $timesheetHistory : [];
 $canManageTimesheetWorkflow = (bool) ($canManageTimesheetWorkflow ?? false);
 $canDeleteTimesheetWorkflowRecords = (bool) ($canDeleteTimesheetWorkflowRecords ?? false);
+$canApproveTimesheets = (bool) ($canApproveTimesheets ?? false);
+$myApprovedWeeks = is_array($myApprovedWeeks ?? null) ? $myApprovedWeeks : [];
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
 
 $statusMeta = [
@@ -271,6 +273,45 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
             </div>
         </section>
 
+        <?php if (!empty($myApprovedWeeks)): ?>
+            <section class="approvals-section" data-queue="my-approved">
+                <header>
+                    <h3>Mis horas aprobadas</h3>
+                    <p class="section-muted">Resumen de tus semanas de horas aprobadas por tu supervisor.</p>
+                </header>
+                <div class="timesheet-cards">
+                    <?php foreach ($myApprovedWeeks as $week): ?>
+                        <article class="inbox-card timesheet-card" data-queue-type="my-approved">
+                            <header class="inbox-card__header">
+                                <div class="inbox-card__heading">
+                                    <span class="inbox-card__type">Semana aprobada</span>
+                                    <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?> a <?= htmlspecialchars((string) ($week['week_end'] ?? '')) ?></strong>
+                                    <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h &middot; <?= (int) ($week['activity_count'] ?? 0) ?> actividades</div>
+                                </div>
+                                <div class="badge status-success">Aprobada</div>
+                            </header>
+                            <div class="inbox-card__body">
+                                <div class="inbox-card__grid">
+                                    <div>
+                                        <span class="meta-label">Aprobado por</span>
+                                        <div><?= htmlspecialchars((string) ($week['approver_name'] ?? 'Sistema')) ?></div>
+                                    </div>
+                                    <div>
+                                        <span class="meta-label">Fecha de aprobación</span>
+                                        <div><?= htmlspecialchars((string) ($week['approved_at'] ?? '')) ?></div>
+                                    </div>
+                                    <div>
+                                        <span class="meta-label">Horas aprobadas</span>
+                                        <div><strong><?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
+
         <?php if (!empty($dispatchQueue) && ($roleFlags['can_manage'] ?? false)): ?>
             <section class="approvals-section" data-queue="dispatch-validation">
                 <header>
@@ -312,6 +353,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .approvals-section[data-queue="validation"] header h3::before { content:"✅"; }
     .approvals-section[data-queue="approval"] header h3::before { content:"🟢"; }
     .approvals-section[data-queue="timesheets"] header h3::before { content:"🕒"; }
+    .approvals-section[data-queue="my-approved"] header h3::before { content:"✅"; }
     .approvals-section[data-queue="dispatch-validation"] header h3::before { content:"📨"; }
     .approvals-section[data-queue="dispatch-approval"] header h3::before { content:"📬"; }
     .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
@@ -323,6 +365,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .inbox-card[data-queue-type="approval"]::before { border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
     .inbox-card[data-queue-type="timesheets"]::before { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
     .inbox-card[data-queue-type="dispatch-validation"]::before { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+    .inbox-card[data-queue-type="my-approved"]::before { border-color: color-mix(in srgb, var(--success) 40%, transparent); }
     .inbox-card[data-queue-type="dispatch-approval"]::before { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
     .inbox-card__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .inbox-card__heading { display:flex; flex-direction:column; gap:4px; }
@@ -333,6 +376,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .inbox-card[data-queue-type="approval"] .inbox-card__type::before { content:"🟢"; }
     .inbox-card[data-queue-type="timesheets"] .inbox-card__type::before { content:"🕒"; }
     .inbox-card[data-queue-type="dispatch-validation"] .inbox-card__type::before { content:"📨"; }
+    .inbox-card[data-queue-type="my-approved"] .inbox-card__type::before { content:"✅"; }
     .inbox-card[data-queue-type="dispatch-approval"] .inbox-card__type::before { content:"📬"; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
     .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); }

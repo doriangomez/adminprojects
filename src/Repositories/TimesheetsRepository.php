@@ -966,6 +966,26 @@ class TimesheetsRepository
         ];
     }
 
+    public function ownApprovedWeeks(int $userId, int $limit = 20): array
+    {
+        return $this->db->fetchAll(
+            'SELECT DATE_SUB(t.date, INTERVAL WEEKDAY(t.date) DAY) AS week_start,
+                    DATE_ADD(DATE_SUB(t.date, INTERVAL WEEKDAY(t.date) DAY), INTERVAL 6 DAY) AS week_end,
+                    COALESCE(SUM(t.hours), 0) AS total_hours,
+                    COUNT(*) AS activity_count,
+                    MAX(t.approved_at) AS approved_at,
+                    u.name AS approver_name
+             FROM timesheets t
+             LEFT JOIN users u ON u.id = t.approved_by
+             WHERE t.user_id = :user
+               AND t.status = :status
+             GROUP BY week_start, week_end, u.name
+             ORDER BY week_start DESC
+             LIMIT ' . (int) $limit,
+            [':user' => $userId, ':status' => 'approved']
+        );
+    }
+
     public function monthlySummaryForUser(int $userId, \DateTimeImmutable $weekStart): array
     {
         $monthStart = $weekStart->modify('first day of this month')->setTime(0, 0);

@@ -36,11 +36,12 @@ class ApprovalsController extends Controller
             ];
         }
 
-        $timesheetApprovals = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->pendingApprovalsByWeek($user)
-            : [];
-        $timesheetHistory = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->weekApprovalHistoryByApprover($user)
+        $tsRepo = new TimesheetsRepository($this->db);
+        $canApproveTs = $this->auth->canApproveTimesheets();
+        $timesheetApprovals = $canApproveTs ? $tsRepo->pendingApprovalsByWeek($user) : [];
+        $timesheetHistory = $canApproveTs ? $tsRepo->weekApprovalHistoryByApprover($user) : [];
+        $myApprovedWeeks = $this->auth->canAccessTimesheets()
+            ? $tsRepo->ownApprovedWeeks($userId, 20)
             : [];
 
         $this->render('approvals/index', [
@@ -54,6 +55,8 @@ class ApprovalsController extends Controller
             'timesheetHistory' => $timesheetHistory,
             'canManageTimesheetWorkflow' => $this->auth->canManageTimesheetWorkflow(),
             'canDeleteTimesheetWorkflowRecords' => $this->auth->canDeleteTimesheetWorkflowRecords(),
+            'canApproveTimesheets' => $canApproveTs,
+            'myApprovedWeeks' => $myApprovedWeeks,
         ]);
     }
 }
