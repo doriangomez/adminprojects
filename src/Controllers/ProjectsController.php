@@ -313,11 +313,23 @@ class ProjectsController extends Controller
         $assignments = $repo->assignmentsForProject($id, $user);
         $talents = (new TalentsRepository($this->db))->assignmentOptions();
 
+        $talentCapacityMap = [];
+        foreach ($assignments as $assignment) {
+            $talentId = (int) ($assignment['talent_id'] ?? 0);
+            if ($talentId > 0 && !isset($talentCapacityMap[$talentId])) {
+                $talentCapacityMap[$talentId] = [
+                    'capacidad_horaria' => (float) ($assignment['capacidad_horaria'] ?? 40),
+                    'assignments' => $repo->allActiveAssignmentsForTalent($talentId),
+                ];
+            }
+        }
+
         $this->render('projects/talent', [
             'title' => 'Gestionar talento',
             'project' => $project,
             'assignments' => $assignments,
             'talents' => $talents,
+            'talentCapacityMap' => $talentCapacityMap,
         ]);
     }
 
@@ -748,6 +760,123 @@ class ProjectsController extends Controller
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
+        }
+    }
+
+    public function updateTalentAssignmentDedication(int $projectId, int $assignmentId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!$project) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Proyecto no encontrado']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $allocationPercent = isset($input['allocation_percent']) ? (float) $input['allocation_percent'] : null;
+        $weeklyHours = isset($input['weekly_hours']) ? (float) $input['weekly_hours'] : null;
+
+        if ($allocationPercent === null && $weeklyHours === null) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Debe indicar porcentaje o horas semanales.']);
+            return;
+        }
+
+        try {
+            $assignment = $repo->findAssignmentById($projectId, $assignmentId);
+            if (!$assignment) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Asignación no encontrada.']);
+                return;
+            }
+
+            $talentId = (int) ($assignment['talent_id'] ?? 0);
+            $talent = [];
+            if ($this->db->tableExists('talents') && $talentId > 0) {
+                $talent = $this->db->fetchOne(
+                    'SELECT capacidad_horaria, weekly_capacity FROM talents WHERE id = :id',
+                    [':id' => $talentId]
+                ) ?: [];
+            }
+            $capacidad = (float) ($talent['capacidad_horaria'] ?? 0);
+            if ($capacidad <= 0) {
+                $capacidad = (float) ($talent['weekly_capacity'] ?? 0);
+            }
+            if ($capacidad <= 0) {
+                $capacidad = 40;
+            }
+
+            if ($allocationPercent !== null && $weeklyHours === null) {
+                $weeklyHours = $capacidad * ($allocationPercent / 100);
+            } elseif ($weeklyHours !== null && $allocationPercent === null) {
+                $allocationPercent = $capacidad > 0 ? ($weeklyHours / $capacidad) * 100 : 0;
+            }
+
+            $allocationPercent = round(max(0, min(100, $allocationPercent)), 2);
+            $weeklyHours = round(max(0, $weeklyHours), 2);
+
+            $timesheetHoursWeek = $repo->currentWeekTimesheetHoursForAssignment($assignmentId);
+            $forceUpdate = !empty($input['force']);
+
+            if ($timesheetHoursWeek > $weeklyHours && !$forceUpdate) {
+                echo json_encode([
+                    'success' => false,
+                    'warning' => true,
+                    'error' => 'Las horas registradas en timesheet (' . number_format($timesheetHoursWeek, 1) . 'h) superan la nueva dedicación (' . number_format($weeklyHours, 1) . 'h).',
+                    'timesheet_hours' => $timesheetHoursWeek,
+                    'new_weekly_hours' => $weeklyHours,
+                ]);
+                return;
+            }
+
+            $repo->updateAssignmentDedication($projectId, $assignmentId, $allocationPercent, $weeklyHours);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'project_talent_assignment',
+                $assignmentId,
+                'dedication_updated',
+                [
+                    'project_id' => $projectId,
+                    'previous_percent' => (float) ($assignment['allocation_percent'] ?? 0),
+                    'previous_hours' => (float) ($assignment['weekly_hours'] ?? 0),
+                    'new_percent' => $allocationPercent,
+                    'new_hours' => $weeklyHours,
+                ]
+            );
+
+            $allAssignments = $repo->allActiveAssignmentsForTalent($talentId);
+            $totalPercent = 0;
+            foreach ($allAssignments as $a) {
+                $totalPercent += (float) ($a['allocation_percent'] ?? 0);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'allocation_percent' => $allocationPercent,
+                'weekly_hours' => $weeklyHours,
+                'capacidad_horaria' => $capacidad,
+                'total_percent' => round($totalPercent, 2),
+                'available_percent' => round(max(0, 100 - $totalPercent), 2),
+                'assignments' => $allAssignments,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error al actualizar dedicación: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Error interno al actualizar la dedicación.']);
         }
     }
 

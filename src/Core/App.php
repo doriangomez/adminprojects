@@ -335,6 +335,10 @@ class App
                 $controller->updateTalentAssignmentStatus((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/talent/assignments/(\\d+)/dedication$#', $path, $matches) && $method === 'POST') {
+                $controller->updateTalentAssignmentDedication((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/talent/assignments/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
                 $controller->deleteTalentAssignment((int) $matches[1], (int) $matches[2]);
                 return;
