@@ -156,7 +156,9 @@ $maxAvailable = 0.0;
 foreach ($availableTalents as $item) {
     $maxAvailable = max($maxAvailable, (float) ($item['available'] ?? 0));
 }
+$activeTab = 'carga';
 ?>
+<?php include __DIR__ . '/_tabs.php'; ?>
 
 <section class="capacity-shell">
     <header class="capacity-header">
