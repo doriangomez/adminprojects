@@ -357,13 +357,18 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-context-preview {
         display: flex;
-        align-items: center;
-        gap: 6px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
         margin-top: 7px;
         padding: 0;
         color: color-mix(in srgb, var(--text-secondary) 86%, var(--background));
         font-size: 12px;
         line-height: 1.35;
+    }
+
+    .project-context-preview + .project-context-preview {
+        margin-top: 4px;
     }
 
     .project-context-preview .context-icon {
@@ -378,9 +383,39 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .project-context-preview .context-text {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .project-context-preview .context-text-wrapper {
+        width: 100%;
+        max-height: 4.05em;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        transition: max-height 0.25s ease;
+    }
+
+    .project-context-preview .context-text-wrapper.is-expanded {
+        max-height: none;
+    }
+
+    .project-context-preview .context-expand-btn {
+        margin-top: 4px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--primary);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-decoration: underline;
+    }
+
+    .project-context-preview .context-expand-btn:hover {
+        color: color-mix(in srgb, var(--primary) 80%, var(--text-primary));
+    }
+
+    .project-context-preview .context-expand-btn.is-hidden {
+        display: none;
     }
 
     .project-context-stats {
@@ -822,39 +857,6 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         $rowLink = $basePath . '/projects/' . $projectId . '?return=' . urlencode($returnUrl);
                         $notePreviewText = trim((string) ($noteData['text'] ?? ''));
                         $stopperPreviewText = trim((string) ($stopperData['text'] ?? ''));
-                        $noteTimestamp = strtotime((string) ($noteData['created_at'] ?? '')) ?: null;
-                        $stopperTimestamp = strtotime((string) ($stopperData['created_at'] ?? '')) ?: null;
-                        $previewType = 'note';
-                        $previewLabel = 'Nota';
-                        $previewIcon = '📝';
-                        $previewText = '';
-
-                        if ($notePreviewText !== '' || $stopperPreviewText !== '') {
-                            $useStopperPreview = false;
-                            if ($stopperPreviewText !== '') {
-                                if ($notePreviewText === '') {
-                                    $useStopperPreview = true;
-                                } elseif ($stopperTimestamp !== null && $noteTimestamp !== null) {
-                                    $useStopperPreview = $stopperTimestamp >= $noteTimestamp;
-                                } elseif ($stopperTimestamp !== null && $noteTimestamp === null) {
-                                    $useStopperPreview = true;
-                                }
-                            }
-
-                            if ($useStopperPreview) {
-                                $previewType = 'stopper';
-                                $previewLabel = 'Bloqueo';
-                                $previewIcon = '⛔';
-                                $previewText = $stopperPreviewText;
-                            } else {
-                                $previewText = $notePreviewText;
-                            }
-                        }
-
-                        $previewText = $truncateText((string) $previewText, 120);
-                        $previewHref = $basePath . '/projects/' . $projectId
-                            . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
-                            . '&return=' . urlencode($returnUrl);
                         $blockersCount = (int) ($stopperData['total_count'] ?? 0);
                         $clientName = $project['client'] ?? 'Cliente no registrado';
                         $isBillable = (int) ($project['is_billable'] ?? 0) === 1;
@@ -866,12 +868,33 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
                                 <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
                             </div>
-                            <?php if ($previewText !== ''): ?>
-                                <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
-                                    <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
-                                    <span class="context-label"><?= $previewLabel ?>:</span>
-                                    <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
-                                </a>
+                            <?php if ($notePreviewText !== '' || $stopperPreviewText !== ''): ?>
+                                <?php if ($notePreviewText !== ''): ?>
+                                    <?php $noteHref = $basePath . '/projects/' . $projectId . '?view=seguimiento&return=' . urlencode($returnUrl); ?>
+                                    <div class="project-context-preview">
+                                        <a class="interactive-cell" data-no-row href="<?= htmlspecialchars($noteHref) ?>" style="display:inline-flex;align-items:flex-start;gap:6px;">
+                                            <span class="context-icon" aria-hidden="true">📝</span>
+                                            <span class="context-label">Nota:</span>
+                                        </a>
+                                        <div class="context-text-wrapper" data-context-wrapper>
+                                            <span class="context-text"><?= htmlspecialchars($notePreviewText) ?></span>
+                                        </div>
+                                        <button type="button" class="context-expand-btn" data-context-expand aria-label="Ver más">Ver más</button>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($stopperPreviewText !== ''): ?>
+                                    <?php $stopperHref = $basePath . '/projects/' . $projectId . '?view=bloqueos&return=' . urlencode($returnUrl); ?>
+                                    <div class="project-context-preview">
+                                        <a class="interactive-cell" data-no-row href="<?= htmlspecialchars($stopperHref) ?>" style="display:inline-flex;align-items:flex-start;gap:6px;">
+                                            <span class="context-icon" aria-hidden="true">⛔</span>
+                                            <span class="context-label">Bloqueo:</span>
+                                        </a>
+                                        <div class="context-text-wrapper" data-context-wrapper>
+                                            <span class="context-text"><?= htmlspecialchars($stopperPreviewText) ?></span>
+                                        </div>
+                                        <button type="button" class="context-expand-btn" data-context-expand aria-label="Ver más">Ver más</button>
+                                    </div>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="project-context-preview" title="Sin notas o bloqueos registrados">
                                     <span class="context-icon" aria-hidden="true">📝</span>
@@ -1075,5 +1098,27 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                 window.location.href = href;
             }
         });
+    });
+
+    document.querySelectorAll('[data-context-expand]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const preview = btn.closest('.project-context-preview');
+            const wrapper = preview?.querySelector('[data-context-wrapper]');
+            if (wrapper) {
+                wrapper.classList.add('is-expanded');
+                btn.classList.add('is-hidden');
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-context-wrapper]').forEach((wrapper) => {
+        const preview = wrapper.closest('.project-context-preview');
+        const btn = preview?.querySelector('[data-context-expand]');
+        if (!btn) return;
+        if (wrapper.scrollHeight <= wrapper.clientHeight) {
+            btn.classList.add('is-hidden');
+        }
     });
 </script>
