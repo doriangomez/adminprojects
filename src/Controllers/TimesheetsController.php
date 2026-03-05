@@ -146,7 +146,7 @@ class TimesheetsController extends Controller
         if (array_key_exists('task_id', $_POST)) {
             $metadata['task_id'] = (int) $_POST['task_id'];
         }
-        foreach (['phase_name', 'subphase_name', 'activity_type', 'activity_description', 'blocker_description', 'operational_comment'] as $field) {
+        foreach (['activity_type', 'activity_description', 'blocker_description', 'operational_comment'] as $field) {
             if (array_key_exists($field, $_POST)) {
                 $metadata[$field] = trim((string) $_POST[$field]);
             }
@@ -161,6 +161,8 @@ class TimesheetsController extends Controller
             http_response_code(400);
             exit('Proyecto y fecha son requeridos.');
         }
+
+        $this->validateWeekendBlock($date);
 
         try {
             $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, $syncOperational);
@@ -304,8 +306,8 @@ class TimesheetsController extends Controller
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
             'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? 'existing')),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
-            'subphase_name' => trim((string) ($_POST['subphase_name'] ?? '')),
+            'phase_name' => '',
+            'subphase_name' => '',
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -313,12 +315,18 @@ class TimesheetsController extends Controller
             'had_significant_progress' => filter_var($_POST['had_significant_progress'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+            'new_task_title' => trim((string) ($_POST['new_task_title'] ?? '')),
+            'new_task_priority' => trim((string) ($_POST['new_task_priority'] ?? 'medium')),
+            'new_task_due_date' => trim((string) ($_POST['new_task_due_date'] ?? '')),
+            'new_task_initial_status' => trim((string) ($_POST['new_task_initial_status'] ?? 'pending')),
         ];
 
         if ($projectId <= 0 || $date === '' || $hours <= 0) {
             http_response_code(400);
             exit('Proyecto, fecha y horas son requeridos para registrar actividad.');
         }
+
+        $this->validateWeekendBlock($date);
 
         try {
             $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
@@ -350,23 +358,35 @@ class TimesheetsController extends Controller
         $date = trim((string) ($_POST['date'] ?? ''));
         $hours = max(0, (float) ($_POST['hours'] ?? 0));
         $comment = trim((string) ($_POST['comment'] ?? ''));
+        $activityType = trim((string) ($_POST['activity_type'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
             'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? 'existing')),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
-            'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
+            'phase_name' => '',
+            'activity_type' => $activityType,
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'blocker_description' => trim((string) ($_POST['blocker_description'] ?? '')),
             'had_significant_progress' => filter_var($_POST['had_significant_progress'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+            'new_task_title' => trim((string) ($_POST['new_task_title'] ?? '')),
+            'new_task_priority' => trim((string) ($_POST['new_task_priority'] ?? 'medium')),
+            'new_task_due_date' => trim((string) ($_POST['new_task_due_date'] ?? '')),
+            'new_task_initial_status' => trim((string) ($_POST['new_task_initial_status'] ?? 'pending')),
         ];
 
         if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '') {
             $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción y comentario son obligatorios.']);
             return;
         }
+
+        if ($activityType === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'El tipo de actividad es obligatorio.']);
+            return;
+        }
+
+        $this->validateWeekendBlock($date);
 
         try {
             $activityId = $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
@@ -396,7 +416,7 @@ class TimesheetsController extends Controller
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
+            'phase_name' => '',
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -405,6 +425,8 @@ class TimesheetsController extends Controller
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
         ];
+
+        $this->validateWeekendBlock($date);
 
         try {
             $updated = $repo->updateDraftActivity($activityId, $userId, $projectId, $date, $hours, $comment, $metadata);
@@ -452,6 +474,8 @@ class TimesheetsController extends Controller
         $activityId = (int) ($_POST['activity_id'] ?? 0);
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
 
+        $this->validateWeekendBlock($targetDate);
+
         try {
             $newId = $repo->duplicateDraftActivity($activityId, $userId, $targetDate);
             $this->jsonResponse(200, ['ok' => true, 'id' => $newId]);
@@ -475,6 +499,8 @@ class TimesheetsController extends Controller
         $activityId = (int) ($_POST['activity_id'] ?? 0);
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
 
+        $this->validateWeekendBlock($targetDate);
+
         try {
             $moved = $repo->moveDraftActivity($activityId, $userId, $targetDate);
             $this->jsonResponse(200, ['ok' => $moved]);
@@ -497,6 +523,8 @@ class TimesheetsController extends Controller
         $userId = (int) (($this->auth->user() ?? [])['id'] ?? 0);
         $sourceDate = trim((string) ($_POST['source_date'] ?? ''));
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        $this->validateWeekendBlock($targetDate);
 
         try {
             $created = $repo->duplicateDayActivities($userId, $sourceDate, $targetDate);
@@ -689,6 +717,26 @@ class TimesheetsController extends Controller
             'top_project' => $topProject,
             'top_project_hours' => $topProjectHours,
         ];
+    }
+
+    private function validateWeekendBlock(string $date): void
+    {
+        if ($date === '') {
+            return;
+        }
+        try {
+            $dateObj = new DateTimeImmutable($date);
+            $dayOfWeek = (int) $dateObj->format('N');
+            if ($dayOfWeek >= 6) {
+                $isAdmin = in_array(($this->auth->user() ?? [])['role'] ?? '', ['Administrador'], true);
+                if (!$isAdmin) {
+                    $this->jsonResponse(400, ['ok' => false, 'message' => 'No se permite registrar horas en sábado ni domingo.']);
+                    exit;
+                }
+            }
+        } catch (\Throwable $e) {
+            // date validation handled elsewhere
+        }
     }
 
     private function parseWeekValue(string $weekValue): ?DateTimeImmutable

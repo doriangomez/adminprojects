@@ -80,7 +80,7 @@ foreach ($gridDays as $day) {
             </div>
         </header>
         <?php if ($weekLocked): ?>
-            <section class="card week-locked-banner">Semana enviada. Registros bloqueados.</section>
+            <section class="card week-locked-banner">Semana enviada – registros bloqueados</section>
         <?php endif; ?>
 
         <section class="indicators-grid">
@@ -177,9 +177,30 @@ foreach ($gridDays as $day) {
                         </label>
                         <div class="task-management-block">
                             <span class="task-management-title">Gestión de tarea</span>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="existing" checked> Usar tarea seleccionada</label>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="completed"> Registrar actividad finalizada</label>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="pending"> Crear tarea pendiente</label>
+                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="existing" checked> Usar tarea existente</label>
+                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="new_task"> Crear tarea nueva</label>
+                            <div class="new-task-fields hidden" id="qa-new-task-fields">
+                                <label>Título de la tarea*
+                                    <input type="text" name="new_task_title" maxlength="180" id="qa-new-task-title">
+                                </label>
+                                <label>Prioridad
+                                    <select name="new_task_priority" id="qa-new-task-priority">
+                                        <option value="medium">Media</option>
+                                        <option value="low">Baja</option>
+                                        <option value="high">Alta</option>
+                                        <option value="critical">Crítica</option>
+                                    </select>
+                                </label>
+                                <label>Fecha compromiso
+                                    <input type="date" name="new_task_due_date" id="qa-new-task-due-date">
+                                </label>
+                                <label>Estado inicial
+                                    <select name="new_task_initial_status" id="qa-new-task-status">
+                                        <option value="pending">Pendiente</option>
+                                        <option value="completed">Completada</option>
+                                    </select>
+                                </label>
+                            </div>
                         </div>
                         <label>Horas*
                             <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
@@ -187,16 +208,13 @@ foreach ($gridDays as $day) {
                         <label>Descripción breve*
                             <input type="text" name="activity_description" maxlength="255" required>
                         </label>
-                        <label>Tipo actividad
-                            <select name="activity_type">
-                                <option value="">Sin clasificar</option>
+                        <label>Tipo actividad*
+                            <select name="activity_type" required>
+                                <option value="">Seleccionar...</option>
                                 <?php foreach ($activityTypes as $type): ?>
                                     <option value="<?= htmlspecialchars((string) $type) ?>"><?= htmlspecialchars((string) ucfirst(str_replace('_', ' ', (string) $type))) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                        </label>
-                        <label>Fase (opcional)
-                            <input type="text" name="phase_name" maxlength="120">
                         </label>
                         <label class="toggle-field">
                             <span class="toggle-caption">Bloqueo</span>
@@ -248,7 +266,6 @@ foreach ($gridDays as $day) {
                                         <button type="button" class="chip-btn recent-fill"
                                             data-project-id="<?= (int) ($recent['project_id'] ?? 0) ?>"
                                             data-task-id="<?= (int) ($recent['task_id'] ?? 0) ?>"
-                                            data-phase-name="<?= htmlspecialchars((string) ($recent['phase_name'] ?? ''), ENT_QUOTES) ?>"
                                             data-activity-type="<?= htmlspecialchars((string) ($recent['activity_type'] ?? ''), ENT_QUOTES) ?>"
                                             data-activity-description="<?= htmlspecialchars((string) ($recent['activity_description'] ?? ''), ENT_QUOTES) ?>">
                                             <?= htmlspecialchars((string) ($recent['project'] ?? 'Proyecto')) ?> · <?= htmlspecialchars((string) ($recent['activity_description'] ?? 'Actividad')) ?>
@@ -326,6 +343,9 @@ foreach ($gridDays as $day) {
 .switch input:checked + .slider{background:#7c3aed}
 .switch input:checked + .slider:before{transform:translateX(20px)}
 .conditional.hidden{display:none !important}
+.new-task-fields{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid color-mix(in srgb,var(--primary) 25%,var(--border));border-radius:8px;margin-top:4px;background:color-mix(in srgb,var(--primary) 5%,var(--surface))}
+.new-task-fields.hidden{display:none !important}
+.new-task-fields label{display:flex;flex-direction:column;gap:3px;font-size:12px}
 .quick-actions{display:grid;grid-template-columns:1fr;gap:6px}
 .quick-lists{display:flex;flex-direction:column;gap:10px}
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
@@ -390,13 +410,20 @@ foreach ($gridDays as $day) {
     }
   };
 
+  const newTaskFields = document.getElementById('qa-new-task-fields');
+  const newTaskTitle = document.getElementById('qa-new-task-title');
+
   const syncTaskManagementMode = () => {
     if (!taskInput) return;
     const selectedMode = form?.querySelector('input[name="task_management_mode"]:checked')?.value || 'existing';
-    const useExistingTask = selectedMode === 'existing';
-    taskInput.disabled = !useExistingTask;
-    if (!useExistingTask) {
+    const isNewTask = selectedMode === 'new_task';
+    taskInput.disabled = isNewTask;
+    if (isNewTask) {
       taskInput.value = '0';
+    }
+    newTaskFields?.classList.toggle('hidden', !isNewTask);
+    if (newTaskTitle) {
+      newTaskTitle.required = isNewTask;
     }
   };
 
@@ -466,7 +493,6 @@ foreach ($gridDays as $day) {
     const modeInput = form.querySelector('input[name="task_management_mode"][value="existing"]');
     if (modeInput) modeInput.checked = true;
     syncTaskManagementMode();
-    form.querySelector('[name="phase_name"]').value = data.phase_name || '';
     form.querySelector('[name="hours"]').value = String(data.hours || '');
     form.querySelector('[name="activity_description"]').value = data.activity_description || '';
     form.querySelector('[name="comment"]').value = data.comment || '';
@@ -482,14 +508,27 @@ foreach ($gridDays as $day) {
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (weekLocked) {
-      alert('Semana enviada. Registros bloqueados.');
+      alert('Semana enviada – registros bloqueados.');
       return;
     }
     const formData = new FormData(form);
     const raw = Object.fromEntries(formData.entries());
+    const selectedDate = new Date(`${raw.date}T00:00:00`);
+    const dayOfWeek = selectedDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      alert('No se permite registrar horas en sábado ni domingo.');
+      return;
+    }
     raw.had_blocker = blockerToggle?.checked ? '1' : '0';
     raw.generated_deliverable = deliverableToggle?.checked ? '1' : '0';
     raw.had_significant_progress = progressToggle?.checked ? '1' : '0';
+    const taskMode = raw.task_management_mode || 'existing';
+    if (taskMode === 'new_task') {
+      raw.new_task_title = (raw.new_task_title || '').trim();
+      raw.new_task_priority = raw.new_task_priority || 'medium';
+      raw.new_task_due_date = raw.new_task_due_date || '';
+      raw.new_task_initial_status = raw.new_task_initial_status || 'pending';
+    }
     const activityId = Number(raw.activity_id || 0);
     const deliverableNote = String(raw.deliverable_note || '').trim();
     const operationalParts = [String(raw.comment || '').trim()].filter(Boolean);
@@ -604,9 +643,11 @@ foreach ($gridDays as $day) {
       form.querySelector('[name="project_id"]').value = button.dataset.projectId || '';
       filterTasksByProject();
       form.querySelector('[name="task_id"]').value = button.dataset.taskId || '0';
-      form.querySelector('[name="phase_name"]').value = button.dataset.phaseName || '';
       form.querySelector('[name="activity_type"]').value = button.dataset.activityType || '';
       form.querySelector('[name="activity_description"]').value = button.dataset.activityDescription || '';
+      const modeInput = form.querySelector('input[name="task_management_mode"][value="existing"]');
+      if (modeInput) modeInput.checked = true;
+      syncTaskManagementMode();
       form.querySelector('[name="activity_description"]').focus();
     });
   });
@@ -643,7 +684,9 @@ foreach ($gridDays as $day) {
         form.querySelector('[name="task_id"]').value = String(tpl.task_id || 0);
         form.querySelector('[name="activity_type"]').value = tpl.activity_type || '';
         form.querySelector('[name="activity_description"]').value = tpl.activity_description || '';
-        form.querySelector('[name="phase_name"]').value = tpl.phase_name || '';
+        const modeInput = form.querySelector('input[name="task_management_mode"][value="existing"]');
+        if (modeInput) modeInput.checked = true;
+        syncTaskManagementMode();
       });
       list.appendChild(button);
 
@@ -668,7 +711,6 @@ foreach ($gridDays as $day) {
       project_id: projectId,
       project_label: projectLabel,
       task_id: Number(form.querySelector('[name="task_id"]').value || 0),
-      phase_name: form.querySelector('[name="phase_name"]').value || '',
       activity_type: form.querySelector('[name="activity_type"]').value || '',
       activity_description: form.querySelector('[name="activity_description"]').value || '',
     };
