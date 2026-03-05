@@ -183,14 +183,118 @@
         .criticality-pill.baja { background: color-mix(in srgb, var(--success) 20%, var(--background)); color: var(--success); }
         .criticality-pill.media { background: color-mix(in srgb, var(--warning) 24%, var(--background)); color: #b45309; }
         .criticality-pill.alta { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
+        .auto-module-title {
+            margin: 0 0 10px;
+            font-size: 19px;
+            font-weight: 900;
+            letter-spacing: .02em;
+            color: var(--text-primary);
+            text-transform: uppercase;
+        }
+        .auto-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .auto-metric {
+            border-radius: 12px;
+            padding: 10px;
+            border: 1px solid color-mix(in srgb, var(--border) 72%, var(--background));
+            background: color-mix(in srgb, var(--surface) 88%, var(--background));
+        }
+        .auto-metric strong {
+            display: block;
+            margin-top: 4px;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+        .alerts-auto-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(210px, 1fr));
+            gap: 10px;
+        }
+        .auto-alert-card {
+            border-radius: 14px;
+            padding: 12px;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .auto-alert-card.green {
+            background: color-mix(in srgb, var(--success) 12%, var(--surface));
+            border-color: color-mix(in srgb, var(--success) 30%, var(--border));
+        }
+        .auto-alert-card.yellow {
+            background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+            border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+        }
+        .auto-alert-card.red {
+            background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+            border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+        }
+        .auto-alert-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        .auto-alert-rule {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .score-semaphore {
+            margin-top: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+        .score-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+        .score-dot.green { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, .2); }
+        .score-dot.yellow { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, .2); }
+        .score-dot.red { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, .2); }
+        .score-help {
+            margin-top: 8px;
+            border-radius: 12px;
+            border: 1px solid color-mix(in srgb, var(--border) 72%, var(--background));
+            background: color-mix(in srgb, var(--surface) 86%, var(--background));
+            padding: 10px;
+        }
+        .score-help summary {
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .score-help ul {
+            margin: 8px 0 0;
+            padding-left: 18px;
+        }
+        .score-help li {
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
         @media (max-width: 1200px) {
             .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
             .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
             .hero-main { grid-template-columns: 1fr; }
             .ai-grid { grid-template-columns: 1fr; }
+            .auto-metrics-grid { grid-template-columns: 1fr 1fr; }
+            .alerts-auto-grid { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 760px) {
-            .kpi-grid, .split-three, .gov-grid, .hero-side { grid-template-columns: 1fr; }
+            .kpi-grid, .split-three, .gov-grid, .hero-side, .auto-metrics-grid, .alerts-auto-grid { grid-template-columns: 1fr; }
         }
     </style>
 
@@ -199,8 +303,6 @@
     $progressByClient = $projects['progress_by_client'] ?? [];
     $staleProjects = $projects['stale_projects'] ?? [];
     $monthlyProgressTrend = $projects['monthly_progress_trend'] ?? [];
-    $score = (int) ($portfolioHealth['average_score'] ?? 0);
-    $scoreColor = $score > 80 ? '#16a34a' : ($score >= 60 ? '#f59e0b' : '#dc2626');
     $riskProjects = (int) ($summary['proyectos_riesgo'] ?? 0);
     $criticalProjects = count($portfolioInsights['top_risk'] ?? []);
     $trend = (int) ($portfolioInsights['portfolio_trend_avg'] ?? 0);
@@ -224,6 +326,15 @@
     $financialImpact = $executiveIntel['financial_impact'] ?? [];
     $riskExposure = (int) ($executiveIntel['risk_exposure'] ?? 0);
     $intelligentAnalysis = $executiveIntel['intelligent_analysis'] ?? [];
+    $automaticPortfolioAnalysis = $executiveIntel['automatic_portfolio_analysis'] ?? [];
+    $automaticAlerts = $executiveIntel['automatic_alerts'] ?? [];
+    $systemRecommendations = $executiveIntel['system_recommendations'] ?? [];
+    $portfolioScoreCard = $executiveIntel['portfolio_score_card'] ?? [];
+    $scoreFactors = $portfolioScoreCard['factors'] ?? [];
+    $score = (int) ($portfolioScoreCard['score'] ?? ($portfolioHealth['average_score'] ?? 0));
+    $scoreStatus = (string) ($portfolioScoreCard['status'] ?? ($score > 85 ? 'green' : ($score >= 70 ? 'yellow' : 'red')));
+    $scoreLabel = (string) ($portfolioScoreCard['label'] ?? ($scoreStatus === 'green' ? 'Verde' : ($scoreStatus === 'yellow' ? 'Amarillo' : 'Rojo')));
+    $scoreColor = $scoreStatus === 'green' ? '#16a34a' : ($scoreStatus === 'yellow' ? '#f59e0b' : '#dc2626');
     $analysisInputs = $intelligentAnalysis['inputs'] ?? [];
     $analysisFlags = $intelligentAnalysis['flags'] ?? [];
     $analysisRecommendations = $intelligentAnalysis['recommendations'] ?? [];
@@ -231,6 +342,8 @@
     $projectHeatmapPoints = array_slice($portfolioInsights['ranking'] ?? [], 0, 30);
     $topBlockersProjects = array_slice($stoppers['top_active'] ?? [], 0, 5);
     $topTalents = array_slice($timesheets['hours_by_talent'] ?? [], 0, 5);
+    $autoMetrics = $automaticPortfolioAnalysis['metrics'] ?? [];
+    $autoConclusions = $automaticPortfolioAnalysis['conclusions'] ?? [];
 
     $movementBadge = static function (array $metric, bool $inverse = false): string {
         $delta = (float) ($metric['delta_pct'] ?? 0);
@@ -241,6 +354,72 @@
         return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
     };
     ?>
+
+    <section>
+        <div class="card">
+            <h2 class="auto-module-title"><?= htmlspecialchars((string) ($automaticPortfolioAnalysis['title'] ?? 'ANÁLISIS AUTOMÁTICO DEL PORTAFOLIO')) ?></h2>
+            <div class="auto-metrics-grid">
+                <div class="auto-metric"><div class="metric-label">Avance promedio del portafolio</div><strong><?= number_format((float) ($autoMetrics['average_progress'] ?? 0), 1, ',', '.') ?>%</strong></div>
+                <div class="auto-metric"><div class="metric-label">Proyectos en riesgo</div><strong><?= (int) ($autoMetrics['projects_at_risk'] ?? 0) ?></strong></div>
+                <div class="auto-metric"><div class="metric-label">Bloqueos activos</div><strong><?= (int) ($autoMetrics['active_blockers'] ?? 0) ?></strong></div>
+                <div class="auto-metric"><div class="metric-label">Utilización del talento</div><strong><?= number_format((float) ($autoMetrics['talent_utilization_pct'] ?? 0), 1, ',', '.') ?>%</strong></div>
+                <div class="auto-metric"><div class="metric-label">Tendencia mensual de avance</div><strong class="<?= ((float) ($autoMetrics['monthly_progress_delta_pct'] ?? 0)) >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= ((float) ($autoMetrics['monthly_progress_delta_pct'] ?? 0)) >= 0 ? '↑' : '↓' ?> <?= number_format(abs((float) ($autoMetrics['monthly_progress_delta_pct'] ?? 0)), 1, ',', '.') ?>%</strong></div>
+                <div class="auto-metric"><div class="metric-label">Facturación vs plan</div><strong><?= number_format((float) ($autoMetrics['billing_vs_plan_pct'] ?? 0), 1, ',', '.') ?>%</strong></div>
+            </div>
+            <div class="metric-label">Conclusiones automáticas</div>
+            <ul class="ai-list">
+                <?php if (!empty($autoConclusions)): ?>
+                    <?php foreach ($autoConclusions as $conclusion): ?>
+                        <li><?= htmlspecialchars((string) $conclusion) ?></li>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <li>No hay conclusiones automáticas disponibles para el periodo actual.</li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <div class="card">
+            <h2 class="auto-module-title">Alertas automáticas del sistema</h2>
+            <div class="alerts-auto-grid">
+                <?php if (!empty($automaticAlerts)): ?>
+                    <?php foreach ($automaticAlerts as $alert): ?>
+                        <?php $alertStatus = (string) ($alert['status'] ?? 'green'); ?>
+                        <article class="auto-alert-card <?= htmlspecialchars($alertStatus) ?>">
+                            <div class="auto-alert-head">
+                                <span><?= htmlspecialchars((string) ($alert['icon'] ?? '🟢')) ?> <?= htmlspecialchars((string) ($alert['title'] ?? 'Alerta')) ?></span>
+                                <strong><?= htmlspecialchars((string) ($alert['value'] ?? 0)) ?></strong>
+                            </div>
+                            <div class="auto-alert-rule">Regla: <?= htmlspecialchars((string) ($alert['rule'] ?? '-')) ?></div>
+                            <div class="muted"><?= htmlspecialchars((string) ($alert['message'] ?? '')) ?></div>
+                        </article>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <article class="auto-alert-card green">
+                        <div class="auto-alert-head"><span>🟢 Estado general</span><strong>OK</strong></div>
+                        <div class="auto-alert-rule">Regla: monitoreo automático</div>
+                        <div class="muted">No hay alertas activas para mostrar.</div>
+                    </article>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="card">
+            <h2 class="auto-module-title">RECOMENDACIONES DEL SISTEMA</h2>
+            <ul class="ai-list">
+                <?php if (!empty($systemRecommendations)): ?>
+                    <?php foreach ($systemRecommendations as $recommendation): ?>
+                        <li><?= htmlspecialchars((string) $recommendation) ?></li>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <li>No se generaron recomendaciones para el periodo actual.</li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </section>
 
     <section>
         <div class="card ai-highlight">
@@ -302,12 +481,27 @@
                         <div class="score-center">
                             <span class="score-main"><?= $score ?> / 100</span>
                             <span class="score-sub">Score general</span>
+                            <span class="score-semaphore"><span class="score-dot <?= htmlspecialchars($scoreStatus) ?>"></span> Semáforo <?= htmlspecialchars($scoreLabel) ?></span>
                             <?= $movementBadge($movement['score'] ?? []) ?>
                         </div>
                     </div>
                     <div>
                         <h3 class="hero-title">Control de Portafolio</h3>
                         <p class="hero-copy">Visión integral de performance, riesgos y ejecución para toma de decisiones estratégicas del comité directivo.</p>
+                        <details class="score-help">
+                            <summary>¿Cómo se calcula el score del portafolio?</summary>
+                            <p class="muted" style="margin-top:8px;"><?= htmlspecialchars((string) ($portfolioScoreCard['methodology'] ?? 'Score ponderado por factores clave del portafolio.')) ?></p>
+                            <ul>
+                                <?php foreach ($scoreFactors as $factor): ?>
+                                    <li>
+                                        <strong><?= htmlspecialchars((string) ($factor['label'] ?? 'Factor')) ?>:</strong>
+                                        peso <?= number_format((float) ($factor['weight_pct'] ?? 0), 0, ',', '.') ?>% ·
+                                        valor <?= number_format((float) ($factor['value'] ?? 0), 1, ',', '.') ?> ·
+                                        aporte <?= number_format((float) ($factor['contribution'] ?? 0), 1, ',', '.') ?> pts
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </details>
                     </div>
                 </div>
             </article>

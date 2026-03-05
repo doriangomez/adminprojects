@@ -365,6 +365,78 @@ class DashboardService
         $monthlyTrend = (float) ($scoreMovement['delta_pct'] ?? 0);
         $avgProgress = (float) ($progressMovement['current'] ?? 0);
         $billingPlanPct = (float) $financialExecution;
+        $talentSnapshot = $this->talentUtilizationSnapshot();
+        $talentUtilizationPct = (float) ($talentSnapshot['utilization_pct'] ?? 0);
+        $talentAvailableHours = (float) ($talentSnapshot['available_hours'] ?? 0);
+        $overloadedTalents = (int) ($talentSnapshot['talents_over_90'] ?? 0);
+
+        $projectsAtRiskProgressRow = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.progress < 70
+             AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+            $params
+        );
+        $projectsAtRiskProgress = (int) ($projectsAtRiskProgressRow['total'] ?? 0);
+
+        $criticalAgedBlockers = 0;
+        $criticalAgedBlockerProject = '';
+        if ($this->db->tableExists('project_stoppers')) {
+            $agedBlockerRow = $this->db->fetchOne(
+                "SELECT COUNT(*) AS total
+                 FROM project_stoppers s
+                 JOIN projects p ON p.id = s.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND s.status IN ('abierto','en_gestion','escalado')
+                 AND s.impact_level = 'critico'
+                 AND DATEDIFF(CURDATE(), COALESCE(s.detected_at, DATE(s.created_at))) > 5",
+                $params
+            );
+            $criticalAgedBlockers = (int) ($agedBlockerRow['total'] ?? 0);
+
+            $agedBlockerProjectRow = $this->db->fetchOne(
+                "SELECT p.name AS project
+                 FROM project_stoppers s
+                 JOIN projects p ON p.id = s.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND s.status IN ('abierto','en_gestion','escalado')
+                 AND s.impact_level = 'critico'
+                 AND DATEDIFF(CURDATE(), COALESCE(s.detected_at, DATE(s.created_at))) > 5
+                 ORDER BY COALESCE(s.detected_at, DATE(s.created_at)) ASC
+                 LIMIT 1",
+                $params
+            );
+            $criticalAgedBlockerProject = (string) ($agedBlockerProjectRow['project'] ?? '');
+        }
+
+        $portfolioScore = $this->buildPortfolioScore([
+            'avg_progress' => $avgProgress,
+            'projects_at_risk_pct' => $highRiskPct,
+            'active_blockers' => $activeBlockers,
+            'critical_aged_blockers' => $criticalAgedBlockers,
+            'billing_vs_plan_pct' => $billingPlanPct,
+            'talent_utilization_pct' => $talentUtilizationPct,
+        ]);
+
+        $automaticAnalysis = $this->buildAutomaticPortfolioAnalysis([
+            'avg_progress' => $avgProgress,
+            'projects_at_risk' => $projectsAtRiskProgress,
+            'active_blockers' => $activeBlockers,
+            'talent_utilization_pct' => $talentUtilizationPct,
+            'monthly_progress_delta_pct' => (float) ($progressMovement['delta_pct'] ?? 0),
+            'billing_vs_plan_pct' => $billingPlanPct,
+        ]);
+
+        $automaticAlerts = $this->buildAutomaticAlerts([
+            'projects_at_risk' => $projectsAtRiskProgress,
+            'critical_aged_blockers' => $criticalAgedBlockers,
+            'overloaded_talents' => $overloadedTalents,
+            'billing_vs_plan_pct' => $billingPlanPct,
+        ]);
 
         $flags = [];
         if ($criticalBlockers > 0) {
@@ -432,6 +504,15 @@ class DashboardService
         }
         $recommendations = array_slice($recommendations, 0, 3);
 
+        $systemRecommendations = $this->buildSystemRecommendations([
+            'available_talents_over_150' => $talentSnapshot['talents_over_150h'] ?? [],
+            'critical_blocker_project' => $criticalAgedBlockerProject,
+            'billing_vs_plan_pct' => $billingPlanPct,
+            'avg_progress' => $avgProgress,
+            'projects_at_risk' => $projectsAtRiskProgress,
+            'portfolio_score' => (int) ($portfolioScore['score'] ?? 0),
+        ]);
+
         return [
             'alerts' => [
                 'stale_projects' => (int) ($staleRow['total'] ?? 0),
@@ -454,7 +535,7 @@ class DashboardService
             ],
             'intelligent_analysis' => [
                 'inputs' => [
-                    'score_general' => round($scoreGeneral, 1),
+                    'score_general' => round((float) ($portfolioScore['score'] ?? $scoreGeneral), 1),
                     'projects_at_risk' => $highRiskProjects,
                     'projects_at_risk_pct' => round($highRiskPct, 1),
                     'active_blockers' => $activeBlockers,
@@ -462,12 +543,18 @@ class DashboardService
                     'billing_execution_pct' => round($billingPlanPct, 1),
                     'average_progress' => round($avgProgress, 1),
                     'progress_delta_pct' => round((float) ($progressMovement['delta_pct'] ?? 0), 1),
+                    'talent_utilization_pct' => round($talentUtilizationPct, 1),
+                    'talent_available_hours' => round($talentAvailableHours, 1),
                 ],
                 'flags' => $flags,
                 'diagnosis' => $diagnosis,
                 'recommendations' => $recommendations,
                 'criticality' => $criticalityLevel,
             ],
+            'automatic_portfolio_analysis' => $automaticAnalysis,
+            'automatic_alerts' => $automaticAlerts,
+            'system_recommendations' => $systemRecommendations,
+            'portfolio_score_card' => $portfolioScore,
             'risk_exposure' => $riskExposure,
         ];
     }
@@ -1065,6 +1152,334 @@ class DashboardService
             'critical_total' => (int) ($severityCounts['critico'] ?? 0),
             'avg_open_days' => (int) round((float) ($avgDaysRow['avg_days'] ?? 0)),
         ];
+    }
+
+    private function buildAutomaticPortfolioAnalysis(array $metrics): array
+    {
+        $avgProgress = round((float) ($metrics['avg_progress'] ?? 0), 1);
+        $projectsAtRisk = (int) ($metrics['projects_at_risk'] ?? 0);
+        $activeBlockers = (int) ($metrics['active_blockers'] ?? 0);
+        $talentUtilization = round((float) ($metrics['talent_utilization_pct'] ?? 0), 1);
+        $monthlyTrend = round((float) ($metrics['monthly_progress_delta_pct'] ?? 0), 1);
+        $billingVsPlan = round((float) ($metrics['billing_vs_plan_pct'] ?? 0), 1);
+
+        $conclusions = [];
+        $conclusions[] = "El portafolio presenta un avance promedio de {$avgProgress}% en los proyectos activos.";
+        $conclusions[] = $projectsAtRisk > 0
+            ? "Se detectan {$projectsAtRisk} proyecto(s) con avance menor al 70%, lo que eleva el nivel de riesgo operativo."
+            : 'No se detectan proyectos con avance menor al 70% en el corte actual.';
+        $conclusions[] = $activeBlockers > 0
+            ? "Existen {$activeBlockers} bloqueo(s) activo(s) que requieren seguimiento para evitar impacto en fechas compromiso."
+            : 'No hay bloqueos activos relevantes en este momento.';
+
+        if ($talentUtilization > 90) {
+            $conclusions[] = "La utilización del talento se ubica en {$talentUtilization}%, en zona de sobrecarga.";
+        } elseif ($talentUtilization < 70) {
+            $conclusions[] = "La utilización del talento es {$talentUtilization}%, con capacidad disponible significativa.";
+        } else {
+            $conclusions[] = "La utilización del talento es {$talentUtilization}%, en un rango operativo equilibrado.";
+        }
+
+        if ($monthlyTrend > 1) {
+            $conclusions[] = "La tendencia mensual de avance es positiva (+{$monthlyTrend}%), con mejora frente al mes anterior.";
+        } elseif ($monthlyTrend < -1) {
+            $conclusions[] = 'La tendencia mensual de avance muestra desaceleración y requiere acciones correctivas tempranas.';
+        } else {
+            $conclusions[] = 'La tendencia mensual de avance se mantiene estable respecto al mes anterior.';
+        }
+
+        $conclusions[] = $billingVsPlan < 70
+            ? "La facturación vs plan está en {$billingVsPlan}%, por debajo del umbral esperado."
+            : "La facturación vs plan se ubica en {$billingVsPlan}%, dentro de un rango controlado.";
+
+        while (count($conclusions) < 3) {
+            $conclusions[] = 'El comportamiento general del portafolio se mantiene dentro de los parámetros esperados.';
+        }
+
+        return [
+            'title' => 'ANÁLISIS AUTOMÁTICO DEL PORTAFOLIO',
+            'metrics' => [
+                'average_progress' => $avgProgress,
+                'projects_at_risk' => $projectsAtRisk,
+                'active_blockers' => $activeBlockers,
+                'talent_utilization_pct' => $talentUtilization,
+                'monthly_progress_delta_pct' => $monthlyTrend,
+                'billing_vs_plan_pct' => $billingVsPlan,
+            ],
+            'conclusions' => array_slice($conclusions, 0, 5),
+        ];
+    }
+
+    private function buildAutomaticAlerts(array $metrics): array
+    {
+        $projectsAtRisk = (int) ($metrics['projects_at_risk'] ?? 0);
+        $criticalAgedBlockers = (int) ($metrics['critical_aged_blockers'] ?? 0);
+        $overloadedTalents = (int) ($metrics['overloaded_talents'] ?? 0);
+        $billingVsPlan = (float) ($metrics['billing_vs_plan_pct'] ?? 0);
+
+        $projectRiskStatus = $projectsAtRisk >= 3 ? 'red' : ($projectsAtRisk > 0 ? 'yellow' : 'green');
+        $blockerStatus = $criticalAgedBlockers >= 2 ? 'red' : ($criticalAgedBlockers > 0 ? 'yellow' : 'green');
+        $overloadStatus = $overloadedTalents >= 3 ? 'red' : ($overloadedTalents > 0 ? 'yellow' : 'green');
+        $financialStatus = $billingVsPlan < 70 ? 'red' : ($billingVsPlan < 85 ? 'yellow' : 'green');
+
+        return [
+            [
+                'key' => 'project_risk',
+                'title' => 'Proyecto en riesgo',
+                'rule' => 'avance < 70%',
+                'value' => $projectsAtRisk,
+                'status' => $projectRiskStatus,
+                'icon' => $projectRiskStatus === 'red' ? '🔴' : ($projectRiskStatus === 'yellow' ? '🟡' : '🟢'),
+                'message' => $projectsAtRisk > 0
+                    ? "{$projectsAtRisk} proyecto(s) activaron la condición de riesgo por bajo avance."
+                    : 'Sin proyectos en riesgo por avance en este momento.',
+            ],
+            [
+                'key' => 'critical_blocker',
+                'title' => 'Bloqueo crítico',
+                'rule' => 'bloqueo abierto > 5 días',
+                'value' => $criticalAgedBlockers,
+                'status' => $blockerStatus,
+                'icon' => $blockerStatus === 'red' ? '🔴' : ($blockerStatus === 'yellow' ? '🟡' : '🟢'),
+                'message' => $criticalAgedBlockers > 0
+                    ? "{$criticalAgedBlockers} bloqueo(s) crítico(s) abiertos superan 5 días."
+                    : 'No hay bloqueos críticos abiertos por más de 5 días.',
+            ],
+            [
+                'key' => 'talent_overload',
+                'title' => 'Riesgo de sobrecarga',
+                'rule' => 'utilización de talento > 90%',
+                'value' => $overloadedTalents,
+                'status' => $overloadStatus,
+                'icon' => $overloadStatus === 'red' ? '🔴' : ($overloadStatus === 'yellow' ? '🟡' : '🟢'),
+                'message' => $overloadedTalents > 0
+                    ? "{$overloadedTalents} talento(s) están por encima del 90% de utilización."
+                    : 'No se detecta sobrecarga de talento.',
+            ],
+            [
+                'key' => 'financial_risk',
+                'title' => 'Riesgo financiero',
+                'rule' => 'facturación < 70% del plan',
+                'value' => round($billingVsPlan, 1),
+                'status' => $financialStatus,
+                'icon' => $financialStatus === 'red' ? '🔴' : ($financialStatus === 'yellow' ? '🟡' : '🟢'),
+                'message' => $billingVsPlan < 70
+                    ? 'La facturación está por debajo del 70% del plan.'
+                    : 'La facturación se mantiene en rango aceptable frente al plan.',
+            ],
+        ];
+    }
+
+    private function buildSystemRecommendations(array $context): array
+    {
+        $recommendations = [];
+        $availableTalents = is_array($context['available_talents_over_150'] ?? null)
+            ? $context['available_talents_over_150']
+            : [];
+        $criticalBlockerProject = trim((string) ($context['critical_blocker_project'] ?? ''));
+        $billingVsPlan = (float) ($context['billing_vs_plan_pct'] ?? 0);
+        $avgProgress = (float) ($context['avg_progress'] ?? 0);
+        $projectsAtRisk = (int) ($context['projects_at_risk'] ?? 0);
+        $portfolioScore = (int) ($context['portfolio_score'] ?? 0);
+
+        if ($availableTalents !== []) {
+            $names = array_map(
+                static fn (array $item): string => (string) ($item['name'] ?? 'Talento'),
+                array_slice($availableTalents, 0, 2)
+            );
+            $recommendations[] = 'Redistribuir carga hacia talentos con más de 150h disponibles: ' . implode(' y ', $names) . '.';
+        }
+
+        if ($criticalBlockerProject !== '') {
+            $recommendations[] = 'Revisar el bloqueo crítico activo en el proyecto ' . $criticalBlockerProject . '.';
+        }
+
+        if ($billingVsPlan < 70 && $avgProgress >= 70) {
+            $recommendations[] = 'Acelerar facturación de proyectos con avance superior al 70% para cerrar brecha financiera.';
+        }
+
+        if ($projectsAtRisk > 0 || $portfolioScore < 80) {
+            $recommendations[] = 'Priorizar proyectos con score menor a 80 y activar plan de recuperación de avance.';
+        }
+
+        if ($recommendations === []) {
+            $recommendations = [
+                'Mantener monitoreo semanal del portafolio para sostener desempeño operativo.',
+                'Consolidar ritual de seguimiento de riesgos y bloqueos por frente de trabajo.',
+                'Alinear facturación con hitos cerrados para preservar estabilidad financiera.',
+            ];
+        }
+
+        return array_slice($recommendations, 0, 5);
+    }
+
+    private function buildPortfolioScore(array $metrics): array
+    {
+        $avgProgress = $this->clampPercent((float) ($metrics['avg_progress'] ?? 0));
+        $riskPct = $this->clampPercent((float) ($metrics['projects_at_risk_pct'] ?? 0));
+        $activeBlockers = max(0, (int) ($metrics['active_blockers'] ?? 0));
+        $criticalAgedBlockers = max(0, (int) ($metrics['critical_aged_blockers'] ?? 0));
+        $billingPct = $this->clampPercent((float) ($metrics['billing_vs_plan_pct'] ?? 0));
+        $talentUtilization = $this->clampPercent((float) ($metrics['talent_utilization_pct'] ?? 0), 0, 140);
+
+        $riskScore = max(0.0, min(100.0, 100.0 - ($riskPct * 1.4)));
+        $blockersPressure = min(100.0, ($activeBlockers * 8.0) + ($criticalAgedBlockers * 14.0));
+        $blockersScore = max(0.0, 100.0 - $blockersPressure);
+        $capacityScore = max(0.0, 100.0 - (abs($talentUtilization - 80.0) * 2.0));
+
+        $factors = [
+            ['key' => 'avance', 'label' => 'Avance de proyectos', 'weight_pct' => 30, 'value' => round($avgProgress, 1)],
+            ['key' => 'riesgos', 'label' => 'Riesgos activos', 'weight_pct' => 20, 'value' => round($riskScore, 1)],
+            ['key' => 'bloqueos', 'label' => 'Bloqueos', 'weight_pct' => 15, 'value' => round($blockersScore, 1)],
+            ['key' => 'facturacion', 'label' => 'Facturación', 'weight_pct' => 20, 'value' => round($billingPct, 1)],
+            ['key' => 'capacidad', 'label' => 'Uso de capacidad del equipo', 'weight_pct' => 15, 'value' => round($capacityScore, 1)],
+        ];
+
+        $score = 0.0;
+        foreach ($factors as &$factor) {
+            $contribution = ($factor['value'] * $factor['weight_pct']) / 100;
+            $factor['contribution'] = round($contribution, 1);
+            $score += $contribution;
+        }
+        unset($factor);
+
+        $score = (int) round($score);
+        $status = $score > 85 ? 'green' : ($score >= 70 ? 'yellow' : 'red');
+        $label = $status === 'green' ? 'Verde' : ($status === 'yellow' ? 'Amarillo' : 'Rojo');
+
+        return [
+            'score' => $score,
+            'status' => $status,
+            'label' => $label,
+            'factors' => $factors,
+            'methodology' => 'Score ponderado por avance, riesgos activos, bloqueos, facturación y uso de capacidad del equipo.',
+        ];
+    }
+
+    private function talentUtilizationSnapshot(): array
+    {
+        if (!$this->db->tableExists('talents')) {
+            return [
+                'utilization_pct' => 0.0,
+                'available_hours' => 0.0,
+                'talents_over_90' => 0,
+                'talents_over_150h' => [],
+            ];
+        }
+
+        $capacityColumn = $this->db->columnExists('talents', 'capacidad_horaria')
+            ? 'capacidad_horaria'
+            : '0 AS capacidad_horaria';
+        $weeklyColumn = $this->db->columnExists('talents', 'weekly_capacity')
+            ? 'weekly_capacity'
+            : '0 AS weekly_capacity';
+        $availabilityColumn = $this->db->columnExists('talents', 'availability')
+            ? 'availability'
+            : '100 AS availability';
+
+        $talents = $this->db->fetchAll(
+            "SELECT id, name, {$capacityColumn}, {$weeklyColumn}, {$availabilityColumn}
+             FROM talents
+             ORDER BY name ASC"
+        );
+        if ($talents === []) {
+            return [
+                'utilization_pct' => 0.0,
+                'available_hours' => 0.0,
+                'talents_over_90' => 0,
+                'talents_over_150h' => [],
+            ];
+        }
+
+        $hoursByTalent = [];
+        if (
+            $this->db->tableExists('timesheets')
+            && $this->db->columnExists('timesheets', 'talent_id')
+            && $this->db->columnExists('timesheets', 'hours')
+            && $this->db->columnExists('timesheets', 'date')
+        ) {
+            $rows = $this->db->fetchAll(
+                'SELECT talent_id, SUM(hours) AS total
+                 FROM timesheets
+                 WHERE date BETWEEN :start AND :end
+                 GROUP BY talent_id',
+                [':start' => date('Y-m-01'), ':end' => date('Y-m-t')]
+            );
+            foreach ($rows as $row) {
+                $hoursByTalent[(int) ($row['talent_id'] ?? 0)] = (float) ($row['total'] ?? 0);
+            }
+        }
+
+        $workingDays = $this->workingDaysCurrentMonth();
+        $totalCapacity = 0.0;
+        $totalUsed = 0.0;
+        $availableHours = 0.0;
+        $talentsOver90 = 0;
+        $talentsOver150h = [];
+
+        foreach ($talents as $talent) {
+            $talentId = (int) ($talent['id'] ?? 0);
+            $weeklyCapacity = (float) ($talent['capacidad_horaria'] ?? 0);
+            if ($weeklyCapacity <= 0) {
+                $weeklyCapacity = (float) ($talent['weekly_capacity'] ?? 0);
+            }
+            if ($weeklyCapacity <= 0) {
+                $weeklyCapacity = 40.0;
+            }
+
+            $availability = max(0.0, min(100.0, (float) ($talent['availability'] ?? 100)));
+            $monthlyCapacity = ($weeklyCapacity * ($workingDays / 5)) * ($availability / 100);
+            $usedHours = (float) ($hoursByTalent[$talentId] ?? 0);
+            $utilization = $monthlyCapacity > 0 ? ($usedHours / $monthlyCapacity) * 100 : 0.0;
+            $freeHours = max(0.0, $monthlyCapacity - $usedHours);
+
+            $totalCapacity += $monthlyCapacity;
+            $totalUsed += $usedHours;
+            $availableHours += $freeHours;
+
+            if ($utilization > 90) {
+                $talentsOver90++;
+            }
+            if ($freeHours >= 150) {
+                $talentsOver150h[] = [
+                    'name' => (string) ($talent['name'] ?? 'Talento'),
+                    'free_hours' => round($freeHours, 1),
+                ];
+            }
+        }
+
+        usort(
+            $talentsOver150h,
+            static fn (array $a, array $b): int => ((float) ($b['free_hours'] ?? 0) <=> (float) ($a['free_hours'] ?? 0))
+        );
+
+        return [
+            'utilization_pct' => $totalCapacity > 0 ? round(($totalUsed / $totalCapacity) * 100, 1) : 0.0,
+            'available_hours' => round($availableHours, 1),
+            'talents_over_90' => $talentsOver90,
+            'talents_over_150h' => $talentsOver150h,
+        ];
+    }
+
+    private function workingDaysCurrentMonth(): int
+    {
+        $start = new DateTimeImmutable(date('Y-m-01'));
+        $end = new DateTimeImmutable(date('Y-m-t'));
+        $cursor = $start;
+        $days = 0;
+        while ($cursor <= $end) {
+            if ((int) $cursor->format('N') <= 5) {
+                $days++;
+            }
+            $cursor = $cursor->modify('+1 day');
+        }
+
+        return max(1, $days);
+    }
+
+    private function clampPercent(float $value, float $min = 0.0, float $max = 100.0): float
+    {
+        return max($min, min($max, $value));
     }
 
     private function riskLabel(int $score): string
