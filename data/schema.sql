@@ -369,6 +369,7 @@ CREATE TABLE tasks (
     estimated_hours DECIMAL(8,2) DEFAULT 0,
     actual_hours DECIMAL(8,2) DEFAULT 0,
     due_date DATE,
+    completed_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE

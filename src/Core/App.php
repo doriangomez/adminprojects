@@ -38,6 +38,7 @@ class App
         $migrator->ensureRequirementsModule();
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
+        $migrator->ensureTasksCompletedAtColumn();
         $migrator->ensureDecisionCenterPermissions();
         $this->auth = new Auth($this->db);
     }

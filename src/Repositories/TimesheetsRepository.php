@@ -402,6 +402,8 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Las horas deben estar entre 0 y 24.');
         }
 
+        $this->assertWeekEditable($userId, $date);
+
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
             throw new InvalidArgumentException('Proyecto no asignado o inactivo para este talento.');
@@ -428,7 +430,25 @@ class TimesheetsRepository
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $structured = $this->sanitizeStructuredMetadata($metadata);
-        $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+        $taskManagementMode = trim((string) ($metadata['task_management_mode'] ?? ''));
+        $candidateTaskId = (int) ($structured['task_id'] ?? 0);
+
+        if (in_array($taskManagementMode, ['completed', 'pending'], true) && $candidateTaskId <= 0) {
+            $taskTitle = trim((string) ($structured['activity_description'] ?? ''));
+            if ($taskTitle === '') {
+                $taskTitle = 'Actividad de timesheet';
+            }
+            $tasksRepo = new TasksRepository($this->db);
+            $candidateTaskId = $tasksRepo->createFromTimesheet(
+                $projectId,
+                $taskTitle,
+                $taskManagementMode,
+                $talentId > 0 ? $this->assigneeIdForTalent($talentId) : null,
+                $hours
+            );
+        }
+
+        $taskId = $this->resolveTaskForEntry($projectId, $candidateTaskId);
 
         return $this->createTimesheet([
             'task_id' => $taskId,
@@ -456,6 +476,18 @@ class TimesheetsRepository
             'operational_comment' => $structured['operational_comment'],
             'linked_stopper_id' => null,
         ]);
+    }
+
+    private function assigneeIdForTalent(int $talentId): ?int
+    {
+        if (!$this->db->tableExists('talents')) {
+            return null;
+        }
+        $row = $this->db->fetchOne(
+            'SELECT id FROM talents WHERE id = :id LIMIT 1',
+            [':id' => $talentId]
+        );
+        return $row ? (int) $row['id'] : null;
     }
 
     public function updateDraftActivity(
@@ -2284,6 +2316,29 @@ class TimesheetsRepository
             new \DateTimeImmutable($date);
         } catch (\Throwable $e) {
             throw new InvalidArgumentException('Fecha inválida.');
+        }
+    }
+
+    private function assertWeekEditable(int $userId, string $date): void
+    {
+        try {
+            $dateObj = new \DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        $weekStart = $dateObj->modify('monday this week')->format('Y-m-d');
+        $weekEnd = $dateObj->modify('sunday this week')->format('Y-m-d');
+
+        $row = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total FROM timesheets
+             WHERE user_id = :user AND date BETWEEN :start AND :end
+               AND status IN ("submitted", "approved")',
+            [':user' => $userId, ':start' => $weekStart, ':end' => $weekEnd]
+        );
+
+        if ((int) ($row['total'] ?? 0) > 0) {
+            throw new InvalidArgumentException('La semana está enviada o aprobada. No se pueden agregar registros.');
         }
     }
 

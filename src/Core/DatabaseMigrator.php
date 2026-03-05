@@ -825,6 +825,27 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTasksCompletedAtColumn(): void
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->columnExists('tasks', 'completed_at')) {
+                $this->db->execute('ALTER TABLE tasks ADD COLUMN completed_at DATETIME NULL AFTER due_date');
+                $this->db->clearColumnCache();
+            }
+
+            if (!$this->db->columnExists('tasks', 'description')) {
+                $this->db->execute('ALTER TABLE tasks ADD COLUMN description TEXT NULL AFTER title');
+                $this->db->clearColumnCache();
+            }
+        } catch (\PDOException $e) {
+            error_log('Error ensuring tasks.completed_at column: ' . $e->getMessage());
+        }
+    }
+
     public function ensureDecisionCenterPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
