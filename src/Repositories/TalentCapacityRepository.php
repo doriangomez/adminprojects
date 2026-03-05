@@ -38,6 +38,7 @@ class TalentCapacityRepository
                 'talents' => [],
                 'heatmap' => [],
                 'summary' => $this->emptySummary(),
+                'analytics' => $this->emptyAnalytics(),
                 'filter_options' => $this->filterOptions($visibilitySql, $visibilityParams),
             ];
         }
@@ -199,6 +200,7 @@ class TalentCapacityRepository
             'talents' => $talents,
             'heatmap' => $heatmap,
             'summary' => $this->buildSummary($talents),
+            'analytics' => $this->buildAnalytics($talents),
             'filter_options' => $this->filterOptions($visibilitySql, $visibilityParams),
         ];
     }
@@ -349,5 +351,243 @@ class TalentCapacityRepository
             'risk_talents' => 0,
             'idle_capacity' => 0,
         ];
+    }
+
+    private function buildAnalytics(array $talents): array
+    {
+        if ($talents === []) {
+            return $this->emptyAnalytics();
+        }
+
+        $teamHours = 0.0;
+        $teamCapacity = 0.0;
+        $weekBuckets = [];
+        $talentLoad = [];
+        $availableTalents = [];
+
+        foreach ($talents as $talent) {
+            $name = (string) ($talent['name'] ?? '');
+            $daily = is_array($talent['daily'] ?? null) ? $talent['daily'] : [];
+            $weekly = is_array($talent['weekly'] ?? null) ? $talent['weekly'] : [];
+
+            $hours = 0.0;
+            $capacity = 0.0;
+            foreach ($daily as $day) {
+                $hours += (float) ($day['hours'] ?? 0);
+                $capacity += (float) ($day['capacity'] ?? 0);
+            }
+
+            $utilization = $capacity > 0 ? (($hours / $capacity) * 100) : 0.0;
+            $freeHours = max(0.0, $capacity - $hours);
+
+            $teamHours += $hours;
+            $teamCapacity += $capacity;
+
+            $talentLoad[] = [
+                'name' => $name,
+                'utilization' => round($utilization, 1),
+                'hours' => round($hours, 1),
+                'capacity' => round($capacity, 1),
+                'free_hours' => round($freeHours, 1),
+            ];
+
+            if ($freeHours > 0.0) {
+                $availableTalents[] = [
+                    'name' => $name,
+                    'free_hours' => round($freeHours, 1),
+                    'utilization' => round($utilization, 1),
+                ];
+            }
+
+            foreach ($weekly as $weekKey => $bucket) {
+                $weekBuckets[$weekKey]['hours'] = ($weekBuckets[$weekKey]['hours'] ?? 0.0) + (float) ($bucket['hours'] ?? 0);
+                $weekBuckets[$weekKey]['capacity'] = ($weekBuckets[$weekKey]['capacity'] ?? 0.0) + (float) ($bucket['capacity'] ?? 0);
+            }
+        }
+
+        usort(
+            $talentLoad,
+            static fn (array $a, array $b): int => ($b['utilization'] <=> $a['utilization']) ?: strcmp($a['name'], $b['name'])
+        );
+        usort(
+            $availableTalents,
+            static fn (array $a, array $b): int => ($b['free_hours'] <=> $a['free_hours']) ?: strcmp($a['name'], $b['name'])
+        );
+
+        $peakWeeks = [];
+        foreach ($weekBuckets as $weekKey => $bucket) {
+            $hours = (float) ($bucket['hours'] ?? 0);
+            $capacity = (float) ($bucket['capacity'] ?? 0);
+            $utilization = $capacity > 0 ? (($hours / $capacity) * 100) : 0.0;
+            $peakWeeks[] = [
+                'week' => (string) $weekKey,
+                'label' => $this->formatWeekLabel((string) $weekKey),
+                'utilization' => round($utilization, 1),
+                'hours' => round($hours, 1),
+                'capacity' => round($capacity, 1),
+            ];
+        }
+        usort(
+            $peakWeeks,
+            static fn (array $a, array $b): int => ($b['utilization'] <=> $a['utilization']) ?: strcmp($a['week'], $b['week'])
+        );
+
+        $teamUtilization = $teamCapacity > 0 ? (($teamHours / $teamCapacity) * 100) : 0.0;
+        $freeCapacity = max(0.0, $teamCapacity - $teamHours);
+        $freeCapacityPct = $teamCapacity > 0 ? (($freeCapacity / $teamCapacity) * 100) : 0.0;
+
+        $topTalents = array_slice($talentLoad, 0, 5);
+        $topAvailableTalents = array_slice($availableTalents, 0, 5);
+        $peakWeeks = array_slice($peakWeeks, 0, 5);
+
+        return [
+            'team_utilization' => [
+                'utilization' => round($teamUtilization, 1),
+                'hours' => round($teamHours, 1),
+                'capacity' => round($teamCapacity, 1),
+                'interpretation' => $this->interpretTeamUtilization($teamUtilization),
+            ],
+            'peak_weeks' => [
+                'items' => $peakWeeks,
+                'interpretation' => $this->interpretPeakWeeks($peakWeeks),
+            ],
+            'top_utilized_talents' => [
+                'items' => $topTalents,
+                'interpretation' => $this->interpretTopUtilizedTalents($topTalents),
+            ],
+            'available_talents' => [
+                'items' => $topAvailableTalents,
+                'interpretation' => $this->interpretAvailableTalents($topAvailableTalents),
+            ],
+            'free_capacity' => [
+                'hours' => round($freeCapacity, 1),
+                'percentage' => round($freeCapacityPct, 1),
+                'interpretation' => $this->interpretFreeCapacity($freeCapacityPct, $freeCapacity),
+            ],
+        ];
+    }
+
+    private function emptyAnalytics(): array
+    {
+        return [
+            'team_utilization' => [
+                'utilization' => 0.0,
+                'hours' => 0.0,
+                'capacity' => 0.0,
+                'interpretation' => 'No hay datos suficientes para estimar la utilización del equipo en el periodo seleccionado.',
+            ],
+            'peak_weeks' => [
+                'items' => [],
+                'interpretation' => 'No se detectaron semanas con carga registrada en el rango actual.',
+            ],
+            'top_utilized_talents' => [
+                'items' => [],
+                'interpretation' => 'No hay talentos con utilización registrada para priorizar acciones.',
+            ],
+            'available_talents' => [
+                'items' => [],
+                'interpretation' => 'No hay talentos con disponibilidad registrada para asignación.',
+            ],
+            'free_capacity' => [
+                'hours' => 0.0,
+                'percentage' => 0.0,
+                'interpretation' => 'No se pudo calcular capacidad libre del equipo con la información disponible.',
+            ],
+        ];
+    }
+
+    private function formatWeekLabel(string $weekKey): string
+    {
+        if (preg_match('/^(\d{4})-W(\d{2})$/', $weekKey, $matches) !== 1) {
+            return $weekKey;
+        }
+
+        return 'Sem ' . $matches[2] . ' (' . $matches[1] . ')';
+    }
+
+    private function interpretTeamUtilization(float $utilization): string
+    {
+        if ($utilization > 100) {
+            return 'El equipo está sobreutilizado y supera su capacidad efectiva; conviene redistribuir carga de forma inmediata.';
+        }
+        if ($utilization >= 90) {
+            return 'La utilización del equipo está en zona alta; hay poco margen para nuevas asignaciones sin afectar el balance.';
+        }
+        if ($utilization >= 70) {
+            return 'El equipo mantiene una utilización saludable, con buena ocupación y margen controlado para absorber trabajo.';
+        }
+        if ($utilization >= 50) {
+            return 'La utilización del equipo es moderada; existe capacidad relevante para tomar nuevas asignaciones.';
+        }
+
+        return 'La utilización del equipo es baja; hay una oportunidad clara para incrementar asignaciones y mejorar eficiencia.';
+    }
+
+    private function interpretPeakWeeks(array $peakWeeks): string
+    {
+        if ($peakWeeks === []) {
+            return 'No se identificaron semanas de mayor carga en el periodo seleccionado.';
+        }
+
+        $top = $peakWeeks[0];
+        $topUtilization = (float) ($top['utilization'] ?? 0);
+        $label = (string) ($top['label'] ?? $top['week'] ?? 'semana sin etiqueta');
+
+        if ($topUtilization >= 100) {
+            return 'La ' . $label . ' concentra el mayor pico de carga y supera la capacidad del equipo; se recomienda alivianar esa semana.';
+        }
+        if ($topUtilization >= 90) {
+            return 'La ' . $label . ' marca la mayor presión operativa, con carga cercana al límite de capacidad.';
+        }
+
+        return 'La ' . $label . ' es la semana más cargada, pero se mantiene dentro de márgenes manejables para el equipo.';
+    }
+
+    private function interpretTopUtilizedTalents(array $topTalents): string
+    {
+        if ($topTalents === []) {
+            return 'No hay datos para identificar talentos con mayor utilización.';
+        }
+
+        $top = $topTalents[0];
+        $name = (string) ($top['name'] ?? 'Talento');
+        $utilization = (float) ($top['utilization'] ?? 0);
+
+        if ($utilization > 100) {
+            return $name . ' presenta sobreutilización; conviene reasignar parte de su carga para reducir riesgo operativo.';
+        }
+        if ($utilization >= 90) {
+            return $name . ' lidera la utilización y opera en zona crítica; revisar prioridad de tareas y distribución de horas.';
+        }
+
+        return $name . ' concentra la mayor utilización actual, aunque en niveles todavía controlables para ejecución sostenida.';
+    }
+
+    private function interpretAvailableTalents(array $availableTalents): string
+    {
+        if ($availableTalents === []) {
+            return 'No se observan talentos disponibles para nuevas asignaciones en el periodo seleccionado.';
+        }
+
+        $top = $availableTalents[0];
+        $name = (string) ($top['name'] ?? 'Talento');
+        $freeHours = (float) ($top['free_hours'] ?? 0);
+
+        return $name . ' es quien más capacidad libre presenta (' . number_format($freeHours, 1) . 'h), ideal para absorber nuevas iniciativas.';
+    }
+
+    private function interpretFreeCapacity(float $freeCapacityPct, float $freeCapacityHours): string
+    {
+        if ($freeCapacityHours <= 0) {
+            return 'La capacidad libre del equipo es nula; cualquier nueva demanda requiere mover prioridades o ampliar capacidad.';
+        }
+        if ($freeCapacityPct < 10) {
+            return 'La capacidad libre es muy limitada (<10%); se recomienda asignar nuevas tareas con alta selectividad.';
+        }
+        if ($freeCapacityPct <= 25) {
+            return 'Existe una capacidad libre moderada que permite absorber trabajo incremental con seguimiento cercano.';
+        }
+
+        return 'El equipo mantiene una capacidad libre amplia; hay espacio para acelerar nuevas asignaciones sin saturación inmediata.';
     }
 }

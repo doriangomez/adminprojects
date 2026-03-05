@@ -4,9 +4,15 @@ $filters = is_array($filters ?? null) ? $filters : [];
 $dashboard = is_array($dashboard ?? null) ? $dashboard : [];
 $talents = is_array($dashboard['talents'] ?? null) ? $dashboard['talents'] : [];
 $summary = is_array($dashboard['summary'] ?? null) ? $dashboard['summary'] : [];
+$analytics = is_array($dashboard['analytics'] ?? null) ? $dashboard['analytics'] : [];
 $options = is_array($dashboard['filter_options'] ?? null) ? $dashboard['filter_options'] : [];
 $range = is_array($dashboard['range'] ?? null) ? $dashboard['range'] : ['start' => date('Y-m-01'), 'end' => date('Y-m-t')];
 $granularity = $filters['heatmap_granularity'] ?? 'week';
+$insightTeamUtilization = is_array($analytics['team_utilization'] ?? null) ? $analytics['team_utilization'] : ['utilization' => 0, 'hours' => 0, 'capacity' => 0, 'interpretation' => ''];
+$insightPeakWeeks = is_array($analytics['peak_weeks'] ?? null) ? $analytics['peak_weeks'] : ['items' => [], 'interpretation' => ''];
+$insightTopUtilized = is_array($analytics['top_utilized_talents'] ?? null) ? $analytics['top_utilized_talents'] : ['items' => [], 'interpretation' => ''];
+$insightAvailableTalents = is_array($analytics['available_talents'] ?? null) ? $analytics['available_talents'] : ['items' => [], 'interpretation' => ''];
+$insightFreeCapacity = is_array($analytics['free_capacity'] ?? null) ? $analytics['free_capacity'] : ['hours' => 0, 'percentage' => 0, 'interpretation' => ''];
 
 $columns = [];
 $cursor = new DateTimeImmutable($range['start']);
@@ -213,6 +219,73 @@ foreach ($availableTalents as $item) {
         <article class="kpi-card"><strong><?= number_format((float) ($summary['idle_capacity'] ?? 0), 1) ?>h</strong><span>Capacidad ociosa global</span></article>
     </section>
 
+    <section class="capacity-block analytics-layer">
+        <div class="section-title section-title-stack">
+            <h3>Capa analítica automática de carga del talento</h3>
+            <small class="section-muted">Insights e interpretación automática para apoyar decisiones de asignación y balance operativo.</small>
+        </div>
+        <div class="analytics-grid">
+            <article class="analytics-card">
+                <h4>Nivel de utilización del equipo</h4>
+                <strong><?= number_format((float) ($insightTeamUtilization['utilization'] ?? 0), 1) ?>%</strong>
+                <small><?= number_format((float) ($insightTeamUtilization['hours'] ?? 0), 1) ?>h de <?= number_format((float) ($insightTeamUtilization['capacity'] ?? 0), 1) ?>h de capacidad</small>
+                <p><?= htmlspecialchars((string) ($insightTeamUtilization['interpretation'] ?? 'Sin interpretación disponible.')) ?></p>
+            </article>
+
+            <article class="analytics-card">
+                <h4>Semanas con mayor carga</h4>
+                <?php $peakItems = array_slice(is_array($insightPeakWeeks['items'] ?? null) ? $insightPeakWeeks['items'] : [], 0, 3); ?>
+                <?php if (empty($peakItems)): ?>
+                    <small>Sin semanas destacadas.</small>
+                <?php else: ?>
+                    <ul>
+                        <?php foreach ($peakItems as $peak): ?>
+                            <li><?= htmlspecialchars((string) ($peak['label'] ?? $peak['week'] ?? '-')) ?> · <?= number_format((float) ($peak['utilization'] ?? 0), 1) ?>%</li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <p><?= htmlspecialchars((string) ($insightPeakWeeks['interpretation'] ?? 'Sin interpretación disponible.')) ?></p>
+            </article>
+
+            <article class="analytics-card">
+                <h4>Talentos con mayor utilización</h4>
+                <?php $topUtilizedItems = array_slice(is_array($insightTopUtilized['items'] ?? null) ? $insightTopUtilized['items'] : [], 0, 3); ?>
+                <?php if (empty($topUtilizedItems)): ?>
+                    <small>Sin talentos destacados.</small>
+                <?php else: ?>
+                    <ul>
+                        <?php foreach ($topUtilizedItems as $talent): ?>
+                            <li><?= htmlspecialchars((string) ($talent['name'] ?? '-')) ?> · <?= number_format((float) ($talent['utilization'] ?? 0), 1) ?>%</li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <p><?= htmlspecialchars((string) ($insightTopUtilized['interpretation'] ?? 'Sin interpretación disponible.')) ?></p>
+            </article>
+
+            <article class="analytics-card">
+                <h4>Talentos disponibles para asignación</h4>
+                <?php $availableItems = array_slice(is_array($insightAvailableTalents['items'] ?? null) ? $insightAvailableTalents['items'] : [], 0, 3); ?>
+                <?php if (empty($availableItems)): ?>
+                    <small>No hay disponibilidad registrada.</small>
+                <?php else: ?>
+                    <ul>
+                        <?php foreach ($availableItems as $talent): ?>
+                            <li><?= htmlspecialchars((string) ($talent['name'] ?? '-')) ?> · <?= number_format((float) ($talent['free_hours'] ?? 0), 1) ?>h libres</li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <p><?= htmlspecialchars((string) ($insightAvailableTalents['interpretation'] ?? 'Sin interpretación disponible.')) ?></p>
+            </article>
+
+            <article class="analytics-card">
+                <h4>Capacidad libre del equipo</h4>
+                <strong><?= number_format((float) ($insightFreeCapacity['hours'] ?? 0), 1) ?>h</strong>
+                <small><?= number_format((float) ($insightFreeCapacity['percentage'] ?? 0), 1) ?>% del total disponible</small>
+                <p><?= htmlspecialchars((string) ($insightFreeCapacity['interpretation'] ?? 'Sin interpretación disponible.')) ?></p>
+            </article>
+        </div>
+    </section>
+
     <section class="capacity-block">
         <div class="section-title section-title-stack">
             <h3>Heatmap visual de carga del equipo</h3>
@@ -374,6 +447,15 @@ foreach ($availableTalents as $item) {
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .kpi-card { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
 .kpi-card strong { font-size: 1.6rem; color: var(--primary); }
+.analytics-layer { background: linear-gradient(130deg, color-mix(in srgb, var(--surface) 92%, #dbeafe), color-mix(in srgb, var(--surface) 94%, #f1f5f9)); }
+.analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.analytics-card { border: 1px solid color-mix(in srgb, var(--border) 80%, #bfdbfe); background: color-mix(in srgb, var(--surface) 92%, #eff6ff); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.analytics-card h4 { margin: 0; font-size: .92rem; }
+.analytics-card strong { font-size: 1.4rem; color: #1d4ed8; }
+.analytics-card p { margin: 0; font-size: .84rem; color: var(--text-secondary); line-height: 1.45; }
+.analytics-card small { color: var(--text-secondary); font-size: .78rem; }
+.analytics-card ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.analytics-card li { font-size: .82rem; color: var(--text-primary); }
 .capacity-grid-two { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .capacity-block { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .section-title-stack { display: flex; flex-direction: column; gap: 2px; }
