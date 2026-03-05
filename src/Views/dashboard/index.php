@@ -7,18 +7,19 @@
             padding-bottom: 10px;
         }
         .section-title {
-            margin: 0 0 12px;
-            font-size: 20px;
+            margin: 0 0 14px;
+            font-size: 18px;
             font-weight: 800;
-            letter-spacing: .01em;
+            letter-spacing: -0.01em;
             color: var(--text-primary);
         }
         .card {
-            background: color-mix(in srgb, var(--surface) 92%, var(--background));
-            border: 1px solid color-mix(in srgb, var(--border) 86%, var(--background));
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 16px;
-            padding: 14px;
-            box-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 10%, transparent);
+            padding: 18px;
+            box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 5%, transparent), 0 6px 20px color-mix(in srgb, var(--text-primary) 4%, transparent);
+            transition: box-shadow 0.3s ease;
         }
         .card.dark {
             background: linear-gradient(140deg, #0f172a 0%, #111827 50%, #1e293b 100%);
@@ -56,11 +57,13 @@
             gap: 12px;
         }
         .stat-tile {
-            padding: 14px;
-            border-radius: 12px;
+            padding: 16px;
+            border-radius: 14px;
             background: color-mix(in srgb, var(--surface) 85%, var(--background));
-            border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 50%, var(--background));
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }
+        .stat-tile:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 20%, var(--border)); }
         .dark .stat-tile {
             background: rgba(15, 23, 42, .5);
             border-color: rgba(148, 163, 184, .2);
@@ -83,8 +86,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: color-mix(in srgb, var(--primary) 18%, var(--background));
-            border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--background));
+            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, var(--surface)), color-mix(in srgb, var(--primary) 10%, var(--surface)));
+            border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
             color: var(--primary);
             flex-shrink: 0;
         }
@@ -142,7 +145,8 @@
         .metric-big { font-size: 34px; font-weight: 900; color: var(--text-primary); line-height: 1; }
         .metric-label { font-size: 12px; letter-spacing: .05em; color: var(--text-secondary); text-transform: uppercase; }
         .gov-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; }
-        .gov-item { border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); }
+        .gov-item { border-radius: 14px; padding: 14px; background: color-mix(in srgb, var(--surface) 90%, var(--background)); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--background)); transition: transform 0.2s ease, border-color 0.2s ease; }
+        .gov-item:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--primary) 15%, var(--border)); }
         .gov-item strong { display: block; font-size: 28px; color: var(--text-primary); }
         .muted { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
         .ai-highlight {
@@ -284,10 +288,10 @@
         <div class="card alerts-critical" style="padding:10px 14px;">
             <h3 style="margin-bottom:6px;">Centro de alertas</h3>
             <div class="gov-grid" style="grid-template-columns:repeat(4,minmax(170px,1fr));">
-                <div class="gov-item"><div class="metric-label">⚠ Sin actualización &gt; 7 días</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['stale_projects'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">🔴 Proyectos con riesgo alto</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['high_risk_projects'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">⛔ Bloqueos críticos abiertos</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['critical_blockers'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">💰 Facturación pendiente</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['billing_pending'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Sin actualización &gt; 7 días</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['stale_projects'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Proyectos con riesgo alto</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['high_risk_projects'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg> Bloqueos críticos abiertos</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['critical_blockers'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Facturación pendiente</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['billing_pending'] ?? 0) ?></strong></div>
             </div>
         </div>
     </section>
@@ -421,7 +425,7 @@
     <?php if ($hasCriticalAlerts): ?>
         <section>
             <div class="card alerts-critical">
-                <h3>⚠ Alertas críticas</h3>
+                <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Alertas críticas</h3>
                 <ul class="alerts-list">
                     <?php if (!empty($staleProjects)): ?>
                         <li><?= count($staleProjects) ?> proyectos sin avance reciente.</li>
@@ -515,11 +519,17 @@
         <h2 class="section-title">Gobierno y Control</h2>
         <div class="gov-grid">
             <?php
+            $govSvgIcons = [
+                'doc' => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+                'refresh' => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M21 12a9 9 0 1 1-2.636-6.364"/><path d="M21 3v6h-6"/></svg>',
+                'shield' => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+                'credit' => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+            ];
             $govItems = [
-                ['label' => 'Documentos pendientes', 'value' => (int) (($governance['documents_revision'] ?? 0) + ($governance['documents_validacion'] ?? 0) + ($governance['documents_aprobacion'] ?? 0)), 'icon' => '📄'],
-                ['label' => 'Cambios sin aprobar', 'value' => (int) ($governance['scope_changes_pending'] ?? 0), 'icon' => '🔄'],
-                ['label' => 'Riesgos críticos', 'value' => (int) ($governance['critical_risks'] ?? 0), 'icon' => '⛔'],
-                ['label' => 'Facturación pendiente', 'value' => (int) ($outsourcing['open_followups'] ?? 0), 'icon' => '💳'],
+                ['label' => 'Documentos pendientes', 'value' => (int) (($governance['documents_revision'] ?? 0) + ($governance['documents_validacion'] ?? 0) + ($governance['documents_aprobacion'] ?? 0)), 'icon' => $govSvgIcons['doc']],
+                ['label' => 'Cambios sin aprobar', 'value' => (int) ($governance['scope_changes_pending'] ?? 0), 'icon' => $govSvgIcons['refresh']],
+                ['label' => 'Riesgos críticos', 'value' => (int) ($governance['critical_risks'] ?? 0), 'icon' => $govSvgIcons['shield']],
+                ['label' => 'Facturación pendiente', 'value' => (int) ($outsourcing['open_followups'] ?? 0), 'icon' => $govSvgIcons['credit']],
             ];
             foreach ($govItems as $item):
                 $tone = $item['value'] > 0 ? 'var(--danger)' : 'var(--success)';

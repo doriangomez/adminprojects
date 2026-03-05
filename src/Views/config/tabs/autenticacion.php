@@ -12,7 +12,7 @@ $isConfigured = trim((string) ($google['client_id'] ?? '')) !== ''
     <div class="card-content">
         <header class="governance-block-header">
             <div class="governance-block-title-line">
-                <span class="governance-block-icon" aria-hidden="true">🔐</span>
+                <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg></span>
                 <h3 class="governance-block-title">Autenticación con Google Workspace</h3>
             </div>
             <p class="governance-block-subtitle">Controla el acceso corporativo sin tocar código.</p>

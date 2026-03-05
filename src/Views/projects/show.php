@@ -380,11 +380,13 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
         <div class="project-health-card <?= $healthTone ?>" data-health-popover-root>
             <div class="project-health-score">[ <?= $healthTotal ?> / 100 ]</div>
             <div class="project-health-title">Salud Integral</div>
-            <div class="project-health-state"><?= $healthTone === 'health-green' ? '🟢' : ($healthTone === 'health-yellow' ? '🟡' : '🔴') ?> <?= htmlspecialchars($healthLabel) ?></div>
+            <div class="project-health-state"><?php
+$healthStateIcon = $healthTone === 'health-green' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>' : ($healthTone === 'health-yellow' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>');
+?><?= $healthStateIcon ?> <?= htmlspecialchars($healthLabel) ?></div>
             <button type="button" class="action-btn" data-toggle-health-popover>Ver desglose</button>
             <button type="button" class="action-btn primary" data-open-modal="health-modal">Ver análisis completo</button>
             <div class="health-popover" data-health-popover>
-                <h4>📊 Desglose Salud Integral</h4>
+                <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Desglose Salud Integral</h4>
                 <p><strong>Salud total: <?= $healthTotal ?> / 100</strong></p>
                 <?php foreach ($healthBreakdown as $dimension => $item): ?>
                     <?php
@@ -395,7 +397,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                     ?>
                     <div class="health-dimension <?= $tone ?>">
                         <strong><?= htmlspecialchars($label) ?>:</strong> <?= $percentage ?>% (<?= (int) ($item['score'] ?? 0) ?>/<?= (int) ($item['max'] ?? 0) ?>)
-                        <?php if ($issues): ?><div>⚠ <?= htmlspecialchars((string) $issues[0]) ?></div><?php endif; ?>
+                        <?php if ($issues): ?><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><?= htmlspecialchars((string) $issues[0]) ?></div><?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -513,21 +515,21 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
 
         <section class="indicator-grid">
             <article class="indicator-card">
-                <span class="indicator-icon">📄</span>
+                <span class="indicator-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                 <div>
                     <span>Docs aprobados</span>
                     <strong><?= $approvedDocuments ?></strong>
                 </div>
             </article>
             <article class="indicator-card">
-                <span class="indicator-icon">⏳</span>
+                <span class="indicator-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                 <div>
                     <span>Controles pendientes</span>
                     <strong><?= $pendingControls ?></strong>
                 </div>
             </article>
             <article class="indicator-card">
-                <span class="indicator-icon">⏱️</span>
+                <span class="indicator-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                 <div>
                     <span>Horas registradas</span>
                     <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
@@ -591,11 +593,14 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
         $areaLabel = ['tiempo' => 'Tiempo', 'alcance' => 'Alcance', 'costo' => 'Costo', 'calidad' => 'Calidad'];
         $statusLabel = ['abierto' => 'Abierto', 'en_gestion' => 'En gestión', 'escalado' => 'Escalado', 'resuelto' => 'Resuelto', 'cerrado' => 'Cerrado'];
         $impactClass = static function (string $impact): string { return match ($impact) { 'critico' => 'status-danger', 'alto' => 'status-warning', 'medio' => 'status-info', default => 'status-success', }; };
+        $alertCircleSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        $clipboardSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>';
+        $checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
         $impactMeta = [
-            'critico' => ['label' => 'Críticos', 'icon' => '🚨', 'cardClass' => 'critical'],
-            'alto' => ['label' => 'Altos', 'icon' => '⚠️', 'cardClass' => 'high'],
-            'medio' => ['label' => 'Medios', 'icon' => '📋', 'cardClass' => 'medium'],
-            'bajo' => ['label' => 'Bajos', 'icon' => '✅', 'cardClass' => 'low'],
+            'critico' => ['label' => 'Críticos', 'icon' => $alertCircleSvg, 'cardClass' => 'critical'],
+            'alto' => ['label' => 'Altos', 'icon' => $alertCircleSvg, 'cardClass' => 'high'],
+            'medio' => ['label' => 'Medios', 'icon' => $clipboardSvg, 'cardClass' => 'medium'],
+            'bajo' => ['label' => 'Bajos', 'icon' => $checkSvg, 'cardClass' => 'low'],
         ];
         $today = new \DateTimeImmutable('today');
         $monthlyTrend = [];
@@ -652,7 +657,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                         <?php foreach ($impactMeta as $impact => $meta): ?>
                             <?php $barPct = $maxByImpact > 0 ? (int) round((($impactTotals[$impact] ?? 0) / $maxByImpact) * 100) : 0; ?>
                             <div class="impact-bar impact-bar--<?= htmlspecialchars($meta['cardClass']) ?>">
-                                <div class="impact-bar__label"><span><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span><strong><?= (int) ($impactTotals[$impact] ?? 0) ?></strong></div>
+                                <div class="impact-bar__label"><span><?= $meta['icon'] ?> <?= htmlspecialchars($meta['label']) ?></span><strong><?= (int) ($impactTotals[$impact] ?? 0) ?></strong></div>
                                 <div class="impact-bar__track"><div style="width: <?= $barPct ?>%"></div></div>
                             </div>
                         <?php endforeach; ?>
@@ -711,7 +716,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                 ?>
                 <article class="impact-card impact-card--<?= htmlspecialchars($meta['cardClass']) ?>">
                     <div class="impact-card__title">
-                        <span><?= htmlspecialchars($meta['icon']) ?></span>
+                        <span><?= $meta['icon'] ?></span>
                         <strong><?= htmlspecialchars($meta['label']) ?></strong>
                         <span class="impact-trend"><?= $trendIcon ?></span>
                     </div>
@@ -726,7 +731,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
             <div class="kanban-grid">
                 <?php foreach ($impactMeta as $impact => $meta): ?>
                     <article class="kanban-column kanban-column--<?= htmlspecialchars($meta['cardClass']) ?>">
-                        <header><span><?= htmlspecialchars($meta['icon']) ?> <?= htmlspecialchars($meta['label']) ?></span><strong><?= count($kanban[$impact] ?? []) ?></strong></header>
+                        <header><span><?= $meta['icon'] ?> <?= htmlspecialchars($meta['label']) ?></span><strong><?= count($kanban[$impact] ?? []) ?></strong></header>
                         <?php if (empty($kanban[$impact])): ?>
                             <p class="kanban-empty">Sin bloqueos activos.</p>
                         <?php else: ?>
@@ -889,7 +894,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                                     <details class="phase-group" <?= $isSprint ? 'open' : '' ?>>
                                         <summary class="phase-link">
                                             <div class="phase-link__title">
-                                                <span class="phase-icon">📁</span>
+                                                <span class="phase-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
                                                 <div>
                                                     <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? 'Sprints') ?></strong>
                                                     <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
@@ -911,7 +916,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                                                 <li>
                                                     <a class="phase-link <?= $isSprintActive ? 'active' : '' ?>" href="<?= htmlspecialchars($sprintLink) ?>">
                                                         <div class="phase-link__title">
-                                                            <span class="phase-icon">📁</span>
+                                                            <span class="phase-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
                                                             <div>
                                                                 <strong><?= htmlspecialchars($sprint['name'] ?? $sprint['title'] ?? '') ?></strong>
                                                                 <small class="section-muted"><?= htmlspecialchars($sprintProgressLabel) ?></small>
@@ -928,7 +933,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                                 <li class="phase-item">
                                     <a class="phase-link <?= $isPhaseActive ? 'active' : '' ?>" href="<?= htmlspecialchars($phaseLink) ?>">
                                         <div class="phase-link__title">
-                                            <span class="phase-icon">📁</span>
+                                            <span class="phase-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
                                             <div>
                                                 <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? $phase['code'] ?? '') ?></strong>
                                                 <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
@@ -1045,7 +1050,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
         <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="health-modal-title">
             <div class="modal__header">
                 <h3 id="health-modal-title">Análisis completo de Salud Integral</h3>
-                <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">✕</button>
+                <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
             <div class="modal__body">
                 <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
@@ -1089,7 +1094,7 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
         <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="progress-modal-title">
             <div class="modal__header">
                 <h3 id="progress-modal-title">Actualizar avance</h3>
-                <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar">✕</button>
+                <button type="button" class="icon-btn" data-close-modal aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
             <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/progress" class="modal__body">
                 <label class="modal__field">

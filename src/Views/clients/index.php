@@ -39,15 +39,17 @@
         display: grid;
         grid-template-columns: auto 1fr auto;
         gap: 14px;
-        padding: 16px;
+        padding: 18px;
         border: 1px solid var(--border);
-        border-radius: 14px;
-        background: color-mix(in srgb, var(--info) 18%, var(--surface) 82%);
-        transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 4%, transparent);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .client-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 24px color-mix(in srgb, var(--text-primary) 6%, var(--background));
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px color-mix(in srgb, var(--text-primary) 8%, transparent);
+        border-color: color-mix(in srgb, var(--primary) 20%, var(--border));
         border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
     }
     .client-avatar {

@@ -46,7 +46,7 @@
             <div class="card-content">
                 <header class="governance-block-header">
                     <div class="governance-block-title-line">
-                        <span class="governance-block-icon" aria-hidden="true">🌐</span>
+                        <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                         <h3 class="governance-block-title">Reglas globales del sistema</h3>
                     </div>
                     <p class="governance-block-subtitle">(impactan a todo el sistema)</p>
@@ -79,7 +79,7 @@
             <div class="card-content">
                 <header class="governance-block-header">
                     <div class="governance-block-title-line">
-                        <span class="governance-block-icon" aria-hidden="true">🧩</span>
+                        <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
                         <h3 class="governance-block-title">Activación de módulos</h3>
                     </div>
                     <p class="governance-block-subtitle">Activa o desactiva módulos del sistema.</p>
@@ -134,7 +134,7 @@
             <div class="card-content">
                 <header class="governance-block-header">
                     <div class="governance-block-title-line">
-                        <span class="governance-block-icon" aria-hidden="true">📊</span>
+                        <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
                         <h3 class="governance-block-title">Gobierno de Salud Integral</h3>
                     </div>
                     <p class="governance-block-subtitle">Pesos, umbrales y límites operativos configurables.</p>
@@ -160,7 +160,7 @@
             <div class="card-content">
                 <header class="governance-block-header">
                     <div class="governance-block-title-line">
-                        <span class="governance-block-icon" aria-hidden="true">🛡️</span>
+                        <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
                         <h3 class="governance-block-title">Gobernanza de acceso</h3>
                     </div>
                     <p class="governance-block-subtitle">(quién puede hacer qué)</p>
@@ -271,7 +271,7 @@
             <div class="card-content">
             <header class="governance-block-header">
                 <div class="governance-block-title-line">
-                    <span class="governance-block-icon" aria-hidden="true">👤</span>
+                    <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <h3 class="governance-block-title">Usuarios</h3>
                 </div>
                 <p class="governance-block-subtitle">Gestiona altas, roles y permisos puntuales por usuario.</p>
@@ -585,7 +585,7 @@
             <div class="card-content">
                 <header class="governance-block-header">
                     <div class="governance-block-title-line">
-                        <span class="governance-block-icon" aria-hidden="true">🔁</span>
+                        <span class="governance-block-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-2.636-6.364"/><path d="M21 3v6h-6"/></svg></span>
                         <h3 class="governance-block-title">Flujo documental</h3>
                     </div>
                     <p class="governance-block-subtitle">(cómo pasan los documentos por revisión)</p>
@@ -594,7 +594,7 @@
                     <div class="governance-flow-roles">
                         <div class="governance-flow-role-card">
                             <div class="governance-flow-role-header">
-                                <span class="governance-flow-role-icon" aria-hidden="true">🕵️</span>
+                                <span class="governance-flow-role-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                                 <span class="governance-flow-role-title">Revisores</span>
                             </div>
                             <div class="input-stack">
@@ -604,7 +604,7 @@
                         </div>
                         <div class="governance-flow-role-card">
                             <div class="governance-flow-role-header">
-                                <span class="governance-flow-role-icon" aria-hidden="true">✅</span>
+                                <span class="governance-flow-role-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
                                 <span class="governance-flow-role-title">Validadores</span>
                             </div>
                             <div class="input-stack">
@@ -614,7 +614,7 @@
                         </div>
                         <div class="governance-flow-role-card">
                             <div class="governance-flow-role-header">
-                                <span class="governance-flow-role-icon" aria-hidden="true">🛡️</span>
+                                <span class="governance-flow-role-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
                                 <span class="governance-flow-role-title">Aprobadores</span>
                             </div>
                             <div class="input-stack">
@@ -625,7 +625,7 @@
                     </div>
                     <details class="json-collapse">
                         <summary>
-                            <span class="governance-inline-icon" aria-hidden="true">🧬</span>
+                            <span class="governance-inline-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
                             Catálogo de documentos esperados (JSON por metodología/fase/subfase)
                         </summary>
                         <div class="input-stack">
@@ -634,7 +634,7 @@
                         </div>
                     </details>
                     <div class="input-stack">
-                        <label><span class="governance-inline-icon" aria-hidden="true">🏷️</span> Tags sugeridos para documentos (separados por coma)</label>
+                        <label><span class="governance-inline-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span> Tags sugeridos para documentos (separados por coma)</label>
                         <input name="document_tag_options" form="governance-config-form" value="<?= htmlspecialchars(implode(', ', $configData['document_flow']['tag_options'] ?? [])) ?>">
                         <?php
                             $tagOptions = array_filter(array_map('trim', $configData['document_flow']['tag_options'] ?? []));

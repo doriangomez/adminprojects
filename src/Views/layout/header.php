@@ -40,6 +40,9 @@ error_log(sprintf(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? $appName) ?></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script>
         window.applyTheme = function(theme) {
             if (!theme || typeof theme !== 'object') {
@@ -62,7 +65,13 @@ error_log(sprintf(
     <style>
         * {
             box-sizing: border-box;
-            font-family: var(--font-family);
+            font-family: var(--font-family, 'Inter', system-ui, -apple-system, sans-serif);
+        }
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
         }
         body {
             margin: 0;
@@ -71,20 +80,28 @@ error_log(sprintf(
             color: var(--text-primary);
             min-height: 100vh;
             font-weight: 500;
+            font-optical-sizing: auto;
+            line-height: 1.6;
         }
         .sidebar {
             width: 280px;
             background: var(--secondary);
             color: var(--text-primary);
             min-height: 100vh;
-            padding: 20px 18px;
+            padding: 22px 16px;
             position: sticky;
             top: 0;
-            border-right: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
+            border-right: 1px solid color-mix(in srgb, var(--border) 50%, var(--background));
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 16px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: color-mix(in srgb, var(--border) 40%, transparent) transparent;
         }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--border) 40%, transparent); border-radius: 4px; }
         .sidebar.collapsed { width: 88px; }
         .sidebar.collapsed .brand-name,
         .sidebar.collapsed .user-meta,
@@ -96,18 +113,22 @@ error_log(sprintf(
         .sidebar.collapsed .nav-link::before { display: none; }
         .sidebar.collapsed .user-panel { justify-content: center; }
         .sidebar-toggle {
-            border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
-            background: color-mix(in srgb, var(--surface) 12%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 50%, var(--background));
+            background: color-mix(in srgb, var(--surface) 8%, var(--background));
             color: var(--text-primary);
             border-radius: 10px;
-            padding: 6px;
+            padding: 7px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.7;
         }
+        .sidebar-toggle:hover { opacity: 1; background: color-mix(in srgb, var(--primary) 12%, var(--background)); border-color: color-mix(in srgb, var(--primary) 30%, var(--border)); }
         .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
-        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid color-mix(in srgb, var(--border) 70%, var(--background)); background: color-mix(in srgb, var(--surface) 10%, var(--background)); }
+        .brand-box { display:flex; align-items:center; gap:12px; padding: 12px 10px; border-radius:14px; border:1px solid color-mix(in srgb, var(--border) 50%, var(--background)); background: color-mix(in srgb, var(--surface) 8%, var(--background)); transition: border-color 0.2s ease; }
+        .brand-box:hover { border-color: color-mix(in srgb, var(--primary) 25%, var(--border)); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
         .brand-name { font-weight: 800; color: var(--text-primary); font-size: 15px; }
@@ -127,9 +148,11 @@ error_log(sprintf(
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 12%, var(--background));
+            font-size: 15px;
+            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 35%, var(--surface)), color-mix(in srgb, var(--accent) 25%, var(--surface)));
             color: var(--text-primary);
-            border: 1px solid color-mix(in srgb, var(--border) 60%, var(--background));
+            border: 2px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 15%, transparent);
         }
         .user-meta { display: flex; flex-direction: column; gap: 3px; }
         .user-meta strong { color: var(--text-primary); font-size: 15px; font-weight: 700; }
@@ -143,8 +166,8 @@ error_log(sprintf(
             padding-inline: 10px;
             font-weight: 600;
         }
-        .nav-section-label { font-size: 11px; text-transform: uppercase; color: var(--text-primary); font-weight: 800; padding-inline: 10px; letter-spacing: 0.08em; margin-top: 6px; }
-        .nav-divider { height: 1px; background: color-mix(in srgb, var(--border) 65%, var(--background)); margin: 4px 10px; }
+        .nav-section-label { font-size: 10px; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; padding-inline: 10px; letter-spacing: 0.1em; margin-top: 4px; opacity: 0.7; }
+        .nav-divider { height: 1px; background: color-mix(in srgb, var(--border) 40%, var(--background)); margin: 6px 10px; }
         .sidebar nav { display:flex; flex-direction:column; gap:12px; }
         .nav-link {
             --nav-tone: var(--primary);
@@ -154,14 +177,14 @@ error_log(sprintf(
             gap: 12px;
             color: var(--text-secondary);
             text-decoration: none;
-            padding: 14px 12px;
+            padding: 11px 12px;
             border-radius: 14px;
             position: relative;
-            border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 45%, var(--background));
             font-weight: 600;
-            font-size: 16px;
+            font-size: 14px;
             overflow: hidden;
-            transition: border-color 0.22s ease, transform 0.22s ease, background-color 0.22s ease;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .nav-link::before {
             content: '';
@@ -211,32 +234,32 @@ error_log(sprintf(
         }
         .nav-link.active::before { background: var(--nav-tone); }
         .nav-icon {
-            width: 38px;
-            height: 38px;
+            width: 36px;
+            height: 36px;
             position: relative;
             z-index: 1;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             color: var(--nav-tone);
-            border-radius: 12px;
-            background: linear-gradient(155deg, color-mix(in srgb, var(--nav-tone) 26%, #ffffff), var(--nav-tone-soft));
-            border: 1px solid color-mix(in srgb, var(--nav-tone) 50%, var(--border));
-            box-shadow: 0 5px 12px color-mix(in srgb, var(--nav-tone) 20%, transparent);
-            transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, color 0.22s ease;
+            border-radius: 10px;
+            background: linear-gradient(145deg, color-mix(in srgb, var(--nav-tone) 18%, var(--surface)), color-mix(in srgb, var(--nav-tone) 10%, var(--surface)));
+            border: 1px solid color-mix(in srgb, var(--nav-tone) 30%, var(--border));
+            box-shadow: 0 2px 6px color-mix(in srgb, var(--nav-tone) 12%, transparent);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
         }
         .nav-link:hover .nav-icon {
             color: #ffffff;
-            background: linear-gradient(140deg, color-mix(in srgb, var(--nav-tone) 82%, #111827), var(--nav-tone));
-            box-shadow: 0 10px 18px color-mix(in srgb, var(--nav-tone) 40%, transparent);
-            transform: translateY(-1px) scale(1.06);
+            background: linear-gradient(145deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 75%, #1e293b));
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--nav-tone) 35%, transparent);
+            transform: scale(1.05);
         }
         .nav-link.active .nav-icon {
             color: #ffffff;
-            background: linear-gradient(145deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 64%, #0f172a));
-            border-color: color-mix(in srgb, var(--nav-tone) 78%, var(--surface));
-            box-shadow: 0 12px 22px color-mix(in srgb, var(--nav-tone) 45%, transparent);
-            transform: translateY(-1px);
+            background: linear-gradient(145deg, var(--nav-tone), color-mix(in srgb, var(--nav-tone) 65%, #0f172a));
+            border-color: color-mix(in srgb, var(--nav-tone) 60%, var(--surface));
+            box-shadow: 0 4px 16px color-mix(in srgb, var(--nav-tone) 40%, transparent);
         }
         .nav-label { white-space: nowrap; position: relative; z-index: 1; }
         .nav-badge {
@@ -255,15 +278,17 @@ error_log(sprintf(
         .nav-icon svg { width: 66%; height: 66%; stroke: currentColor; stroke-width: 2.2; }
         .nav-icon--emoji { font-size: 20px; line-height: 1; }
         .topbar {
-            padding: 10px 22px;
+            padding: 12px 24px;
             display: flex;
             align-items: center;
             gap: 16px;
             position: sticky;
             top: 0;
             z-index: 10;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
+            background: color-mix(in srgb, var(--surface) 85%, transparent);
+            backdrop-filter: blur(12px) saturate(1.5);
+            -webkit-backdrop-filter: blur(12px) saturate(1.5);
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
         }
         .brand {
             display: flex;
@@ -283,9 +308,9 @@ error_log(sprintf(
         .user-summary { display:flex; align-items:center; gap:10px; padding:6px 0; }
         .user-identity { display:flex; flex-direction:column; gap:3px; }
         .user-identity strong { color: var(--text-primary); font-size: 14px; font-weight: 700; }
-        .role-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); font-size:12px; font-weight:600; }
-        .logout-btn { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); text-decoration:none; font-weight:600; }
-        .logout-btn:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); border-color: color-mix(in srgb, var(--primary) 24%, var(--background)); color: var(--primary); }
+        .role-badge { display:inline-flex; align-items:center; padding:4px 10px; border-radius:8px; border:1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--primary); font-size:11px; font-weight:700; letter-spacing: 0.02em; }
+        .logout-btn { padding:8px 14px; border-radius:10px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); text-decoration:none; font-weight:600; font-size:13px; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; }
+        .logout-btn:hover { background: color-mix(in srgb, var(--danger) 8%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 25%, var(--border)); color: var(--danger); }
         .impersonation-banner {
             display: flex;
             align-items: center;
@@ -312,8 +337,8 @@ error_log(sprintf(
             flex-direction: column;
             gap: 20px;
         }
-        .page-heading h2 { margin:0 0 6px 0; font-size: 25px; color: var(--text-primary); font-weight: 700; }
-        .page-heading p { margin:0; color: var(--text-secondary); font-weight: 500; }
+        .page-heading h2 { margin:0 0 4px 0; font-size: 24px; color: var(--text-primary); font-weight: 800; letter-spacing: -0.02em; }
+        .page-heading p { margin:0; color: var(--text-secondary); font-weight: 500; font-size: 14px; }
         .section-grid { display:grid; gap:20px; align-items:start; }
         .section-grid.twothirds { grid-template-columns: 3fr 2fr; }
         .section-grid.wide { grid-template-columns: 2fr 3fr; }
@@ -346,9 +371,10 @@ error_log(sprintf(
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 18px;
-            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 12%, var(--background));
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 6%, transparent), 0 6px 16px color-mix(in srgb, var(--text-primary) 5%, transparent);
+            transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
         }
         .alert {
             padding: 12px 14px;
@@ -367,20 +393,22 @@ error_log(sprintf(
         .kpi .label { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
         .kpi .value { font-weight: 700; font-size: 34px; color: var(--text-primary); }
         .kpi .meta { color: var(--text-secondary); font-size: 13px; font-weight: 500; }
-        .kpi-icon { width: 56px; height: 56px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 16%, var(--background)); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
+        .kpi-icon { width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, var(--surface)), color-mix(in srgb, var(--primary) 10%, var(--surface))); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); flex-shrink: 0; }
         .kpi-icon svg { width: 32px; height: 32px; stroke: currentColor; }
         .kpi-body { display: flex; flex-direction: column; gap: 4px; }
         .badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 5px 10px;
+            padding: 4px 10px;
             border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
             background: color-mix(in srgb, var(--surface) 88%, var(--background) 12%);
             color: var(--text-primary);
             border: 1px solid var(--border);
+            white-space: nowrap;
         }
         .badge.success { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); }
         .badge.warning { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); }
@@ -392,10 +420,11 @@ error_log(sprintf(
             border-collapse: collapse;
             margin-top: 10px;
             background: var(--background);
+            font-size: 14px;
         }
         th, td {
-            padding: 12px 12px;
-            border-bottom: 1px solid var(--border);
+            padding: 13px 14px;
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
             text-align: left;
             line-height: 1.5;
             white-space: normal;
@@ -403,36 +432,42 @@ error_log(sprintf(
             word-break: break-word;
         }
         th {
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.05em;
             color: var(--text-secondary);
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%);
+            background: color-mix(in srgb, var(--surface) 94%, var(--background) 6%);
         }
         tr:last-child td { border-bottom: none; }
-        tbody tr:hover { background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); }
+        tbody tr { transition: background-color 0.15s ease; }
+        tbody tr:hover { background: color-mix(in srgb, var(--primary) 4%, var(--surface)); }
         .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
         .btn {
-            padding: 10px 14px;
+            padding: 10px 16px;
             border-radius: 10px;
             border: 1px solid var(--border);
             cursor: pointer;
             font-weight: 600;
+            font-size: 13px;
             background: var(--surface);
             color: var(--text-primary);
-            transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         .btn.sm { padding: 6px 10px; border-radius: 8px; font-size: 12px; }
-        .btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+        .btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 25%, transparent); }
+        .btn.primary:hover { box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent); transform: translateY(-1px); }
         .btn.secondary { background: var(--surface); }
         .btn.ghost { background: var(--background); border-style: dashed; }
-        .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
-        .btn.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); background: color-mix(in srgb, var(--warning) 12%, var(--background)); }
-        .btn.danger:hover { background: color-mix(in srgb, var(--danger) 20%, var(--background)); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
-        .btn.warning:hover { background: color-mix(in srgb, var(--warning) 20%, var(--background)); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); color: var(--warning); }
-        .btn:hover { background: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); border-color: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); color: var(--text-primary); }
-        .btn:active { background: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); border-color: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); color: var(--text-primary); }
+        .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 10%, var(--background)); }
+        .btn.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); background: color-mix(in srgb, var(--warning) 10%, var(--background)); }
+        .btn.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--background)); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); transform: translateY(-1px); }
+        .btn.warning:hover { background: color-mix(in srgb, var(--warning) 18%, var(--background)); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); transform: translateY(-1px); }
+        .btn:hover { background: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); border-color: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); color: var(--text-primary); transform: translateY(-1px); }
+        .btn:active { background: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); border-color: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); color: var(--text-primary); transform: translateY(0); }
         form.inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         input, select, textarea {
             padding: 10px 12px;
@@ -442,8 +477,10 @@ error_log(sprintf(
             background: var(--surface);
             color: var(--text-primary);
             font-weight: 500;
+            font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        input:focus, select:focus, textarea:focus { outline: none; border-color: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, var(--background)); }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: color-mix(in srgb, var(--primary) 70%, var(--accent) 30%); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
         textarea { resize: vertical; }
         label { font-weight: 600; color: var(--text-primary); display:block; margin-bottom:6px; }
         .input { display:flex; flex-direction:column; gap:6px; }
@@ -597,38 +634,38 @@ error_log(sprintf(
         <nav>
             <span class="nav-section-label">Operación</span>
             <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>" data-tone="indigo">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 13h5v7H4zM10 4h4v16h-4zM16 9h4v11h-4z"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="13" width="4" height="7" rx="1"/><rect x="10" y="6" width="4" height="14" rx="1"/><rect x="17" y="9" width="4" height="11" rx="1"/><path d="M4 5l5.5 3.5M14.5 4l4 3"/></svg></span>
                 <span class="nav-label">Dashboard</span>
             </a>
             <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>" data-tone="sky">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M10 13h4M12 11v4"/></svg></span>
                 <span class="nav-label">Proyectos</span>
             </a>
             <a href="<?= $basePath ?>/clients" class="nav-link <?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>" data-tone="cyan">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M5 7a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm8 1h6l-1 12h-4zM3 21a4 4 0 0 1 8 0"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M3 21h18"/><path d="M10 9h4M10 13h4M10 17h4"/></svg></span>
                 <span class="nav-label">Clientes</span>
             </a>
 
             <div class="nav-divider" aria-hidden="true"></div>
             <span class="nav-section-label">Gestión</span>
             <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>" data-tone="teal">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/></svg></span>
                 <span class="nav-label">Outsourcing</span>
             </a>
             <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>" data-tone="amber">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12h6l2 3 4-6h4"/><path d="M5 20h14"/><path d="M7 4h10v4H7z"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg></span>
                 <span class="nav-label">Aprobaciones</span>
                 <?php if (!empty($approvalBadgeCount)): ?>
                     <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
                 <?php endif; ?>
             </a>
             <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l2.5 2.5L15 10"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>
             <?php if ($timesheetsEnabled): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>" data-tone="pink">
-                    <span class="nav-icon nav-icon--emoji" aria-hidden="true">⏱️</span>
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 3.5"/></svg></span>
                     <span class="nav-label">Timesheet</span>
                     <?php if (!empty($timesheetPendingCount)): ?>
                         <span class="nav-badge" aria-label="Timesheets pendientes"><?= (int) $timesheetPendingCount ?></span>
@@ -636,11 +673,11 @@ error_log(sprintf(
                 </a>
             <?php endif; ?>
             <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>" data-tone="green">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
             <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 18h16"/><path d="M7 18v-5"/><path d="M12 18V6"/><path d="M17 18v-9"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
                 <span class="nav-label">Carga talento</span>
             </a>
 
@@ -648,13 +685,13 @@ error_log(sprintf(
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>
                 <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>" data-tone="orange">
-                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm8-1-1.5-.5a2 2 0 0 1-1.3-1.3L17 4l-2-.5-1 1.8a2 2 0 0 1-1.7 1L10 6l-.5 2 1.8 1a2 2 0 0 1 1 1.7L12 14l2 .5 1-1.8a2 2 0 0 1 1.7-1l1.8-.2Z"/></svg></span>
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
                     <span class="nav-label">Configuración</span>
                 </a>
             <?php endif; ?>
             <div class="nav-divider" aria-hidden="true"></div>
             <a href="<?= $basePath ?>/logout" class="nav-link" data-tone="red">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M15 4h-5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m10 9 3 3-3 3"/><path d="M13 12H4"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
                 <span class="nav-label">Salir</span>
             </a>
         </nav>

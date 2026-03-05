@@ -1,4 +1,13 @@
 <?php
+$tabIcons = [
+    'identidad' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+    'apariencia' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>',
+    'operacion' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+    'gobierno' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    'catalogos' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+    'notificaciones' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+    'autenticacion' => '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+];
 $tabs = [
     'identidad' => 'Identidad',
     'apariencia' => 'Apariencia',
@@ -23,31 +32,49 @@ if (!array_key_exists($activeTab, $tabs)) {
     .tab-nav {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        padding: 8px;
+        gap: 6px;
+        padding: 6px;
         border-radius: 14px;
         border: 1px solid var(--border);
-        background: var(--surface);
+        background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
     }
     .tab-nav a {
         cursor: pointer;
         padding: 8px 14px;
         border-radius: 10px;
         font-weight: 600;
-        color: var(--text-primary);
-        background: var(--surface);
-        border: 1px solid var(--background);
+        font-size: 13px;
+        color: var(--text-secondary);
+        background: transparent;
+        border: 1px solid transparent;
         text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .tab-nav a:hover {
+        color: var(--text-primary);
+        background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%);
     }
     .tab-nav a.active {
         background: var(--primary);
         color: var(--text-primary);
         border-color: color-mix(in srgb, var(--primary) 85%, var(--secondary) 15%);
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 25%, transparent);
     }
+    .tab-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .tab-icon svg { display: block; }
     .config-card {
         background: var(--surface);
         border: 1px solid var(--border);
-        box-shadow: none;
+        box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 3%, transparent);
+        border-radius: 14px;
     }
     .section-header {
         display: flex;
@@ -906,6 +933,7 @@ if (!array_key_exists($activeTab, $tabs)) {
         <div class="tab-nav">
             <?php foreach ($tabs as $key => $label): ?>
                 <a href="?tab=<?= htmlspecialchars($key) ?>" class="<?= $activeTab === $key ? 'active' : '' ?>">
+                    <span class="tab-icon"><?= $tabIcons[$key] ?? '' ?></span>
                     <?= htmlspecialchars($label) ?>
                 </a>
             <?php endforeach; ?>

@@ -19,13 +19,14 @@ foreach ($riskCatalog as $risk) {
     $riskGroups[$category][] = $risk;
 }
 $riskCategoryOrder = ['Alcance', 'Costos', 'Calidad', 'Tiempo', 'Dependencias'];
+$compassSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>';
 $riskCategoryIcons = [
-    'Alcance' => '🧭',
-    'Costos' => '💸',
-    'Calidad' => '✅',
-    'Tiempo' => '⏱️',
-    'Dependencias' => '🔗',
-    'Otros' => '⚠️',
+    'Alcance' => $compassSvg,
+    'Costos' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    'Calidad' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    'Tiempo' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    'Dependencias' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    'Otros' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
 ];
 $orderedRiskGroups = [];
 foreach ($riskCategoryOrder as $category) {
@@ -68,7 +69,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         <p style="margin:4px 0 0 0; color: var(--text-secondary);">Wizard guiado para registrar un proyecto sin depender de portafolios.</p>
     </div>
     <div class="pill soft-blue" style="align-self:center; gap:8px; display:inline-flex; align-items:center;">
-        <span aria-hidden="true">🧭</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
         Metodologías desde configuración
     </div>
 </div>
@@ -107,7 +108,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         </div>
         <div class="wizard-header__meta">
             <div class="pill soft-blue" style="align-self:center; gap:8px; display:inline-flex; align-items:center;">
-                <span aria-hidden="true">🧭</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
                 Metodologías desde configuración
             </div>
             <div class="pill soft-slate ghosted-pill">Estructura limpia y reconstruida por metodología</div>
@@ -184,15 +185,15 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <section class="grid step-block__grid">
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">📝</span>Nombre del proyecto</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>Nombre del proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <input type="text" name="name" value="<?= htmlspecialchars((string) $fieldValue('name', '')) ?>" placeholder="Implementación, despliegue, etc." required <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🧑‍🤝‍🧑</span>Cliente</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Cliente</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <select name="client_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
                             <?php if (empty($clientsList)): ?>
@@ -208,8 +209,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🧑‍💼</span>PM responsable</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>PM responsable</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <select name="pm_id" required <?= $canCreateProject ? '' : 'disabled' ?>>
                             <?php if (empty($projectManagersList)): ?>
@@ -225,7 +226,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🧩</span>Tipo de proyecto</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>Tipo de proyecto</span>
                         </span>
                         <select name="project_type" id="projectTypeSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
                             <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
@@ -236,8 +237,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🧭</span>Metodología</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></span>Metodología</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <select name="methodology_display" id="methodologySelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
                             <?php if (empty($methodologies)): ?>
@@ -254,8 +255,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🧪</span>Stage-gate</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>Stage-gate</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <select name="project_stage" required <?= $canCreateProject ? '' : 'disabled' ?>>
                             <?php foreach ($stageOptions as $stageOption): ?>
@@ -267,14 +268,14 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">📅</span>Inicio</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Inicio</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <input type="date" name="start_date" value="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" required <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
                     <label class="input" data-role="end-date">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🏁</span>Fin</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>Fin</span>
                         </span>
                         <input type="date" name="end_date" id="endDateInput" min="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
@@ -295,21 +296,21 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <section class="grid step-block__grid">
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>Alcance del proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
-                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>Entradas de diseño</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></span>*</span>
                         </span>
                         <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
-                            <span class="field-title"><span class="field-icon">🤝</span>Participación del cliente</span>
+                            <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Participación del cliente</span>
                         </span>
                         <select name="client_participation" <?= $canCreateProject ? '' : 'disabled' ?>>
                             <option value="alta" <?= $clientParticipation === 'alta' ? 'selected' : '' ?>>Alta (cocreación activa)</option>
@@ -338,7 +339,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                         <?php $categoryIcon = $riskCategoryIcons[$category] ?? $riskCategoryIcons['Otros']; ?>
                         <div class="risk-group" data-limit="5">
                             <div class="risk-group__header">
-                                <span class="risk-group__icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon) ?></span>
+                                <span class="risk-group__icon" aria-hidden="true"><?= $categoryIcon ?></span>
                                 <strong><?= htmlspecialchars($category) ?></strong>
                             </div>
                             <div class="risk-group__list">
@@ -347,10 +348,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                                     <label class="risk-chip">
                                         <input type="checkbox" name="risks[]" value="<?= htmlspecialchars($riskCode) ?>" <?= in_array($riskCode, $fieldValue('risks', []), true) ? 'checked' : '' ?>>
                                         <span class="risk-chip__content">
-                                            <span class="risk-chip__icon" aria-hidden="true"><?= htmlspecialchars($categoryIcon) ?></span>
+                                            <span class="risk-chip__icon" aria-hidden="true"><?= $categoryIcon ?></span>
                                             <span class="risk-chip__label"><?= htmlspecialchars($riskLabel) ?></span>
                                         </span>
-                                        <span class="risk-chip__check" aria-hidden="true">✓</span>
+                                        <span class="risk-chip__check" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></span>
                                     </label>
                                 <?php endforeach; ?>
                             </div>
@@ -429,13 +430,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <section class="grid step-card__grid compact">
                         <label class="input">
                             <span class="field-label">
-                                <span class="field-title"><span class="field-icon">💰</span>Presupuesto plan</span>
+                                <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Presupuesto plan</span>
                             </span>
                             <input type="number" step="0.01" min="0" name="budget" value="<?= htmlspecialchars((string) $fieldValue('budget', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                         </label>
                         <label class="input">
                             <span class="field-label">
-                                <span class="field-title"><span class="field-icon">⏱️</span>Horas planificadas</span>
+                                <span class="field-title"><span class="field-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>Horas planificadas</span>
                             </span>
                             <input type="number" step="0.1" min="0" name="planned_hours" value="<?= htmlspecialchars((string) $fieldValue('planned_hours', '0')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
                         </label>

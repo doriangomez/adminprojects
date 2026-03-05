@@ -29,6 +29,9 @@ require_once __DIR__ . '/../layout/logo_helper.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingreso | <?= htmlspecialchars($appName ?? 'PMO') ?></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= htmlspecialchars($basePath) ?>/assets/css/auth.css">
     <script>
         window.applyTheme = function(theme) {
@@ -64,7 +67,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-3.9 5.5-.8L12 3z"/>
+                                    <rect x="3" y="13" width="4" height="7" rx="1"/><rect x="10" y="6" width="4" height="14" rx="1"/><rect x="17" y="9" width="4" height="11" rx="1"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Panel ejecutivo alineado a los KPIs críticos de la organización.</p>
@@ -72,7 +75,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 12l6-6 6 6-6 6-6-6z"/>
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Orquestación de clientes y proyectos con trazabilidad completa.</p>
@@ -80,7 +83,7 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 12h16M14 6l6 6-6 6"/>
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Seguridad y gobierno de accesos centralizado para la PMO.</p>

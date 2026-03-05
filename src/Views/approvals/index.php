@@ -202,13 +202,13 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                     <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
                                     <input type="hidden" name="status" value="approved">
                                     <input type="text" name="comment" placeholder="Detalle aprobación (opcional)">
-                                    <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
+                                    <button type="submit" class="action-btn small primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Aprobar semana</button>
                                 </form>
                                 <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
                                     <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
                                     <input type="hidden" name="status" value="rejected">
                                     <input type="text" name="comment" placeholder="Motivo rechazo" required>
-                                    <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
+                                    <button type="submit" class="action-btn small danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Rechazar semana</button>
                                 </form>
                             </div>
 
@@ -253,7 +253,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                         <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
                                         <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
                                         <input type="text" name="comment" placeholder="Comentario de reapertura (opcional)">
-                                        <button type="submit" class="action-btn small">↩️ Reabrir semana</button>
+                                        <button type="submit" class="action-btn small"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M21 12a9 9 0 1 1-2.636-6.364"/><path d="M21 3v6h-6"/></svg>Reabrir semana</button>
                                     </form>
                                 <?php endif; ?>
                                 <?php if ($canDeleteTimesheetWorkflowRecords): ?>
@@ -261,7 +261,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                         <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
                                         <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
                                         <input type="text" name="comment" placeholder="Motivo eliminación (opcional)">
-                                        <button type="submit" class="action-btn small danger">🗑️ Eliminar registro</button>
+                                        <button type="submit" class="action-btn small danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar registro</button>
                                     </form>
                                 <?php endif; ?>
                             </li>
@@ -308,12 +308,12 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06); }
     .approvals-section header { display:flex; flex-direction:column; gap:4px; }
     .approvals-section header h3 { margin:0; display:flex; align-items:center; gap:8px; }
-    .approvals-section[data-queue="review"] header h3::before { content:"🔎"; }
-    .approvals-section[data-queue="validation"] header h3::before { content:"✅"; }
-    .approvals-section[data-queue="approval"] header h3::before { content:"🟢"; }
-    .approvals-section[data-queue="timesheets"] header h3::before { content:"🕒"; }
-    .approvals-section[data-queue="dispatch-validation"] header h3::before { content:"📨"; }
-    .approvals-section[data-queue="dispatch-approval"] header h3::before { content:"📬"; }
+    .approvals-section[data-queue="review"] header h3::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .approvals-section[data-queue="validation"] header h3::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpolyline points='22 4 12 14.01 9 11.01'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .approvals-section[data-queue="approval"] header h3::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .approvals-section[data-queue="timesheets"] header h3::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .approvals-section[data-queue="dispatch-validation"] header h3::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .approvals-section[data-queue="dispatch-approval"] header h3::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E") no-repeat center/contain; }
     .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
     .section-muted.empty { padding:10px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 84%, var(--background) 16%); }
     .inbox-card { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:12px; position:relative; }
@@ -328,12 +328,12 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .inbox-card__heading { display:flex; flex-direction:column; gap:4px; }
     .inbox-card__title { font-size:15px; }
     .inbox-card__type { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color: var(--text-secondary); display:inline-flex; align-items:center; gap:6px; }
-    .inbox-card[data-queue-type="review"] .inbox-card__type::before { content:"🔎"; }
-    .inbox-card[data-queue-type="validation"] .inbox-card__type::before { content:"✅"; }
-    .inbox-card[data-queue-type="approval"] .inbox-card__type::before { content:"🟢"; }
-    .inbox-card[data-queue-type="timesheets"] .inbox-card__type::before { content:"🕒"; }
-    .inbox-card[data-queue-type="dispatch-validation"] .inbox-card__type::before { content:"📨"; }
-    .inbox-card[data-queue-type="dispatch-approval"] .inbox-card__type::before { content:"📬"; }
+    .inbox-card[data-queue-type="review"] .inbox-card__type::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .inbox-card[data-queue-type="validation"] .inbox-card__type::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpolyline points='22 4 12 14.01 9 11.01'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .inbox-card[data-queue-type="approval"] .inbox-card__type::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .inbox-card[data-queue-type="timesheets"] .inbox-card__type::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .inbox-card[data-queue-type="dispatch-validation"] .inbox-card__type::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .inbox-card[data-queue-type="dispatch-approval"] .inbox-card__type::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E") no-repeat center/contain; }
     .badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
     .status-muted { background: color-mix(in srgb, var(--surface) 80%, var(--border) 20%); color: var(--text-secondary); }
     .status-info { background: color-mix(in srgb, var(--accent) 18%, var(--surface) 82%); color: var(--text-primary); }
@@ -350,14 +350,14 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06); }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
-    .action-btn--view::before { content:"👁️"; }
-    .action-btn--history::before { content:"🗂️"; }
-    .action-btn[data-action="reviewed"]::before { content:"🔎"; }
-    .action-btn[data-action="validated"]::before { content:"✅"; }
-    .action-btn[data-action="approved"]::before { content:"🟢"; }
-    .action-btn[data-action="send_validation"]::before { content:"📨"; }
-    .action-btn[data-action="send_approval"]::before { content:"📬"; }
-    .action-btn[data-action="rejected"]::before { content:"❌"; }
+    .action-btn--view::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn--history::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn[data-action="reviewed"]::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn[data-action="validated"]::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpolyline points='22 4 12 14.01 9 11.01'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn[data-action="approved"]::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn[data-action="send_validation"]::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn[data-action="send_approval"]::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/%3E%3Cpolyline points='22,6 12,13 2,6'/%3E%3C/svg%3E") no-repeat center/contain; }
+    .action-btn[data-action="rejected"]::before { content:""; display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='15' y1='9' x2='9' y2='15'/%3E%3Cline x1='9' y1='9' x2='15' y2='15'/%3E%3C/svg%3E") no-repeat center/contain; }
     .action-btn.small { padding:6px 8px; font-size:13px; }
     .action-panel { display:flex; flex-direction:column; gap:8px; }
     .action-panel textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; width:100%; }

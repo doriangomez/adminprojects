@@ -24,32 +24,37 @@ if ($documentMode === '03-CONTROLES') {
 }
 $documentNodeName = (string) ($documentNode['name'] ?? $documentNode['title'] ?? $documentNode['code'] ?? 'Subfase');
 $documentNodeCode = (string) ($documentNode['code'] ?? '');
+$fileTextSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+$folderSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+$editSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+$barChartSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>';
+$imageSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
 $fileIconMap = [
-    'pdf' => '📕',
-    'doc' => '📘',
-    'docx' => '📘',
-    'xls' => '📊',
-    'xlsx' => '📊',
-    'ppt' => '📽️',
-    'pptx' => '📽️',
-    'png' => '🖼️',
-    'jpg' => '🖼️',
-    'jpeg' => '🖼️',
-    'gif' => '🖼️',
+    'pdf' => $fileTextSvg,
+    'doc' => $fileTextSvg,
+    'docx' => $fileTextSvg,
+    'xls' => $barChartSvg,
+    'xlsx' => $barChartSvg,
+    'ppt' => $fileTextSvg,
+    'pptx' => $fileTextSvg,
+    'png' => $imageSvg,
+    'jpg' => $imageSvg,
+    'jpeg' => $imageSvg,
+    'gif' => $imageSvg,
 ];
-$resolveFileIcon = static function (string $fileName, string $docType) use ($fileIconMap): string {
+$resolveFileIcon = static function (string $fileName, string $docType) use ($fileIconMap, $folderSvg, $editSvg, $fileTextSvg): string {
     $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
     if ($extension && isset($fileIconMap[$extension])) {
         return $fileIconMap[$extension];
     }
     $normalized = strtolower($docType);
     if (str_contains($normalized, 'plan')) {
-        return '🗂️';
+        return $folderSvg;
     }
     if (str_contains($normalized, 'acta')) {
-        return '📝';
+        return $editSvg;
     }
-    return '📄';
+    return $fileTextSvg;
 };
 $normalizeDoc = static function (string $value): string {
     return strtolower(trim($value));
@@ -176,7 +181,7 @@ foreach ($documentExpectedItems as $doc) {
                                     <h4>Subir documento</h4>
                                     <p class="section-muted">Completa los metadatos antes de guardar.</p>
                                 </div>
-                                <button type="button" class="action-btn small" data-close-upload>✕</button>
+                                <button type="button" class="action-btn small" data-close-upload aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                             </header>
                             <div class="form-validation" data-upload-validation hidden>Revisa los campos obligatorios.</div>
                             <label class="field">
@@ -274,7 +279,7 @@ foreach ($documentExpectedItems as $doc) {
                 <input type="search" placeholder="Buscar por nombre, tag, tipo, estado o versión" data-document-search>
             </div>
             <div class="document-alert" data-document-alert hidden>
-                <strong>⚠️ Documentos clave pendientes</strong>
+                <strong><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Documentos clave pendientes</strong>
                 <span data-document-alert-detail></span>
             </div>
         </div>
@@ -312,7 +317,7 @@ foreach ($documentExpectedItems as $doc) {
                          data-approved-by="<?= htmlspecialchars((string) ($file['approved_by'] ?? '')) ?>"
                          data-approved-at="<?= htmlspecialchars((string) ($file['approved_at'] ?? '')) ?>">
                         <div>
-                            <strong class="document-name"><span class="file-type-icon"><?= htmlspecialchars($fileIcon) ?></span><?= htmlspecialchars($fileName) ?></strong>
+                            <strong class="document-name"><span class="file-type-icon"><?= $fileIcon ?></span><?= htmlspecialchars($fileName) ?></strong>
                             <small class="section-muted">Subido: <?= htmlspecialchars((string) ($file['created_at'] ?? '')) ?></small>
                             <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
                         </div>
@@ -339,7 +344,7 @@ foreach ($documentExpectedItems as $doc) {
                         <div>
                             <span class="status-pill status-pending" data-status-label>Borrador</span>
                             <?php if ($documentCanManage): ?>
-                                <button type="button" class="action-btn small" data-send-review>🔍 Enviar a revisión</button>
+                                <button type="button" class="action-btn small" data-send-review><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Enviar a revisión</button>
                             <?php endif; ?>
                             <small class="flow-summary" data-flow-summary>
                                 Revisor: <?= $file['reviewer_id'] ? 'Usuario #' . (int) $file['reviewer_id'] : 'No asignado' ?><br>
@@ -349,14 +354,14 @@ foreach ($documentExpectedItems as $doc) {
                             <button type="button" class="action-btn small" data-toggle-history>Historial</button>
                         </div>
                         <div class="file-actions">
-                            <a class="action-btn small" href="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download">👁️ Ver</a>
+                            <a class="action-btn small" href="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Ver</a>
                             <?php if ($documentCanManage): ?>
                                 <form method="POST" action="<?= $documentBasePath ?>/projects/<?= $documentProjectId ?>/nodes/<?= (int) ($file['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar archivo?');">
-                                    <button class="action-btn danger small" type="submit">🗑️ Eliminar</button>
+                                    <button class="action-btn danger small" type="submit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>
                                 </form>
                             <?php endif; ?>
                             <?php if ($documentCanManage): ?>
-                                <button type="button" class="action-btn small" data-toggle-flow>👤 Asignar flujo</button>
+                                <button type="button" class="action-btn small" data-toggle-flow><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Asignar flujo</button>
                             <?php endif; ?>
                         </div>
                         <div class="history-panel" data-history-panel hidden>
@@ -672,7 +677,7 @@ foreach ($documentExpectedItems as $doc) {
 
             row.innerHTML = `
                 <div>
-                    <strong>📄 ${escapeHtml(data.file_name ?? '')}</strong>
+                    <strong><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>${escapeHtml(data.file_name ?? '')}</strong>
                     <small class="section-muted">Subido: ${escapeHtml(data.created_at ?? '')}</small>
                     <div class="file-trace" data-file-trace>Sin trazabilidad registrada.</div>
                 </div>

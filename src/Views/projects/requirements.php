@@ -5,7 +5,12 @@ $indicator = $requirementsIndicator ?? ['applicable' => false, 'value' => null, 
 $period = $requirementsPeriod ?? ['start_date' => date('Y-m-01'), 'end_date' => date('Y-m-t')];
 $target = (int) ($requirementsTarget ?? 95);
 $audit = $requirementsAudit ?? [];
-$statusMap = ['verde' => '🟢', 'amarillo' => '🟡', 'rojo' => '🔴', 'no_aplica' => '⚪'];
+$statusMap = [
+    'verde' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>',
+    'amarillo' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>',
+    'rojo' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>',
+    'no_aplica' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>',
+];
 $activeTab = 'requisitos';
 require __DIR__ . '/_tabs.php';
 ?>
@@ -17,7 +22,7 @@ require __DIR__ . '/_tabs.php';
         <label>Fin <input type="date" name="end_date" value="<?= htmlspecialchars((string) $period['end_date']) ?>"></label>
         <button class="action-btn">Filtrar</button>
     </form>
-    <p><strong><?= $statusMap[$indicator['status'] ?? 'no_aplica'] ?? '⚪' ?>
+    <p><strong><?= $statusMap[$indicator['status'] ?? 'no_aplica'] ?? $statusMap['no_aplica'] ?>
         <?= ($indicator['applicable'] ?? false) ? number_format((float) ($indicator['value'] ?? 0), 2) . '%' : 'No aplica' ?></strong>
         · Meta <?= $target ?>%</p>
     <p>Total: <?= (int) ($indicator['total_requirements'] ?? 0) ?> · Aprobados sin reproceso: <?= (int) ($indicator['approved_without_reprocess'] ?? 0) ?> · Con reproceso: <?= (int) ($indicator['with_reprocess'] ?? 0) ?></p>

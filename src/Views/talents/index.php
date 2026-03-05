@@ -65,7 +65,7 @@ $flashMessageText = match ($flashMessage) {
     <section class="talent-form-section">
         <div class="section-head">
             <div class="section-title">
-                <span class="section-icon" aria-hidden="true">🧾</span>
+                <span class="section-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                 <div>
                     <h3><?= $isEditing ? 'Editar talento' : 'Registrar talento' ?></h3>
                     <small class="section-muted">Completa la ficha del talento y define su flujo de reporte de horas.</small>
@@ -101,7 +101,7 @@ $flashMessageText = match ($flashMessage) {
                         <label>Confirmación matemática para inactivar: <?= $inactiveOp1 . ' ' . $inactiveOperator . ' ' . $inactiveOp2 ?> = ?
                             <input type="number" name="math_result" required>
                         </label>
-                        <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
+                        <button type="submit" class="action-btn small warning solid"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Inactivar talento</button>
                     </form>
 
                     <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-delete-form" onsubmit="return confirm('¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
@@ -112,7 +112,7 @@ $flashMessageText = match ($flashMessage) {
                         <label>Confirmación matemática para eliminar: <?= $dangerOp1 . ' ' . $dangerOperator . ' ' . $dangerOp2 ?> = ?
                             <input type="number" name="math_result" required>
                         </label>
-                        <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento en cascada</button>
+                        <button type="submit" class="action-btn small danger solid"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar en cascada</button>
                     </form>
                 </div>
             </div>
@@ -204,7 +204,7 @@ $flashMessageText = match ($flashMessage) {
     <section class="talent-grid" id="talent-list">
         <div class="section-head">
             <div class="section-title">
-                <span class="section-icon" aria-hidden="true">🧑‍💼</span>
+                <span class="section-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                 <div>
                     <h3>Talentos registrados</h3>
                     <small class="section-muted">Gestiona perfiles y disponibilidad.</small>
@@ -228,61 +228,61 @@ $flashMessageText = match ($flashMessage) {
                             <div>
                                 <span class="talent-card__name"><?= htmlspecialchars($talent['name'] ?? '') ?></span>
                                 <span class="talent-card__role">
-                                    <span class="icon" aria-hidden="true">🧩</span>
+                                    <span class="icon" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>
                                     <?= htmlspecialchars($talent['role'] ?? '') ?>
                                 </span>
                             </div>
                             <span class="status-badge <?= $tipoClass ?>">
-                                <span class="icon" aria-hidden="true">🏷️</span>
+                                <span class="icon" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
                                 <?= htmlspecialchars(ucfirst((string) $tipoTalento)) ?>
                             </span>
                         </header>
 
                         <div class="talent-card__body">
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">🏢</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M3 21h18"/><path d="M10 9h4M10 13h4"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Tipo</span>
                                     <strong><?= htmlspecialchars($talent['tipo_talento'] ?? 'interno') ?></strong>
                                 </div>
                             </div>
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">⭐</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Seniority</span>
                                     <strong><?= htmlspecialchars($talent['seniority'] ?? 'N/A') ?></strong>
                                 </div>
                             </div>
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">📊</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Disponibilidad</span>
                                     <strong><?= htmlspecialchars((string) ($talent['availability'] ?? 0)) ?>%</strong>
                                 </div>
                             </div>
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">⏱️</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Capacidad</span>
                                     <strong><?= htmlspecialchars((string) ($talent['capacidad_horaria'] ?? 0)) ?>h/sem</strong>
                                 </div>
                             </div>
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">💲</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Costo / Tarifa</span>
                                     <strong>$<?= number_format((float) ($talent['hourly_cost'] ?? 0), 0, ',', '.') ?> · $<?= number_format((float) ($talent['hourly_rate'] ?? 0), 0, ',', '.') ?></strong>
                                 </div>
                             </div>
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">✉️</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Contacto</span>
                                     <strong><?= htmlspecialchars($talent['user_email'] ?? 'Sin usuario') ?></strong>
                                 </div>
                             </div>
                             <div class="talent-card__item">
-                                <span class="icon" aria-hidden="true">👤</span>
+                                <span class="icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                                 <div>
                                     <span class="talent-card__label">Jefe aprobador</span>
                                     <strong><?= htmlspecialchars((string) ($talent['timesheet_approver_name'] ?? 'Sin asignar')) ?></strong>
@@ -292,25 +292,25 @@ $flashMessageText = match ($flashMessage) {
 
                         <div class="talent-card__indicators">
                             <span class="pill <?= $requiresReport ? 'pill-success' : 'pill-muted' ?>">
-                                <span class="icon" aria-hidden="true">📝</span>
+                                <span class="icon" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
                                 <?= $requiresReport ? 'Reporta horas' : 'Sin reporte' ?>
                             </span>
                             <span class="pill <?= $requiresApproval ? 'pill-warning' : 'pill-muted' ?>">
-                                <span class="icon" aria-hidden="true">✅</span>
+                                <span class="icon" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
                                 <?= $requiresApproval ? 'Requiere aprobación' : 'Sin aprobación' ?>
                             </span>
                             <span class="pill pill-muted">
-                                <span class="icon" aria-hidden="true">🧠</span>
+                                <span class="icon" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></span>
                                 <?= htmlspecialchars($talent['skills'] ?? 'Skills n/a') ?>
                             </span>
                         </div>
 
                         <div class="talent-pmo-health">
-                            <span class="pmo-chip">📁 Proyectos activos: <strong><?= (int) ($talent['active_projects'] ?? 0) ?></strong></span>
-                            <span class="pmo-chip">🧩 Asignaciones: <strong><?= (int) ($talent['total_assignments'] ?? 0) ?></strong></span>
-                            <span class="pmo-chip">⏳ Timesheets pendientes: <strong><?= (int) ($talent['pending_timesheets'] ?? 0) ?></strong></span>
-                            <span class="pmo-chip">🕒 Horas reportadas: <strong><?= number_format((float) ($talent['reported_hours'] ?? 0), 1, ',', '.') ?>h</strong></span>
-                            <span class="pmo-chip">📌 Servicios outsourcing: <strong><?= (int) ($talent['outsourcing_services'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Proyectos activos: <strong><?= (int) ($talent['active_projects'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg> Asignaciones: <strong><?= (int) ($talent['total_assignments'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Timesheets pendientes: <strong><?= (int) ($talent['pending_timesheets'] ?? 0) ?></strong></span>
+                            <span class="pmo-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Horas reportadas: <strong><?= number_format((float) ($talent['reported_hours'] ?? 0), 1, ',', '.') ?>h</strong></span>
+                            <span class="pmo-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/></svg> Servicios outsourcing: <strong><?= (int) ($talent['outsourcing_services'] ?? 0) ?></strong></span>
                         </div>
 
                         <?php
@@ -331,7 +331,7 @@ $flashMessageText = match ($flashMessage) {
                                 <input type="hidden" name="math_operand2" value="<?= $inactivateOp2 ?>">
                                 <input type="hidden" name="math_operator" value="<?= $inactivateOperator ?>">
                                 <input type="hidden" name="math_result" value="">
-                                <button type="submit" class="action-btn small warning solid">⏸️ Inactivar talento</button>
+                                <button type="submit" class="action-btn small warning solid"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Inactivar</button>
                             </form>
 
                             <form method="POST" action="<?= $basePath ?>/talents/delete" class="talent-inline-action-form" onsubmit="return talentInlineMathConfirm(this, 'eliminar', '¿Seguro que deseas eliminar este talento? Esta acción elimina asignaciones, timesheets y skills relacionados.');">
@@ -340,7 +340,7 @@ $flashMessageText = match ($flashMessage) {
                                 <input type="hidden" name="math_operand2" value="<?= $deleteOp2 ?>">
                                 <input type="hidden" name="math_operator" value="<?= $deleteOperator ?>">
                                 <input type="hidden" name="math_result" value="">
-                                <button type="submit" class="action-btn small danger solid">🗑️ Eliminar talento</button>
+                                <button type="submit" class="action-btn small danger solid"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button>
                             </form>
                         </footer>
                     </article>
@@ -352,7 +352,7 @@ $flashMessageText = match ($flashMessage) {
     <section class="talent-tracking" id="talent-tracking">
         <div class="section-head">
             <div class="section-title">
-                <span class="section-icon" aria-hidden="true">📌</span>
+                <span class="section-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
                 <div>
                     <h3>Seguimiento por talento y servicio</h3>
                     <small class="section-muted">Estado actual, último seguimiento y evidencias asociadas.</small>
@@ -465,30 +465,33 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
 
 <style>
     .talent-shell { display:flex; flex-direction:column; gap:18px; }
-    .talent-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06); }
-    .talent-form-section, .talent-grid, .talent-tracking { border:1px solid var(--border); border-radius:18px; padding:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05); }
+    .talent-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:16px; padding:20px; background: var(--surface); box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 4%, transparent), 0 6px 16px color-mix(in srgb, var(--text-primary) 3%, transparent); }
+    .talent-header h2 { margin: 0; font-weight: 800; letter-spacing: -0.02em; }
+    .talent-form-section, .talent-grid, .talent-tracking { border:1px solid var(--border); border-radius:16px; padding:20px; background:var(--surface); display:flex; flex-direction:column; gap:14px; box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 4%, transparent), 0 6px 16px color-mix(in srgb, var(--text-primary) 3%, transparent); }
     .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .section-title { display:flex; align-items:flex-start; gap:12px; }
-    .section-icon { width:36px; height:36px; border-radius:12px; background:color-mix(in srgb, var(--primary) 15%, var(--surface)); display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
+    .section-icon { width:38px; height:38px; border-radius:12px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, var(--surface)), color-mix(in srgb, var(--primary) 8%, var(--surface))); display:inline-flex; align-items:center; justify-content:center; font-size:18px; border:1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); flex-shrink: 0; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
     label { display:flex; flex-direction:column; gap:6px; font-weight:600; color: var(--text-primary); }
     select, input { padding:10px 12px; border-radius:10px; border:1px solid var(--border); }
     textarea { padding:10px 12px; border-radius:10px; border:1px solid var(--border); font-family:inherit; }
     .divider { border-top:1px dashed var(--border); margin:8px 0; }
     .talent-cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
-    .talent-card { border:1px solid color-mix(in srgb, var(--border) 70%, var(--surface) 30%); border-radius:18px; padding:16px; background:color-mix(in srgb, var(--surface) 92%, var(--background) 8%); display:flex; flex-direction:column; gap:14px; }
+    .talent-card { border:1px solid var(--border); border-radius:16px; padding:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; box-shadow: 0 1px 3px color-mix(in srgb, var(--text-primary) 4%, transparent); transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease; }
+    .talent-card:hover { box-shadow: 0 4px 16px color-mix(in srgb, var(--text-primary) 8%, transparent); border-color: color-mix(in srgb, var(--primary) 20%, var(--border)); transform: translateY(-2px); }
     .talent-card__header { display:flex; justify-content:space-between; gap:12px; }
     .talent-card__name { display:block; font-size:16px; font-weight:700; color:var(--text-primary); }
     .talent-card__role { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary); }
     .talent-card__body { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
-    .talent-card__item { display:flex; gap:10px; align-items:center; background: var(--surface); border-radius:12px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--border) 65%, var(--surface) 35%); }
+    .talent-card__item { display:flex; gap:10px; align-items:center; background: color-mix(in srgb, var(--surface) 95%, var(--background) 5%); border-radius:12px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--border) 55%, var(--surface) 45%); transition: border-color 0.2s ease; }
+    .talent-card__item:hover { border-color: color-mix(in srgb, var(--primary) 20%, var(--border)); }
     .talent-card__label { display:block; font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; }
     .talent-card__indicators { display:flex; flex-wrap:wrap; gap:8px; }
     .talent-pmo-health { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; }
     .pmo-chip { display:inline-flex; align-items:center; justify-content:space-between; gap:8px; border:1px solid color-mix(in srgb, var(--info) 28%, var(--border) 72%); background:color-mix(in srgb, var(--info) 8%, var(--surface) 92%); border-radius:10px; padding:7px 9px; font-size:12px; color:var(--text-primary); }
     .talent-card__footer { display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-top:1px dashed var(--border); padding-top:10px; }
     .danger-text { color: var(--danger); font-weight:600; display:block; margin-top:4px; }
-    .icon { font-size:15px; }
+    .icon { font-size:15px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent; }
     .pill-muted { background:color-mix(in srgb, var(--neutral) 12%, var(--surface) 88%); color:var(--text-secondary); border-color:color-mix(in srgb, var(--neutral) 30%, var(--surface) 70%); }
     .pill-success { background:color-mix(in srgb, var(--success) 15%, var(--surface) 85%); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--surface) 65%); }
