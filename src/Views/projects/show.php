@@ -12,6 +12,12 @@ $isManualProgress = ($project['progress_mode'] ?? $project['progress_type'] ?? '
 $canUpdateProgress = !empty($canUpdateProgress) && $isManualProgress;
 $progressHistory = is_array($progressHistory ?? null) ? $progressHistory : [];
 $progressIndicators = is_array($progressIndicators ?? null) ? $progressIndicators : [];
+$hoursTrendWeeks = is_array($hoursTrendWeeks ?? null) ? $hoursTrendWeeks : [];
+$pmoProgressHours = $progressIndicators['progress_hours'] ?? null;
+$pmoProgressTasks = $progressIndicators['progress_tasks'] ?? null;
+$pmoRiskScore = (int) ($progressIndicators['risk_pmo_score'] ?? 0);
+$pmoOverdueTasks = (int) ($progressIndicators['overdue_tasks'] ?? 0);
+$pmoOpenStoppers = (int) ($progressIndicators['open_stoppers'] ?? 0);
 $billingConfig = is_array($billingConfig ?? null) ? $billingConfig : [];
 $projectInvoices = is_array($projectInvoices ?? null) ? $projectInvoices : [];
 $billingTotals = is_array($billingTotals ?? null) ? $billingTotals : [];
@@ -534,7 +540,61 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                     <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
                 </div>
             </article>
+            <?php if ($pmoProgressHours !== null): ?>
+            <article class="indicator-card">
+                <span class="indicator-icon">📊</span>
+                <div>
+                    <span>Avance por horas</span>
+                    <strong><?= $pmoProgressHours ?>%</strong>
+                    <small><?= number_format((float) ($progressIndicators['approved_hours'] ?? 0), 1) ?>h / <?= number_format((float) ($progressIndicators['planned_hours'] ?? 0), 1) ?>h plan</small>
+                </div>
+            </article>
+            <?php endif; ?>
+            <?php if ($pmoProgressTasks !== null): ?>
+            <article class="indicator-card">
+                <span class="indicator-icon">✅</span>
+                <div>
+                    <span>Avance por tareas</span>
+                    <strong><?= $pmoProgressTasks ?>%</strong>
+                    <small><?= (int) ($progressIndicators['done_tasks'] ?? 0) ?> / <?= (int) ($progressIndicators['total_tasks'] ?? 0) ?> tareas</small>
+                </div>
+            </article>
+            <?php endif; ?>
+            <article class="indicator-card">
+                <span class="indicator-icon"><?= $pmoRiskScore >= 50 ? '🔴' : ($pmoRiskScore >= 25 ? '🟡' : '🟢') ?></span>
+                <div>
+                    <span>Riesgo PMO</span>
+                    <strong><?= $pmoRiskScore ?>%</strong>
+                    <small><?= $pmoOverdueTasks ?> vencidas · <?= $pmoOpenStoppers ?> bloqueos activos</small>
+                </div>
+            </article>
         </section>
+
+        <?php if (!empty($hoursTrendWeeks) || $pmoOpenStoppers > 0): ?>
+        <section class="pmo-alerts-section">
+            <h4>Alertas PMO</h4>
+            <?php if ($pmoOpenStoppers > 0): ?>
+            <div class="pmo-alert-block">
+                <strong>Bloqueos activos:</strong> <?= $pmoOpenStoppers ?> bloqueo(s) abierto(s). <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=bloqueos">Ver bloqueos</a>
+            </div>
+            <?php endif; ?>
+            <?php if ($pmoOverdueTasks > 0): ?>
+            <div class="pmo-alert-block">
+                <strong>Tareas vencidas:</strong> <?= $pmoOverdueTasks ?> tarea(s) con fecha compromiso vencida.
+            </div>
+            <?php endif; ?>
+            <?php if (!empty($hoursTrendWeeks)): ?>
+            <div class="pmo-trend-block">
+                <strong>Tendencia horas (últimas 4 semanas):</strong>
+                <ul>
+                    <?php foreach ($hoursTrendWeeks as $tw): ?>
+                    <li>Semana <?= htmlspecialchars((string) ($tw['week_start'] ?? '')) ?>: <?= number_format((float) ($tw['total_hours'] ?? 0), 1) ?>h</li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </section>
+        <?php endif; ?>
 
 
 
@@ -1237,6 +1297,10 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     .progress-meta__item.full p { margin:0; font-size:13px; color: var(--text-primary); }
     .indicator-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
     .indicator-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: var(--surface); display:flex; align-items:center; gap:12px; }
+    .pmo-alerts-section { border:1px solid var(--border); border-radius:14px; padding:14px; background: color-mix(in srgb, var(--surface) 95%, var(--background)); display:flex; flex-direction:column; gap:10px; }
+    .pmo-alerts-section h4 { margin:0 0 6px; font-size:14px; text-transform:uppercase; color: var(--text-secondary); }
+    .pmo-alert-block, .pmo-trend-block { font-size:13px; color: var(--text-primary); }
+    .pmo-trend-block ul { margin:6px 0 0; padding-left:18px; }
     .indicator-card span { font-size:12px; text-transform:uppercase; color: var(--text-secondary); font-weight:700; }
     .indicator-card strong { font-size:18px; color: var(--text-primary); display:block; }
     .indicator-card small { font-size:12px; color: var(--text-secondary); }

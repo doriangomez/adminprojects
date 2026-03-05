@@ -350,10 +350,10 @@ class TimesheetsController extends Controller
         $date = trim((string) ($_POST['date'] ?? ''));
         $hours = max(0, (float) ($_POST['hours'] ?? 0));
         $comment = trim((string) ($_POST['comment'] ?? ''));
+        $taskManagementMode = trim((string) ($_POST['task_management_mode'] ?? 'existing'));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
-            'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? 'existing')),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
+            'task_management_mode' => in_array($taskManagementMode, ['existing', 'pending', 'completed'], true) ? $taskManagementMode : 'existing',
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -362,9 +362,22 @@ class TimesheetsController extends Controller
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
         ];
+        if ($taskManagementMode !== 'existing') {
+            $metadata['new_task_title'] = trim((string) ($_POST['new_task_title'] ?? $_POST['activity_description'] ?? ''));
+            $metadata['new_task_priority'] = trim((string) ($_POST['new_task_priority'] ?? 'medium'));
+            $metadata['new_task_due_date'] = trim((string) ($_POST['new_task_due_date'] ?? ''));
+        }
 
         if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '') {
             $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción y comentario son obligatorios.']);
+            return;
+        }
+        if ($metadata['activity_type'] === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Tipo de actividad es obligatorio.']);
+            return;
+        }
+        if ($taskManagementMode !== 'existing' && ($metadata['new_task_title'] ?? '') === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Título de la tarea es obligatorio al crear tarea nueva.']);
             return;
         }
 
@@ -396,7 +409,6 @@ class TimesheetsController extends Controller
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -405,6 +417,10 @@ class TimesheetsController extends Controller
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
         ];
+        if ($metadata['activity_type'] === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Tipo de actividad es obligatorio.']);
+            return;
+        }
 
         try {
             $updated = $repo->updateDraftActivity($activityId, $userId, $projectId, $date, $hours, $comment, $metadata);

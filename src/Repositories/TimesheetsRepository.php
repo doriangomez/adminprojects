@@ -404,6 +404,7 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Las horas deben estar entre 0 y 24.');
         }
         $this->assertWeekIsEditable($userId, $date);
+        $this->assertNoWeekendUnlessAdmin($date, $userId);
 
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
@@ -431,6 +432,9 @@ class TimesheetsRepository
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $structured = $this->sanitizeStructuredMetadata($metadata);
+        if ($structured['activity_type'] === '') {
+            throw new InvalidArgumentException('Tipo de actividad es obligatorio.');
+        }
         $taskManagementMode = strtolower(trim((string) ($metadata['task_management_mode'] ?? 'existing')));
         if (!in_array($taskManagementMode, ['existing', 'completed', 'pending'], true)) {
             $taskManagementMode = 'existing';
@@ -438,10 +442,20 @@ class TimesheetsRepository
 
         $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
         if ($taskManagementMode !== 'existing') {
-            $taskTitle = $structured['activity_description'] !== ''
-                ? $structured['activity_description']
-                : trim($comment);
-            $taskId = $this->createTaskFromTimesheetActivity($projectId, $talentId, $taskTitle, $taskManagementMode);
+            $taskTitle = trim((string) ($metadata['new_task_title'] ?? ''));
+            if ($taskTitle === '') {
+                $taskTitle = $structured['activity_description'] !== '' ? $structured['activity_description'] : trim($comment);
+            }
+            $taskPayload = [
+                'priority' => in_array($metadata['new_task_priority'] ?? '', ['low', 'medium', 'high'], true) ? $metadata['new_task_priority'] : 'medium',
+                'due_date' => $metadata['new_task_due_date'] ?? null,
+            ];
+            $taskId = $this->createTaskFromTimesheetActivity($projectId, $talentId, $userId, $taskTitle, $taskManagementMode, $taskPayload);
+        }
+
+        $linkedStopperId = null;
+        if ($structured['had_blocker'] && trim((string) $structured['blocker_description']) !== '') {
+            $linkedStopperId = $this->ensureStopperFromTimesheetBlocker($projectId, $userId, (string) $structured['blocker_description'], (int) ($metadata['task_id'] ?? 0), $date);
         }
 
         return $this->createTimesheet([
@@ -468,7 +482,7 @@ class TimesheetsRepository
             'had_significant_progress' => $structured['had_significant_progress'],
             'generated_deliverable' => $structured['generated_deliverable'],
             'operational_comment' => $structured['operational_comment'],
-            'linked_stopper_id' => null,
+            'linked_stopper_id' => $linkedStopperId ?? null,
         ]);
     }
 
@@ -495,6 +509,7 @@ class TimesheetsRepository
             $this->assertWeekIsEditable($userId, $currentDate);
         }
         $this->assertWeekIsEditable($userId, $date);
+        $this->assertNoWeekendUnlessAdmin($date, $userId);
 
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
@@ -638,6 +653,7 @@ class TimesheetsRepository
             $this->assertWeekIsEditable($userId, $currentDate);
         }
         $this->assertWeekIsEditable($userId, $targetDate);
+        $this->assertNoWeekendUnlessAdmin($targetDate, $userId);
 
         if ((string) ($current['date'] ?? '') === $targetDate) {
             return true;
@@ -810,8 +826,88 @@ class TimesheetsRepository
             ]
         );
 
-        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
-        return (int) ($row['total'] ?? 0);
+        $updated = (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+        if ($updated > 0) {
+            $this->generateWeekSubmissionNotes($userId, $weekStart, $weekEnd);
+        }
+
+        return $updated;
+    }
+
+    private function generateWeekSubmissionNotes(int $userId, \DateTimeImmutable $weekStart, \DateTimeImmutable $weekEnd): void
+    {
+        if (!$this->db->tableExists('audit_log')) {
+            return;
+        }
+
+        $userName = $this->db->fetchOne('SELECT name FROM users WHERE id = :id', [':id' => $userId])['name'] ?? 'Usuario';
+        $weekNum = (int) $weekStart->format('W');
+        $year = (int) $weekStart->format('o');
+
+        $structuredSelect = $this->structuredTimesheetSelectColumns('ts');
+        $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+        $entries = $this->db->fetchAll(
+            'SELECT ts.id, ts.project_id, ts.date, ts.hours, ts.comment' . $structuredSegment . ',
+                    COALESCE(ts.activity_description, ts.comment) AS activity_desc,
+                    p.name AS project_name
+             FROM timesheets ts
+             LEFT JOIN projects p ON p.id = ts.project_id
+             WHERE ts.user_id = :user
+               AND ts.date BETWEEN :start AND :end
+             ORDER BY ts.project_id, ts.date',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+
+        $byProject = [];
+        foreach ($entries as $row) {
+            $pid = (int) ($row['project_id'] ?? 0);
+            if ($pid <= 0) {
+                continue;
+            }
+            if (!isset($byProject[$pid])) {
+                $byProject[$pid] = ['name' => $row['project_name'] ?? 'Proyecto', 'entries' => []];
+            }
+            $byProject[$pid]['entries'][] = $row;
+        }
+
+        $dowLabels = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        $auditRepo = new AuditLogRepository($this->db);
+
+        foreach ($byProject as $projectId => $data) {
+            $lines = ["Semana $weekNum ($year)", "Usuario: $userName", ''];
+            $byDay = [];
+            $blockers = [];
+            foreach ($data['entries'] as $e) {
+                $date = (string) ($e['date'] ?? '');
+                $dow = $date !== '' ? (int) (new \DateTimeImmutable($date))->format('w') : 0;
+                $dayLabel = $dowLabels[$dow] ?? $date;
+                if (!isset($byDay[$dayLabel])) {
+                    $byDay[$dayLabel] = [];
+                }
+                $desc = trim((string) ($e['activity_desc'] ?? $e['comment'] ?? 'Actividad'));
+                $byDay[$dayLabel][] = round((float) ($e['hours'] ?? 0), 2) . 'h – ' . $desc;
+                if (!empty($e['had_blocker']) && trim((string) ($e['blocker_description'] ?? '')) !== '') {
+                    $blockers[] = trim((string) $e['blocker_description']);
+                }
+            }
+            foreach ($byDay as $dayLabel => $activities) {
+                $lines[] = $dayLabel;
+                foreach ($activities as $a) {
+                    $lines[] = $a;
+                }
+                $lines[] = '';
+            }
+            if ($blockers !== []) {
+                $lines[] = 'Bloqueo detectado:';
+                $lines[] = implode("\n", array_unique($blockers));
+            }
+            $note = implode("\n", $lines);
+            $auditRepo->log($userId, 'project_note', $projectId, 'project_note_created', ['note' => $note, 'source' => 'timesheet_week_submitted']);
+        }
     }
 
     public function cancelWeekSubmission(int $userId, \DateTimeImmutable $weekStart): int
@@ -2266,7 +2362,7 @@ class TimesheetsRepository
         return $this->resolveTimesheetTaskId($projectId);
     }
 
-    private function createTaskFromTimesheetActivity(int $projectId, int $talentId, string $rawTitle, string $taskManagementMode): int
+    private function createTaskFromTimesheetActivity(int $projectId, int $talentId, int $userId, string $rawTitle, string $taskManagementMode, array $taskPayload = []): int
     {
         if (!$this->db->tableExists('tasks')) {
             throw new InvalidArgumentException('No hay tareas disponibles para registrar horas.');
@@ -2279,13 +2375,20 @@ class TimesheetsRepository
 
         $status = $taskManagementMode === 'completed' ? 'completed' : 'pending';
         $isCompleted = $status === 'completed';
-        $columns = ['project_id', 'title', 'status', 'priority', 'estimated_hours', 'actual_hours', 'created_at', 'updated_at'];
-        $values = [':project', ':title', ':status', ':priority', '0', '0', 'NOW()', 'NOW()'];
+        $priority = in_array($taskPayload['priority'] ?? '', ['low', 'medium', 'high'], true) ? $taskPayload['priority'] : 'medium';
+        $dueDate = $taskPayload['due_date'] ?? null;
+        if ($dueDate !== null && $dueDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($dueDate))) {
+            $dueDate = null;
+        }
+
+        $columns = ['project_id', 'title', 'status', 'priority', 'estimated_hours', 'actual_hours', 'due_date', 'created_at', 'updated_at'];
+        $values = [':project', ':title', ':status', ':priority', '0', '0', ':due_date', 'NOW()', 'NOW()'];
         $params = [
             ':project' => $projectId,
             ':title' => $title,
             ':status' => $status,
-            ':priority' => 'medium',
+            ':priority' => $priority,
+            ':due_date' => $dueDate !== null && $dueDate !== '' ? trim($dueDate) : null,
         ];
 
         if ($this->db->columnExists('tasks', 'assignee_id')) {
@@ -2311,6 +2414,60 @@ class TimesheetsRepository
              VALUES (' . implode(', ', $values) . ')',
             $params
         );
+    }
+
+    private function assertNoWeekendUnlessAdmin(string $date, int $userId): void
+    {
+        try {
+            $dt = new \DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            return;
+        }
+        $dow = (int) $dt->format('w');
+        if ($dow !== 0 && $dow !== 6) {
+            return;
+        }
+        $user = $this->db->fetchOne('SELECT r.nombre AS role FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = :id', [':id' => $userId]);
+        if ($user && in_array((string) ($user['role'] ?? ''), self::ADMIN_ROLES, true)) {
+            return;
+        }
+        throw new InvalidArgumentException('No se puede registrar horas en sábado ni domingo.');
+    }
+
+    private function ensureStopperFromTimesheetBlocker(int $projectId, int $userId, string $blockerDescription, int $taskId, string $date): ?int
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return null;
+        }
+        $title = $this->limitText($blockerDescription, 150);
+        if ($title === '') {
+            $title = 'Bloqueo reportado desde timesheet';
+        }
+        $existing = $this->db->fetchOne(
+            'SELECT id FROM project_stoppers
+             WHERE project_id = :project AND status IN (\'abierto\', \'en_gestion\', \'escalado\')
+               AND title = :title
+               AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+             LIMIT 1',
+            [':project' => $projectId, ':title' => $title]
+        );
+        if ($existing) {
+            return (int) $existing['id'];
+        }
+        $detectedAt = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : date('Y-m-d');
+        $estimatedAt = date('Y-m-d', strtotime($detectedAt . ' +7 days'));
+        $stoppersRepo = new ProjectStoppersRepository($this->db);
+        return $stoppersRepo->create($projectId, [
+            'title' => $title,
+            'description' => $blockerDescription,
+            'stopper_type' => 'tecnico',
+            'impact_level' => 'medio',
+            'affected_area' => 'tiempo',
+            'responsible_id' => $userId,
+            'detected_at' => $detectedAt,
+            'estimated_resolution_at' => $estimatedAt,
+            'status' => 'abierto',
+        ], $userId);
     }
 
     private function taskBelongsToProject(int $taskId, int $projectId): bool

@@ -1865,11 +1865,12 @@ class ProjectsController extends Controller
             'canUpdateProgress' => $this->userCanUpdateProjectProgress(),
             'progressHistory' => $progressHistory,
             'projectNotes' => $projectNotes,
-            'progressIndicators' => [
+            'progressIndicators' => array_merge([
                 'approved_documents' => $approvedDocuments,
                 'pending_controls' => $pendingControls,
                 'logged_hours' => $loggedHours,
-            ],
+            ], $repo->pmoIndicatorsForProject($id, $project)),
+            'hoursTrendWeeks' => $repo->hoursTrendLastWeeks($id, 4),
             'billingConfig' => $billingConfig,
             'projectInvoices' => $invoices,
             'billingTotals' => $invoiceTotals,

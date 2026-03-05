@@ -608,6 +608,82 @@ class ProjectsRepository
         return $row ? (float) ($row['total'] ?? 0) : 0.0;
     }
 
+    public function pmoIndicatorsForProject(int $projectId, array $project): array
+    {
+        $plannedHours = (float) ($project['planned_hours'] ?? 0);
+        $approvedHours = $this->timesheetHoursForProject($projectId) ?? 0.0;
+
+        $progressHours = null;
+        if ($plannedHours > 0) {
+            $progressHours = min(100.0, round(($approvedHours / $plannedHours) * 100, 1));
+        }
+
+        $taskStats = $this->db->fetchOne(
+            'SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN status IN (\'done\', \'completed\') THEN 1 ELSE 0 END) AS done_count
+             FROM tasks WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+        $totalTasks = (int) ($taskStats['total'] ?? 0);
+        $doneTasks = (int) ($taskStats['done_count'] ?? 0);
+        $progressTasks = $totalTasks > 0 ? round(($doneTasks / $totalTasks) * 100, 1) : null;
+
+        $overdueCount = (int) ($this->db->fetchOne(
+            'SELECT COUNT(*) AS c FROM tasks
+             WHERE project_id = :project AND due_date IS NOT NULL AND due_date < CURDATE()
+               AND status NOT IN (\'done\', \'completed\')',
+            [':project' => $projectId]
+        )['c'] ?? 0);
+
+        $openStoppers = 0;
+        if ($this->db->tableExists('project_stoppers')) {
+            $openStoppers = (int) ($this->db->fetchOne(
+                'SELECT COUNT(*) AS c FROM project_stoppers
+                 WHERE project_id = :project AND status IN (\'abierto\', \'en_gestion\', \'escalado\')',
+                [':project' => $projectId]
+            )['c'] ?? 0);
+        }
+
+        $riskScore = 0;
+        if ($openStoppers > 0) {
+            $riskScore += min(40, $openStoppers * 15);
+        }
+        if ($overdueCount > 0) {
+            $riskScore += min(30, $overdueCount * 10);
+        }
+        $riskScore = min(100, $riskScore);
+
+        return [
+            'progress_hours' => $progressHours,
+            'progress_tasks' => $progressTasks,
+            'approved_hours' => $approvedHours,
+            'planned_hours' => $plannedHours,
+            'total_tasks' => $totalTasks,
+            'done_tasks' => $doneTasks,
+            'overdue_tasks' => $overdueCount,
+            'open_stoppers' => $openStoppers,
+            'risk_pmo_score' => $riskScore,
+        ];
+    }
+
+    public function hoursTrendLastWeeks(int $projectId, int $weeks = 4): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+        $limit = max(1, min(12, $weeks));
+        return $this->db->fetchAll(
+            'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                    SUM(ts.hours) AS total_hours
+             FROM timesheets ts
+             JOIN tasks t ON t.id = ts.task_id
+             WHERE t.project_id = :project AND ts.status = \'approved\'
+               AND ts.date >= DATE_SUB(CURDATE(), INTERVAL ' . (int) $weeks . ' WEEK)
+             GROUP BY week_start ORDER BY week_start DESC LIMIT ' . $limit,
+            [':project' => $projectId]
+        );
+    }
+
     public function assignmentsForProject(int $projectId, array $user): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
