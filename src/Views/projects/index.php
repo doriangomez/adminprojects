@@ -140,11 +140,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         justify-content: space-between;
         align-items: flex-start;
         gap: 16px;
-        padding: 18px 20px;
+        padding: 20px 24px;
         background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        box-shadow: 0 12px 30px color-mix(in srgb, var(--text-primary) 8%, var(--background));
+        border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+        border-radius: 18px;
+        box-shadow: 0 8px 32px color-mix(in srgb, var(--text-primary) 6%, transparent), 0 2px 8px color-mix(in srgb, var(--text-primary) 3%, transparent);
     }
 
     .projects-hero h1 {
@@ -200,6 +200,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .button:hover { transform: translateY(-1px); }
+    .btn-icon { display: inline-flex; align-items: center; justify-content: center; }
+    .btn-icon svg { width: 18px; height: 18px; stroke-linecap: round; stroke-linejoin: round; }
 
     .hero-chips {
         display: flex;
@@ -274,15 +276,17 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .kpi-icon {
-        width: 40px;
-        height: 40px;
+        width: 42px;
+        height: 42px;
         border-radius: 12px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, var(--primary) 14%, var(--background));
+        background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 20%, var(--surface)), color-mix(in srgb, var(--primary) 12%, var(--background)));
         color: var(--primary);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 12%, transparent);
     }
+    .kpi-icon svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
     .kpi-card .label { color: var(--text-secondary); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
     .kpi-card .value { margin: 0; font-size: 22px; color: var(--text-primary); font-weight: 800; }
@@ -370,6 +374,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         font-size: 11px;
         line-height: 1;
         flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        vertical-align: middle;
+    }
+    .project-context-preview .context-icon svg {
+        flex-shrink: 0;
+        stroke-linecap: round;
+        stroke-linejoin: round;
     }
 
     .project-context-preview .context-label {
@@ -516,13 +528,18 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-card {
         background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 14px;
+        border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+        border-radius: 18px;
+        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 6%, var(--background));
+        gap: 12px;
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 5%, transparent);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .project-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px color-mix(in srgb, var(--text-primary) 8%, transparent);
     }
 
     .project-card header {
@@ -641,11 +658,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     </div>
     <div class="hero-actions">
         <a class="button primary" href="<?= $basePath ?>/projects/create">
-            <span aria-hidden="true">＋</span>
+            <span aria-hidden="true" class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
             Nuevo proyecto
         </a>
         <a class="button secondary" href="<?= $basePath ?>/tasks">
-            <span aria-hidden="true">📊</span>
+            <span aria-hidden="true" class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
             Tablero
         </a>
     </div>
@@ -692,7 +709,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             </select>
         </label>
         <button type="button" class="button ghost filter-toggle" data-filter-toggle>
-            <span aria-hidden="true">⚙️</span>
+            <span aria-hidden="true" class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
             Filtros
         </button>
         <div class="filter-actions">
@@ -733,35 +750,35 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
 <section class="kpi-grid">
     <div class="kpi-card" title="Activos en ejecución · Promedio <?= $progressAverage ?>%">
-        <div class="kpi-icon" aria-hidden="true">🚀</div>
+        <div class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/></svg></div>
         <div>
             <p class="label">Activos</p>
             <p class="value"><?= $activeProjects ?></p>
         </div>
     </div>
     <div class="kpi-card" title="Monitorea señales tempranas">
-        <div class="kpi-icon" aria-hidden="true">⚠️</div>
+        <div class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
         <div>
             <p class="label">En riesgo</p>
             <p class="value"><?= $riskProjects ?></p>
         </div>
     </div>
     <div class="kpi-card" title="Proyectos cerrados y archivados">
-        <div class="kpi-icon" aria-hidden="true">✅</div>
+        <div class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
         <div>
             <p class="label">Completados</p>
             <p class="value"><?= $completedProjects ?></p>
         </div>
     </div>
     <div class="kpi-card" title="Horas reales vs planificadas">
-        <div class="kpi-icon" aria-hidden="true">⏱️</div>
+        <div class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div>
             <p class="label">Horas registradas</p>
             <p class="value"><?= number_format($hoursUsed, 0, ',', '.') ?>h</p>
         </div>
     </div>
     <div class="kpi-card" title="Cobertura <?= $budgetCoverage ?>%">
-        <div class="kpi-icon" aria-hidden="true">💰</div>
+        <div class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
         <div>
             <p class="label">Presupuesto vs real</p>
             <p class="value">$<?= number_format($actualCostTotal, 0, ',', '.') ?></p>
@@ -826,7 +843,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         $stopperTimestamp = strtotime((string) ($stopperData['created_at'] ?? '')) ?: null;
                         $previewType = 'note';
                         $previewLabel = 'Nota';
-                        $previewIcon = '📝';
+                        $previewIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
                         $previewText = '';
 
                         if ($notePreviewText !== '' || $stopperPreviewText !== '') {
@@ -844,7 +861,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             if ($useStopperPreview) {
                                 $previewType = 'stopper';
                                 $previewLabel = 'Bloqueo';
-                                $previewIcon = '⛔';
+                                $previewIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>';
                                 $previewText = $stopperPreviewText;
                             } else {
                                 $previewText = $notePreviewText;
@@ -874,14 +891,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 </a>
                             <?php else: ?>
                                 <span class="project-context-preview" title="Sin notas o bloqueos registrados">
-                                    <span class="context-icon" aria-hidden="true">📝</span>
+                                    <span class="context-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
                                     <span class="context-label">Nota:</span>
                                     <span class="context-text">Sin notas o bloqueos registrados.</span>
                                 </span>
                             <?php endif; ?>
                             <div class="project-context-stats">
-                                <span>⚠ Riesgos: <?= $riskCount ?></span>
-                                <span>⛔ Bloqueos: <?= $blockersCount ?></span>
+                                <span><span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Riesgos: <?= $riskCount ?></span>
+                                <span><span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></span>Bloqueos: <?= $blockersCount ?></span>
                             </div>
                         </td>
                         <td><span class="pm-cell-text"><?= htmlspecialchars($pmName) ?></span></td>

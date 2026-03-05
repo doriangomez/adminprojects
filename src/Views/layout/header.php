@@ -27,12 +27,6 @@ $themeVariables = [
     'neutral' => (string) ($theme['neutral'] ?? ''),
 ];
 require_once __DIR__ . '/logo_helper.php';
-error_log(sprintf(
-    'Theme active: primary=%s secondary=%s logo_url=%s',
-    (string) ($theme['primary'] ?? ''),
-    (string) ($theme['secondary'] ?? ''),
-    (string) ($theme['logo_url'] ?? '')
-));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -59,10 +53,16 @@ error_log(sprintf(
             window.loadAndApplyTheme();
         });
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --font-fallback: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
         * {
             box-sizing: border-box;
-            font-family: var(--font-family);
+            font-family: var(--font-family, var(--font-fallback));
         }
         body {
             margin: 0;
@@ -74,13 +74,14 @@ error_log(sprintf(
         }
         .sidebar {
             width: 280px;
-            background: var(--secondary);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--secondary) 98%, var(--surface) 2%) 0%, color-mix(in srgb, var(--secondary) 92%, var(--surface) 8%) 100%);
             color: var(--text-primary);
             min-height: 100vh;
             padding: 20px 18px;
             position: sticky;
             top: 0;
-            border-right: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
+            border-right: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+            box-shadow: 4px 0 24px color-mix(in srgb, var(--text-primary) 4%, transparent);
             display: flex;
             flex-direction: column;
             gap: 18px;
@@ -107,7 +108,7 @@ error_log(sprintf(
             justify-content: center;
         }
         .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
-        .brand-box { display:flex; align-items:center; gap:10px; padding: 10px 8px; border-radius:12px; border:1px solid color-mix(in srgb, var(--border) 70%, var(--background)); background: color-mix(in srgb, var(--surface) 10%, var(--background)); }
+        .brand-box { display:flex; align-items:center; gap:12px; padding: 12px 10px; border-radius:14px; border:1px solid color-mix(in srgb, var(--border) 50%, transparent); background: color-mix(in srgb, var(--surface) 14%, var(--background)); box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 5%, transparent); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
         .brand-name { font-weight: 800; color: var(--text-primary); font-size: 15px; }
@@ -120,16 +121,19 @@ error_log(sprintf(
             padding: 6px 8px;
         }
         .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: color-mix(in srgb, var(--surface) 12%, var(--background));
+            font-size: 15px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 25%, var(--surface)), color-mix(in srgb, var(--accent) 20%, var(--surface)));
             color: var(--text-primary);
-            border: 1px solid color-mix(in srgb, var(--border) 60%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 15%, transparent);
         }
         .user-meta { display: flex; flex-direction: column; gap: 3px; }
         .user-meta strong { color: var(--text-primary); font-size: 15px; font-weight: 700; }
@@ -252,18 +256,19 @@ error_log(sprintf(
             position: relative;
             z-index: 1;
         }
-        .nav-icon svg { width: 66%; height: 66%; stroke: currentColor; stroke-width: 2.2; }
+        .nav-icon svg { width: 68%; height: 68%; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .nav-icon--emoji { font-size: 20px; line-height: 1; }
         .topbar {
-            padding: 10px 22px;
+            padding: 12px 24px;
             display: flex;
             align-items: center;
             gap: 16px;
             position: sticky;
             top: 0;
             z-index: 10;
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
+            background: color-mix(in srgb, var(--surface) 98%, var(--background) 2%);
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+            box-shadow: 0 1px 0 color-mix(in srgb, var(--text-primary) 3%, transparent);
         }
         .brand {
             display: flex;
@@ -312,8 +317,8 @@ error_log(sprintf(
             flex-direction: column;
             gap: 20px;
         }
-        .page-heading h2 { margin:0 0 6px 0; font-size: 25px; color: var(--text-primary); font-weight: 700; }
-        .page-heading p { margin:0; color: var(--text-secondary); font-weight: 500; }
+        .page-heading h2 { margin:0 0 6px 0; font-size: 26px; color: var(--text-primary); font-weight: 800; letter-spacing: -0.02em; }
+        .page-heading p { margin:0; color: var(--text-secondary); font-weight: 500; font-size: 15px; }
         .section-grid { display:grid; gap:20px; align-items:start; }
         .section-grid.twothirds { grid-template-columns: 3fr 2fr; }
         .section-grid.wide { grid-template-columns: 2fr 3fr; }
@@ -345,10 +350,10 @@ error_log(sprintf(
         .preview-subtitle { color: color-mix(in srgb, var(--surface) 80%, var(--background)); font-size:13px; }
         .card {
             background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 18px;
-            box-shadow: 0 4px 12px color-mix(in srgb, var(--text-primary) 12%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 4px 20px color-mix(in srgb, var(--text-primary) 6%, transparent), 0 1px 3px color-mix(in srgb, var(--text-primary) 4%, transparent);
         }
         .alert {
             padding: 12px 14px;
@@ -573,8 +578,8 @@ error_log(sprintf(
             <span class="brand-name"><?= htmlspecialchars($appDisplayName) ?></span>
         </div>
         <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Colapsar menú">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                <path d="M8 4h12M8 12h12M8 20h12M4 4h.01M4 12h.01M4 20h.01" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
         </button>
         <div class="user-panel">
@@ -587,8 +592,8 @@ error_log(sprintf(
         <div class="menu-toggle">
             <span>Menú</span>
             <label for="menu-toggle" aria-label="Alternar menú">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <path d="M4 6h16M4 12h16M4 18h16" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
                 </svg>
             </label>
         </div>
@@ -597,38 +602,38 @@ error_log(sprintf(
         <nav>
             <span class="nav-section-label">Operación</span>
             <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>" data-tone="indigo">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 13h5v7H4zM10 4h4v16h-4zM16 9h4v11h-4z"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
                 <span class="nav-label">Dashboard</span>
             </a>
             <a href="<?= $basePath ?>/projects" class="nav-link <?= str_starts_with($normalizedPath, '/projects') ? 'active' : '' ?>" data-tone="sky">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 6h16v5H4zM4 13h9v5H4zM14 13l6 5"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/></svg></span>
                 <span class="nav-label">Proyectos</span>
             </a>
             <a href="<?= $basePath ?>/clients" class="nav-link <?= str_starts_with($normalizedPath, '/clients') ? 'active' : '' ?>" data-tone="cyan">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M5 7a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm8 1h6l-1 12h-4zM3 21a4 4 0 0 1 8 0"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                 <span class="nav-label">Clientes</span>
             </a>
 
             <div class="nav-divider" aria-hidden="true"></div>
             <span class="nav-section-label">Gestión</span>
             <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>" data-tone="teal">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M16 17l2 2 4-4"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
                 <span class="nav-label">Outsourcing</span>
             </a>
             <a href="<?= $basePath ?>/approvals" class="nav-link <?= str_starts_with($normalizedPath, '/approvals') ? 'active' : '' ?>" data-tone="amber">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12h6l2 3 4-6h4"/><path d="M5 20h14"/><path d="M7 4h10v4H7z"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
                 <span class="nav-label">Aprobaciones</span>
                 <?php if (!empty($approvalBadgeCount)): ?>
                     <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
                 <?php endif; ?>
             </a>
             <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M7 5h14M7 12h14M7 19h14M3 5h.01M3 12h.01M3 19h.01"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>
             <?php if ($timesheetsEnabled): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>" data-tone="pink">
-                    <span class="nav-icon nav-icon--emoji" aria-hidden="true">⏱️</span>
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                     <span class="nav-label">Timesheet</span>
                     <?php if (!empty($timesheetPendingCount)): ?>
                         <span class="nav-badge" aria-label="Timesheets pendientes"><?= (int) $timesheetPendingCount ?></span>
@@ -636,11 +641,11 @@ error_log(sprintf(
                 </a>
             <?php endif; ?>
             <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>" data-tone="green">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-6 8a6 6 0 0 1 12 0"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="12" cy="12" r="3"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
             <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 18h16"/><path d="M7 18v-5"/><path d="M12 18V6"/><path d="M17 18v-9"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                 <span class="nav-label">Carga talento</span>
             </a>
 
@@ -648,13 +653,13 @@ error_log(sprintf(
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>
                 <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>" data-tone="orange">
-                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3Zm8-1-1.5-.5a2 2 0 0 1-1.3-1.3L17 4l-2-.5-1 1.8a2 2 0 0 1-1.7 1L10 6l-.5 2 1.8 1a2 2 0 0 1 1 1.7L12 14l2 .5 1-1.8a2 2 0 0 1 1.7-1l1.8-.2Z"/></svg></span>
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                     <span class="nav-label">Configuración</span>
                 </a>
             <?php endif; ?>
             <div class="nav-divider" aria-hidden="true"></div>
             <a href="<?= $basePath ?>/logout" class="nav-link" data-tone="red">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M15 4h-5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="m10 9 3 3-3 3"/><path d="M13 12H4"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
                 <span class="nav-label">Salir</span>
             </a>
         </nav>

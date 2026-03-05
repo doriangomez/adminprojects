@@ -63,24 +63,24 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                     <div class="bullets">
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.6-4.9-2.6-4.9 2.6.9-5.6-4-3.9 5.5-.8L12 3z"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Panel ejecutivo alineado a los KPIs críticos de la organización.</p>
                         </div>
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 12l6-6 6 6-6 6-6-6z"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Orquestación de clientes y proyectos con trazabilidad completa.</p>
                         </div>
                         <div class="bullet">
                             <div class="bullet-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 12h16M14 6l6 6-6 6"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                 </svg>
                             </div>
                             <p class="bullet-text">Seguridad y gobierno de accesos centralizado para la PMO.</p>
@@ -99,9 +99,9 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                         <label for="email">Correo</label>
                         <div class="input-wrapper">
                             <span class="input-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path d="M4 6h16v12H4z"/>
-                                    <path d="M4 7l8 6 8-6"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                    <polyline points="22,6 12,13 2,6"/>
                                 </svg>
                             </span>
                             <input type="email" name="email" id="email" placeholder="admin@compania.com" required autocomplete="email">
@@ -111,9 +111,8 @@ require_once __DIR__ . '/../layout/logo_helper.php';
                         <label for="password">Contraseña</label>
                         <div class="input-wrapper">
                             <span class="input-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <rect x="4" y="11" width="16" height="9" rx="2"/>
-                                    <path d="M8 11V8a4 4 0 118 0v3"/>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                                 </svg>
                             </span>
                             <input type="password" name="password" id="password" placeholder="••••••" required autocomplete="current-password">
