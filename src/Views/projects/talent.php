@@ -55,14 +55,68 @@ $assignmentBadge = static function (string $status): string {
                     <span>Acciones</span>
                 </div>
                 <?php foreach ($assignments as $assignment): ?>
+                    <?php
+                    $assignmentStatus = (string) ($assignment['assignment_status'] ?? 'active');
+                    $isEditable = $assignmentStatus !== 'removed';
+                    $assignmentId = (int) ($assignment['id'] ?? 0);
+                    $allocationPercent = (float) ($assignment['allocation_percent'] ?? 0);
+                    $weeklyHours = (float) ($assignment['weekly_hours'] ?? 0);
+                    $capacityWeek = (float) ($assignment['capacidad_horaria'] ?? 0);
+                    if ($capacityWeek <= 0) {
+                        $capacityWeek = (float) ($assignment['talent_weekly_capacity'] ?? 0);
+                    }
+                    if ($capacityWeek <= 0) {
+                        $capacityWeek = 40.0;
+                    }
+                    $totalAllocationPercent = (float) ($assignment['total_allocation_percent'] ?? $allocationPercent);
+                    $availableAllocationPercent = max(0.0, 100.0 - $totalAllocationPercent);
+                    $workloadEndpoint = $basePath
+                        . '/projects/' . (int) ($project['id'] ?? 0)
+                        . '/talent/assignments/' . $assignmentId
+                        . '/workload';
+                    ?>
                     <div class="talent-row">
                         <div>
                             <strong><?= htmlspecialchars($assignment['talent_name'] ?? 'Talento') ?></strong>
                             <small class="section-muted"><?= htmlspecialchars($assignment['start_date'] ?? 'N/A') ?> → <?= htmlspecialchars($assignment['end_date'] ?? 'N/A') ?></small>
                         </div>
                         <span><?= htmlspecialchars($assignment['role'] ?? '') ?></span>
-                        <span><?= htmlspecialchars((string) ($assignment['allocation_percent'] ?? 0)) ?>% · <?= htmlspecialchars((string) ($assignment['weekly_hours'] ?? 0)) ?>h/sem</span>
-                        <?php $assignmentStatus = (string) ($assignment['assignment_status'] ?? 'active'); ?>
+                        <div class="dedication-editor"
+                             data-assignment-id="<?= $assignmentId ?>"
+                             data-endpoint="<?= htmlspecialchars($workloadEndpoint) ?>"
+                             data-capacity-week="<?= htmlspecialchars(number_format($capacityWeek, 2, '.', '')) ?>">
+                            <input type="range"
+                                   class="dedication-slider js-dedication-slider"
+                                   min="0"
+                                   max="100"
+                                   step="0.1"
+                                   value="<?= htmlspecialchars(number_format($allocationPercent, 2, '.', '')) ?>"
+                                   <?= $isEditable ? '' : 'disabled' ?>>
+                            <div class="dedication-inline-values">
+                                <strong class="js-dedication-percent"><?= htmlspecialchars(number_format($allocationPercent, 1, '.', '')) ?>%</strong>
+                                <input type="number"
+                                       class="dedication-hours-input js-dedication-hours"
+                                       min="0"
+                                       step="0.1"
+                                       value="<?= htmlspecialchars(number_format($weeklyHours, 2, '.', '')) ?>"
+                                       <?= $isEditable ? '' : 'disabled' ?>>
+                                <span class="section-muted">h/sem</span>
+                            </div>
+                            <small class="section-muted js-dedication-equation">
+                                <?= htmlspecialchars(number_format($allocationPercent, 1, '.', '')) ?>% → <?= htmlspecialchars(number_format($weeklyHours, 2, '.', '')) ?>h/sem
+                            </small>
+                            <small class="section-muted">
+                                Capacidad estándar: <?= htmlspecialchars(number_format($capacityWeek, 1, '.', '')) ?>h/sem ·
+                                <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado ·
+                                <?= htmlspecialchars(number_format($availableAllocationPercent, 1, '.', '')) ?>% disponible
+                            </small>
+                            <div class="dedication-actions">
+                                <button type="button" class="action-btn primary small js-save-dedication" <?= $isEditable ? '' : 'disabled' ?>>Guardar</button>
+                                <small class="section-muted js-dedication-feedback" aria-live="polite">
+                                    <?= $isEditable ? '' : 'Asignación retirada (solo lectura).' ?>
+                                </small>
+                            </div>
+                        </div>
                         <span class="badge <?= $assignmentBadge($assignmentStatus) ?>">
                             <?= htmlspecialchars($assignmentLabels[$assignmentStatus] ?? ucfirst($assignmentStatus)) ?>
                         </span>
@@ -167,7 +221,7 @@ $assignmentBadge = static function (string $status): string {
     .project-actions { display:flex; gap:8px; flex-wrap:wrap; }
     .talent-overview, .talent-form { border:1px solid var(--border); padding:16px; border-radius:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
     .talent-table { display:grid; gap:8px; }
-    .talent-row { display:grid; grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(90px, 0.7fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr) minmax(120px, 0.8fr); gap:10px; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
+    .talent-row { display:grid; grid-template-columns: minmax(160px, 1.3fr) minmax(110px, 0.8fr) minmax(320px, 2fr) minmax(100px, 0.7fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr) minmax(140px, 0.8fr); gap:10px; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
     .talent-head { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); font-weight:700; font-size:12px; text-transform:uppercase; color: var(--text-secondary); }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; }
     .checkbox-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:8px; align-items:center; }
@@ -184,12 +238,232 @@ $assignmentBadge = static function (string $status): string {
     .status-warning { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 30%, var(--background)); }
     .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+    .action-btn.small { padding:4px 8px; font-size:12px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .action-btn.warning { background: color-mix(in srgb, var(--warning) 16%, var(--surface) 84%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 35%, var(--border) 65%); }
     .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .dedication-editor { display:flex; flex-direction:column; gap:6px; }
+    .dedication-slider { width:100%; accent-color: var(--primary); }
+    .dedication-inline-values { display:flex; align-items:center; gap:6px; }
+    .dedication-inline-values strong { min-width:48px; }
+    .dedication-hours-input { width:90px; }
+    .dedication-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .dedication-editor.has-error .dedication-hours-input { border-color: var(--danger); }
+    .dedication-editor.has-error .js-dedication-feedback { color: var(--danger); font-weight:600; }
+    .dedication-editor.is-success .js-dedication-feedback { color: var(--success); font-weight:600; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
     }
 </style>
+<script>
+(() => {
+    const editors = document.querySelectorAll('.dedication-editor');
+    if (editors.length === 0) {
+        return;
+    }
+
+    const round = (value, decimals) => {
+        const factor = 10 ** decimals;
+        return Math.round(value * factor) / factor;
+    };
+
+    const formatValue = (value, decimals) => {
+        const normalized = round(value, decimals).toFixed(decimals);
+        return normalized.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+    };
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+    editors.forEach((editor) => {
+        const slider = editor.querySelector('.js-dedication-slider');
+        const hoursInput = editor.querySelector('.js-dedication-hours');
+        const percentLabel = editor.querySelector('.js-dedication-percent');
+        const equationLabel = editor.querySelector('.js-dedication-equation');
+        const saveButton = editor.querySelector('.js-save-dedication');
+        const feedback = editor.querySelector('.js-dedication-feedback');
+        const endpoint = editor.dataset.endpoint || '';
+        const capacityWeek = parseFloat(editor.dataset.capacityWeek || '40') || 40;
+
+        if (!slider || !hoursInput || !percentLabel || !equationLabel || !saveButton || endpoint === '') {
+            return;
+        }
+
+        const isReadOnly = slider.disabled || hoursInput.disabled;
+        let editedField = 'allocation_percent';
+        let saving = false;
+        let initialPercent = round(parseFloat(slider.value || '0') || 0, 2);
+        let initialHours = round(parseFloat(hoursInput.value || '0') || 0, 2);
+
+        const setFeedback = (message, state = 'neutral') => {
+            feedback.textContent = message;
+            editor.classList.remove('has-error', 'is-success');
+            if (state === 'error') {
+                editor.classList.add('has-error');
+            }
+            if (state === 'success') {
+                editor.classList.add('is-success');
+            }
+        };
+
+        const clearErrorState = () => {
+            if (!editor.classList.contains('has-error')) {
+                return;
+            }
+            editor.classList.remove('has-error');
+            feedback.textContent = '';
+        };
+
+        const computeCurrentValues = () => {
+            const percentRaw = parseFloat(percentLabel.textContent.replace('%', '').trim());
+            const hoursRaw = parseFloat(hoursInput.value || '0');
+            return {
+                percent: round(Number.isFinite(percentRaw) ? percentRaw : 0, 2),
+                hours: round(Number.isFinite(hoursRaw) ? hoursRaw : 0, 2),
+            };
+        };
+
+        const renderValues = (percent, hours) => {
+            percentLabel.textContent = `${formatValue(percent, 1)}%`;
+            hoursInput.value = round(hours, 2).toFixed(2);
+            equationLabel.textContent = `${formatValue(percent, 1)}% \u2192 ${formatValue(hours, 2)}h/sem`;
+        };
+
+        const validate = () => {
+            const { percent, hours } = computeCurrentValues();
+            if (hours < 0) {
+                setFeedback('Las horas semanales no pueden ser negativas.', 'error');
+                saveButton.disabled = true;
+                return false;
+            }
+            if (percent < 0 || percent > 100) {
+                setFeedback('El porcentaje debe estar entre 0 y 100.', 'error');
+                saveButton.disabled = true;
+                return false;
+            }
+            const changed = round(percent, 2) !== round(initialPercent, 2)
+                || round(hours, 2) !== round(initialHours, 2);
+            saveButton.disabled = !changed || saving || isReadOnly;
+            if (changed && editor.classList.contains('is-success')) {
+                editor.classList.remove('is-success');
+            }
+            if (!saving && changed && !editor.classList.contains('has-error')) {
+                setFeedback('Cambios pendientes por guardar.');
+            }
+            if (!changed && !saving && !isReadOnly && !editor.classList.contains('has-error')) {
+                setFeedback('');
+            }
+            return true;
+        };
+
+        const syncFromPercent = () => {
+            const rawPercent = parseFloat(slider.value || '0');
+            const percent = clamp(Number.isFinite(rawPercent) ? rawPercent : 0, 0, 100);
+            const hours = capacityWeek * (percent / 100);
+            renderValues(percent, hours);
+            validate();
+        };
+
+        const syncFromHours = () => {
+            const rawHours = parseFloat(hoursInput.value || '0');
+            const hours = Number.isFinite(rawHours) ? rawHours : 0;
+            const percent = capacityWeek > 0 ? (hours / capacityWeek) * 100 : 0;
+            slider.value = String(clamp(percent, 0, 100));
+            renderValues(percent, hours);
+            validate();
+        };
+
+        const save = async (forceUpdate = false) => {
+            if (isReadOnly || !validate()) {
+                return;
+            }
+
+            saving = true;
+            saveButton.disabled = true;
+            setFeedback('Guardando cambios...');
+
+            try {
+                const { percent, hours } = computeCurrentValues();
+                const payload = new URLSearchParams();
+                payload.set('allocation_percent', String(round(percent, 2)));
+                payload.set('weekly_hours', String(round(hours, 2)));
+                payload.set('edited_field', editedField);
+                if (forceUpdate) {
+                    payload.set('force_update', '1');
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: payload.toString(),
+                });
+
+                const result = await response.json().catch(() => ({}));
+                if (response.status === 409 && result.requires_confirmation) {
+                    const data = result.data || {};
+                    const warningText = [
+                        result.message || 'Las horas registradas en timesheet superan la nueva dedicación.',
+                        `Horas asignadas: ${formatValue(Number(data.assigned_weekly_hours || hours), 2)}h/sem`,
+                        `Máximo registrado: ${formatValue(Number(data.max_logged_weekly_hours || 0), 2)}h/sem`,
+                        '',
+                        'Aceptar: Ajustar dedicación',
+                        'Cancelar: Mantener valor actual',
+                    ].join('\n');
+
+                    if (window.confirm(warningText)) {
+                        await save(true);
+                        return;
+                    }
+
+                    setFeedback('Cambio cancelado por el usuario.');
+                    return;
+                }
+
+                if (!response.ok || result.success !== true) {
+                    throw new Error(result.message || 'No se pudo guardar la dedicación.');
+                }
+
+                const saved = result.data || {};
+                const after = saved.after || {};
+                const finalPercent = Number(after.allocation_percent ?? percent);
+                const finalHours = Number(after.weekly_hours ?? hours);
+
+                initialPercent = round(finalPercent, 2);
+                initialHours = round(finalHours, 2);
+                slider.value = String(clamp(finalPercent, 0, 100));
+                renderValues(finalPercent, finalHours);
+                setFeedback('Dedicación actualizada correctamente.', 'success');
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'No se pudo guardar la dedicación.';
+                setFeedback(message, 'error');
+            } finally {
+                saving = false;
+                validate();
+            }
+        };
+
+        slider.addEventListener('input', () => {
+            clearErrorState();
+            editedField = 'allocation_percent';
+            syncFromPercent();
+        });
+
+        hoursInput.addEventListener('input', () => {
+            clearErrorState();
+            editedField = 'weekly_hours';
+            syncFromHours();
+        });
+
+        saveButton.addEventListener('click', () => {
+            save(false);
+        });
+
+        validate();
+    });
+})();
+</script>
