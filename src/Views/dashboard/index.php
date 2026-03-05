@@ -183,14 +183,223 @@
         .criticality-pill.baja { background: color-mix(in srgb, var(--success) 20%, var(--background)); color: var(--success); }
         .criticality-pill.media { background: color-mix(in srgb, var(--warning) 24%, var(--background)); color: #b45309; }
         .criticality-pill.alta { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
+        .portfolio-analysis-card {
+            border: 1px solid color-mix(in srgb, #10b981 45%, var(--border));
+            background: linear-gradient(125deg, color-mix(in srgb, #059669 12%, var(--surface)), color-mix(in srgb, #10b981 8%, var(--surface)));
+        }
+        .portfolio-analysis-card .pa-header {
+            margin: 0 0 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        .pa-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            font-weight: 900;
+            font-size: 15px;
+            color: #064e3b;
+            background: color-mix(in srgb, #6ee7b7 70%, white);
+        }
+        .pa-insights {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .pa-insights li {
+            padding: 9px 12px;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, var(--background));
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pa-insights li:last-child { border-bottom: none; }
+        .pa-insights li::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            flex-shrink: 0;
+        }
+
+        .auto-alerts-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(220px, 1fr));
+            gap: 10px;
+        }
+        .auto-alert-card {
+            border-radius: 16px;
+            padding: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            transition: transform .15s ease;
+        }
+        .auto-alert-card:hover { transform: translateY(-2px); }
+        .auto-alert-card.severity-green {
+            background: color-mix(in srgb, var(--success) 12%, var(--surface));
+            border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border));
+        }
+        .auto-alert-card.severity-yellow {
+            background: color-mix(in srgb, var(--warning) 15%, var(--surface));
+            border: 1px solid color-mix(in srgb, var(--warning) 50%, var(--border));
+        }
+        .auto-alert-card.severity-red {
+            background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+            border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border));
+        }
+        .auto-alert-icon { font-size: 26px; flex-shrink: 0; line-height: 1; }
+        .auto-alert-content { display: flex; flex-direction: column; gap: 4px; }
+        .auto-alert-content strong { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+        .auto-alert-content p { margin: 0; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .alert-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .alert-dot.dot-green { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .alert-dot.dot-yellow { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+        .alert-dot.dot-red { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+        .recommendations-card {
+            border: 1px solid color-mix(in srgb, #8b5cf6 40%, var(--border));
+            background: linear-gradient(125deg, color-mix(in srgb, #7c3aed 10%, var(--surface)), color-mix(in srgb, #8b5cf6 6%, var(--surface)));
+        }
+        .recommendations-card .rec-header {
+            margin: 0 0 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        .rec-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            font-weight: 900;
+            font-size: 15px;
+            color: #4c1d95;
+            background: color-mix(in srgb, #c4b5fd 70%, white);
+        }
+        .rec-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .rec-list li {
+            padding: 9px 12px;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, var(--background));
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .rec-list li:last-child { border-bottom: none; }
+        .rec-list li::before {
+            content: '→';
+            color: #8b5cf6;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        .score-semaphore {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-left: 8px;
+            animation: semaphore-pulse 2s ease-in-out infinite;
+        }
+        .score-semaphore.sem-green { background: #16a34a; box-shadow: 0 0 10px #16a34a, 0 0 20px rgba(22,163,74,.3); }
+        .score-semaphore.sem-yellow { background: #f59e0b; box-shadow: 0 0 10px #f59e0b, 0 0 20px rgba(245,158,11,.3); }
+        .score-semaphore.sem-red { background: #dc2626; box-shadow: 0 0 10px #dc2626, 0 0 20px rgba(220,38,38,.3); }
+        @keyframes semaphore-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+
+        .score-info-wrap { position: relative; display: inline-block; margin-left: 6px; }
+        .score-info-btn {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(148,163,184,.5);
+            background: rgba(15,23,42,.6);
+            color: #94a3b8;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1;
+            transition: all .2s;
+        }
+        .score-info-btn:hover { border-color: #60a5fa; color: #60a5fa; }
+        .score-info-panel {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface, #1e293b);
+            border: 1px solid var(--border, rgba(148,163,184,.3));
+            border-radius: 14px;
+            padding: 16px;
+            width: 320px;
+            z-index: 200;
+            box-shadow: 0 12px 30px rgba(0,0,0,.25);
+        }
+        .score-info-wrap:hover .score-info-panel { display: block; }
+        .score-info-panel h4 { margin: 0 0 12px; font-size: 14px; font-weight: 800; color: var(--text-primary, #f8fafc); }
+        .score-factor-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid color-mix(in srgb, var(--border, rgba(148,163,184,.3)) 50%, transparent);
+        }
+        .score-factor-row:last-child { border-bottom: none; }
+        .score-factor-name { font-size: 13px; font-weight: 700; color: var(--text-primary, #f8fafc); }
+        .score-factor-weight {
+            font-size: 12px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--primary, #2563eb) 20%, var(--background, #0f172a));
+            color: var(--primary, #60a5fa);
+        }
+        .score-factor-desc { font-size: 11px; color: var(--text-secondary, #94a3b8); margin-top: 2px; }
+
         @media (max-width: 1200px) {
             .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
-            .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+            .kpi-grid, .auto-alerts-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
             .hero-main { grid-template-columns: 1fr; }
             .ai-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 760px) {
-            .kpi-grid, .split-three, .gov-grid, .hero-side { grid-template-columns: 1fr; }
+            .kpi-grid, .split-three, .gov-grid, .hero-side, .auto-alerts-grid { grid-template-columns: 1fr; }
         }
     </style>
 
@@ -232,6 +441,13 @@
     $topBlockersProjects = array_slice($stoppers['top_active'] ?? [], 0, 5);
     $topTalents = array_slice($timesheets['hours_by_talent'] ?? [], 0, 5);
 
+    $paData = is_array($portfolioAnalysis ?? null) ? $portfolioAnalysis : [];
+    $paInsights = $paData['insights'] ?? [];
+    $paAlerts = $paData['alerts'] ?? [];
+    $paRecommendations = $paData['recommendations'] ?? [];
+    $paSemaphore = (string) ($paData['score_semaphore'] ?? 'yellow');
+    $paScoreFactors = $paData['score_factors'] ?? [];
+
     $movementBadge = static function (array $metric, bool $inverse = false): string {
         $delta = (float) ($metric['delta_pct'] ?? 0);
         $isPositive = $inverse ? ($delta <= 0) : ($delta >= 0);
@@ -241,6 +457,57 @@
         return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
     };
     ?>
+
+    <section>
+        <div class="card portfolio-analysis-card">
+            <div class="pa-header">
+                <span class="pa-chip">✦</span> ANÁLISIS AUTOMÁTICO DEL PORTAFOLIO
+            </div>
+            <?php if (!empty($paInsights)): ?>
+                <ul class="pa-insights">
+                    <?php foreach ($paInsights as $insight): ?>
+                        <li><?= htmlspecialchars((string) $insight) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <p class="muted">No hay datos suficientes para generar el análisis automático.</p>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <section>
+        <h2 class="section-title">Alertas Automáticas</h2>
+        <div class="auto-alerts-grid">
+            <?php foreach ($paAlerts as $alert):
+                $severity = (string) ($alert['severity'] ?? 'green');
+            ?>
+                <div class="auto-alert-card severity-<?= htmlspecialchars($severity) ?>">
+                    <span class="auto-alert-icon"><?= $alert['icon'] ?? '⚡' ?></span>
+                    <div class="auto-alert-content">
+                        <strong><span class="alert-dot dot-<?= htmlspecialchars($severity) ?>"></span> <?= htmlspecialchars((string) ($alert['title'] ?? '')) ?></strong>
+                        <p><?= htmlspecialchars((string) ($alert['detail'] ?? '')) ?></p>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <section>
+        <div class="card recommendations-card">
+            <div class="rec-header">
+                <span class="rec-chip">⚙</span> RECOMENDACIONES DEL SISTEMA
+            </div>
+            <?php if (!empty($paRecommendations)): ?>
+                <ul class="rec-list">
+                    <?php foreach ($paRecommendations as $rec): ?>
+                        <li><?= htmlspecialchars((string) $rec) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <p class="muted">No hay recomendaciones activas en este momento.</p>
+            <?php endif; ?>
+        </div>
+    </section>
 
     <section>
         <div class="card ai-highlight">
@@ -300,8 +567,29 @@
                     <div class="score-wrap">
                         <canvas id="executiveScoreChart" width="220" height="220"></canvas>
                         <div class="score-center">
-                            <span class="score-main"><?= $score ?> / 100</span>
-                            <span class="score-sub">Score general</span>
+                            <span class="score-main"><?= $score ?> / 100 <span class="score-semaphore sem-<?= htmlspecialchars($paSemaphore) ?>"></span></span>
+                            <span class="score-sub">Score general
+                                <span class="score-info-wrap">
+                                    <span class="score-info-btn" title="¿Cómo se calcula el score?">?</span>
+                                    <div class="score-info-panel">
+                                        <h4>¿Cómo se calcula el Score?</h4>
+                                        <?php foreach ($paScoreFactors as $factor): ?>
+                                            <div class="score-factor-row">
+                                                <div>
+                                                    <div class="score-factor-name"><?= htmlspecialchars((string) ($factor['name'] ?? '')) ?></div>
+                                                    <div class="score-factor-desc"><?= htmlspecialchars((string) ($factor['description'] ?? '')) ?></div>
+                                                </div>
+                                                <span class="score-factor-weight"><?= (int) ($factor['weight'] ?? 0) ?>%</span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <div style="margin-top:10px; font-size:11px; color:var(--text-secondary,#94a3b8);">
+                                            <strong style="color:#16a34a;">● &gt;85</strong> Óptimo &nbsp;
+                                            <strong style="color:#f59e0b;">● 70–85</strong> Atención &nbsp;
+                                            <strong style="color:#dc2626;">● &lt;70</strong> Crítico
+                                        </div>
+                                    </div>
+                                </span>
+                            </span>
                             <?= $movementBadge($movement['score'] ?? []) ?>
                         </div>
                     </div>

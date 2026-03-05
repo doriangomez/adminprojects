@@ -9,19 +9,30 @@ class DashboardController extends Controller
         $service = new DashboardService($this->db);
         $user = $this->auth->user() ?? [];
 
+        $summary = $service->executiveSummary($user);
+        $portfolioHealth = $service->portfolioHealthAverage($user);
+        $timesheets = $service->timesheetOverview($user);
+        $stoppers = $service->stoppersOverview($user);
+        $executiveIntel = $service->executiveIntelligence($user);
+
+        $portfolioAnalysis = $service->portfolioAutomaticAnalysis(
+            $user, $summary, $portfolioHealth, $executiveIntel, $stoppers, $timesheets
+        );
+
         $this->render('dashboard/index', [
             'title' => 'Dashboard Ejecutivo',
-            'summary' => $service->executiveSummary($user),
+            'summary' => $summary,
             'projects' => $service->projectHealth($user),
-            'portfolioHealth' => $service->portfolioHealthAverage($user),
+            'portfolioHealth' => $portfolioHealth,
             'portfolioInsights' => $service->portfolioHealthInsights($user),
-            'timesheets' => $service->timesheetOverview($user),
+            'timesheets' => $timesheets,
             'outsourcing' => $service->outsourcingOverview($user),
             'governance' => $service->governanceOverview($user),
             'requirements' => $service->requirementsOverview($user),
             'alerts' => $service->alerts($user),
-            'stoppers' => $service->stoppersOverview($user),
-            'executiveIntel' => $service->executiveIntelligence($user),
+            'stoppers' => $stoppers,
+            'executiveIntel' => $executiveIntel,
+            'portfolioAnalysis' => $portfolioAnalysis,
         ]);
     }
 }
