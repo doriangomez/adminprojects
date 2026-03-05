@@ -540,6 +540,104 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
 
 
 
+        <?php
+        $pmoData = $pmoData ?? [];
+        $pmoCurrent = is_array($pmoData['current'] ?? null) ? $pmoData['current'] : [];
+        $pmoProgressHours = is_array($pmoCurrent['progress_hours'] ?? null) ? $pmoCurrent['progress_hours'] : [];
+        $pmoProgressTasks = is_array($pmoCurrent['progress_tasks'] ?? null) ? $pmoCurrent['progress_tasks'] : [];
+        $pmoRisk = is_array($pmoCurrent['risk_score'] ?? null) ? $pmoCurrent['risk_score'] : [];
+        $pmoAlerts = is_array($pmoCurrent['alerts'] ?? null) ? $pmoCurrent['alerts'] : [];
+        $pmoActiveAlerts = is_array($pmoData['active_alerts'] ?? null) ? $pmoData['active_alerts'] : [];
+        $pmoHoursHistory = is_array($pmoData['hours_history'] ?? null) ? $pmoData['hours_history'] : [];
+        $pmoActiveBlockers = is_array($pmoData['active_blockers'] ?? null) ? $pmoData['active_blockers'] : [];
+        $riskScore = (int) ($pmoRisk['score'] ?? 0);
+        $riskLevel = (string) ($pmoRisk['level'] ?? 'low');
+        $riskSemaphore = match ($riskLevel) {
+            'critical' => ['class' => 'risk-critical', 'label' => 'Crítico'],
+            'high' => ['class' => 'risk-high', 'label' => 'Alto'],
+            'medium' => ['class' => 'risk-medium', 'label' => 'Medio'],
+            default => ['class' => 'risk-low', 'label' => 'Bajo'],
+        };
+        ?>
+        <section class="pmo-engine-section">
+            <h3 class="section-title">Motor PMO</h3>
+            <div class="pmo-indicators-grid">
+                <article class="pmo-indicator-card">
+                    <span class="pmo-indicator-label">Avance (Manual)</span>
+                    <strong class="pmo-indicator-value"><?= round((float) ($project['progress'] ?? 0)) ?>%</strong>
+                </article>
+                <article class="pmo-indicator-card">
+                    <span class="pmo-indicator-label">Avance por horas</span>
+                    <strong class="pmo-indicator-value"><?= round((float) ($pmoProgressHours['progress_percent'] ?? 0), 1) ?>%</strong>
+                    <small><?= round((float) ($pmoProgressHours['approved_hours'] ?? 0), 1) ?>h / <?= round((float) ($pmoProgressHours['planned_hours'] ?? 0), 1) ?>h plan</small>
+                </article>
+                <article class="pmo-indicator-card">
+                    <span class="pmo-indicator-label">Avance por tareas</span>
+                    <strong class="pmo-indicator-value"><?= round((float) ($pmoProgressTasks['progress_percent'] ?? 0), 1) ?>%</strong>
+                    <small><?= (int) ($pmoProgressTasks['done_tasks'] ?? 0) ?> / <?= (int) ($pmoProgressTasks['total_tasks'] ?? 0) ?> tareas</small>
+                </article>
+                <article class="pmo-indicator-card pmo-risk <?= $riskSemaphore['class'] ?>">
+                    <span class="pmo-indicator-label">Riesgo PMO</span>
+                    <strong class="pmo-indicator-value"><?= $riskScore ?>/100</strong>
+                    <small><?= $riskSemaphore['label'] ?></small>
+                </article>
+            </div>
+
+            <?php if ($pmoAlerts !== []): ?>
+            <div class="pmo-alerts-card">
+                <h4>Alertas PMO</h4>
+                <ul class="pmo-alerts-list">
+                    <?php foreach ($pmoAlerts as $alert): ?>
+                        <li class="pmo-alert pmo-alert-<?= htmlspecialchars((string) ($alert['severity'] ?? 'medium')) ?>">
+                            <span class="pmo-alert-severity"><?= htmlspecialchars(ucfirst((string) ($alert['severity'] ?? 'medium'))) ?></span>
+                            <span><?= htmlspecialchars((string) ($alert['message'] ?? '')) ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($pmoHoursHistory !== []): ?>
+            <div class="pmo-hours-trend">
+                <h4>Tendencia horas (últimas 4 semanas)</h4>
+                <div class="pmo-hours-bars">
+                    <?php
+                    $maxHours = 1;
+                    foreach ($pmoHoursHistory as $weekData) {
+                        $maxHours = max($maxHours, (float) ($weekData['total_hours'] ?? 0));
+                    }
+                    foreach ($pmoHoursHistory as $weekData):
+                        $weekTotal = round((float) ($weekData['total_hours'] ?? 0), 1);
+                        $weekApproved = round((float) ($weekData['approved_hours'] ?? 0), 1);
+                        $barHeight = $maxHours > 0 ? round(($weekTotal / $maxHours) * 100) : 0;
+                        $weekLabel = (string) ($weekData['week_start'] ?? '');
+                    ?>
+                    <div class="pmo-hours-bar-col">
+                        <div class="pmo-hours-bar" style="height: <?= $barHeight ?>%;" title="<?= $weekTotal ?>h total / <?= $weekApproved ?>h aprobadas"></div>
+                        <small><?= $weekLabel ? date('d/m', strtotime($weekLabel)) : '' ?></small>
+                        <small><?= $weekTotal ?>h</small>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($pmoActiveBlockers !== []): ?>
+            <div class="pmo-blockers-card">
+                <h4>Bloqueos activos</h4>
+                <ul class="pmo-blockers-list">
+                    <?php foreach ($pmoActiveBlockers as $blocker): ?>
+                        <li>
+                            <span class="pmo-blocker-impact impact-<?= htmlspecialchars((string) ($blocker['impact_level'] ?? 'medio')) ?>"><?= htmlspecialchars(ucfirst((string) ($blocker['impact_level'] ?? 'medio'))) ?></span>
+                            <strong><?= htmlspecialchars((string) ($blocker['title'] ?? 'Sin título')) ?></strong>
+                            <small><?= htmlspecialchars((string) ($blocker['responsible_name'] ?? 'Sin responsable')) ?> · <?= htmlspecialchars((string) ($blocker['detected_at'] ?? '')) ?></small>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </section>
+
         <section class="progress-history">
             <div class="history-card">
                 <div class="history-header">
@@ -1347,8 +1445,44 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     .notes-timeline { display:flex; flex-direction:column; gap:12px; }
     .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:8px; }
     .notes-entry strong { color: var(--text-primary); }
+    .pmo-engine-section { display:flex; flex-direction:column; gap:14px; margin-top:10px; }
+    .pmo-engine-section .section-title { margin:0; font-size:16px; font-weight:700; }
+    .pmo-indicators-grid { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)); gap:10px; }
+    .pmo-indicator-card { border:1px solid var(--border); border-radius:12px; padding:12px; background:var(--surface); display:flex; flex-direction:column; gap:4px; }
+    .pmo-indicator-label { font-size:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.03em; }
+    .pmo-indicator-value { font-size:20px; font-weight:800; }
+    .pmo-indicator-card small { font-size:11px; color:var(--text-secondary); }
+    .pmo-risk.risk-low { border-color:#86efac; background:#f0fdf4; }
+    .pmo-risk.risk-medium { border-color:#fde68a; background:#fefce8; }
+    .pmo-risk.risk-high { border-color:#fca5a5; background:#fef2f2; }
+    .pmo-risk.risk-critical { border-color:#ef4444; background:#fee2e2; }
+    .pmo-alerts-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--surface); }
+    .pmo-alerts-card h4 { margin:0 0 8px; font-size:14px; }
+    .pmo-alerts-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+    .pmo-alert { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; font-size:13px; border:1px solid var(--border); }
+    .pmo-alert-critical { background:#fee2e2; border-color:#ef4444; }
+    .pmo-alert-high { background:#fef2f2; border-color:#fca5a5; }
+    .pmo-alert-medium { background:#fefce8; border-color:#fde68a; }
+    .pmo-alert-low { background:#f0fdf4; border-color:#86efac; }
+    .pmo-alert-severity { font-weight:700; font-size:11px; text-transform:uppercase; min-width:60px; }
+    .pmo-hours-trend { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--surface); }
+    .pmo-hours-trend h4 { margin:0 0 10px; font-size:14px; }
+    .pmo-hours-bars { display:flex; gap:10px; align-items:flex-end; min-height:100px; }
+    .pmo-hours-bar-col { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; min-height:100px; justify-content:flex-end; }
+    .pmo-hours-bar { width:100%; max-width:48px; background:color-mix(in srgb,var(--primary) 60%,var(--surface)); border-radius:6px 6px 0 0; min-height:4px; transition:height .3s ease; }
+    .pmo-hours-bar-col small { font-size:10px; color:var(--text-secondary); }
+    .pmo-blockers-card { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--surface); }
+    .pmo-blockers-card h4 { margin:0 0 8px; font-size:14px; }
+    .pmo-blockers-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+    .pmo-blockers-list li { display:flex; align-items:center; gap:8px; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:13px; }
+    .pmo-blocker-impact { font-size:11px; font-weight:700; text-transform:uppercase; min-width:60px; padding:2px 6px; border-radius:4px; text-align:center; }
+    .impact-critico { background:#fee2e2; color:#b91c1c; }
+    .impact-alto { background:#ffedd5; color:#c2410c; }
+    .impact-medio { background:#fefce8; color:#a16207; }
+    .impact-bajo { background:#f0fdf4; color:#15803d; }
     @media (max-width: 960px) {
         .project-layout { grid-template-columns: 1fr; }
         .phase-sidebar { max-height:none; }
+        .pmo-indicators-grid { grid-template-columns:repeat(2,minmax(120px,1fr)); }
     }
 </style>

@@ -1850,6 +1850,9 @@ class ProjectsController extends Controller
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
 
+        $pmoEngine = new PmoEngineService($this->db);
+        $pmoData = $pmoEngine->getProjectPmoData($id);
+
         return array_merge([
             'title' => 'Detalle de proyecto',
             'project' => $project,
@@ -1893,6 +1896,7 @@ class ProjectsController extends Controller
             'stopperStatusOptions' => array_values(array_filter(self::STOPPER_STATUSES, static fn (string $status): bool => $status !== 'cerrado')),
             'canCloseStoppers' => $this->auth->can('project.stoppers.close'),
             'responsibleUsers' => (new UsersRepository($this->db))->findByRoleNames(['Administrador', 'PMO', 'Líder de Proyecto', 'Talento']),
+            'pmoData' => $pmoData,
         ], $deleteContext);
     }
 
