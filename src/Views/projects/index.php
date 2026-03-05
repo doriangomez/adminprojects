@@ -108,21 +108,6 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     return http_build_query($params);
 };
 
-$truncateText = static function (string $text, int $limit = 120): string {
-    $normalized = trim((string) preg_replace('/\s+/', ' ', $text));
-    if ($normalized === '' || $limit <= 0) {
-        return '';
-    }
-
-    $length = function_exists('mb_strlen') ? mb_strlen($normalized) : strlen($normalized);
-    if ($length <= $limit) {
-        return $normalized;
-    }
-
-    $slice = function_exists('mb_substr') ? mb_substr($normalized, 0, $limit) : substr($normalized, 0, $limit);
-    return rtrim($slice) . '…';
-};
-
 $stopperSeverityLabel = static function (string $impactLevel): string {
     return match (strtolower(trim($impactLevel))) {
         'critico' => 'Crítico',
@@ -357,13 +342,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-context-preview {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 6px;
         margin-top: 7px;
         padding: 0;
         color: color-mix(in srgb, var(--text-secondary) 86%, var(--background));
         font-size: 12px;
         line-height: 1.35;
+        width: 100%;
     }
 
     .project-context-preview .context-icon {
@@ -378,9 +364,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .project-context-preview .context-text {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        flex: 1;
+        min-width: 0;
     }
 
     .project-context-stats {
@@ -851,7 +839,6 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             }
                         }
 
-                        $previewText = $truncateText((string) $previewText, 120);
                         $previewHref = $basePath . '/projects/' . $projectId
                             . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
                             . '&return=' . urlencode($returnUrl);
