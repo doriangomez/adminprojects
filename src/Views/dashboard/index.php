@@ -183,14 +183,216 @@
         .criticality-pill.baja { background: color-mix(in srgb, var(--success) 20%, var(--background)); color: var(--success); }
         .criticality-pill.media { background: color-mix(in srgb, var(--warning) 24%, var(--background)); color: #b45309; }
         .criticality-pill.alta { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
+
+        /* ── Análisis automático ── */
+        .auto-analysis-card {
+            border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+            background: linear-gradient(130deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), color-mix(in srgb, #0ea5e9 6%, var(--surface)));
+        }
+        .auto-analysis-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .auto-analysis-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--primary) 16%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .auto-analysis-meta { flex: 1; }
+        .auto-analysis-meta .title { font-size: 16px; font-weight: 800; color: var(--text-primary); margin: 0; }
+        .auto-analysis-meta .subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; text-transform: uppercase; letter-spacing: .05em; }
+        .conclusion-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .conclusion-list li {
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--surface) 85%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 60%, var(--background));
+            border-left: 3px solid var(--primary);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.45;
+        }
+
+        /* ── Alertas del portafolio ── */
+        .alert-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .alert-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid;
+        }
+        .alert-card.green {
+            background: color-mix(in srgb, #16a34a 8%, var(--surface));
+            border-color: color-mix(in srgb, #16a34a 35%, var(--border));
+        }
+        .alert-card.yellow {
+            background: color-mix(in srgb, #f59e0b 10%, var(--surface));
+            border-color: color-mix(in srgb, #f59e0b 35%, var(--border));
+        }
+        .alert-card.red {
+            background: color-mix(in srgb, #dc2626 10%, var(--surface));
+            border-color: color-mix(in srgb, #dc2626 35%, var(--border));
+        }
+        .alert-icon-box {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .alert-card.green .alert-icon-box { background: color-mix(in srgb, #16a34a 16%, var(--background)); }
+        .alert-card.yellow .alert-icon-box { background: color-mix(in srgb, #f59e0b 16%, var(--background)); }
+        .alert-card.red .alert-icon-box { background: color-mix(in srgb, #dc2626 16%, var(--background)); }
+        .alert-body { flex: 1; min-width: 0; }
+        .alert-status-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .alert-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+        .alert-card.green .alert-dot { background: #16a34a; box-shadow: 0 0 6px #16a34a88; }
+        .alert-card.yellow .alert-dot { background: #f59e0b; box-shadow: 0 0 6px #f59e0b88; }
+        .alert-card.red .alert-dot { background: #dc2626; box-shadow: 0 0 6px #dc262688; }
+        .alert-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+        .alert-card.green .alert-title { color: #15803d; }
+        .alert-card.yellow .alert-title { color: #92400e; }
+        .alert-card.red .alert-title { color: #991b1b; }
+        .alert-condition { font-size: 11px; color: var(--text-secondary); margin-top: 2px; font-style: italic; }
+        .alert-message { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-top: 6px; line-height: 1.4; }
+
+        /* ── Recomendaciones ── */
+        .rec-card {
+            border: 1px solid color-mix(in srgb, #f59e0b 28%, var(--border));
+            background: linear-gradient(130deg, color-mix(in srgb, #f59e0b 6%, var(--surface)), color-mix(in srgb, #f97316 4%, var(--surface)));
+        }
+        .rec-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .rec-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--surface) 85%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--border) 60%, var(--background));
+        }
+        .rec-number {
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            background: color-mix(in srgb, #f59e0b 20%, var(--background));
+            border: 1px solid color-mix(in srgb, #f59e0b 40%, var(--border));
+            color: #92400e;
+            font-size: 12px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .rec-text { font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1.45; padding-top: 2px; }
+
+        /* ── Semáforo ── */
+        .semaforo {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(0,0,0,.25);
+            border: 1px solid rgba(255,255,255,.1);
+        }
+        .semaforo-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            opacity: .25;
+            transition: opacity .2s, box-shadow .2s;
+        }
+        .semaforo-dot.s-green { background: #22c55e; }
+        .semaforo-dot.s-yellow { background: #f59e0b; }
+        .semaforo-dot.s-red { background: #ef4444; }
+        .semaforo-dot.active { opacity: 1; box-shadow: 0 0 8px currentColor; }
+        .semaforo-dot.s-green.active { color: #22c55e; }
+        .semaforo-dot.s-yellow.active { color: #f59e0b; }
+        .semaforo-dot.s-red.active { color: #ef4444; }
+        .semaforo-label { font-size: 11px; font-weight: 700; margin-left: 4px; }
+
+        /* ── Score panel ── */
+        .score-info-btn {
+            background: rgba(148,163,184,.15);
+            border: 1px solid rgba(148,163,184,.3);
+            border-radius: 999px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 6px;
+            vertical-align: middle;
+            flex-shrink: 0;
+            transition: background .15s;
+        }
+        .score-info-btn:hover { background: rgba(148,163,184,.3); color: #f1f5f9; }
+        .score-methodology-panel {
+            background: color-mix(in srgb, var(--surface) 95%, var(--background));
+            border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+            border-radius: 14px;
+            padding: 16px;
+            margin-top: 10px;
+            display: none;
+        }
+        .score-methodology-panel.active { display: block; }
+        .score-methodology-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin: 0 0 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .score-factor-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .score-factor-name { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 180px; }
+        .score-factor-bar-wrap { flex: 1; height: 8px; background: color-mix(in srgb, var(--border) 60%, var(--background)); border-radius: 999px; overflow: hidden; }
+        .score-factor-fill { height: 100%; border-radius: 999px; background: var(--primary); transition: width .4s ease; }
+        .score-factor-pct { font-size: 12px; font-weight: 800; color: var(--primary); min-width: 34px; text-align: right; }
+        .score-methodology-note { font-size: 12px; color: var(--text-secondary); margin: 12px 0 0; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--border) 50%, var(--background)); }
+
         @media (max-width: 1200px) {
             .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
             .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
             .hero-main { grid-template-columns: 1fr; }
             .ai-grid { grid-template-columns: 1fr; }
+            .alert-cards-grid { grid-template-columns: repeat(2, minmax(200px, 1fr)); }
+            .score-factor-name { min-width: 140px; }
         }
         @media (max-width: 760px) {
-            .kpi-grid, .split-three, .gov-grid, .hero-side { grid-template-columns: 1fr; }
+            .kpi-grid, .split-three, .gov-grid, .hero-side, .alert-cards-grid { grid-template-columns: 1fr; }
         }
     </style>
 
@@ -228,6 +430,13 @@
     $analysisFlags = $intelligentAnalysis['flags'] ?? [];
     $analysisRecommendations = $intelligentAnalysis['recommendations'] ?? [];
     $analysisCriticality = strtolower((string) ($intelligentAnalysis['criticality'] ?? 'baja'));
+    $autoConclusiones = $intelligentAnalysis['auto_conclusions'] ?? [];
+    $portfolioAlerts = $intelligentAnalysis['portfolio_alerts'] ?? [];
+    $systemRecommendations = $intelligentAnalysis['system_recommendations'] ?? [];
+
+    $semaforo = $score > 85 ? 'green' : ($score >= 70 ? 'yellow' : 'red');
+    $semaforoLabel = $score > 85 ? 'Estado óptimo' : ($score >= 70 ? 'En observación' : 'Requiere atención');
+    $semaforoColor = $score > 85 ? '#22c55e' : ($score >= 70 ? '#f59e0b' : '#ef4444');
     $projectHeatmapPoints = array_slice($portfolioInsights['ranking'] ?? [], 0, 30);
     $topBlockersProjects = array_slice($stoppers['top_active'] ?? [], 0, 5);
     $topTalents = array_slice($timesheets['hours_by_talent'] ?? [], 0, 5);
@@ -241,6 +450,92 @@
         return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
     };
     ?>
+
+    <!-- ═══════════════════════════════════════════
+         ANÁLISIS AUTOMÁTICO DEL PORTAFOLIO
+    ═══════════════════════════════════════════ -->
+    <section>
+        <h2 class="section-title">Análisis Automático del Portafolio</h2>
+        <div class="card auto-analysis-card">
+            <div class="auto-analysis-header">
+                <div class="auto-analysis-icon">🔍</div>
+                <div class="auto-analysis-meta">
+                    <p class="title">Diagnóstico automatizado del portafolio</p>
+                    <p class="subtitle">Generado el <?= date('d/m/Y') ?> a las <?= date('H:i') ?> · Basado en datos actuales del sistema</p>
+                </div>
+            </div>
+            <ul class="conclusion-list">
+                <?php if (!empty($autoConclusiones)): ?>
+                    <?php foreach ($autoConclusiones as $conclusion): ?>
+                        <li>• <?= htmlspecialchars((string) $conclusion) ?></li>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <li>• No hay suficientes datos disponibles para generar conclusiones automáticas.</li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         ALERTAS DEL PORTAFOLIO
+    ═══════════════════════════════════════════ -->
+    <section>
+        <h2 class="section-title">Alertas del Portafolio</h2>
+        <div class="alert-cards-grid">
+            <?php
+            $alertIcons = [
+                'progress_risk'    => '📉',
+                'critical_blocker' => '⛔',
+                'talent_overload'  => '👥',
+                'financial_risk'   => '💰',
+            ];
+            $alertLevelLabels = [
+                'green'  => 'Normal',
+                'yellow' => 'Advertencia',
+                'red'    => 'Crítico',
+            ];
+            foreach ($portfolioAlerts as $alert):
+                $lvl  = htmlspecialchars((string) ($alert['level'] ?? 'green'));
+                $icon = $alertIcons[$alert['type'] ?? ''] ?? '⚠';
+            ?>
+                <div class="alert-card <?= $lvl ?>">
+                    <div class="alert-icon-box"><?= $icon ?></div>
+                    <div class="alert-body">
+                        <div class="alert-status-row">
+                            <span class="alert-dot"></span>
+                            <span class="alert-title"><?= htmlspecialchars((string) ($alert['title'] ?? '')) ?></span>
+                        </div>
+                        <div class="alert-condition">Condición: <?= htmlspecialchars((string) ($alert['condition'] ?? '')) ?></div>
+                        <div class="alert-message"><?= htmlspecialchars((string) ($alert['message'] ?? '')) ?></div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         RECOMENDACIONES DEL SISTEMA
+    ═══════════════════════════════════════════ -->
+    <section>
+        <h2 class="section-title">Recomendaciones del Sistema</h2>
+        <div class="card rec-card">
+            <div class="auto-analysis-header">
+                <div class="auto-analysis-icon" style="background:color-mix(in srgb, #f59e0b 14%, var(--background)); border-color:color-mix(in srgb, #f59e0b 30%, var(--border));">💡</div>
+                <div class="auto-analysis-meta">
+                    <p class="title">Acciones recomendadas para el portafolio</p>
+                    <p class="subtitle">Generadas automáticamente · Actualizadas al cargar el dashboard</p>
+                </div>
+            </div>
+            <ol class="rec-list">
+                <?php foreach ($systemRecommendations as $i => $rec): ?>
+                    <li class="rec-item">
+                        <span class="rec-number"><?= (int) $i + 1 ?></span>
+                        <span class="rec-text"><?= htmlspecialchars((string) $rec) ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        </div>
+    </section>
 
     <section>
         <div class="card ai-highlight">
@@ -303,10 +598,18 @@
                             <span class="score-main"><?= $score ?> / 100</span>
                             <span class="score-sub">Score general</span>
                             <?= $movementBadge($movement['score'] ?? []) ?>
+                            <div class="semaforo">
+                                <span class="semaforo-dot s-green<?= $semaforo === 'green' ? ' active' : '' ?>"></span>
+                                <span class="semaforo-dot s-yellow<?= $semaforo === 'yellow' ? ' active' : '' ?>"></span>
+                                <span class="semaforo-dot s-red<?= $semaforo === 'red' ? ' active' : '' ?>"></span>
+                                <span class="semaforo-label" style="color:<?= htmlspecialchars($semaforoColor) ?>"><?= htmlspecialchars($semaforoLabel) ?></span>
+                            </div>
                         </div>
                     </div>
                     <div>
-                        <h3 class="hero-title">Control de Portafolio</h3>
+                        <h3 class="hero-title">Control de Portafolio
+                            <button class="score-info-btn" id="scoreInfoBtn" title="Cómo se calcula el score del portafolio" onclick="document.getElementById('scoreMethodologyPanel').classList.toggle('active');this.style.background=document.getElementById('scoreMethodologyPanel').classList.contains('active')?'rgba(37,99,235,.35)':'rgba(148,163,184,.15)'">?</button>
+                        </h3>
                         <p class="hero-copy">Visión integral de performance, riesgos y ejecución para toma de decisiones estratégicas del comité directivo.</p>
                     </div>
                 </div>
@@ -324,6 +627,42 @@
             </article>
         </div>
     </section>
+
+    <!-- Score methodology panel (toggleable) -->
+    <div class="score-methodology-panel" id="scoreMethodologyPanel">
+        <h4 class="score-methodology-title">
+            <span>📊</span> Metodología de cálculo del score del portafolio
+        </h4>
+        <?php
+        $scoreFactors = [
+            ['name' => 'Avance de proyectos',     'weight' => 25, 'color' => '#2563eb', 'desc' => 'Desviación del avance real vs el esperado según cronograma.'],
+            ['name' => 'Documentación',            'weight' => 25, 'color' => '#7c3aed', 'desc' => 'Porcentaje de nodos documentales en estado aprobado.'],
+            ['name' => 'Horas ejecutadas',         'weight' => 20, 'color' => '#0891b2', 'desc' => 'Desviación de horas reales vs las esperadas al nivel de avance actual.'],
+            ['name' => 'Seguimiento y notas',      'weight' => 15, 'color' => '#059669', 'desc' => 'Recencia (65%) y frecuencia (35%) de notas de seguimiento en el proyecto.'],
+            ['name' => 'Calidad de requisitos',    'weight' => 15, 'color' => '#d97706', 'desc' => 'Porcentaje de requisitos aprobados en primera entrega.'],
+            ['name' => 'Riesgos activos',          'weight' => 10, 'color' => '#dc2626', 'desc' => 'Nivel de riesgo registrado (bajo=90pts, medio=60pts, alto=25pts).'],
+        ];
+        $totalWeight = array_sum(array_column($scoreFactors, 'weight'));
+        ?>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap:8px; margin-bottom:14px;">
+            <?php foreach ($scoreFactors as $factor): ?>
+                <div>
+                    <div class="score-factor-row">
+                        <span class="score-factor-name"><?= htmlspecialchars($factor['name']) ?></span>
+                        <div class="score-factor-bar-wrap">
+                            <div class="score-factor-fill" style="width:<?= ($factor['weight'] / $totalWeight) * 100 ?>%; background:<?= $factor['color'] ?>;"></div>
+                        </div>
+                        <span class="score-factor-pct" style="color:<?= $factor['color'] ?>"><?= $factor['weight'] ?>%</span>
+                    </div>
+                    <p style="font-size:11px; color:var(--text-secondary); margin: -4px 0 8px 0; padding-left:2px;"><?= htmlspecialchars($factor['desc']) ?></p>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <div class="score-methodology-note">
+            <strong>Penalización por bloqueos:</strong> Se descuentan hasta 12 puntos por bloqueos críticos vencidos y hasta 8 puntos adicionales si hay más de 3 bloqueos activos simultáneos. El score final se normaliza en escala 0–100.
+            <br><strong>Semáforo:</strong> <span style="color:#22c55e; font-weight:700;">Verde</span> = score &gt; 85 &nbsp;|&nbsp; <span style="color:#f59e0b; font-weight:700;">Amarillo</span> = score 70–85 &nbsp;|&nbsp; <span style="color:#ef4444; font-weight:700;">Rojo</span> = score &lt; 70.
+        </div>
+    </div>
 
     <section>
         <h2 class="section-title">Tendencia real vs mes anterior</h2>

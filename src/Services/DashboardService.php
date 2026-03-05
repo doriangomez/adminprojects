@@ -366,6 +366,185 @@ class DashboardService
         $avgProgress = (float) ($progressMovement['current'] ?? 0);
         $billingPlanPct = (float) $financialExecution;
 
+        // Direct average progress (reliable, not filtered by month)
+        $directProgressRow = $this->db->fetchOne(
+            "SELECT AVG(p.progress) AS avg_progress
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+            $params
+        );
+        $directAvgProgress = round((float) ($directProgressRow['avg_progress'] ?? 0), 1);
+        $progressForAnalysis = $directAvgProgress > 0 ? $directAvgProgress : $avgProgress;
+
+        // Projects with progress < 70%
+        $activeColFilter = $this->db->columnExists('projects', 'active') ? ' AND p.active = 1' : '';
+        $projectsBelow70Row = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}
+             AND p.progress < 70{$activeColFilter}
+             AND {$statusExpr} NOT IN ('closed','archived','cancelled')",
+            $params
+        );
+        $projectsBelow70 = (int) ($projectsBelow70Row['total'] ?? 0);
+
+        // Blockers open more than 5 days
+        $blockersOver5Days = 0;
+        if ($this->db->tableExists('project_stoppers')) {
+            $blockersOver5Row = $this->db->fetchOne(
+                "SELECT COUNT(*) AS total
+                 FROM project_stoppers s
+                 JOIN projects p ON p.id = s.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND s.status IN ('abierto','en_gestion','escalado')
+                 AND DATEDIFF(CURDATE(), DATE(s.created_at)) > 5",
+                $params
+            );
+            $blockersOver5Days = (int) ($blockersOver5Row['total'] ?? 0);
+        }
+
+        // Talent overload: allocation > 90%
+        $talentOverloadCount = 0;
+        if ($this->db->tableExists('project_talent_assignments')
+            && $this->db->columnExists('project_talent_assignments', 'allocation_percent')) {
+            $talentCol = $this->db->columnExists('project_talent_assignments', 'talent_id') ? 'talent_id' : 'user_id';
+            $overloadRow = $this->db->fetchOne(
+                "SELECT COUNT(DISTINCT a.{$talentCol}) AS total
+                 FROM project_talent_assignments a
+                 WHERE a.allocation_percent > 90
+                 AND a.assignment_status = 'active'",
+                []
+            );
+            $talentOverloadCount = (int) ($overloadRow['total'] ?? 0);
+        }
+
+        // Auto-conclusions (3-5 natural language insights)
+        $autoConclusiones = [];
+        if ($progressForAnalysis >= 75) {
+            $autoConclusiones[] = 'El portafolio presenta ejecución estable con avance promedio del ' . number_format($progressForAnalysis, 1) . '%.';
+        } elseif ($progressForAnalysis >= 50) {
+            $autoConclusiones[] = 'El portafolio muestra un avance moderado del ' . number_format($progressForAnalysis, 1) . '%, con margen de mejora en la ejecución.';
+        } else {
+            $autoConclusiones[] = 'El portafolio presenta avance bajo del ' . number_format($progressForAnalysis, 1) . '%, lo que requiere atención ejecutiva urgente.';
+        }
+
+        $activeBlockersInt = (int) round($activeBlockers);
+        if ($criticalBlockers > 0) {
+            $autoConclusiones[] = 'Existen ' . $criticalBlockers . ' bloqueo(s) crítico(s) activos que requieren intervención inmediata.';
+        } elseif ($activeBlockersInt > 0) {
+            $autoConclusiones[] = 'Existe(n) ' . $activeBlockersInt . ' bloqueo(s) activo(s) que requieren atención operativa.';
+        } else {
+            $autoConclusiones[] = 'No se registran bloqueos activos en el portafolio.';
+        }
+
+        if ($highRiskProjects === 0) {
+            $autoConclusiones[] = 'No se detectan proyectos en riesgo alto en el portafolio actual.';
+        } else {
+            $autoConclusiones[] = 'Se identifican ' . $highRiskProjects . ' proyecto(s) en riesgo alto, representando el ' . number_format($highRiskPct, 1) . '% del portafolio.';
+        }
+
+        if ($talentOverloadCount === 0) {
+            $autoConclusiones[] = 'El equipo tiene capacidad disponible significativa, sin señales de sobrecarga operativa.';
+        } else {
+            $autoConclusiones[] = 'Se detectan ' . $talentOverloadCount . ' talento(s) con utilización superior al 90%, con riesgo de sobrecarga.';
+        }
+
+        if ($billingPlanPct >= 90) {
+            $autoConclusiones[] = 'La facturación alcanza el ' . number_format($billingPlanPct, 1) . '% del plan contratado, con ejecución financiera sólida.';
+        } elseif ($billingPlanPct >= 70) {
+            $autoConclusiones[] = 'La facturación se sitúa en el ' . number_format($billingPlanPct, 1) . '% del plan contratado, dentro del rango aceptable.';
+        } else {
+            $autoConclusiones[] = 'La facturación está en el ' . number_format($billingPlanPct, 1) . '% del plan, por debajo del umbral mínimo del 70%.';
+        }
+
+        // Portfolio alerts with severity levels (green/yellow/red)
+        $progressAlertLevel = $projectsBelow70 === 0 ? 'green' : ($projectsBelow70 > 3 ? 'red' : 'yellow');
+        $blockerAlertLevel  = $blockersOver5Days === 0 ? 'green' : ($criticalBlockers > 0 ? 'red' : 'yellow');
+        $talentAlertLevel   = $talentOverloadCount === 0 ? 'green' : ($talentOverloadCount > 2 ? 'red' : 'yellow');
+        $financialAlertLevel = $billingPlanPct >= 90 ? 'green' : ($billingPlanPct >= 70 ? 'yellow' : 'red');
+
+        $portfolioAlerts = [
+            [
+                'type'      => 'progress_risk',
+                'title'     => 'Proyectos en riesgo',
+                'condition' => 'Avance < 70%',
+                'level'     => $progressAlertLevel,
+                'count'     => $projectsBelow70,
+                'message'   => $projectsBelow70 === 0
+                    ? 'Todos los proyectos activos superan el 70% de avance.'
+                    : $projectsBelow70 . ' proyecto(s) con avance inferior al 70%.',
+            ],
+            [
+                'type'      => 'critical_blocker',
+                'title'     => 'Bloqueo crítico',
+                'condition' => 'Bloqueo abierto > 5 días',
+                'level'     => $blockerAlertLevel,
+                'count'     => $blockersOver5Days,
+                'message'   => $blockersOver5Days === 0
+                    ? 'Sin bloqueos con más de 5 días de antigüedad.'
+                    : $blockersOver5Days . ' bloqueo(s) con más de 5 días sin resolver.',
+            ],
+            [
+                'type'      => 'talent_overload',
+                'title'     => 'Riesgo de sobrecarga',
+                'condition' => 'Utilización talento > 90%',
+                'level'     => $talentAlertLevel,
+                'count'     => $talentOverloadCount,
+                'message'   => $talentOverloadCount === 0
+                    ? 'Sin riesgo de sobrecarga en el equipo de trabajo.'
+                    : $talentOverloadCount . ' talento(s) con utilización superior al 90%.',
+            ],
+            [
+                'type'      => 'financial_risk',
+                'title'     => 'Riesgo financiero',
+                'condition' => 'Facturación < 70% del plan',
+                'level'     => $financialAlertLevel,
+                'count'     => (int) ($billingPlanPct < 70 ? 1 : 0),
+                'message'   => $billingPlanPct >= 90
+                    ? 'Facturación saludable: ' . number_format($billingPlanPct, 1) . '% del plan.'
+                    : ($billingPlanPct >= 70
+                        ? 'Facturación al ' . number_format($billingPlanPct, 1) . '% del plan. En observación.'
+                        : 'Facturación al ' . number_format($billingPlanPct, 1) . '% del plan. Por debajo del 70%.'),
+            ],
+        ];
+
+        // System recommendations (up to 5, auto-generated)
+        $systemRecommendations = [];
+        if ($talentOverloadCount === 0) {
+            $systemRecommendations[] = 'Redistribuir carga hacia talentos con más capacidad disponible para optimizar la eficiencia del equipo.';
+        }
+        if ($blockersOver5Days > 0) {
+            $systemRecommendations[] = 'Revisar los ' . $blockersOver5Days . ' bloqueo(s) con más de 5 días sin resolver y asignar responsables de cierre inmediato.';
+        } elseif ($criticalBlockers > 0) {
+            $systemRecommendations[] = 'Escalar los ' . $criticalBlockers . ' bloqueos críticos activos al comité ejecutivo para resolución inmediata.';
+        }
+        if ($progressForAnalysis >= 70 && $billingPlanPct < 90) {
+            $systemRecommendations[] = 'Acelerar facturación de proyectos con avance superior al 70% para cerrar la brecha financiera.';
+        }
+        if ($highRiskProjects > 0) {
+            $systemRecommendations[] = 'Priorizar proyectos con score menor a 80 y activar planes de recuperación diferenciados por frente.';
+        }
+        if ((float) ($progressMovement['delta_pct'] ?? 0) < 0) {
+            $systemRecommendations[] = 'Implementar revisiones semanales de avance en proyectos con tendencia negativa mensual.';
+        }
+        $defaultRecs = [
+            'Mantener cadencia de seguimiento semanal para prevenir el surgimiento de nuevos bloqueos.',
+            'Consolidar lecciones aprendidas de proyectos exitosos y replicarlas en todo el portafolio.',
+            'Sostener disciplina financiera validando hitos facturables en cada revisión mensual.',
+            'Actualizar el estado de todos los proyectos activos al menos una vez por semana.',
+        ];
+        foreach ($defaultRecs as $rec) {
+            if (count($systemRecommendations) >= 5) {
+                break;
+            }
+            $systemRecommendations[] = $rec;
+        }
+        $systemRecommendations = array_slice($systemRecommendations, 0, 5);
+
         $flags = [];
         if ($criticalBlockers > 0) {
             $flags[] = [
@@ -462,11 +641,18 @@ class DashboardService
                     'billing_execution_pct' => round($billingPlanPct, 1),
                     'average_progress' => round($avgProgress, 1),
                     'progress_delta_pct' => round((float) ($progressMovement['delta_pct'] ?? 0), 1),
+                    'projects_below_70' => $projectsBelow70,
+                    'blockers_over_5_days' => $blockersOver5Days,
+                    'talent_overload_count' => $talentOverloadCount,
+                    'direct_avg_progress' => $progressForAnalysis,
                 ],
                 'flags' => $flags,
                 'diagnosis' => $diagnosis,
                 'recommendations' => $recommendations,
                 'criticality' => $criticalityLevel,
+                'auto_conclusions' => $autoConclusiones,
+                'portfolio_alerts' => $portfolioAlerts,
+                'system_recommendations' => $systemRecommendations,
             ],
             'risk_exposure' => $riskExposure,
         ];
