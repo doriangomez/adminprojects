@@ -2499,4 +2499,59 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureDecisionCenterPermissions(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
+            return;
+        }
+
+        $permissions = [
+            'pmo_decision_center_view' => 'Ver Centro de Decisiones PMO',
+            'pmo_decision_center_export' => 'Exportar datos del Centro de Decisiones',
+            'pmo_decision_center_ai' => 'Ver análisis IA del Centro de Decisiones',
+        ];
+
+        foreach ($permissions as $code => $name) {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => $code,
+                    ':code_check' => $code,
+                    ':name' => $name,
+                ]
+            );
+        }
+
+        $grants = [
+            'Administrador' => array_keys($permissions),
+            'PMO' => array_keys($permissions),
+        ];
+
+        foreach ($grants as $roleName => $codes) {
+            $roles = $this->db->fetchAll('SELECT id FROM roles WHERE nombre = :name', [':name' => $roleName]);
+            foreach ($roles as $role) {
+                $roleId = (int) $role['id'];
+                foreach ($codes as $code) {
+                    $this->db->execute(
+                        'INSERT INTO role_permissions (role_id, permission_id)
+                         SELECT :role_id_value, p.id
+                         FROM permissions p
+                         WHERE p.code = :code_value
+                         AND NOT EXISTS (
+                            SELECT 1 FROM role_permissions rp
+                            WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                         )',
+                        [
+                            ':role_id_value' => $roleId,
+                            ':role_id_check' => $roleId,
+                            ':code_value' => $code,
+                        ]
+                    );
+                }
+            }
+        }
+    }
+
 }

@@ -674,6 +674,15 @@ error_log(sprintf(
                 <span class="nav-label">Clientes</span>
             </a>
 
+            <?php if (!empty($user) && ($auth->can('pmo_decision_center_view') ?? false)): ?>
+            <div class="nav-divider" aria-hidden="true"></div>
+            <span class="nav-section-label">PMO</span>
+            <a href="<?= $basePath ?>/pmo/decision-center" class="nav-link <?= str_starts_with($normalizedPath, '/pmo/decision-center') ? 'active' : '' ?>" data-tone="blue">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+                <span class="nav-label">Centro de decisiones</span>
+            </a>
+            <?php endif; ?>
+
             <div class="nav-divider" aria-hidden="true"></div>
             <span class="nav-section-label">Gestión</span>
             <a href="<?= $basePath ?>/outsourcing" class="nav-link <?= str_starts_with($normalizedPath, '/outsourcing') ? 'active' : '' ?>" data-tone="teal">

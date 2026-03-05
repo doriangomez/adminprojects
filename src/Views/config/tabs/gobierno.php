@@ -4,6 +4,7 @@
     $permissionGroups = [
         'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo', 'timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
         'Visualización' => ['ver', 'visualizar', 'dashboard', 'reporte', 'report'],
+        'PMO' => ['pmo', 'decisión', 'decision', 'centro', 'exportar', 'análisis ia'],
     ];
     $normalizeText = static function(string $value): string {
         return function_exists('mb_strtolower')
