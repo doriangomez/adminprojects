@@ -175,6 +175,25 @@ $truncateText = static function (string $text, int $width = 70): string {
             border: 1px solid var(--border);
             background: color-mix(in srgb, var(--surface) 90%, var(--background));
         }
+        .risk-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            border: 1px solid transparent;
+        }
+        .risk-pill.is-risk {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+        .risk-pill.is-stable {
+            background: #dcfce7;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
         .tone-danger { color: var(--danger); }
         .tone-warning { color: var(--warning); }
         .tone-info { color: var(--info); }
@@ -397,7 +416,7 @@ $truncateText = static function (string $text, int $width = 70): string {
                             <td><?= htmlspecialchars((string) ($row['status'] ?? '-')) ?></td>
                             <td><strong><?= number_format((float) ($row['portfolio_score'] ?? 0), 1, ',', '.') ?></strong></td>
                             <td>
-                                <span class="tag <?= !empty($row['is_project_at_risk']) ? 'tone-danger' : 'tone-ok' ?>">
+                                <span class="risk-pill <?= !empty($row['is_project_at_risk']) ? 'is-risk' : 'is-stable' ?>">
                                     <?= !empty($row['is_project_at_risk']) ? 'En riesgo' : 'Estable' ?>
                                 </span>
                             </td>
