@@ -616,6 +616,7 @@ class ProjectsRepository
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
         $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
+        $hasTalentWeeklyCapacity = $this->db->tableExists('talents') && $this->db->columnExists('talents', 'weekly_capacity');
 
         $select = [
             'a.*',
@@ -633,17 +634,30 @@ class ProjectsRepository
         if ($hasTalentColumn) {
             $select[] = 't.name AS talent_name';
             $select[] = 't.capacidad_horaria';
+            $select[] = $hasTalentWeeklyCapacity ? 'COALESCE(t.weekly_capacity, 0) AS talent_weekly_capacity' : '0 AS talent_weekly_capacity';
             $select[] = 't.requiere_reporte_horas';
             $select[] = 't.requiere_aprobacion_horas';
             $select[] = 't.tipo_talento';
+            $select[] = 'COALESCE(tload.total_allocation_percent, 0) AS total_allocation_percent';
+            $select[] = 'GREATEST(0, 100 - COALESCE(tload.total_allocation_percent, 0)) AS available_allocation_percent';
             $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
+            $joins[] = 'LEFT JOIN (
+                SELECT talent_id, SUM(allocation_percent) AS total_allocation_percent
+                FROM project_talent_assignments
+                WHERE talent_id IS NOT NULL
+                  AND (assignment_status = "active" OR (assignment_status IS NULL AND active = 1))
+                GROUP BY talent_id
+            ) tload ON tload.talent_id = a.talent_id';
         } else {
             $select[] = 'u.name AS talent_name';
             $select[] = '0 AS capacidad_horaria';
+            $select[] = '0 AS talent_weekly_capacity';
             $select[] = '0 AS requiere_reporte_horas';
             $select[] = '0 AS requiere_aprobacion_horas';
             $select[] = '\'interno\' AS tipo_talento';
             $select[] = 'a.user_id AS talent_id';
+            $select[] = '0 AS total_allocation_percent';
+            $select[] = '0 AS available_allocation_percent';
         }
 
         return $this->db->fetchAll(
@@ -926,6 +940,239 @@ class ProjectsRepository
                 ':id' => $assignmentId,
                 ':project' => $projectId,
             ]
+        );
+    }
+
+    public function updateAssignmentWorkload(
+        int $projectId,
+        int $assignmentId,
+        ?float $allocationPercent,
+        ?float $weeklyHours,
+        string $editedField = 'allocation_percent',
+        bool $forceUpdate = false
+    ): array {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            throw new \InvalidArgumentException('No existe la tabla de asignaciones de talento.');
+        }
+
+        $assignment = $this->findAssignmentById($projectId, $assignmentId);
+        if (!$assignment) {
+            throw new \InvalidArgumentException('Asignación no encontrada.');
+        }
+
+        $hasTalentColumn = $this->db->columnExists('project_talent_assignments', 'talent_id');
+        $talentId = (int) ($assignment['talent_id'] ?? 0);
+        $userId = (int) ($assignment['user_id'] ?? 0);
+
+        if ($talentId <= 0 && $this->db->tableExists('talents') && $this->db->columnExists('talents', 'user_id') && $userId > 0) {
+            $talent = $this->db->fetchOne(
+                'SELECT id FROM talents WHERE user_id = :user_id LIMIT 1',
+                [':user_id' => $userId]
+            );
+            $talentId = (int) ($talent['id'] ?? 0);
+        }
+
+        $weeklyCapacity = $this->resolveTalentWeeklyCapacity($talentId);
+        $normalizedEditedField = strtolower(trim($editedField));
+
+        if ($normalizedEditedField === 'weekly_hours') {
+            if ($weeklyHours === null) {
+                throw new \InvalidArgumentException('Las horas semanales son obligatorias.');
+            }
+            if ($weeklyHours < 0) {
+                throw new \InvalidArgumentException('Las horas semanales no pueden ser negativas.');
+            }
+            if ($weeklyCapacity <= 0) {
+                throw new \InvalidArgumentException('La capacidad semanal del talento no es válida para recalcular porcentaje.');
+            }
+            $allocationPercent = ($weeklyHours / $weeklyCapacity) * 100;
+        } else {
+            if ($allocationPercent === null) {
+                throw new \InvalidArgumentException('El porcentaje de dedicación es obligatorio.');
+            }
+            if ($allocationPercent < 0 || $allocationPercent > 100) {
+                throw new \InvalidArgumentException('El porcentaje de dedicación debe estar entre 0 y 100.');
+            }
+            $weeklyHours = $weeklyCapacity * ($allocationPercent / 100);
+        }
+
+        $allocationPercent = round((float) $allocationPercent, 2);
+        $weeklyHours = round((float) $weeklyHours, 2);
+
+        if ($allocationPercent < 0 || $allocationPercent > 100) {
+            throw new \InvalidArgumentException('El porcentaje de dedicación debe estar entre 0 y 100.');
+        }
+        if ($weeklyHours < 0) {
+            throw new \InvalidArgumentException('Las horas semanales no pueden ser negativas.');
+        }
+
+        $assignmentTalentColumn = $hasTalentColumn ? 'talent_id' : 'user_id';
+        $assignmentTalentValue = $hasTalentColumn ? $talentId : $userId;
+
+        if ($assignmentTalentValue <= 0) {
+            throw new \InvalidArgumentException('No se pudo identificar el talento asociado a la asignación.');
+        }
+
+        $totals = $this->db->fetchOne(
+            sprintf(
+                'SELECT COALESCE(SUM(allocation_percent), 0) AS total_percent,
+                        COALESCE(SUM(weekly_hours), 0) AS total_hours
+                 FROM project_talent_assignments
+                 WHERE %s = :talent
+                   AND id <> :assignment_id',
+                $assignmentTalentColumn
+            ),
+            [
+                ':talent' => $assignmentTalentValue,
+                ':assignment_id' => $assignmentId,
+            ]
+        ) ?: ['total_percent' => 0.0, 'total_hours' => 0.0];
+
+        $newPercentTotal = (float) ($totals['total_percent'] ?? 0.0) + $allocationPercent;
+        $newHoursTotal = (float) ($totals['total_hours'] ?? 0.0) + $weeklyHours;
+
+        if ($newPercentTotal > 100.0) {
+            throw new \InvalidArgumentException('La dedicación total del talento supera el 100% con este ajuste.');
+        }
+
+        if ($weeklyCapacity > 0 && $newHoursTotal > $weeklyCapacity) {
+            throw new \InvalidArgumentException('Las horas semanales totales del talento exceden su capacidad estándar.');
+        }
+
+        $conflicts = $this->weeklyTimesheetOveragesForAssignment($projectId, $talentId, $userId, $weeklyHours);
+        if ($conflicts !== [] && !$forceUpdate) {
+            $maxLogged = (float) max(array_column($conflicts, 'hours'));
+            return [
+                'updated' => false,
+                'requires_confirmation' => true,
+                'message' => 'Las horas registradas en timesheet superan la nueva dedicación.',
+                'max_logged_weekly_hours' => round($maxLogged, 2),
+                'assigned_weekly_hours' => $weeklyHours,
+                'conflict_weeks' => $conflicts,
+                'capacity_week' => round($weeklyCapacity, 2),
+                'allocation_percent' => $allocationPercent,
+            ];
+        }
+
+        $this->db->execute(
+            'UPDATE project_talent_assignments
+             SET allocation_percent = :allocation_percent,
+                 weekly_hours = :weekly_hours,
+                 updated_at = NOW()
+             WHERE id = :id AND project_id = :project',
+            [
+                ':allocation_percent' => $allocationPercent,
+                ':weekly_hours' => $weeklyHours,
+                ':id' => $assignmentId,
+                ':project' => $projectId,
+            ]
+        );
+
+        return [
+            'updated' => true,
+            'requires_confirmation' => false,
+            'assignment_id' => $assignmentId,
+            'project_id' => $projectId,
+            'before' => [
+                'allocation_percent' => (float) ($assignment['allocation_percent'] ?? 0),
+                'weekly_hours' => (float) ($assignment['weekly_hours'] ?? 0),
+            ],
+            'after' => [
+                'allocation_percent' => $allocationPercent,
+                'weekly_hours' => $weeklyHours,
+            ],
+            'capacity_week' => round($weeklyCapacity, 2),
+            'timesheet_conflicts' => $conflicts,
+        ];
+    }
+
+    private function resolveTalentWeeklyCapacity(int $talentId): float
+    {
+        if ($talentId > 0 && $this->db->tableExists('talents')) {
+            $selectColumns = ['capacidad_horaria'];
+            if ($this->db->columnExists('talents', 'weekly_capacity')) {
+                $selectColumns[] = 'weekly_capacity';
+            }
+            $talent = $this->db->fetchOne(
+                'SELECT ' . implode(', ', $selectColumns) . '
+                 FROM talents
+                 WHERE id = :id
+                 LIMIT 1',
+                [':id' => $talentId]
+            ) ?: [];
+            $capacidadHoraria = (float) ($talent['capacidad_horaria'] ?? 0);
+            if ($capacidadHoraria > 0) {
+                return $capacidadHoraria;
+            }
+
+            $weeklyCapacity = (float) ($talent['weekly_capacity'] ?? 0);
+            if ($weeklyCapacity > 0) {
+                return $weeklyCapacity;
+            }
+        }
+
+        return 40.0;
+    }
+
+    private function weeklyTimesheetOveragesForAssignment(
+        int $projectId,
+        int $talentId,
+        int $userId,
+        float $assignedWeeklyHours
+    ): array {
+        if (!$this->db->tableExists('timesheets') || !$this->db->columnExists('timesheets', 'date')) {
+            return [];
+        }
+
+        $identityConditions = [];
+        $params = [
+            ':project_id' => $projectId,
+            ':assigned_hours' => $assignedWeeklyHours,
+        ];
+
+        if ($talentId > 0 && $this->db->columnExists('timesheets', 'talent_id')) {
+            $identityConditions[] = 'ts.talent_id = :talent_id';
+            $params[':talent_id'] = $talentId;
+        }
+
+        if ($userId > 0 && $this->db->columnExists('timesheets', 'user_id')) {
+            $identityConditions[] = 'ts.user_id = :user_id';
+            $params[':user_id'] = $userId;
+        }
+
+        if ($identityConditions === []) {
+            return [];
+        }
+
+        $hasProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $hasTaskTable = $this->db->tableExists('tasks');
+        if (!$hasProjectColumn && !$hasTaskTable) {
+            return [];
+        }
+        $projectExpression = $hasProjectColumn
+            ? ($hasTaskTable ? 'COALESCE(ts.project_id, t.project_id)' : 'ts.project_id')
+            : 't.project_id';
+        $taskJoin = $hasTaskTable ? 'LEFT JOIN tasks t ON t.id = ts.task_id' : '';
+
+        $rows = $this->db->fetchAll(
+            'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                    ROUND(COALESCE(SUM(ts.hours), 0), 2) AS total_hours
+             FROM timesheets ts
+             ' . $taskJoin . '
+             WHERE (' . implode(' OR ', $identityConditions) . ')
+               AND ' . $projectExpression . ' = :project_id
+             GROUP BY DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)
+             HAVING SUM(ts.hours) > :assigned_hours
+             ORDER BY week_start DESC',
+            $params
+        );
+
+        return array_map(
+            static fn (array $row): array => [
+                'week_start' => (string) ($row['week_start'] ?? ''),
+                'hours' => round((float) ($row['total_hours'] ?? 0), 2),
+            ],
+            $rows
         );
     }
 

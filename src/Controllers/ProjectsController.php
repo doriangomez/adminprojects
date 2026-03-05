@@ -707,6 +707,110 @@ class ProjectsController extends Controller
         }
     }
 
+    public function updateTalentAssignmentWorkload(int $projectId, int $assignmentId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            if ($this->wantsJson()) {
+                $this->json(['success' => false, 'message' => 'Proyecto no encontrado.'], 404);
+                return;
+            }
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        try {
+            $allocationPercentRaw = trim((string) ($_POST['allocation_percent'] ?? ''));
+            $weeklyHoursRaw = trim((string) ($_POST['weekly_hours'] ?? ''));
+            $editedField = strtolower(trim((string) ($_POST['edited_field'] ?? 'allocation_percent')));
+            $forceUpdate = (string) ($_POST['force_update'] ?? '0') === '1';
+
+            if (!in_array($editedField, ['allocation_percent', 'weekly_hours'], true)) {
+                throw new \InvalidArgumentException('El campo editado no es válido.');
+            }
+
+            if ($allocationPercentRaw !== '' && !is_numeric($allocationPercentRaw)) {
+                throw new \InvalidArgumentException('El porcentaje de dedicación debe ser numérico.');
+            }
+
+            if ($weeklyHoursRaw !== '' && !is_numeric($weeklyHoursRaw)) {
+                throw new \InvalidArgumentException('Las horas semanales deben ser numéricas.');
+            }
+
+            $result = $repo->updateAssignmentWorkload(
+                $projectId,
+                $assignmentId,
+                $allocationPercentRaw !== '' ? (float) $allocationPercentRaw : null,
+                $weeklyHoursRaw !== '' ? (float) $weeklyHoursRaw : null,
+                $editedField,
+                $forceUpdate
+            );
+
+            if (!($result['updated'] ?? false) && ($result['requires_confirmation'] ?? false)) {
+                $this->json([
+                    'success' => false,
+                    'requires_confirmation' => true,
+                    'message' => (string) ($result['message'] ?? 'Las horas registradas en timesheet superan la nueva dedicación.'),
+                    'data' => $result,
+                ], 409);
+                return;
+            }
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'project_talent_assignment',
+                $assignmentId,
+                'workload_updated',
+                [
+                    'project_id' => $projectId,
+                    'edited_field' => $editedField,
+                    'force_update' => $forceUpdate ? 1 : 0,
+                    'before' => $result['before'] ?? [],
+                    'after' => $result['after'] ?? [],
+                    'capacity_week' => $result['capacity_week'] ?? null,
+                    'timesheet_conflicts' => $result['timesheet_conflicts'] ?? [],
+                ]
+            );
+
+            if ($this->wantsJson()) {
+                $this->json([
+                    'success' => true,
+                    'message' => 'Dedicación actualizada correctamente.',
+                    'data' => $result,
+                ]);
+                return;
+            }
+
+            header('Location: /projects/' . $projectId . '/talent');
+            return;
+        } catch (\InvalidArgumentException $e) {
+            if ($this->wantsJson()) {
+                $this->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 400);
+                return;
+            }
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error al actualizar dedicación de asignación: ' . $e->getMessage());
+            if ($this->wantsJson()) {
+                $this->json([
+                    'success' => false,
+                    'message' => 'No se pudo actualizar la dedicación de la asignación.',
+                ], 500);
+                return;
+            }
+            http_response_code(500);
+            exit('No se pudo actualizar la dedicación de la asignación.');
+        }
+    }
+
     public function deleteTalentAssignment(int $projectId, int $assignmentId): void
     {
         $this->requirePermission('projects.manage');
