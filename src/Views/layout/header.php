@@ -715,6 +715,15 @@ error_log(sprintf(
                 </div>
             </div>
 
+            <?php if ($auth->can('pmo_decision_center_view')): ?>
+                <div class="nav-divider" aria-hidden="true"></div>
+                <span class="nav-section-label">PMO</span>
+                <a href="<?= $basePath ?>/pmo/decision-center" class="nav-link <?= str_starts_with($normalizedPath, '/pmo/decision-center') ? 'active' : '' ?>" data-tone="violet">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 15V9"/><path d="M12 15V5"/><path d="M17 15v-3"/><path d="M4 9h3"/><path d="M10 11h4"/><path d="M16 7h4"/></svg></span>
+                    <span class="nav-label">Centro de decisiones</span>
+                </a>
+            <?php endif; ?>
+
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>
