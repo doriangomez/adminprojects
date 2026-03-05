@@ -57,6 +57,14 @@ class TimesheetsController extends Controller
         $managedWeekEntries = ($canApprove || $canManageAdvanced) ? $repo->managedWeekEntries($weekStart, $talentFilter > 0 ? $talentFilter : null) : [];
         $talentOptions = $this->db->fetchAll('SELECT id, name FROM talents ORDER BY name ASC');
 
+        $activityTypes = $repo->activityTypes();
+        $weekActivities = $canReport ? $repo->activitiesForWeek($userId, $weekStart) : [];
+        $capacityUtil = $canReport ? $repo->capacityUtilization($userId, $weekStart) : ['weekly_capacity' => 0, 'hours_reported' => 0, 'utilization_percent' => 0, 'remaining' => 0];
+        $activityTypeBreakdown = $repo->activityTypeBreakdown($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $recentActivities = $canReport ? $repo->recentActivities($userId) : [];
+        $talentTopLoaded = $repo->talentTopLoaded($user, $periodStart, $periodEnd);
+        $projectTopConsuming = $repo->projectTopConsuming($user, $periodStart, $periodEnd);
+
         $this->render('timesheets/index', [
             'title' => 'Timesheets',
             'rows' => $repo->weekly($user),
@@ -90,6 +98,13 @@ class TimesheetsController extends Controller
             'managedWeekEntries' => $managedWeekEntries,
             'talentOptions' => $talentOptions,
             'talentFilter' => $talentFilter,
+            'activityTypes' => $activityTypes,
+            'weekActivities' => $weekActivities,
+            'capacityUtil' => $capacityUtil,
+            'activityTypeBreakdown' => $activityTypeBreakdown,
+            'recentActivities' => $recentActivities,
+            'talentTopLoaded' => $talentTopLoaded,
+            'projectTopConsuming' => $projectTopConsuming,
         ]);
     }
 
@@ -409,6 +424,168 @@ class TimesheetsController extends Controller
             return (new DateTimeImmutable($value))->setTime(0, 0);
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    public function apiCalendarData(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekValue = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
+
+        $activities = $repo->activitiesForWeek($userId, $weekStart);
+        $capacity = $repo->capacityUtilization($userId, $weekStart);
+        echo json_encode(['ok' => true, 'activities' => $activities, 'capacity' => $capacity]);
+    }
+
+    public function apiActivityTypes(): void
+    {
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        echo json_encode(['ok' => true, 'types' => $repo->activityTypes()]);
+    }
+
+    public function apiProjectMeta(): void
+    {
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        $projectId = (int) ($_GET['project_id'] ?? 0);
+        if ($projectId <= 0) {
+            echo json_encode(['ok' => false, 'message' => 'Proyecto inválido']);
+            return;
+        }
+        $phases = $repo->projectPhases($projectId);
+        $tasks = $repo->tasksForProject($projectId);
+        echo json_encode(['ok' => true, 'phases' => $phases, 'tasks' => $tasks]);
+    }
+
+    public function apiRecentActivities(): void
+    {
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        echo json_encode(['ok' => true, 'recent' => $repo->recentActivities($userId)]);
+    }
+
+    public function saveActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+
+        $data = [
+            'project_id' => (int) ($_POST['project_id'] ?? 0),
+            'date' => trim((string) ($_POST['date'] ?? '')),
+            'hours' => max(0, (float) ($_POST['hours'] ?? 0)),
+            'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
+            'description' => trim((string) ($_POST['description'] ?? '')),
+            'comment' => trim((string) ($_POST['comment'] ?? '')),
+            'phase' => trim((string) ($_POST['phase'] ?? '')),
+            'subphase' => trim((string) ($_POST['subphase'] ?? '')),
+            'has_blocker' => !empty($_POST['has_blocker']),
+            'blocker_description' => trim((string) ($_POST['blocker_description'] ?? '')),
+            'has_significant_progress' => !empty($_POST['has_significant_progress']),
+            'has_deliverable' => !empty($_POST['has_deliverable']),
+            'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+        ];
+
+        if ($data['project_id'] <= 0 || $data['date'] === '' || $data['hours'] <= 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'message' => 'Proyecto, fecha y horas son requeridos.']);
+            return;
+        }
+
+        try {
+            $id = $repo->createActivityEntry($userId, $data);
+            echo json_encode(['ok' => true, 'id' => $id]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error guardando actividad de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'No se pudo guardar la actividad.']);
+        }
+    }
+
+    public function updateActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $entryId = (int) ($_POST['entry_id'] ?? 0);
+
+        $data = [
+            'hours' => max(0, (float) ($_POST['hours'] ?? 0)),
+            'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
+            'description' => trim((string) ($_POST['description'] ?? '')),
+            'comment' => trim((string) ($_POST['comment'] ?? '')),
+            'phase' => trim((string) ($_POST['phase'] ?? '')),
+            'subphase' => trim((string) ($_POST['subphase'] ?? '')),
+            'has_blocker' => !empty($_POST['has_blocker']),
+            'blocker_description' => trim((string) ($_POST['blocker_description'] ?? '')),
+            'has_significant_progress' => !empty($_POST['has_significant_progress']),
+            'has_deliverable' => !empty($_POST['has_deliverable']),
+            'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+        ];
+
+        try {
+            $repo->updateActivityEntry($entryId, $userId, $data);
+            echo json_encode(['ok' => true]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error actualizando actividad de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar la actividad.']);
+        }
+    }
+
+    public function deleteActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+        header('Content-Type: application/json');
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $entryId = (int) ($_POST['entry_id'] ?? 0);
+
+        try {
+            $repo->deleteActivityEntry($entryId, $userId);
+            echo json_encode(['ok' => true]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error eliminando actividad de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'message' => 'No se pudo eliminar la actividad.']);
         }
     }
 

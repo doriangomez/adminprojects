@@ -2557,4 +2557,66 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTimesheetActivitySchema(): void
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->tableExists('timesheet_activity_types')) {
+                $this->db->execute(
+                    'CREATE TABLE timesheet_activity_types (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        code VARCHAR(50) NOT NULL UNIQUE,
+                        name VARCHAR(100) NOT NULL,
+                        color VARCHAR(20) DEFAULT "#6b7280",
+                        icon VARCHAR(10) DEFAULT "📋",
+                        active TINYINT(1) DEFAULT 1,
+                        sort_order INT DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB'
+                );
+
+                $types = [
+                    ['desarrollo', 'Desarrollo', '#2563eb', '💻', 1],
+                    ['analisis', 'Análisis', '#7c3aed', '🔍', 2],
+                    ['reunion', 'Reunión', '#ea580c', '🤝', 3],
+                    ['documentacion', 'Documentación', '#0891b2', '📄', 4],
+                    ['soporte', 'Soporte', '#dc2626', '🛠️', 5],
+                    ['investigacion', 'Investigación', '#4f46e5', '🧪', 6],
+                    ['pruebas', 'Pruebas', '#16a34a', '✅', 7],
+                    ['gestion_pm', 'Gestión PM', '#ca8a04', '📊', 8],
+                ];
+                foreach ($types as $t) {
+                    $this->db->execute(
+                        'INSERT INTO timesheet_activity_types (code, name, color, icon, sort_order) VALUES (:code, :name, :color, :icon, :sort)',
+                        [':code' => $t[0], ':name' => $t[1], ':color' => $t[2], ':icon' => $t[3], ':sort' => $t[4]]
+                    );
+                }
+            }
+
+            $newColumns = [
+                'activity_type' => 'VARCHAR(50) NULL',
+                'description' => 'TEXT NULL',
+                'phase' => 'VARCHAR(100) NULL',
+                'subphase' => 'VARCHAR(100) NULL',
+                'has_blocker' => 'TINYINT(1) DEFAULT 0',
+                'blocker_description' => 'TEXT NULL',
+                'has_significant_progress' => 'TINYINT(1) DEFAULT 0',
+                'has_deliverable' => 'TINYINT(1) DEFAULT 0',
+                'operational_comment' => 'TEXT NULL',
+            ];
+
+            foreach ($newColumns as $col => $def) {
+                if (!$this->db->columnExists('timesheets', $col)) {
+                    $this->db->execute("ALTER TABLE timesheets ADD COLUMN {$col} {$def}");
+                    $this->db->clearColumnCache();
+                }
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando esquema de actividad de timesheets: ' . $e->getMessage());
+        }
+    }
 }

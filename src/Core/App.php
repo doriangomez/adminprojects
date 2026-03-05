@@ -39,6 +39,7 @@ class App
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureTimesheetActivitySchema();
         $this->auth = new Auth($this->db);
     }
 
@@ -518,6 +519,36 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
 
         if (str_starts_with($path, '/timesheets')) {
             $controller = new TimesheetsController($this->db, $this->auth);
+
+            if ($path === '/timesheets/api/calendar' && $method === 'GET') {
+                $controller->apiCalendarData();
+                return;
+            }
+            if ($path === '/timesheets/api/activity-types' && $method === 'GET') {
+                $controller->apiActivityTypes();
+                return;
+            }
+            if ($path === '/timesheets/api/project-meta' && $method === 'GET') {
+                $controller->apiProjectMeta();
+                return;
+            }
+            if ($path === '/timesheets/api/recent' && $method === 'GET') {
+                $controller->apiRecentActivities();
+                return;
+            }
+            if ($path === '/timesheets/activity' && $method === 'POST') {
+                $controller->saveActivity();
+                return;
+            }
+            if ($path === '/timesheets/activity/update' && $method === 'POST') {
+                $controller->updateActivity();
+                return;
+            }
+            if ($path === '/timesheets/activity/delete' && $method === 'POST') {
+                $controller->deleteActivity();
+                return;
+            }
+
             if ($path === '/timesheets/cell' && $method === 'POST') {
                 $controller->saveCell();
                 return;

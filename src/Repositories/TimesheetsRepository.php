@@ -1244,10 +1244,13 @@ class TimesheetsRepository
             $params[':talent'] = $talentId;
         }
 
+        $hasActivityType = $this->db->columnExists('timesheets', 'activity_type');
+        $extraCols = $hasActivityType ? ', ts.activity_type, ts.description' : '';
+
         return $this->db->fetchAll(
             'SELECT ts.id, ts.date, ts.hours, ts.status, ts.comment, ts.user_id, ts.talent_id,
                     COALESCE(ts.project_id, t.project_id) AS project_id,
-                    p.name AS project_name, ta.name AS talent_name, u.name AS user_name
+                    p.name AS project_name, ta.name AS talent_name, u.name AS user_name' . $extraCols . '
              FROM timesheets ts
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
@@ -1495,11 +1498,19 @@ class TimesheetsRepository
             return null;
         }
 
+        $cols = 'id, requiere_reporte_horas, requiere_aprobacion_horas, timesheet_approver_user_id';
+        if ($this->db->columnExists('talents', 'is_outsourcing')) {
+            $cols .= ', is_outsourcing';
+        }
+        if ($this->db->columnExists('talents', 'capacidad_horaria')) {
+            $cols .= ', capacidad_horaria';
+        }
+        if ($this->db->columnExists('talents', 'weekly_capacity')) {
+            $cols .= ', weekly_capacity';
+        }
+
         $row = $this->db->fetchOne(
-            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, timesheet_approver_user_id, is_outsourcing
-             FROM talents
-             WHERE user_id = :user
-             LIMIT 1',
+            "SELECT {$cols} FROM talents WHERE user_id = :user LIMIT 1",
             [':user' => $userId]
         );
 
@@ -1616,5 +1627,403 @@ class TimesheetsRepository
         }
 
         return implode(' AND ', $conditions);
+    }
+
+    // ── Activity-based Timesheet methods ──
+
+    public function activityTypes(): array
+    {
+        if (!$this->db->tableExists('timesheet_activity_types')) {
+            return [];
+        }
+        return $this->db->fetchAll(
+            'SELECT id, code, name, color, icon FROM timesheet_activity_types WHERE active = 1 ORDER BY sort_order ASC'
+        );
+    }
+
+    public function activitiesForWeek(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $hasActivityType = $this->db->columnExists('timesheets', 'activity_type');
+
+        $select = 'ts.id, ts.date, ts.hours, ts.status, ts.comment, ts.project_id,
+                   p.name AS project_name, t.title AS task_name, ta.name AS talent_name';
+        if ($hasActivityType) {
+            $select .= ', ts.activity_type, ts.description, ts.phase, ts.subphase,
+                         ts.has_blocker, ts.blocker_description, ts.has_significant_progress,
+                         ts.has_deliverable, ts.operational_comment';
+        }
+
+        return $this->db->fetchAll(
+            "SELECT {$select}
+             FROM timesheets ts
+             LEFT JOIN projects p ON p.id = ts.project_id
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN talents ta ON ta.id = ts.talent_id
+             WHERE ts.user_id = :user AND ts.date BETWEEN :start AND :end
+             ORDER BY ts.date ASC, ts.id ASC",
+            [':user' => $userId, ':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')]
+        );
+    }
+
+    public function createActivityEntry(int $userId, array $data): int
+    {
+        $projectId = (int) ($data['project_id'] ?? 0);
+        $assignment = $this->assignmentForProject($projectId, $userId);
+        if (!$assignment) {
+            throw new InvalidArgumentException('Proyecto no asignado o inactivo para este talento.');
+        }
+
+        $talentId = (int) ($assignment['talent_id'] ?? 0);
+        if ($talentId <= 0) {
+            throw new InvalidArgumentException('Tu usuario no tiene un talento asociado.');
+        }
+
+        $date = (string) ($data['date'] ?? '');
+        $hours = (float) ($data['hours'] ?? 0);
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total FROM timesheets WHERE user_id = :user AND date = :date',
+            [':user' => $userId, ':date' => $date]
+        );
+        if ((float) ($dayTotalRow['total'] ?? 0) + $hours > 24) {
+            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
+        }
+
+        $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
+        $approver = $approverUserId > 0 ? $approverUserId : null;
+        $taskId = $this->resolveTimesheetTaskId($projectId);
+
+        $columns = ['task_id', 'project_id', 'talent_id', 'user_id', 'assignment_id',
+                     'approver_user_id', 'date', 'hours', 'status', 'comment', 'billable'];
+        $params = [
+            ':task_id' => $taskId,
+            ':project_id' => $projectId,
+            ':talent_id' => $talentId,
+            ':user_id' => $userId,
+            ':assignment_id' => $assignment['id'] ?? null,
+            ':approver_user_id' => $approver,
+            ':date' => $date,
+            ':hours' => $hours,
+            ':status' => 'draft',
+            ':comment' => trim((string) ($data['comment'] ?? '')),
+            ':billable' => 0,
+        ];
+
+        $activityFields = [
+            'activity_type' => 'activity_type',
+            'description' => 'description',
+            'phase' => 'phase',
+            'subphase' => 'subphase',
+            'has_blocker' => 'has_blocker',
+            'blocker_description' => 'blocker_description',
+            'has_significant_progress' => 'has_significant_progress',
+            'has_deliverable' => 'has_deliverable',
+            'operational_comment' => 'operational_comment',
+        ];
+
+        foreach ($activityFields as $col => $key) {
+            if ($this->db->columnExists('timesheets', $col)) {
+                $columns[] = $col;
+                if (in_array($col, ['has_blocker', 'has_significant_progress', 'has_deliverable'], true)) {
+                    $params[':' . $col] = !empty($data[$key]) ? 1 : 0;
+                } else {
+                    $params[':' . $col] = isset($data[$key]) ? trim((string) $data[$key]) : null;
+                }
+            }
+        }
+
+        $columns[] = 'created_at';
+        $columns[] = 'updated_at';
+
+        $id = $this->db->insert(
+            'INSERT INTO timesheets (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', array_map(fn($c) => $c === 'created_at' || $c === 'updated_at' ? 'NOW()' : ':' . $c, $columns)) . ')',
+            $params
+        );
+
+        $this->refreshTaskActualHours($taskId);
+        $this->triggerAutoIntegrations($id, $userId, $data, $projectId);
+
+        return $id;
+    }
+
+    public function updateActivityEntry(int $entryId, int $userId, array $data): void
+    {
+        $existing = $this->db->fetchOne(
+            'SELECT id, status, task_id, project_id FROM timesheets WHERE id = :id AND user_id = :user LIMIT 1',
+            [':id' => $entryId, ':user' => $userId]
+        );
+        if (!$existing) {
+            throw new InvalidArgumentException('Registro no encontrado.');
+        }
+        if (!in_array((string) ($existing['status'] ?? ''), ['draft', 'rejected'], true)) {
+            throw new InvalidArgumentException('Este registro no es editable en su estado actual.');
+        }
+
+        $hours = (float) ($data['hours'] ?? 0);
+        $date = (string) ($data['date'] ?? $existing['date'] ?? '');
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total FROM timesheets WHERE user_id = :user AND date = :date AND id <> :id',
+            [':user' => $userId, ':date' => $date, ':id' => $entryId]
+        );
+        if ((float) ($dayTotalRow['total'] ?? 0) + $hours > 24) {
+            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
+        }
+
+        $sets = ['hours = :hours', 'comment = :comment', 'updated_at = NOW()'];
+        $params = [
+            ':hours' => $hours,
+            ':comment' => trim((string) ($data['comment'] ?? '')),
+            ':id' => $entryId,
+        ];
+
+        $activityFields = [
+            'activity_type', 'description', 'phase', 'subphase',
+            'has_blocker', 'blocker_description', 'has_significant_progress',
+            'has_deliverable', 'operational_comment',
+        ];
+        foreach ($activityFields as $col) {
+            if ($this->db->columnExists('timesheets', $col)) {
+                $sets[] = "{$col} = :{$col}";
+                if (in_array($col, ['has_blocker', 'has_significant_progress', 'has_deliverable'], true)) {
+                    $params[':' . $col] = !empty($data[$col]) ? 1 : 0;
+                } else {
+                    $params[':' . $col] = isset($data[$col]) ? trim((string) $data[$col]) : null;
+                }
+            }
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets SET ' . implode(', ', $sets) . ' WHERE id = :id',
+            $params
+        );
+
+        $this->refreshTaskActualHours((int) ($existing['task_id'] ?? 0));
+        $this->triggerAutoIntegrations($entryId, $userId, $data, (int) ($existing['project_id'] ?? 0));
+    }
+
+    public function deleteActivityEntry(int $entryId, int $userId): void
+    {
+        $existing = $this->db->fetchOne(
+            'SELECT id, status, task_id FROM timesheets WHERE id = :id AND user_id = :user LIMIT 1',
+            [':id' => $entryId, ':user' => $userId]
+        );
+        if (!$existing) {
+            throw new InvalidArgumentException('Registro no encontrado.');
+        }
+        if (!in_array((string) ($existing['status'] ?? ''), ['draft', 'rejected'], true)) {
+            throw new InvalidArgumentException('No se puede eliminar un registro que ya fue enviado o aprobado.');
+        }
+
+        $this->db->execute('DELETE FROM timesheets WHERE id = :id', [':id' => $entryId]);
+        $this->refreshTaskActualHours((int) ($existing['task_id'] ?? 0));
+    }
+
+    public function recentActivities(int $userId, int $limit = 5): array
+    {
+        $hasActivityType = $this->db->columnExists('timesheets', 'activity_type');
+        $select = 'ts.project_id, p.name AS project_name, ts.hours';
+        if ($hasActivityType) {
+            $select .= ', ts.activity_type, ts.description';
+        }
+        return $this->db->fetchAll(
+            "SELECT {$select}
+             FROM timesheets ts
+             LEFT JOIN projects p ON p.id = ts.project_id
+             WHERE ts.user_id = :user
+             ORDER BY ts.created_at DESC
+             LIMIT :limit",
+            [':user' => $userId, ':limit' => $limit]
+        );
+    }
+
+    public function activityTypeBreakdown(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    {
+        if (!$this->db->columnExists('timesheets', 'activity_type')) {
+            return [];
+        }
+        $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
+        $where = $this->timesheetScopeWhere($user, $params);
+        if ($projectId !== null && $projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
+            $params[':project'] = $projectId;
+        }
+
+        return $this->db->fetchAll(
+            'SELECT COALESCE(ts.activity_type, "sin_tipo") AS activity_type,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours,
+                    COUNT(*) AS entry_count
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY ts.activity_type
+             ORDER BY total_hours DESC',
+            $params
+        );
+    }
+
+    public function capacityUtilization(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
+        $weekEnd = $weekStart->modify('+6 days');
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total_hours
+             FROM timesheets
+             WHERE user_id = :user AND date BETWEEN :start AND :end',
+            [':user' => $userId, ':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')]
+        );
+        $totalHours = (float) ($row['total_hours'] ?? 0);
+        $utilization = $weeklyCapacity > 0 ? min(100, round(($totalHours / $weeklyCapacity) * 100, 2)) : 0;
+
+        return [
+            'weekly_capacity' => $weeklyCapacity,
+            'hours_reported' => $totalHours,
+            'utilization_percent' => $utilization,
+            'remaining' => max(0, $weeklyCapacity - $totalHours),
+        ];
+    }
+
+    public function projectPhases(int $projectId): array
+    {
+        if (!$this->db->tableExists('projects')) {
+            return [];
+        }
+        $project = $this->db->fetchOne(
+            'SELECT phase, methodology FROM projects WHERE id = :id LIMIT 1',
+            [':id' => $projectId]
+        );
+        if (!$project) {
+            return [];
+        }
+        $methodology = strtolower(trim((string) ($project['methodology'] ?? '')));
+        $configRow = $this->db->fetchOne(
+            "SELECT setting_value FROM config_settings WHERE setting_key = 'delivery' LIMIT 1"
+        );
+        $delivery = [];
+        if ($configRow && !empty($configRow['setting_value'])) {
+            $decoded = json_decode((string) $configRow['setting_value'], true);
+            $delivery = is_array($decoded) ? $decoded : [];
+        }
+        $phases = [];
+        if (isset($delivery['phases'][$methodology]) && is_array($delivery['phases'][$methodology])) {
+            $phases = $delivery['phases'][$methodology];
+        }
+        return $phases;
+    }
+
+    public function tasksForProject(int $projectId): array
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return [];
+        }
+        return $this->db->fetchAll(
+            "SELECT id, title FROM tasks WHERE project_id = :project AND status NOT IN ('done', 'closed') ORDER BY title ASC",
+            [':project' => $projectId]
+        );
+    }
+
+    private function triggerAutoIntegrations(int $timesheetId, int $userId, array $data, int $projectId): void
+    {
+        if ($projectId <= 0) {
+            return;
+        }
+
+        $description = trim((string) ($data['description'] ?? ''));
+        $hours = (float) ($data['hours'] ?? 0);
+        $activityType = trim((string) ($data['activity_type'] ?? ''));
+        $hasBlocker = !empty($data['has_blocker']);
+        $blockerDesc = trim((string) ($data['blocker_description'] ?? ''));
+
+        $talentName = '';
+        $talentRow = $this->db->fetchOne(
+            'SELECT ta.name FROM talents ta JOIN timesheets ts ON ts.talent_id = ta.id WHERE ts.id = :id LIMIT 1',
+            [':id' => $timesheetId]
+        );
+        $talentName = (string) ($talentRow['name'] ?? 'Usuario');
+
+        if ($description !== '' && $hours > 0) {
+            $typeLabel = $activityType !== '' ? " ({$activityType})" : '';
+            $noteText = "Actividad registrada por {$talentName}{$typeLabel}: {$description} – {$hours}h";
+            $this->db->execute(
+                'INSERT INTO audit_log (user_id, entity, entity_id, action, payload)
+                 VALUES (:user_id, :entity, :entity_id, :action, :payload)',
+                [
+                    ':user_id' => $userId,
+                    ':entity' => 'project_note',
+                    ':entity_id' => $projectId,
+                    ':action' => 'project_note_created',
+                    ':payload' => json_encode([
+                        'note' => $noteText,
+                        'source' => 'timesheet',
+                        'timesheet_id' => $timesheetId,
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]
+            );
+        }
+
+        if ($hasBlocker && $blockerDesc !== '' && $this->db->tableExists('project_stoppers')) {
+            $this->db->insert(
+                'INSERT INTO project_stoppers (
+                    project_id, title, description, stopper_type, impact_level, affected_area,
+                    responsible_id, detected_at, status, created_by, updated_by, created_at, updated_at
+                ) VALUES (
+                    :project_id, :title, :description, :stopper_type, :impact_level, :affected_area,
+                    :responsible_id, :detected_at, :status, :created_by, :updated_by, NOW(), NOW()
+                )',
+                [
+                    ':project_id' => $projectId,
+                    ':title' => 'Bloqueo reportado desde Timesheet',
+                    ':description' => $blockerDesc,
+                    ':stopper_type' => 'operativo',
+                    ':impact_level' => 'medio',
+                    ':affected_area' => 'desarrollo',
+                    ':responsible_id' => $userId,
+                    ':detected_at' => date('Y-m-d'),
+                    ':status' => 'abierto',
+                    ':created_by' => $userId,
+                    ':updated_by' => $userId,
+                ]
+            );
+        }
+    }
+
+    public function talentTopLoaded(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd): array
+    {
+        $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
+        $where = $this->timesheetScopeWhere($user, $params);
+        return $this->db->fetchAll(
+            'SELECT ta.name AS talent_name, COALESCE(SUM(ts.hours), 0) AS total_hours
+             FROM timesheets ts
+             JOIN talents ta ON ta.id = ts.talent_id
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY ta.id, ta.name
+             ORDER BY total_hours DESC
+             LIMIT 5',
+            $params
+        );
+    }
+
+    public function projectTopConsuming(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd): array
+    {
+        $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
+        $where = $this->timesheetScopeWhere($user, $params);
+        return $this->db->fetchAll(
+            'SELECT p.name AS project_name, COALESCE(SUM(ts.hours), 0) AS total_hours
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY COALESCE(ts.project_id, t.project_id), p.name
+             ORDER BY total_hours DESC
+             LIMIT 5',
+            $params
+        );
     }
 }
