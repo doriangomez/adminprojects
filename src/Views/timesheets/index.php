@@ -25,6 +25,7 @@ $statusMeta = [
 ];
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
 $weekLocked = $weekStatus === 'approved';
+$weekEditLocked = in_array($weekStatus, ['submitted', 'approved', 'partial'], true);
 $daysJson = [];
 foreach ($gridDays as $day) {
     $daysJson[(string) ($day['key'] ?? '')] = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
@@ -58,11 +59,13 @@ foreach ($gridDays as $day) {
                 <span class="pill status <?= htmlspecialchars($status['class']) ?>">Estado: <?= htmlspecialchars($status['label']) ?></span>
             </div>
             <div class="header-actions">
-                <button type="button" class="btn primary" id="focus-quick-add">+ Registrar actividad</button>
-                <button type="button" class="btn" id="duplicate-day-trigger">Duplicar día</button>
+                <?php if (!$weekEditLocked): ?>
+                    <button type="button" class="btn primary" id="focus-quick-add">+ Registrar actividad</button>
+                    <button type="button" class="btn" id="duplicate-day-trigger">Duplicar día</button>
+                <?php endif; ?>
                 <form method="POST" action="<?= $basePath ?>/timesheets/submit-week">
                     <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
-                    <button type="submit" class="btn success" <?= $weekLocked ? 'disabled' : '' ?>>Enviar semana</button>
+                    <button type="submit" class="btn success" <?= $weekEditLocked ? 'disabled' : '' ?>>Enviar semana</button>
                 </form>
                 <?php if (in_array($weekStatus, ['submitted', 'partial'], true)): ?>
                     <form method="POST" action="<?= $basePath ?>/timesheets/cancel-week">
@@ -86,6 +89,24 @@ foreach ($gridDays as $day) {
             <article class="card indicator"><span>% cumplimiento</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
             <article class="card indicator"><span>Proyecto mayor consumo</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
         </section>
+
+        <?php if ($weekEditLocked): ?>
+        <div class="week-locked-banner">
+            <span class="week-locked-icon">🔒</span>
+            <div class="week-locked-text">
+                <?php if ($weekStatus === 'approved'): ?>
+                    <strong>Semana aprobada.</strong> Los registros están bloqueados y no pueden modificarse.
+                <?php else: ?>
+                    <strong>Semana enviada. Registros bloqueados.</strong> Retira el envío si necesitas hacer cambios.
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php elseif ($weekStatus === 'rejected'): ?>
+        <div class="week-rejected-banner">
+            <span>⚠️</span>
+            <div><strong>Semana rechazada.</strong> Puedes editar y corregir tus registros antes de reenviar.</div>
+        </div>
+        <?php endif; ?>
 
         <section class="timesheet-main-layout">
             <div class="calendar-column card">
@@ -117,22 +138,33 @@ foreach ($gridDays as $day) {
                                         $itemDesc = trim((string) ($item['activity_description'] ?? '')) ?: trim((string) ($item['activity_type'] ?? 'Actividad'));
                                         $itemComment = (string) ($item['comment'] ?? '');
                                         ?>
-                                        <li class="activity-chip" draggable="true" data-activity-id="<?= $itemId ?>">
+                                        <?php
+                                        $itemStatus = (string) ($item['status'] ?? 'draft');
+                                        $itemEditable = in_array($itemStatus, ['draft', 'rejected'], true);
+                                        ?>
+                                        <li class="activity-chip <?= $itemEditable ? '' : 'chip-locked' ?>" draggable="<?= $itemEditable ? 'true' : 'false' ?>" data-activity-id="<?= $itemId ?>">
                                             <div class="chip-main">
-                                                <strong><?= htmlspecialchars($itemProject) ?> · <?= htmlspecialchars($itemDesc) ?></strong>
-                                                <span><?= round($itemHours, 2) ?>h</span>
+                                                <div class="chip-title">
+                                                    <strong><?= htmlspecialchars($itemProject) ?></strong>
+                                                    <span class="chip-desc"><?= htmlspecialchars($itemDesc) ?></span>
+                                                </div>
+                                                <span class="chip-hours"><?= round($itemHours, 2) ?>h</span>
                                             </div>
                                             <div class="chip-meta">
                                                 <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
                                                 <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
-                                                <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
-                                                <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
+                                                <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance significativo">📈</span><?php endif; ?>
+                                                <small class="chip-comment"><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
                                             </div>
                                             <div class="chip-actions">
-                                                <button type="button" class="btn-xs edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>Editar</button>
-                                                <button type="button" class="btn-xs duplicate-activity" data-activity-id="<?= $itemId ?>">Duplicar</button>
-                                                <button type="button" class="btn-xs move-activity" data-activity-id="<?= $itemId ?>">Mover</button>
-                                                <button type="button" class="btn-xs danger delete-activity" data-activity-id="<?= $itemId ?>">Eliminar</button>
+                                                <?php if ($itemEditable): ?>
+                                                    <button type="button" class="btn-xs edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏️ Editar</button>
+                                                    <button type="button" class="btn-xs move-activity" data-activity-id="<?= $itemId ?>">↔ Mover</button>
+                                                    <button type="button" class="btn-xs btn-delete delete-activity" data-activity-id="<?= $itemId ?>" title="Eliminar actividad">🗑 Eliminar</button>
+                                                <?php else: ?>
+                                                    <span class="chip-lock-badge">🔒 Bloqueado</span>
+                                                <?php endif; ?>
+                                                <button type="button" class="btn-xs duplicate-activity" data-activity-id="<?= $itemId ?>">⧉ Duplicar</button>
                                             </div>
                                         </li>
                                     <?php endforeach; ?>
@@ -146,8 +178,19 @@ foreach ($gridDays as $day) {
             <aside class="quick-add-column">
                 <section class="card quick-add-box" id="quick-add-box">
                     <h3>Quick Add</h3>
+                    <?php if ($weekEditLocked): ?>
+                        <div class="form-locked-notice">
+                            🔒 <strong>Semana bloqueada.</strong>
+                            <?php if ($weekStatus === 'approved'): ?>
+                                La semana fue aprobada. No se pueden registrar nuevas actividades.
+                            <?php else: ?>
+                                Retira el envío para poder registrar actividades.
+                            <?php endif; ?>
+                        </div>
+                    <?php else: ?>
                     <p class="section-muted">Captura mínima para registrar en menos de 10 segundos.</p>
-                    <form id="quick-add-form">
+                    <?php endif; ?>
+                    <form id="quick-add-form" <?= $weekEditLocked ? 'inert' : '' ?> style="<?= $weekEditLocked ? 'opacity:0.5;pointer-events:none' : '' ?>">
                         <input type="hidden" name="activity_id" value="">
                         <input type="hidden" name="submit_mode" value="save">
                         <label>Fecha
@@ -161,13 +204,33 @@ foreach ($gridDays as $day) {
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label>Tarea*
-                            <select name="task_id" id="qa-task" required>
-                                <option value="0">Registro general</option>
-                                <?php foreach ($tasksForTimesheet as $task): ?>
-                                    <option value="<?= (int) ($task['task_id'] ?? 0) ?>" data-project-id="<?= (int) ($task['project_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($task['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($task['task_title'] ?? '')) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                        <div id="qa-task-selector-wrap">
+                            <label>Tarea
+                                <select name="task_id" id="qa-task">
+                                    <option value="0">Registro general</option>
+                                    <?php foreach ($tasksForTimesheet as $task): ?>
+                                        <option value="<?= (int) ($task['task_id'] ?? 0) ?>" data-project-id="<?= (int) ($task['project_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($task['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($task['task_title'] ?? '')) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        </div>
+                        <fieldset class="task-mgmt-group" id="qa-task-mgmt">
+                            <legend>Gestión de tarea</legend>
+                            <label class="radio-option">
+                                <input type="radio" name="task_management" value="" id="qa-tmgmt-existing" checked>
+                                <span>Usar tarea existente</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="task_management" value="completed" id="qa-tmgmt-completed">
+                                <span>Registrar actividad finalizada <small>(crea tarea completada)</small></span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="task_management" value="pending" id="qa-tmgmt-pending">
+                                <span>Crear tarea pendiente</span>
+                            </label>
+                        </fieldset>
+                        <label class="conditional hidden" id="qa-new-task-title-wrap">Título de la nueva tarea*
+                            <input type="text" name="new_task_title" id="qa-new-task-title" maxlength="180" placeholder="Ej: Diseñar arquitectura de integración">
                         </label>
                         <label>Horas*
                             <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
@@ -269,6 +332,25 @@ foreach ($gridDays as $day) {
 .btn.ghost{border-style:dashed}
 .btn-xs{font-size:12px;padding:4px 8px}
 .btn-xs.danger{border-color:color-mix(in srgb,var(--danger) 48%,var(--border));color:var(--danger)}
+.btn-delete{background:color-mix(in srgb,var(--danger) 12%,var(--surface));border-color:color-mix(in srgb,var(--danger) 55%,var(--border));color:var(--danger);font-weight:600}
+.btn-delete:hover{background:color-mix(in srgb,var(--danger) 22%,var(--surface))}
+.week-locked-banner{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:color-mix(in srgb,#f59e0b 14%,var(--surface));border:1px solid color-mix(in srgb,#f59e0b 45%,var(--border));color:var(--text-primary)}
+.week-locked-icon{font-size:20px;flex-shrink:0}
+.week-locked-text strong{display:block}
+.week-rejected-banner{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:color-mix(in srgb,var(--danger) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border))}
+.chip-locked{opacity:.82;border-color:color-mix(in srgb,var(--border) 70%,transparent)}
+.chip-lock-badge{font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border:1px solid var(--border);border-radius:999px}
+.chip-title{display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.chip-title strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip-desc{font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip-hours{font-weight:700;white-space:nowrap;flex-shrink:0;padding:2px 7px;border-radius:999px;background:color-mix(in srgb,var(--primary) 12%,var(--surface));font-size:13px}
+.chip-comment{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-mgmt-group{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0}
+.task-mgmt-group legend{font-size:12px;font-weight:600;color:var(--text-secondary);padding:0 4px}
+.radio-option{display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;font-size:13px}
+.radio-option input[type="radio"]{width:16px;height:16px;accent-color:var(--primary)}
+.radio-option small{color:var(--text-secondary);font-size:11px}
+.form-locked-notice{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,#f59e0b 12%,var(--surface));border:1px solid color-mix(in srgb,#f59e0b 40%,var(--border));font-size:13px;line-height:1.5}
 .header-badges{display:flex;gap:8px;flex-wrap:wrap}
 .pill{display:inline-flex;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px}
 .pill.status.approved{background:#dcfce7}.pill.status.rejected{background:#fee2e2}.pill.status.submitted{background:#fef3c7}.pill.status.draft{background:#e5e7eb}
@@ -318,9 +400,14 @@ foreach ($gridDays as $day) {
   const basePath = <?= json_encode($basePath) ?>;
   const weekValue = <?= json_encode($weekValue) ?>;
   const dayLabels = <?= json_encode($daysJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  const weekEditLocked = <?= json_encode($weekEditLocked) ?>;
   const form = document.getElementById('quick-add-form');
   const projectInput = document.getElementById('qa-project');
   const taskInput = document.getElementById('qa-task');
+  const taskSelectorWrap = document.getElementById('qa-task-selector-wrap');
+  const taskMgmtGroup = document.getElementById('qa-task-mgmt');
+  const newTaskTitleWrap = document.getElementById('qa-new-task-title-wrap');
+  const newTaskTitleInput = document.getElementById('qa-new-task-title');
   const blockerToggle = document.getElementById('qa-blocker');
   const blockerWrap = document.getElementById('qa-blocker-wrap');
   const deliverableToggle = document.getElementById('qa-deliverable');
@@ -367,6 +454,31 @@ foreach ($gridDays as $day) {
     }
   };
 
+  const getSelectedTaskMgmt = () => {
+    const checked = form?.querySelector('[name="task_management"]:checked');
+    return checked ? checked.value : '';
+  };
+
+  const syncTaskMgmt = (isEditMode = false) => {
+    const selected = getSelectedTaskMgmt();
+    const needsNewTitle = !isEditMode && (selected === 'completed' || selected === 'pending');
+    const useExisting = isEditMode || selected === '';
+
+    if (newTaskTitleWrap) {
+      newTaskTitleWrap.classList.toggle('hidden', !needsNewTitle);
+    }
+    if (newTaskTitleInput) {
+      newTaskTitleInput.required = needsNewTitle;
+      if (!needsNewTitle) newTaskTitleInput.value = '';
+    }
+    if (taskSelectorWrap) {
+      taskSelectorWrap.classList.toggle('hidden', needsNewTitle);
+    }
+    if (taskMgmtGroup) {
+      taskMgmtGroup.classList.toggle('hidden', isEditMode);
+    }
+  };
+
   const toggleConditional = (toggle, wrap, requiredWhenOn = false) => {
     wrap?.classList.toggle('hidden', !toggle.checked);
     const input = wrap?.querySelector('input');
@@ -398,8 +510,14 @@ foreach ($gridDays as $day) {
   blockerToggle?.addEventListener('change', syncToggles);
   deliverableToggle?.addEventListener('change', syncToggles);
   progressToggle?.addEventListener('change', syncToggles);
+
+  form?.querySelectorAll('[name="task_management"]').forEach((radio) => {
+    radio.addEventListener('change', () => syncTaskMgmt(false));
+  });
+
   filterTasksByProject();
   syncToggles();
+  syncTaskMgmt(false);
 
   document.querySelectorAll('[data-submit-mode]').forEach((btn) => {
     btn.addEventListener('click', () => { lastSubmitMode = btn.dataset.submitMode || 'save'; });
@@ -416,6 +534,7 @@ foreach ($gridDays as $day) {
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = keepTask;
     syncToggles();
+    syncTaskMgmt(false);
   };
 
   const fillForm = (data) => {
@@ -433,7 +552,10 @@ foreach ($gridDays as $day) {
     form.querySelector('[name="blocker_description"]').value = data.blocker_description || '';
     form.querySelector('[name="generated_deliverable"]').checked = Boolean(Number(data.generated_deliverable || 0));
     form.querySelector('[name="had_significant_progress"]').checked = Boolean(Number(data.had_significant_progress || 0));
+    const existingRadio = form.querySelector('[name="task_management"][value=""]');
+    if (existingRadio) existingRadio.checked = true;
     syncToggles();
+    syncTaskMgmt(true);
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -449,6 +571,11 @@ foreach ($gridDays as $day) {
     const operationalParts = [String(raw.comment || '').trim()].filter(Boolean);
     if (deliverableNote !== '') operationalParts.push(`Entregable: ${deliverableNote}`);
     raw.operational_comment = operationalParts.join(' | ');
+
+    if (activityId > 0) {
+      raw.task_management = '';
+      raw.new_task_title = '';
+    }
 
     const endpoint = activityId > 0 ? '/timesheets/activities/update' : '/timesheets/activities/create';
     try {
@@ -486,7 +613,8 @@ foreach ($gridDays as $day) {
   document.querySelectorAll('.duplicate-activity').forEach((button) => {
     button.addEventListener('click', async () => {
       const activityId = Number(button.dataset.activityId || 0);
-      const target = prompt('Fecha destino (YYYY-MM-DD):');
+      const lines = Object.entries(dayLabels).map(([key, label]) => `${key}  ${label}`);
+      const target = prompt(`Duplicar a (YYYY-MM-DD):\n${lines.join('\n')}`);
       if (!target) return;
       try {
         await post('/timesheets/activities/duplicate', { activity_id: String(activityId), target_date: target });
@@ -500,7 +628,8 @@ foreach ($gridDays as $day) {
   document.querySelectorAll('.move-activity').forEach((button) => {
     button.addEventListener('click', async () => {
       const activityId = Number(button.dataset.activityId || 0);
-      const target = prompt('Fecha destino (YYYY-MM-DD):');
+      const lines = Object.entries(dayLabels).map(([key, label]) => `${key}  ${label}`);
+      const target = prompt(`Mover a (YYYY-MM-DD):\n${lines.join('\n')}`);
       if (!target) return;
       try {
         await post('/timesheets/activities/move', { activity_id: String(activityId), target_date: target });
@@ -514,7 +643,8 @@ foreach ($gridDays as $day) {
   document.querySelectorAll('.delete-activity').forEach((button) => {
     button.addEventListener('click', async () => {
       const activityId = Number(button.dataset.activityId || 0);
-      if (!confirm('¿Eliminar esta actividad?')) return;
+      const confirmed = confirm('¿Eliminar esta actividad?\n\nEsta acción no se puede deshacer.');
+      if (!confirmed) return;
       try {
         await post('/timesheets/activities/delete', { activity_id: String(activityId) });
         window.location.href = `${basePath}/timesheets?week=${encodeURIComponent(weekValue)}`;

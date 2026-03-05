@@ -428,7 +428,16 @@ class TimesheetsRepository
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $structured = $this->sanitizeStructuredMetadata($metadata);
-        $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+
+        $taskManagement = trim((string) ($metadata['task_management'] ?? ''));
+        $newTaskTitle = trim((string) ($metadata['new_task_title'] ?? ''));
+
+        if (in_array($taskManagement, ['completed', 'pending'], true) && $newTaskTitle !== '') {
+            $taskStatus = $taskManagement === 'completed' ? 'done' : 'todo';
+            $taskId = $this->createTaskForActivity($projectId, $newTaskTitle, $taskStatus, $talentId > 0 ? $talentId : null);
+        } else {
+            $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+        }
 
         return $this->createTimesheet([
             'task_id' => $taskId,
@@ -2226,6 +2235,43 @@ class TimesheetsRepository
         }
 
         return $this->resolveTimesheetTaskId($projectId);
+    }
+
+    private function createTaskForActivity(int $projectId, string $title, string $taskStatus, ?int $assigneeId): int
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return $this->resolveTimesheetTaskId($projectId);
+        }
+
+        $hasCompletedAt = $this->db->columnExists('tasks', 'completed_at');
+        $isCompleted = $taskStatus === 'done';
+
+        if ($hasCompletedAt) {
+            return (int) $this->db->insert(
+                'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, assignee_id, completed_at, created_at, updated_at)
+                 VALUES (:project_id, :title, :status, :priority, 0, 0, :assignee, :completed_at, NOW(), NOW())',
+                [
+                    ':project_id' => $projectId,
+                    ':title' => $title,
+                    ':status' => $taskStatus,
+                    ':priority' => 'medium',
+                    ':assignee' => $assigneeId,
+                    ':completed_at' => $isCompleted ? date('Y-m-d H:i:s') : null,
+                ]
+            );
+        }
+
+        return (int) $this->db->insert(
+            'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, assignee_id, created_at, updated_at)
+             VALUES (:project_id, :title, :status, :priority, 0, 0, :assignee, NOW(), NOW())',
+            [
+                ':project_id' => $projectId,
+                ':title' => $title,
+                ':status' => $taskStatus,
+                ':priority' => 'medium',
+                ':assignee' => $assigneeId,
+            ]
+        );
     }
 
     private function taskBelongsToProject(int $taskId, int $projectId): bool

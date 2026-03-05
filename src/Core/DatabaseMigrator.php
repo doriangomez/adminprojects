@@ -2594,4 +2594,20 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTasksCompletedAtColumn(): void
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->columnExists('tasks', 'completed_at')) {
+                $this->db->execute('ALTER TABLE tasks ADD COLUMN completed_at DATETIME NULL AFTER updated_at');
+                $this->db->clearColumnCache();
+            }
+        } catch (\PDOException $e) {
+            error_log('Error añadiendo columna completed_at a tasks: ' . $e->getMessage());
+        }
+    }
+
 }

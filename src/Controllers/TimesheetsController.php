@@ -312,6 +312,8 @@ class TimesheetsController extends Controller
             'had_significant_progress' => filter_var($_POST['had_significant_progress'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+            'task_management' => trim((string) ($_POST['task_management'] ?? '')),
+            'new_task_title' => trim((string) ($_POST['new_task_title'] ?? '')),
         ];
 
         if ($projectId <= 0 || $date === '' || $hours <= 0) {
@@ -349,6 +351,8 @@ class TimesheetsController extends Controller
         $date = trim((string) ($_POST['date'] ?? ''));
         $hours = max(0, (float) ($_POST['hours'] ?? 0));
         $comment = trim((string) ($_POST['comment'] ?? ''));
+        $taskManagement = trim((string) ($_POST['task_management'] ?? ''));
+        $newTaskTitle = trim((string) ($_POST['new_task_title'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
             'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
@@ -359,10 +363,17 @@ class TimesheetsController extends Controller
             'had_significant_progress' => filter_var($_POST['had_significant_progress'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+            'task_management' => $taskManagement,
+            'new_task_title' => $newTaskTitle,
         ];
 
         if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '') {
             $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción y comentario son obligatorios.']);
+            return;
+        }
+
+        if (in_array($taskManagement, ['completed', 'pending'], true) && $newTaskTitle === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Debes ingresar el título de la nueva tarea.']);
             return;
         }
 
