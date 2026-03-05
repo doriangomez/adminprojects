@@ -324,6 +324,103 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
     .project-client { color: var(--text-secondary); font-size: 13px; margin: 2px 0 0; }
 
+    .project-context-preview {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        margin-top: 6px;
+        padding: 4px 0;
+        color: color-mix(in srgb, var(--text-secondary) 86%, var(--background));
+        font-size: 13px;
+        line-height: 1.35;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .project-context-preview .context-icon {
+        font-size: 12px;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .project-context-preview .context-label {
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    .project-context-preview .context-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .context-history-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .context-history-button .history-icon { font-size: 12px; }
+
+    .context-history-button:hover {
+        color: var(--text-primary);
+        text-decoration: underline;
+    }
+
+
+    .notes-panel-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.45);
+        z-index: 70;
+        display: none;
+    }
+
+    .notes-panel-overlay.is-open { display: block; }
+
+    .notes-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(680px, 94vw);
+        height: 100vh;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        box-shadow: -10px 0 30px color-mix(in srgb, var(--text-primary) 18%, transparent);
+        z-index: 80;
+        transform: translateX(102%);
+        transition: transform 0.2s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .notes-panel.is-open { transform: translateX(0); }
+
+    .notes-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .notes-panel-frame {
+        border: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--surface);
+    }
+
     .badge {
         display: inline-flex;
         align-items: center;
@@ -666,9 +763,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                 <col style="width: 8%;">
                 <col style="width: 8%;">
                 <col style="width: 5%;">
-                <col style="width: 6%;">
-                <col style="width: 6%;">
-                <col style="width: 8%;">
+                <col style="width: 9%;">
                 <col style="width: 8%;">
             </colgroup>
             <thead>
@@ -682,8 +777,6 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                     <th>Salud</th>
                     <th>Avance</th>
                     <th>Señales</th>
-                    <th>Notas</th>
-                    <th>Bloqueos</th>
                     <th>Facturación</th>
                     <th>Acciones</th>
                 </tr>
@@ -703,14 +796,56 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         $signals = is_array($project['signals'] ?? null) ? $project['signals'] : [];
                         $noteData = is_array($project['latest_note'] ?? null) ? $project['latest_note'] : [];
                         $stopperData = is_array($project['top_stopper'] ?? null) ? $project['top_stopper'] : [];
-                        $noteCount = (int) ($noteData['count'] ?? 0);
-                        $blockerCount = (int) ($stopperData['total_count'] ?? 0);
                         $hasSignal = !empty($signals);
                         $rowLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?return=' . urlencode($returnUrl);
+                        $previewType = '';
+                        $previewLabel = '';
+                        $previewIcon = '';
+                        $previewText = '';
+
+                        $stopperPreview = trim((string) ($stopperData['text'] ?? ''));
+                        if ($stopperPreview !== '') {
+                            $previewType = 'stopper';
+                            $previewLabel = 'Bloqueo';
+                            $previewIcon = '⛔';
+                            $previewText = $stopperPreview;
+                        } else {
+                            $notePreview = trim((string) ($noteData['text'] ?? ''));
+                            if ($notePreview !== '') {
+                                $previewType = 'note';
+                                $previewLabel = 'Nota';
+                                $previewIcon = '📝';
+                                $previewText = $notePreview;
+                            }
+                        }
+
+                        $previewText = mb_substr(preg_replace('/\s+/', ' ', $previewText), 0, 120);
+                        $previewHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
+                            . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
+                            . '&return=' . urlencode($returnUrl);
+                        $historyHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
+                            . '?view=seguimiento&return=' . urlencode($returnUrl);
                     ?>
                     <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                         <td>
                             <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                            <?php if ($previewText !== ''): ?>
+                                <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
+                                    <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
+                                    <span class="context-label"><?= $previewLabel ?>:</span>
+                                    <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
+                                </a>
+                            <?php else: ?>
+                                <span class="project-context-preview" title="Sin notas o bloqueos registrados">
+                                    <span class="context-icon" aria-hidden="true">📝</span>
+                                    <span class="context-label">Nota:</span>
+                                    <span class="context-text">Sin notas o bloqueos registrados.</span>
+                                </span>
+                            <?php endif; ?>
+                            <a class="context-history-button" data-no-row href="<?= htmlspecialchars($historyHref) ?>" title="Ver historial de notas" data-open-notes-panel data-project-name="<?= htmlspecialchars($project['name']) ?>" data-project-notes-url="<?= htmlspecialchars($historyHref) ?>">
+                                <span class="history-icon" aria-hidden="true">🗒️</span>
+                                Ver notas
+                            </a>
                             <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos activos: <?= $riskCount ?></div>
                         </td>
                         <td>
@@ -741,12 +876,6 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         </td>
                         <td>
                             <span class="indicator-cell" title="<?= $hasSignal ? htmlspecialchars(implode(' · ', $signals)) : 'Sin alertas' ?>"><?= $hasSignal ? '⚠' : '—' ?></span>
-                        </td>
-                        <td>
-                            <a class="interactive-cell indicator-cell" data-no-row href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=seguimiento&return=<?= urlencode($returnUrl) ?>" title="Ver notas del proyecto">📝 <?= $noteCount ?></a>
-                        </td>
-                        <td>
-                            <a class="interactive-cell indicator-cell" data-no-row href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=bloqueos&return=<?= urlencode($returnUrl) ?>" title="Ver bloqueos del proyecto">⛔ <?= $blockerCount ?></a>
                         </td>
                         <td>
                             <?php $isBillable = (int) ($project['is_billable'] ?? 0) === 1; ?>
@@ -855,6 +984,16 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     <?php endif; ?>
 <?php endif; ?>
 
+
+<div class="notes-panel-overlay" data-notes-overlay hidden></div>
+<aside class="notes-panel" data-notes-panel aria-hidden="true">
+    <div class="notes-panel-header">
+        <strong data-notes-title>Notas del proyecto</strong>
+        <button type="button" class="icon-button" data-notes-close aria-label="Cerrar panel">✕</button>
+    </div>
+    <iframe class="notes-panel-frame" data-notes-frame title="Historial de notas del proyecto" loading="lazy"></iframe>
+</aside>
+
 <script>
     const filterShell = document.querySelector('[data-filter-shell]');
     const filterToggle = document.querySelector('[data-filter-toggle]');
@@ -864,6 +1003,52 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
             filterShell.classList.toggle('is-open');
         });
     }
+
+
+
+    const notesOverlay = document.querySelector('[data-notes-overlay]');
+    const notesPanel = document.querySelector('[data-notes-panel]');
+    const notesFrame = document.querySelector('[data-notes-frame]');
+    const notesTitle = document.querySelector('[data-notes-title]');
+
+    const closeNotesPanel = () => {
+        if (!notesPanel || !notesOverlay) {
+            return;
+        }
+        notesPanel.classList.remove('is-open');
+        notesPanel.setAttribute('aria-hidden', 'true');
+        notesOverlay.classList.remove('is-open');
+        notesOverlay.hidden = true;
+    };
+
+    document.querySelectorAll('[data-open-notes-panel]').forEach((trigger) => {
+        trigger.addEventListener('click', (event) => {
+            if (!notesPanel || !notesOverlay || !notesFrame) {
+                return;
+            }
+
+            event.preventDefault();
+            const targetUrl = trigger.getAttribute('data-project-notes-url') || trigger.getAttribute('href') || '';
+            const projectName = trigger.getAttribute('data-project-name') || 'Proyecto';
+            notesFrame.src = targetUrl;
+            if (notesTitle) {
+                notesTitle.textContent = `Notas · ${projectName}`;
+            }
+            notesOverlay.hidden = false;
+            notesOverlay.classList.add('is-open');
+            notesPanel.classList.add('is-open');
+            notesPanel.setAttribute('aria-hidden', 'false');
+        });
+    });
+
+    document.querySelector('[data-notes-close]')?.addEventListener('click', closeNotesPanel);
+    notesOverlay?.addEventListener('click', closeNotesPanel);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeNotesPanel();
+        }
+    });
 
     document.querySelectorAll('.project-row').forEach((row) => {
         row.addEventListener('click', (event) => {
