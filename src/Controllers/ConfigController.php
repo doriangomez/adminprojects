@@ -126,6 +126,22 @@ class ConfigController extends Controller
         return preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $name) ?? $name;
     }
 
+    private function roleIdsByNormalizedName(RolesRepository $rolesRepo, string $normalizedName): array
+    {
+        if ($normalizedName === '') {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($rolesRepo->all() as $role) {
+            if ($this->normalizeRoleName((string) ($role['nombre'] ?? '')) === $normalizedName) {
+                $ids[] = (int) ($role['id'] ?? 0);
+            }
+        }
+
+        return array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    }
+
     public function updateTheme(): void
     {
         $this->ensureConfigAccess();
@@ -485,13 +501,24 @@ class ConfigController extends Controller
 
         $repo = new RolesRepository($this->db);
         $roleId = (int) $_POST['id'];
+        $currentRole = $repo->find($roleId) ?? [];
+        $currentNormalized = $this->normalizeRoleName((string) ($currentRole['nombre'] ?? ''));
+        $targetName = (string) ($_POST['nombre'] ?? ($currentRole['nombre'] ?? ''));
+        $targetNormalized = $this->normalizeRoleName($targetName);
         $repo->update($roleId, [
-            'nombre' => $_POST['nombre'],
+            'nombre' => $targetName,
             'descripcion' => $_POST['descripcion'] ?? null,
         ]);
 
         $permissionIds = array_map('intval', $_POST['permissions'] ?? []);
-        $repo->syncPermissions($roleId, $permissionIds);
+        $roleIdsToSync = array_unique(array_merge(
+            [$roleId],
+            $this->roleIdsByNormalizedName($repo, $currentNormalized),
+            $this->roleIdsByNormalizedName($repo, $targetNormalized)
+        ));
+        foreach ($roleIdsToSync as $idToSync) {
+            $repo->syncPermissions((int) $idToSync, $permissionIds);
+        }
 
         header('Location: /config?saved=1');
     }
