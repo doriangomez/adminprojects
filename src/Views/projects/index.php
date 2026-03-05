@@ -107,6 +107,48 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     $params = array_filter($params, static fn ($value) => $value !== null && $value !== '');
     return http_build_query($params);
 };
+
+$truncate = static function (?string $text, int $limit = 120): string {
+    $text = trim((string) $text);
+    if ($text === '') {
+        return '';
+    }
+
+    if (mb_strlen($text) <= $limit) {
+        return $text;
+    }
+
+    return rtrim(mb_substr($text, 0, $limit - 1)) . '…';
+};
+
+$relativeTime = static function (?string $datetime): string {
+    if (!$datetime) {
+        return 'sin fecha';
+    }
+
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return 'fecha inválida';
+    }
+
+    $diff = time() - $ts;
+    if ($diff < 60) {
+        return 'hace instantes';
+    }
+
+    $minutes = (int) floor($diff / 60);
+    if ($minutes < 60) {
+        return 'hace ' . $minutes . ' min';
+    }
+
+    $hours = (int) floor($minutes / 60);
+    if ($hours < 24) {
+        return 'hace ' . $hours . ' h';
+    }
+
+    $days = (int) floor($hours / 24);
+    return 'hace ' . $days . ' día' . ($days === 1 ? '' : 's');
+};
 ?>
 
 <style>
@@ -296,7 +338,7 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
 
     .project-table th,
     .project-table td {
-        padding: 12px 14px;
+        padding: 9px 10px;
         border-bottom: 1px solid var(--border);
         text-align: left;
         vertical-align: middle;
@@ -340,8 +382,21 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     .badge.billable-on { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
     .badge.billable-off { background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--background)); }
 
-    .progress-track { width: 120px; height: 8px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
-    .progress-bar { height: 100%; border-radius: 999px; background: color-mix(in srgb, var(--primary) 60%, var(--success) 40%); }
+    .progress-track { width: 130px; height: 10px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 55%, var(--background)), color-mix(in srgb, var(--success) 70%, var(--background))); }
+
+    .signal-list, .note-cell, .stopper-cell { display: flex; flex-direction: column; gap: 4px; }
+    .signal-pill { font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--warning) 80%, var(--text-primary)); }
+    .tiny-meta { font-size: 11px; color: var(--text-secondary); }
+    .interactive-cell { color: inherit; text-decoration: none; border: 1px solid transparent; border-radius: 8px; padding: 2px 4px; display: inline-block; }
+    .interactive-cell:hover { border-color: var(--border); background: color-mix(in srgb, var(--text-secondary) 9%, var(--background)); }
+    .severity-dot { font-weight: 700; }
+    .severity-critico { color: var(--danger); }
+    .severity-alto { color: #f59e0b; }
+    .severity-medio { color: #facc15; }
+    .indicator-blue { color: #3b82f6; font-size: 10px; }
+    .badge.blocker-critical { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
+    .badge.blocker-high { background: color-mix(in srgb, #f59e0b 22%, var(--background)); color: #b45309; border-color: color-mix(in srgb, #f59e0b 36%, var(--background)); }
 
     .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -639,14 +694,16 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
             <thead>
                 <tr>
                     <th>Proyecto</th>
+                    <th>Cliente</th>
+                    <th>PM</th>
                     <th>Metodología</th>
                     <th>Stage-gate</th>
                     <th>Estado</th>
-                    <th>Riesgo</th>
                     <th>Salud</th>
                     <th>Avance</th>
-                    <th>PM</th>
-                    <th>Fechas</th>
+                    <th>⚠ Señales</th>
+                    <th>📝 Notas clave</th>
+                    <th>⛔ Bloqueos</th>
                     <th>Facturación</th>
                     <th>Acciones</th>
                 </tr>
@@ -663,14 +720,21 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                         $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
                         $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
                         $riskCount = count($riskCodes);
+                        $signals = is_array($project['signals'] ?? null) ? $project['signals'] : [];
+                        $latestNote = is_array($project['latest_note'] ?? null) ? $project['latest_note'] : null;
+                        $stopper = is_array($project['top_stopper'] ?? null) ? $project['top_stopper'] : null;
+                        $isRecentNote = isset($latestNote['created_at']) && strtotime((string) $latestNote['created_at']) >= (time() - (3 * 86400));
                         $rowLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?return=' . urlencode($returnUrl);
                     ?>
                     <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                         <td>
                             <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
-                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
-                            <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
+                            <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos activos: <?= $riskCount ?></div>
                         </td>
+                        <td>
+                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                        </td>
+                        <td><?= htmlspecialchars($pmName) ?></td>
                         <td>
                             <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
                         </td>
@@ -681,11 +745,9 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                             <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                         </td>
                         <td>
-                            <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
-                        </td>
-                        <td>
                             <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
                             <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
+                            <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
                         </td>
                         <td>
                             <div style="display:flex; flex-direction:column; gap:6px;">
@@ -695,10 +757,51 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
                                 <span style="font-size:12px; color: var(--text-secondary);"><?= $progress ?>%</span>
                             </div>
                         </td>
-                        <td><?= htmlspecialchars($pmName) ?></td>
                         <td>
-                            <span><?= htmlspecialchars($project['start_date'] ?? 'Sin inicio') ?></span><br>
-                            <span class="text-muted">→ <?= htmlspecialchars($project['end_date'] ?? 'Sin fin') ?></span>
+                            <div class="signal-list">
+                                <?php if (empty($signals)): ?>
+                                    <span class="tiny-meta">Sin alertas</span>
+                                <?php else: ?>
+                                    <?php foreach ($signals as $signal): ?>
+                                        <span class="signal-pill"><?= htmlspecialchars($signal) ?></span>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                        <td>
+                            <a class="interactive-cell" data-no-row href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=seguimiento&return=<?= urlencode($returnUrl) ?>" title="<?= htmlspecialchars((string) ($latestNote['text'] ?? 'Sin notas')) ?>">
+                                <div class="note-cell">
+                                    <strong>📝 <?= htmlspecialchars($truncate((string) ($latestNote['text'] ?? 'Sin notas registradas'), 120)) ?></strong>
+                                    <span class="tiny-meta">
+                                        <?= htmlspecialchars($relativeTime($latestNote['created_at'] ?? null)) ?> · <?= htmlspecialchars((string) ($latestNote['author'] ?? 'Sistema')) ?>
+                                        <?php if ($isRecentNote): ?><span class="indicator-blue">●</span><?php endif; ?>
+                                    </span>
+                                    <?php if ((int) ($latestNote['extra_count'] ?? 0) > 0): ?>
+                                        <span class="tiny-meta">+<?= (int) $latestNote['extra_count'] ?> notas</span>
+                                    <?php endif; ?>
+                                </div>
+                            </a>
+                        </td>
+                        <td>
+                            <a class="interactive-cell" data-no-row href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=bloqueos&return=<?= urlencode($returnUrl) ?>" title="<?= htmlspecialchars((string) ($stopper['text'] ?? 'Sin bloqueos activos')) ?>">
+                                <div class="stopper-cell">
+                                    <?php if ($stopper): ?>
+                                        <?php $impact = (string) ($stopper['impact_level'] ?? 'medio'); ?>
+                                        <strong>
+                                            <span class="severity-dot severity-<?= htmlspecialchars($impact) ?>"><?= $impact === 'critico' ? '🔴' : ($impact === 'alto' ? '🟠' : '🟡') ?></span>
+                                            <?= htmlspecialchars($truncate((string) ($stopper['text'] ?? ''), 120)) ?>
+                                        </strong>
+                                        <span class="tiny-meta">abierto <?= htmlspecialchars($relativeTime($stopper['created_at'] ?? null)) ?></span>
+                                        <?php if ((int) ($stopper['extra_count'] ?? 0) > 0): ?>
+                                            <span class="tiny-meta">+<?= (int) $stopper['extra_count'] ?> bloqueos</span>
+                                        <?php endif; ?>
+                                        <?php if ((int) ($stopper['critical_count'] ?? 0) > 0): ?><span class="badge blocker-critical">Crítico</span><?php endif; ?>
+                                        <?php if ((int) ($stopper['high_count'] ?? 0) > 0): ?><span class="badge blocker-high">Alto</span><?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="tiny-meta">Sin bloqueos activos</span>
+                                    <?php endif; ?>
+                                </div>
+                            </a>
                         </td>
                         <td>
                             <?php $isBillable = (int) ($project['is_billable'] ?? 0) === 1; ?>

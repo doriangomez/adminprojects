@@ -172,8 +172,20 @@ class ProjectsRepository
         );
 
         $projects = $this->db->fetchAll($sql, $params);
+        $projectIds = array_values(array_filter(array_map(static fn (array $project): int => (int) ($project['id'] ?? 0), $projects)));
 
-        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+        $notesByProject = $this->latestNotesByProject($projectIds);
+        $stoppersByProject = $this->activeStoppersByProject($projectIds);
+        $scopeChangesByProject = $this->scopeChangesByProject($projectIds);
+        $progressByProject = $this->progressActivityByProject($projectIds);
+
+        return array_map(fn (array $project) => $this->attachProjectOperationalData(
+            $this->attachProjectSignal($project),
+            $notesByProject[(int) ($project['id'] ?? 0)] ?? null,
+            $stoppersByProject[(int) ($project['id'] ?? 0)] ?? null,
+            $scopeChangesByProject[(int) ($project['id'] ?? 0)] ?? false,
+            $progressByProject[(int) ($project['id'] ?? 0)] ?? null
+        ), $projects);
     }
 
     public function find(int $id): ?array
@@ -1766,6 +1778,199 @@ class ProjectsRepository
         $project['risks'] = $this->splitRisks($project['risk_codes'] ?? null);
 
         return $project;
+    }
+
+    private function attachProjectOperationalData(
+        array $project,
+        ?array $noteData,
+        ?array $stopperData,
+        bool $hasScopeChanges,
+        ?string $lastProgressAt
+    ): array {
+        $project['latest_note'] = $noteData;
+        $project['top_stopper'] = $stopperData;
+        $project['has_scope_changes'] = $hasScopeChanges;
+        $project['last_progress_at'] = $lastProgressAt;
+        $project['signals'] = $this->buildOperationalSignals($project, $stopperData, $hasScopeChanges, $lastProgressAt);
+
+        return $project;
+    }
+
+    private function buildOperationalSignals(array $project, ?array $stopperData, bool $hasScopeChanges, ?string $lastProgressAt): array
+    {
+        $signals = [];
+
+        if (($stopperData['critical_count'] ?? 0) > 0) {
+            $signals[] = '⚠ Bloqueo crítico';
+        }
+
+        if (count($project['risks'] ?? []) > 0) {
+            $signals[] = '⚠ Riesgo activo';
+        }
+
+        if ($lastProgressAt !== null) {
+            $daysWithoutProgress = (int) floor((time() - strtotime($lastProgressAt)) / 86400);
+            if ($daysWithoutProgress >= 7) {
+                $signals[] = '⚠ Sin avance reciente';
+            }
+        }
+
+        if ($hasScopeChanges) {
+            $signals[] = '⚠ Cambio de alcance';
+        }
+
+        return array_slice($signals, 0, 3);
+    }
+
+    private function latestNotesByProject(array $projectIds): array
+    {
+        if (empty($projectIds) || !$this->db->tableExists('audit_log')) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($projectIds), '?'));
+        $rows = $this->db->fetchAll(
+            "SELECT al.entity_id AS project_id, al.created_at, al.payload, u.name AS author
+             FROM audit_log al
+             LEFT JOIN users u ON u.id = al.user_id
+             INNER JOIN (
+                SELECT entity_id, MAX(created_at) AS max_created_at
+                FROM audit_log
+                WHERE entity = 'project_note' AND action = 'project_note_created' AND entity_id IN ($placeholders)
+                GROUP BY entity_id
+             ) latest ON latest.entity_id = al.entity_id AND latest.max_created_at = al.created_at
+             WHERE al.entity = 'project_note' AND al.action = 'project_note_created'",
+            $projectIds
+        );
+
+        $index = [];
+        foreach ($rows as $row) {
+            $payload = json_decode((string) ($row['payload'] ?? ''), true);
+            $text = is_array($payload) ? trim((string) ($payload['note'] ?? '')) : '';
+            $projectId = (int) ($row['project_id'] ?? 0);
+            $index[$projectId] = [
+                'text' => $text,
+                'author' => $row['author'] ?? 'Sistema',
+                'created_at' => $row['created_at'] ?? null,
+                'extra_count' => max(0, $this->notesCountForProject($projectId) - 1),
+            ];
+        }
+
+        return $index;
+    }
+
+    private function notesCountForProject(int $projectId): int
+    {
+        $row = $this->db->fetchOne(
+            "SELECT COUNT(*) AS total FROM audit_log WHERE entity = 'project_note' AND action = 'project_note_created' AND entity_id = :projectId",
+            [':projectId' => $projectId]
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function activeStoppersByProject(array $projectIds): array
+    {
+        if (empty($projectIds) || !$this->db->tableExists('project_stoppers')) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($projectIds), '?'));
+        $rows = $this->db->fetchAll(
+            "SELECT s.project_id, s.title, s.description, s.impact_level, s.created_at,
+                    totals.total_count, totals.critical_count, totals.high_count
+             FROM project_stoppers s
+             INNER JOIN (
+                SELECT project_id,
+                       COUNT(*) AS total_count,
+                       SUM(CASE WHEN impact_level = 'critico' THEN 1 ELSE 0 END) AS critical_count,
+                       SUM(CASE WHEN impact_level = 'alto' THEN 1 ELSE 0 END) AS high_count,
+                       MAX(CASE impact_level WHEN 'critico' THEN 3 WHEN 'alto' THEN 2 WHEN 'medio' THEN 1 ELSE 0 END) AS max_severity
+                FROM project_stoppers
+                WHERE status <> 'cerrado' AND project_id IN ($placeholders)
+                GROUP BY project_id
+             ) totals ON totals.project_id = s.project_id
+             WHERE s.status <> 'cerrado' AND s.project_id IN ($placeholders)
+             ORDER BY s.project_id,
+                      CASE s.impact_level WHEN 'critico' THEN 3 WHEN 'alto' THEN 2 WHEN 'medio' THEN 1 ELSE 0 END DESC,
+                      s.created_at DESC",
+            array_merge($projectIds, $projectIds)
+        );
+
+        $index = [];
+        foreach ($rows as $row) {
+            $projectId = (int) ($row['project_id'] ?? 0);
+            if (isset($index[$projectId])) {
+                continue;
+            }
+
+            $text = trim((string) ($row['title'] ?? ''));
+            if ($text === '') {
+                $text = trim((string) ($row['description'] ?? ''));
+            }
+
+            $index[$projectId] = [
+                'text' => $text,
+                'impact_level' => $row['impact_level'] ?? 'medio',
+                'created_at' => $row['created_at'] ?? null,
+                'extra_count' => max(0, (int) ($row['total_count'] ?? 0) - 1),
+                'critical_count' => (int) ($row['critical_count'] ?? 0),
+                'high_count' => (int) ($row['high_count'] ?? 0),
+            ];
+        }
+
+        return $index;
+    }
+
+    private function scopeChangesByProject(array $projectIds): array
+    {
+        if (empty($projectIds) || !$this->db->tableExists('audit_log')) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($projectIds), '?'));
+        $rows = $this->db->fetchAll(
+            "SELECT entity_id AS project_id, COUNT(*) AS total
+             FROM audit_log
+             WHERE entity = 'project'
+               AND action = 'project.change'
+               AND entity_id IN ($placeholders)
+               AND payload LIKE '%\"scope\"%'
+             GROUP BY entity_id",
+            $projectIds
+        );
+
+        $index = [];
+        foreach ($rows as $row) {
+            $index[(int) ($row['project_id'] ?? 0)] = (int) ($row['total'] ?? 0) > 0;
+        }
+
+        return $index;
+    }
+
+    private function progressActivityByProject(array $projectIds): array
+    {
+        if (empty($projectIds) || !$this->db->tableExists('audit_log')) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($projectIds), '?'));
+        $rows = $this->db->fetchAll(
+            "SELECT entity_id AS project_id, MAX(created_at) AS last_progress_at
+             FROM audit_log
+             WHERE entity = 'project'
+               AND action = 'project_progress_updated'
+               AND entity_id IN ($placeholders)
+             GROUP BY entity_id",
+            $projectIds
+        );
+
+        $index = [];
+        foreach ($rows as $row) {
+            $index[(int) ($row['project_id'] ?? 0)] = $row['last_progress_at'] ?? null;
+        }
+
+        return $index;
     }
 
     private function projectSignal(array $project): array
