@@ -357,7 +357,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-context-preview {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 6px;
         margin-top: 7px;
         padding: 0;
@@ -368,19 +368,63 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-context-preview .context-icon {
         font-size: 11px;
-        line-height: 1;
+        line-height: 1.35;
         flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .project-context-preview .context-body {
+        flex: 1;
+        min-width: 0;
     }
 
     .project-context-preview .context-label {
         font-weight: 600;
-        flex-shrink: 0;
+        margin-right: 3px;
     }
 
     .project-context-preview .context-text {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .context-text-clamped {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .context-text-clamped.expanded {
+        display: block;
+        overflow: visible;
+    }
+
+    .btn-ver-mas {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--primary, #6366f1);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 0 0;
+        margin: 0;
+        display: block;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .btn-ver-mas:hover {
+        opacity: 0.75;
+    }
+
+    .context-preview-link {
+        display: block;
+        max-width: 100%;
+        padding: 0;
+        border-radius: 4px;
     }
 
     .project-context-stats {
@@ -851,7 +895,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             }
                         }
 
-                        $previewText = $truncateText((string) $previewText, 120);
+                        $previewText = trim((string) preg_replace('/\s+/', ' ', $previewText));
                         $previewHref = $basePath . '/projects/' . $projectId
                             . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
                             . '&return=' . urlencode($returnUrl);
@@ -867,17 +911,26 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
                             </div>
                             <?php if ($previewText !== ''): ?>
-                                <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
+                                <div class="project-context-preview" data-no-row>
                                     <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
-                                    <span class="context-label"><?= $previewLabel ?>:</span>
-                                    <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
-                                </a>
+                                    <div class="context-body">
+                                        <a class="interactive-cell context-preview-link" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="Ver <?= htmlspecialchars(strtolower($previewLabel)) ?>">
+                                            <div class="context-text-clamped">
+                                                <span class="context-label"><?= $previewLabel ?>:</span>
+                                                <?= htmlspecialchars($previewText) ?>
+                                            </div>
+                                        </a>
+                                        <button type="button" class="btn-ver-mas" data-no-row hidden>Ver más</button>
+                                    </div>
+                                </div>
                             <?php else: ?>
-                                <span class="project-context-preview" title="Sin notas o bloqueos registrados">
+                                <div class="project-context-preview">
                                     <span class="context-icon" aria-hidden="true">📝</span>
-                                    <span class="context-label">Nota:</span>
-                                    <span class="context-text">Sin notas o bloqueos registrados.</span>
-                                </span>
+                                    <div class="context-body">
+                                        <span class="context-label">Nota:</span>
+                                        <span class="context-text">Sin notas o bloqueos registrados.</span>
+                                    </div>
+                                </div>
                             <?php endif; ?>
                             <div class="project-context-stats">
                                 <span>⚠ Riesgos: <?= $riskCount ?></span>
@@ -1075,5 +1128,20 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                 window.location.href = href;
             }
         });
+    });
+
+    document.querySelectorAll('.context-text-clamped').forEach(function (clamped) {
+        if (clamped.scrollHeight > clamped.clientHeight + 2) {
+            var body = clamped.closest('.context-body');
+            var btn = body ? body.querySelector('.btn-ver-mas') : null;
+            if (btn) {
+                btn.hidden = false;
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var expanded = clamped.classList.toggle('expanded');
+                    this.textContent = expanded ? 'Ver menos' : 'Ver más';
+                });
+            }
+        }
     });
 </script>
