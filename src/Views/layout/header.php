@@ -6,9 +6,16 @@ $appDisplayName = $appName ?? 'PMO';
 $logoUrl = !empty($theme['logo_url']) ? $theme['logo_url'] : '';
 $logoCss = $logoUrl !== '' ? "url('{$logoUrl}')" : 'none';
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$requestQuery = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_QUERY) ?: '';
+$queryParams = [];
+parse_str($requestQuery, $queryParams);
 $normalizedPath = str_starts_with($requestPath, $basePath)
     ? (substr($requestPath, strlen($basePath)) ?: '/')
     : $requestPath;
+$isTalentCapacityRoute = str_starts_with($normalizedPath, '/talent-capacity');
+$isCapacitySimulationRoute = str_starts_with($normalizedPath, '/talent-capacity/simulation')
+    || ($isTalentCapacityRoute && (($queryParams['tab'] ?? '') === 'simulation'));
+$isCapacityOverviewRoute = $isTalentCapacityRoute && !$isCapacitySimulationRoute;
 $themeVariables = [
     'background' => (string) ($theme['background'] ?? ''),
     'surface' => (string) ($theme['surface'] ?? ''),
@@ -226,6 +233,35 @@ error_log(sprintf(
             box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-tone) 24%, transparent);
         }
         .nav-link.active::before { background: var(--nav-tone); }
+        .nav-group { display: flex; flex-direction: column; gap: 6px; }
+        .nav-submenu {
+            margin-left: 12px;
+            padding-left: 10px;
+            border-left: 1px dashed color-mix(in srgb, var(--border) 72%, var(--background));
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .nav-sublink {
+            text-decoration: none;
+            color: var(--text-secondary);
+            padding: 7px 10px;
+            border-radius: 10px;
+            font-size: 13px;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .nav-sublink:hover {
+            color: var(--text-primary);
+            border-color: color-mix(in srgb, var(--primary) 44%, var(--border));
+            background: color-mix(in srgb, var(--surface) 16%, var(--background));
+        }
+        .nav-sublink.active {
+            color: var(--text-primary);
+            border-color: color-mix(in srgb, #3b82f6 52%, var(--border));
+            background: color-mix(in srgb, #3b82f6 16%, var(--background));
+            font-weight: 700;
+        }
         .nav-icon {
             width: 40px;
             height: 40px;
@@ -366,6 +402,7 @@ error_log(sprintf(
         .sidebar.collapsed .brand-box { justify-content: center; }
         .sidebar.collapsed .brand-mark img { height: 32px; }
         .sidebar.collapsed .brand-fallback { font-size: 16px; }
+        .sidebar.collapsed .nav-submenu { display: none; }
         .preview-logo { height:42px; background:color-mix(in srgb, var(--surface) 90%, var(--background) 10%); padding:8px; border-radius:10px; box-shadow:0 8px 20px color-mix(in srgb, var(--text-primary) 20%, var(--background) 80%); }
         .preview-subtitle { color: color-mix(in srgb, var(--surface) 80%, var(--background)); font-size:13px; }
         .card {
@@ -667,10 +704,16 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
-            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
-                <span class="nav-label">Carga talento</span>
-            </a>
+            <div class="nav-group">
+                <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= $isTalentCapacityRoute ? 'active' : '' ?>" data-tone="blue">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
+                    <span class="nav-label">Carga talento</span>
+                </a>
+                <div class="nav-submenu">
+                    <a href="<?= $basePath ?>/talent-capacity" class="nav-sublink <?= $isCapacityOverviewRoute ? 'active' : '' ?>">Vista de capacidad</a>
+                    <a href="<?= $basePath ?>/talent-capacity/simulation" class="nav-sublink <?= $isCapacitySimulationRoute ? 'active' : '' ?>">Simulación de capacidad</a>
+                </div>
+            </div>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
