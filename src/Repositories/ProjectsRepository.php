@@ -936,15 +936,87 @@ class ProjectsRepository
             return null;
         }
 
-        $assignment = $this->db->fetchOne(
-            'SELECT * FROM project_talent_assignments WHERE id = :id AND project_id = :project LIMIT 1',
+        $hasTalent = $this->db->columnExists('project_talent_assignments', 'talent_id');
+        $talentJoin = $hasTalent
+            ? 'LEFT JOIN talents t ON t.id = a.talent_id'
+            : '';
+        $talentSelect = $hasTalent
+            ? ', t.capacidad_horaria, t.name AS talent_name'
+            : ', 0 AS capacidad_horaria, \'\' AS talent_name';
+
+        $row = $this->db->fetchOne(
+            'SELECT a.*' . $talentSelect . '
+             FROM project_talent_assignments a
+             ' . $talentJoin . '
+             WHERE a.id = :id AND a.project_id = :project
+             LIMIT 1',
+            [':id' => $assignmentId, ':project' => $projectId]
+        );
+
+        return $row ?: null;
+    }
+
+    public function updateAssignmentDedication(int $projectId, int $assignmentId, float $percent, float $hours): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return;
+        }
+
+        $this->db->execute(
+            'UPDATE project_talent_assignments
+             SET allocation_percent = :pct, weekly_hours = :hrs, updated_at = NOW()
+             WHERE id = :id AND project_id = :project',
             [
-                ':id' => $assignmentId,
+                ':pct'     => $percent,
+                ':hrs'     => $hours,
+                ':id'      => $assignmentId,
                 ':project' => $projectId,
             ]
         );
+    }
 
-        return $assignment ?: null;
+    public function maxWeeklyTimesheetHoursForAssignment(int $assignmentId): float
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return 0.0;
+        }
+
+        $hasAssignmentId = $this->db->columnExists('timesheets', 'assignment_id');
+        if (!$hasAssignmentId) {
+            return 0.0;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT MAX(week_total) AS max_hours FROM (
+                SELECT YEARWEEK(date, 1) AS yw, SUM(hours) AS week_total
+                FROM timesheets
+                WHERE assignment_id = :aid
+                  AND status IN (\'approved\', \'submitted\', \'draft\')
+                GROUP BY yw
+             ) AS weekly_sums',
+            [':aid' => $assignmentId]
+        );
+
+        return (float) ($row['max_hours'] ?? 0);
+    }
+
+    public function allocationSummaryForTalent(int $talentId): array
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return [];
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT a.id, a.project_id, p.name AS project_name,
+                    a.allocation_percent, a.weekly_hours, a.assignment_status
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             WHERE a.talent_id = :tid AND a.assignment_status = \'active\'
+             ORDER BY a.allocation_percent DESC',
+            [':tid' => $talentId]
+        );
+
+        return $rows ?: [];
     }
 
     public function deleteAssignmentPermanently(int $projectId, int $assignmentId): void

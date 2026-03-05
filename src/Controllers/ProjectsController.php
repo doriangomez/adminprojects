@@ -313,11 +313,20 @@ class ProjectsController extends Controller
         $assignments = $repo->assignmentsForProject($id, $user);
         $talents = (new TalentsRepository($this->db))->assignmentOptions();
 
+        $allocationSummaries = [];
+        foreach ($assignments as $a) {
+            $tid = (int) ($a['talent_id'] ?? 0);
+            if ($tid > 0 && !isset($allocationSummaries[$tid])) {
+                $allocationSummaries[$tid] = $repo->allocationSummaryForTalent($tid);
+            }
+        }
+
         $this->render('projects/talent', [
             'title' => 'Gestionar talento',
             'project' => $project,
             'assignments' => $assignments,
             'talents' => $talents,
+            'allocationSummaries' => $allocationSummaries,
         ]);
     }
 
@@ -748,6 +757,95 @@ class ProjectsController extends Controller
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
+        }
+    }
+
+    public function updateAssignmentDedication(int $projectId, int $assignmentId): void
+    {
+        $this->requirePermission('projects.manage');
+        header('Content-Type: application/json; charset=utf-8');
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Proyecto no encontrado']);
+            return;
+        }
+
+        $assignment = $repo->findAssignmentById($projectId, $assignmentId);
+        if (!$assignment) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Asignación no encontrada']);
+            return;
+        }
+
+        $rawPercent  = $_POST['allocation_percent'] ?? null;
+        $rawHours    = $_POST['weekly_hours'] ?? null;
+        $force       = !empty($_POST['force']);
+
+        $capacidad = (float) ($assignment['capacidad_horaria'] ?? 0);
+
+        try {
+            if ($rawPercent !== null && $rawPercent !== '') {
+                $percent = (float) $rawPercent;
+                if ($percent < 0 || $percent > 100) {
+                    throw new \InvalidArgumentException('El porcentaje debe estar entre 0 y 100.');
+                }
+                $hours = $capacidad > 0 ? round($capacidad * ($percent / 100), 2) : (float) ($assignment['weekly_hours'] ?? 0);
+            } elseif ($rawHours !== null && $rawHours !== '') {
+                $hours = (float) $rawHours;
+                if ($hours < 0) {
+                    throw new \InvalidArgumentException('Las horas no pueden ser negativas.');
+                }
+                $percent = $capacidad > 0 ? round(($hours / $capacidad) * 100, 2) : (float) ($assignment['allocation_percent'] ?? 0);
+            } else {
+                throw new \InvalidArgumentException('Debe indicar porcentaje o horas semanales.');
+            }
+
+            if (!$force) {
+                $maxTimesheetHours = $repo->maxWeeklyTimesheetHoursForAssignment($assignmentId);
+                if ($maxTimesheetHours > $hours) {
+                    echo json_encode([
+                        'warning'              => true,
+                        'message'              => 'Las horas registradas en timesheet superan la nueva dedicación.',
+                        'timesheet_hours'      => $maxTimesheetHours,
+                        'new_weekly_hours'     => $hours,
+                        'new_percent'          => $percent,
+                    ]);
+                    return;
+                }
+            }
+
+            $repo->updateAssignmentDedication($projectId, $assignmentId, $percent, $hours);
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'project_talent_assignment',
+                $assignmentId,
+                'dedication_updated',
+                [
+                    'project_id'        => $projectId,
+                    'allocation_percent' => $percent,
+                    'weekly_hours'       => $hours,
+                    'forced'             => $force,
+                ]
+            );
+
+            echo json_encode([
+                'success'        => true,
+                'allocation_percent' => $percent,
+                'weekly_hours'   => $hours,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error updating dedication: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Error interno al actualizar la dedicación.']);
         }
     }
 
