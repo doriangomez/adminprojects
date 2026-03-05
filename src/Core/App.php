@@ -38,6 +38,7 @@ class App
         $migrator->ensureRequirementsModule();
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
+        $migrator->ensureDecisionCenterModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -90,6 +91,30 @@ class App
         if ($path === '/' || $path === '/dashboard') {
             (new DashboardController($this->db, $this->auth))->index();
             return;
+        }
+
+        if (str_starts_with($path, '/pmo/decision-center')) {
+            $controller = new DecisionCenterController($this->db, $this->auth);
+            if ($path === '/pmo/decision-center' && $method === 'GET') {
+                $controller->index();
+                return;
+            }
+        }
+
+        if (str_starts_with($path, '/api/pmo/decision-center')) {
+            $controller = new DecisionCenterController($this->db, $this->auth);
+            if ($path === '/api/pmo/decision-center' && $method === 'GET') {
+                $controller->apiSummary();
+                return;
+            }
+            if ($path === '/api/pmo/decision-center/simulate' && $method === 'POST') {
+                $controller->apiSimulate();
+                return;
+            }
+            if ($path === '/api/pmo/decision-center/ai-analysis' && $method === 'GET') {
+                $controller->apiAiAnalysis();
+                return;
+            }
         }
 
         if ($path === '/approvals' && $method === 'GET') {

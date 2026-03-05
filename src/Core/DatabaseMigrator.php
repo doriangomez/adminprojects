@@ -2440,6 +2440,77 @@ class DatabaseMigrator
         );
     }
 
+    public function ensureDecisionCenterModule(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
+            return;
+        }
+
+        $permissions = [
+            'pmo_decision_center_view' => 'Ver Centro de Decisiones PMO',
+            'pmo_decision_center_export' => 'Exportar datos del Centro de Decisiones',
+            'pmo_decision_center_ai' => 'Ver análisis IA en Centro de Decisiones',
+        ];
+
+        foreach ($permissions as $code => $name) {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => $code,
+                    ':code_check' => $code,
+                    ':name' => $name,
+                ]
+            );
+        }
+
+        $grants = [
+            'Administrador' => array_keys($permissions),
+            'PMO' => array_keys($permissions),
+            'Líder de Proyecto' => ['pmo_decision_center_view'],
+        ];
+
+        foreach ($grants as $roleName => $codes) {
+            $role = $this->db->fetchOne('SELECT id FROM roles WHERE nombre = :name LIMIT 1', [':name' => $roleName]);
+            if (!$role) {
+                continue;
+            }
+
+            foreach ($codes as $code) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :role_id_value, p.id
+                     FROM permissions p
+                     WHERE p.code = :code_value
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                     )',
+                    [
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => $code,
+                    ]
+                );
+            }
+        }
+
+        if (!$this->db->tableExists('decision_center_ai_cache')) {
+            $this->db->execute(
+                'CREATE TABLE IF NOT EXISTS decision_center_ai_cache (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    cache_key VARCHAR(255) NOT NULL UNIQUE,
+                    content TEXT NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_dc_cache_key (cache_key),
+                    INDEX idx_dc_cache_expires (expires_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+        }
+    }
+
     private function ensureProjectStoppersPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
