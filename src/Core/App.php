@@ -39,6 +39,7 @@ class App
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensurePmoEngineSchema();
         $this->auth = new Auth($this->db);
     }
 
@@ -105,6 +106,24 @@ class App
 
         if ($path === '/api/pmo/decision-center/simulate' && $method === 'POST') {
             (new DecisionCenterController($this->db, $this->auth))->simulateApi();
+            return;
+        }
+
+        if ($path === '/api/pmo/engine/run' && $method === 'POST') {
+            $this->requirePmoAccess();
+            $engine = new PmoEngineService($this->db);
+            $results = $engine->runForAllActiveProjects();
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'results' => $results]);
+            return;
+        }
+
+        if (preg_match('#^/api/pmo/engine/project/(\d+)$#', $path, $pmoMatches) && $method === 'GET') {
+            $this->requirePmoAccess();
+            $engine = new PmoEngineService($this->db);
+            $data = $engine->getProjectPmoData((int) $pmoMatches[1]);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'data' => $data]);
             return;
         }
 
@@ -677,6 +696,18 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
 
         http_response_code(404);
         echo 'Ruta no encontrada';
+    }
+
+    private function requirePmoAccess(): void
+    {
+        $user = $this->auth->user() ?? [];
+        $role = (string) ($user['role'] ?? '');
+        if (!in_array($role, ['Administrador', 'PMO'], true)) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'Acceso denegado']);
+            exit;
+        }
     }
 
     private function logImpersonationRequest(string $path, string $method): void

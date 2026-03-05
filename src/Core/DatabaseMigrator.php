@@ -2613,4 +2613,53 @@ class DatabaseMigrator
         }
     }
 
+    public function ensurePmoEngineSchema(): void
+    {
+        if (!$this->db->tableExists('pmo_project_snapshots')) {
+            try {
+                $this->db->execute('
+                    CREATE TABLE pmo_project_snapshots (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        project_id INT NOT NULL,
+                        progress_hours DECIMAL(6,2) NOT NULL DEFAULT 0,
+                        progress_tasks DECIMAL(6,2) NOT NULL DEFAULT 0,
+                        risk_score INT NOT NULL DEFAULT 0,
+                        risk_level VARCHAR(20) NOT NULL DEFAULT "low",
+                        approved_hours DECIMAL(10,2) NOT NULL DEFAULT 0,
+                        planned_hours DECIMAL(10,2) NOT NULL DEFAULT 0,
+                        total_tasks INT NOT NULL DEFAULT 0,
+                        done_tasks INT NOT NULL DEFAULT 0,
+                        manual_progress DECIMAL(6,2) NOT NULL DEFAULT 0,
+                        snapshot_date DATE NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        INDEX idx_pmo_snap_project_date (project_id, snapshot_date),
+                        CONSTRAINT fk_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ');
+            } catch (\PDOException $e) {
+                error_log('Error creating pmo_project_snapshots: ' . $e->getMessage());
+            }
+        }
+
+        if (!$this->db->tableExists('pmo_project_alerts')) {
+            try {
+                $this->db->execute('
+                    CREATE TABLE pmo_project_alerts (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        project_id INT NOT NULL,
+                        alert_type VARCHAR(60) NOT NULL,
+                        severity VARCHAR(20) NOT NULL DEFAULT "medium",
+                        message TEXT NOT NULL,
+                        resolved_at DATETIME NULL,
+                        created_at DATETIME NOT NULL,
+                        INDEX idx_pmo_alerts_project_active (project_id, resolved_at),
+                        CONSTRAINT fk_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ');
+            } catch (\PDOException $e) {
+                error_log('Error creating pmo_project_alerts: ' . $e->getMessage());
+            }
+        }
+    }
+
 }
