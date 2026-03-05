@@ -210,6 +210,19 @@ error_log(sprintf(
         .nav-link[data-tone='blue'] { --nav-tone: #3b82f6; }
         .nav-link[data-tone='orange'] { --nav-tone: #f97316; }
         .nav-link[data-tone='red'] { --nav-tone: #ef4444; }
+
+        .nav-group { display: flex; flex-direction: column; gap: 0; }
+        .nav-group-toggle { cursor: pointer; background: none; width: 100%; text-align: left; }
+        .nav-group-toggle .nav-chevron { margin-left: auto; display: inline-flex; transition: transform .22s ease; }
+        .nav-group-toggle .nav-chevron svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .nav-group.open .nav-group-toggle .nav-chevron { transform: rotate(180deg); }
+        .nav-group-children { display: none; flex-direction: column; gap: 2px; padding: 4px 0 0 24px; }
+        .nav-group.open .nav-group-children { display: flex; }
+        .nav-child { font-size: 13.5px; padding: 9px 12px 9px 16px; }
+        .nav-child::before { left: 4px; }
+        .sidebar.collapsed .nav-group-children { display: none; }
+        .sidebar.collapsed .nav-chevron { display: none; }
+
         .nav-link:hover {
             color: var(--text-primary);
             background: color-mix(in srgb, var(--surface) 16%, var(--background));
@@ -667,10 +680,22 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
-            <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= str_starts_with($normalizedPath, '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
-                <span class="nav-label">Carga talento</span>
-            </a>
+            <?php $tcActive = str_starts_with($normalizedPath, '/talent-capacity'); ?>
+            <div class="nav-group <?= $tcActive ? 'open' : '' ?>">
+                <button type="button" class="nav-link nav-group-toggle <?= $tcActive ? 'active' : '' ?>" data-tone="blue" onclick="this.parentElement.classList.toggle('open')">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>
+                    <span class="nav-label">Carga talento</span>
+                    <span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></span>
+                </button>
+                <div class="nav-group-children">
+                    <a href="<?= $basePath ?>/talent-capacity" class="nav-link nav-child <?= ($normalizedPath === '/talent-capacity') ? 'active' : '' ?>" data-tone="blue">
+                        <span class="nav-label">Vista de capacidad</span>
+                    </a>
+                    <a href="<?= $basePath ?>/talent-capacity/simulation" class="nav-link nav-child <?= ($normalizedPath === '/talent-capacity/simulation') ? 'active' : '' ?>" data-tone="blue">
+                        <span class="nav-label">Simulación de capacidad</span>
+                    </a>
+                </div>
+            </div>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>

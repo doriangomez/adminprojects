@@ -31,4 +31,24 @@ class TalentCapacityController extends Controller
             'dashboard' => $dashboard,
         ]);
     }
+
+    public function simulation(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $this->render('talent_capacity/simulation', [
+            'title' => 'Simulación de Capacidad',
+        ]);
+    }
+
+    public function simulationData(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $user = $this->auth->user() ?? [];
+        $repo = new TalentCapacityRepository($this->db);
+        $data = $repo->simulationSnapshot($user);
+
+        $this->json($data);
+    }
 }

@@ -576,6 +576,86 @@ class TalentCapacityRepository
         return $name . ' es quien más capacidad libre presenta (' . number_format($freeHours, 1) . 'h), ideal para absorber nuevas iniciativas.';
     }
 
+    public function simulationSnapshot(array $user): array
+    {
+        $start = date('Y-m-01');
+        $end = date('Y-m-t');
+
+        [$visibilitySql, $visibilityParams] = $this->projectVisibility($user);
+
+        $talents = $this->db->fetchAll(
+            'SELECT t.id, t.name, t.role, t.capacidad_horaria, t.weekly_capacity, t.availability
+             FROM talents t
+             ORDER BY t.name ASC'
+        );
+
+        if (empty($talents)) {
+            return ['talents' => [], 'period' => ['start' => $start, 'end' => $end]];
+        }
+
+        $talentIds = array_map(static fn (array $t): int => (int) $t['id'], $talents);
+        $params = array_merge($visibilityParams, [':from' => $start, ':to' => $end]);
+
+        $assignmentRows = $this->db->fetchAll(
+            'SELECT a.talent_id, a.start_date, a.end_date, a.planned_hours, a.weekly_hours
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             LEFT JOIN clients c ON c.id = p.client_id
+             WHERE a.talent_id IS NOT NULL
+               AND a.talent_id IN (' . implode(',', array_map('intval', $talentIds)) . ')
+               AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))
+               AND (a.start_date IS NULL OR a.start_date <= :to)
+               AND (a.end_date IS NULL OR a.end_date >= :from)
+               ' . $visibilitySql,
+            $params
+        );
+
+        $monthWorkingDays = $this->businessDays($start, $end);
+        $assignedHours = [];
+
+        foreach ($assignmentRows as $row) {
+            $talentId = (int) ($row['talent_id'] ?? 0);
+            $aStart = max($start, (string) ($row['start_date'] ?: $start));
+            $aEnd = min($end, (string) ($row['end_date'] ?: $end));
+            if ($aStart > $aEnd) {
+                continue;
+            }
+            $days = $this->businessDays($aStart, $aEnd);
+            if ($days <= 0) {
+                continue;
+            }
+
+            $weeklyHours = (float) ($row['weekly_hours'] ?? 0);
+            $plannedHours = (float) ($row['planned_hours'] ?? 0);
+            $hoursPerDay = $weeklyHours > 0 ? ($weeklyHours / 5) : ($plannedHours > 0 ? ($plannedHours / $days) : 0.0);
+            $totalHours = $hoursPerDay * $days;
+            $assignedHours[$talentId] = ($assignedHours[$talentId] ?? 0.0) + $totalHours;
+        }
+
+        $result = [];
+        foreach ($talents as $talent) {
+            $id = (int) $talent['id'];
+            $weeklyCapacity = $this->weeklyCapacity($talent);
+            $monthlyCapacity = ($weeklyCapacity / 5) * $monthWorkingDays;
+            $currentHours = round($assignedHours[$id] ?? 0.0, 1);
+            $utilization = $monthlyCapacity > 0 ? round(($currentHours / $monthlyCapacity) * 100, 1) : 0.0;
+
+            $result[] = [
+                'id' => $id,
+                'name' => (string) ($talent['name'] ?? ''),
+                'role' => (string) ($talent['role'] ?? ''),
+                'monthly_capacity' => round($monthlyCapacity, 1),
+                'current_hours' => $currentHours,
+                'utilization' => $utilization,
+            ];
+        }
+
+        return [
+            'talents' => $result,
+            'period' => ['start' => $start, 'end' => $end],
+        ];
+    }
+
     private function interpretFreeCapacity(float $freeCapacityPct, float $freeCapacityHours): string
     {
         if ($freeCapacityHours <= 0) {
