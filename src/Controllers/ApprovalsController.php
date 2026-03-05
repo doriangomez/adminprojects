@@ -36,12 +36,28 @@ class ApprovalsController extends Controller
             ];
         }
 
-        $timesheetApprovals = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->pendingApprovalsByWeek($user)
+        $timesheetsRepo = new TimesheetsRepository($this->db);
+        $canApproveTimesheets = $this->auth->canApproveTimesheets();
+        $canAccessTimesheets = $this->auth->canAccessTimesheets();
+        $timesheetApprovals = $canApproveTimesheets
+            ? $timesheetsRepo->pendingApprovalsByWeek($user)
             : [];
-        $timesheetHistory = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->weekApprovalHistoryByApprover($user)
+        $timesheetHistory = $canApproveTimesheets
+            ? $timesheetsRepo->weekApprovalHistoryByApprover($user)
             : [];
+        $talentApprovalSummary = [];
+        $talentApprovalWeeks = [];
+        $talentApprovalPeriod = [];
+        if (!$canApproveTimesheets && $canAccessTimesheets) {
+            $periodStart = (new DateTimeImmutable('first day of this month'))->setTime(0, 0);
+            $periodEnd = (new DateTimeImmutable('last day of this month'))->setTime(0, 0);
+            $talentApprovalSummary = $timesheetsRepo->executiveSummary($user, $periodStart, $periodEnd);
+            $talentApprovalWeeks = $timesheetsRepo->approvedWeeksByPeriod($user, $periodStart, $periodEnd);
+            $talentApprovalPeriod = [
+                'start' => $periodStart,
+                'end' => $periodEnd,
+            ];
+        }
 
         $this->render('approvals/index', [
             'title' => 'Bandeja de Aprobaciones',
@@ -52,6 +68,10 @@ class ApprovalsController extends Controller
             'roleFlags' => $roleFlags,
             'timesheetApprovals' => $timesheetApprovals,
             'timesheetHistory' => $timesheetHistory,
+            'canApproveTimesheets' => $canApproveTimesheets,
+            'talentApprovalSummary' => $talentApprovalSummary,
+            'talentApprovalWeeks' => $talentApprovalWeeks,
+            'talentApprovalPeriod' => $talentApprovalPeriod,
             'canManageTimesheetWorkflow' => $this->auth->canManageTimesheetWorkflow(),
             'canDeleteTimesheetWorkflowRecords' => $this->auth->canDeleteTimesheetWorkflowRecords(),
         ]);

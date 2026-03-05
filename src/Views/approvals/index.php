@@ -6,6 +6,10 @@ $approvalQueue = is_array($approvalQueue ?? null) ? $approvalQueue : [];
 $dispatchQueue = is_array($dispatchQueue ?? null) ? $dispatchQueue : [];
 $timesheetApprovals = is_array($timesheetApprovals ?? null) ? $timesheetApprovals : [];
 $timesheetHistory = is_array($timesheetHistory ?? null) ? $timesheetHistory : [];
+$canApproveTimesheets = (bool) ($canApproveTimesheets ?? false);
+$talentApprovalSummary = is_array($talentApprovalSummary ?? null) ? $talentApprovalSummary : [];
+$talentApprovalWeeks = is_array($talentApprovalWeeks ?? null) ? $talentApprovalWeeks : [];
+$talentApprovalPeriod = is_array($talentApprovalPeriod ?? null) ? $talentApprovalPeriod : [];
 $canManageTimesheetWorkflow = (bool) ($canManageTimesheetWorkflow ?? false);
 $canDeleteTimesheetWorkflowRecords = (bool) ($canDeleteTimesheetWorkflowRecords ?? false);
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
@@ -169,106 +173,169 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
 
         <section class="approvals-section" data-queue="timesheets">
             <header>
-                <h3>Timesheets por aprobar</h3>
-                <p class="section-muted">Horas agrupadas por semana con resumen por proyecto e historial auditable.</p>
+                <?php if ($canApproveTimesheets): ?>
+                    <h3>Timesheets por aprobar</h3>
+                    <p class="section-muted">Horas agrupadas por semana con resumen por proyecto e historial auditable.</p>
+                <?php else: ?>
+                    <h3>Mis horas aprobadas</h3>
+                    <p class="section-muted">Seguimiento de tus horas del mes actual, con detalle semanal de aprobación.</p>
+                <?php endif; ?>
             </header>
-            <?php if (empty($timesheetApprovals)): ?>
-                <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
-            <?php else: ?>
-                <div class="timesheet-cards">
-                    <?php foreach ($timesheetApprovals as $week): ?>
-                        <article class="inbox-card timesheet-card" data-queue-type="timesheets">
-                            <header class="inbox-card__header">
-                                <div class="inbox-card__heading">
-                                    <span class="inbox-card__type">Semana</span>
-                                    <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
-                                    <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</div>
-                                </div>
-                                <div class="badge status-warning">Pendiente</div>
-                            </header>
-                            <div class="inbox-card__body">
-                                <div class="inbox-card__grid">
-                                    <div>
-                                        <span class="meta-label">Resumen por proyecto</span>
-                                        <?php foreach (($week['project_summary'] ?? []) as $summary): ?>
-                                            <div><?= htmlspecialchars((string) ($summary['project'] ?? '')) ?> · <?= htmlspecialchars((string) round((float) ($summary['hours'] ?? 0), 2)) ?>h</div>
-                                        <?php endforeach; ?>
+            <?php if ($canApproveTimesheets): ?>
+                <?php if (empty($timesheetApprovals)): ?>
+                    <p class="section-muted empty">No hay horas pendientes de aprobación.</p>
+                <?php else: ?>
+                    <div class="timesheet-cards">
+                        <?php foreach ($timesheetApprovals as $week): ?>
+                            <article class="inbox-card timesheet-card" data-queue-type="timesheets">
+                                <header class="inbox-card__header">
+                                    <div class="inbox-card__heading">
+                                        <span class="inbox-card__type">Semana</span>
+                                        <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
+                                        <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</div>
+                                    </div>
+                                    <div class="badge status-warning">Pendiente</div>
+                                </header>
+                                <div class="inbox-card__body">
+                                    <div class="inbox-card__grid">
+                                        <div>
+                                            <span class="meta-label">Resumen por proyecto</span>
+                                            <?php foreach (($week['project_summary'] ?? []) as $summary): ?>
+                                                <div><?= htmlspecialchars((string) ($summary['project'] ?? '')) ?> · <?= htmlspecialchars((string) round((float) ($summary['hours'] ?? 0), 2)) ?>h</div>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="inbox-card__footer">
-                                <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
-                                    <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
-                                    <input type="hidden" name="status" value="approved">
-                                    <input type="text" name="comment" placeholder="Detalle aprobación (opcional)">
-                                    <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
-                                </form>
-                                <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
-                                    <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
-                                    <input type="hidden" name="status" value="rejected">
-                                    <input type="text" name="comment" placeholder="Motivo rechazo" required>
-                                    <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
-                                </form>
-                            </div>
-
-                            <?php foreach (($week['rows'] ?? []) as $row): ?>
-                                <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
-                            <?php endforeach; ?>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-
-            <div class="history-panel" style="margin-top:16px;">
-                <span class="meta-label">Historial de decisiones semanales</span>
-                <?php if (empty($timesheetHistory)): ?>
-                    <p class="section-muted" style="margin:4px 0 0;">Aún no hay eventos registrados.</p>
-                <?php else: ?>
-                    <ul class="history-list">
-                        <?php foreach ($timesheetHistory as $event): ?>
-                            <?php
-                            $action = (string) ($event['action'] ?? 'updated');
-                            $labels = [
-                                'approved' => 'Aprobado',
-                                'rejected' => 'Rechazado',
-                                'reopened' => 'Reabierto',
-                                'deleted' => 'Eliminado',
-                            ];
-                            $statusClass = $action === 'approved' ? 'status-success' : ($action === 'rejected' ? 'status-danger' : ($action === 'reopened' ? 'status-info' : 'status-muted'));
-                            ?>
-                            <li>
-                                <span class="status-pill <?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars($labels[$action] ?? ucfirst($action)) ?></span>
-                                Semana <?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?> a <?= htmlspecialchars((string) ($event['week_end'] ?? '')) ?> ·
-                                por <?= htmlspecialchars((string) ($event['actor_name'] ?? 'Sistema')) ?> ·
-                                <?= htmlspecialchars((string) ($event['created_at'] ?? '')) ?>
-                                <?php if (!empty($event['action_comment'])): ?>
-                                    <div class="meta-line">Comentario: <?= htmlspecialchars((string) $event['action_comment']) ?></div>
-                                <?php endif; ?>
-                                <?php if (!empty($event['previous_status']) || !empty($event['resulting_status'])): ?>
-                                    <div class="meta-line">Cambio: <?= htmlspecialchars((string) ($event['previous_status'] ?? 'n/a')) ?> → <?= htmlspecialchars((string) ($event['resulting_status'] ?? 'n/a')) ?></div>
-                                <?php endif; ?>
-                                <?php if ($canManageTimesheetWorkflow): ?>
-                                    <form method="POST" action="<?= $basePath ?>/timesheets/reopen-week" class="inline-form" style="margin-top:6px;">
-                                        <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
-                                        <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
-                                        <input type="text" name="comment" placeholder="Comentario de reapertura (opcional)">
-                                        <button type="submit" class="action-btn small">↩️ Reabrir semana</button>
+                                <div class="inbox-card__footer">
+                                    <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
+                                    <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
+                                        <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
+                                        <input type="hidden" name="status" value="approved">
+                                        <input type="text" name="comment" placeholder="Detalle aprobación (opcional)">
+                                        <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
                                     </form>
-                                <?php endif; ?>
-                                <?php if ($canDeleteTimesheetWorkflowRecords): ?>
-                                    <form method="POST" action="<?= $basePath ?>/timesheets/delete-week-workflow" class="inline-form" style="margin-top:6px;">
-                                        <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
-                                        <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
-                                        <input type="text" name="comment" placeholder="Motivo eliminación (opcional)">
-                                        <button type="submit" class="action-btn small danger">🗑️ Eliminar registro</button>
+                                    <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
+                                        <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
+                                        <input type="hidden" name="status" value="rejected">
+                                        <input type="text" name="comment" placeholder="Motivo rechazo" required>
+                                        <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
                                     </form>
-                                <?php endif; ?>
-                            </li>
+                                </div>
+
+                                <?php foreach (($week['rows'] ?? []) as $row): ?>
+                                    <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
+                                <?php endforeach; ?>
+                            </article>
                         <?php endforeach; ?>
-                    </ul>
+                    </div>
                 <?php endif; ?>
-            </div>
+
+                <div class="history-panel" style="margin-top:16px;">
+                    <span class="meta-label">Historial de decisiones semanales</span>
+                    <?php if (empty($timesheetHistory)): ?>
+                        <p class="section-muted" style="margin:4px 0 0;">Aún no hay eventos registrados.</p>
+                    <?php else: ?>
+                        <ul class="history-list">
+                            <?php foreach ($timesheetHistory as $event): ?>
+                                <?php
+                                $action = (string) ($event['action'] ?? 'updated');
+                                $labels = [
+                                    'approved' => 'Aprobado',
+                                    'rejected' => 'Rechazado',
+                                    'reopened' => 'Reabierto',
+                                    'deleted' => 'Eliminado',
+                                ];
+                                $statusClass = $action === 'approved' ? 'status-success' : ($action === 'rejected' ? 'status-danger' : ($action === 'reopened' ? 'status-info' : 'status-muted'));
+                                ?>
+                                <li>
+                                    <span class="status-pill <?= htmlspecialchars($statusClass) ?>"><?= htmlspecialchars($labels[$action] ?? ucfirst($action)) ?></span>
+                                    Semana <?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?> a <?= htmlspecialchars((string) ($event['week_end'] ?? '')) ?> ·
+                                    por <?= htmlspecialchars((string) ($event['actor_name'] ?? 'Sistema')) ?> ·
+                                    <?= htmlspecialchars((string) ($event['created_at'] ?? '')) ?>
+                                    <?php if (!empty($event['action_comment'])): ?>
+                                        <div class="meta-line">Comentario: <?= htmlspecialchars((string) $event['action_comment']) ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($event['previous_status']) || !empty($event['resulting_status'])): ?>
+                                        <div class="meta-line">Cambio: <?= htmlspecialchars((string) ($event['previous_status'] ?? 'n/a')) ?> → <?= htmlspecialchars((string) ($event['resulting_status'] ?? 'n/a')) ?></div>
+                                    <?php endif; ?>
+                                    <?php if ($canManageTimesheetWorkflow): ?>
+                                        <form method="POST" action="<?= $basePath ?>/timesheets/reopen-week" class="inline-form" style="margin-top:6px;">
+                                            <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
+                                            <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
+                                            <input type="text" name="comment" placeholder="Comentario de reapertura (opcional)">
+                                            <button type="submit" class="action-btn small">↩️ Reabrir semana</button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <?php if ($canDeleteTimesheetWorkflowRecords): ?>
+                                        <form method="POST" action="<?= $basePath ?>/timesheets/delete-week-workflow" class="inline-form" style="margin-top:6px;">
+                                            <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($event['week_start'] ?? '')) ?>">
+                                            <input type="hidden" name="approver_user_id" value="<?= (int) ($event['target_approver_user_id'] ?? 0) ?>">
+                                            <input type="text" name="comment" placeholder="Motivo eliminación (opcional)">
+                                            <button type="submit" class="action-btn small danger">🗑️ Eliminar registro</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <?php
+                $periodStart = $talentApprovalPeriod['start'] ?? null;
+                $periodEnd = $talentApprovalPeriod['end'] ?? null;
+                $approvedMonthHours = (float) ($talentApprovalSummary['approved'] ?? 0);
+                $pendingMonthHours = (float) ($talentApprovalSummary['pending'] ?? 0);
+                $rejectedMonthHours = (float) ($talentApprovalSummary['rejected'] ?? 0);
+                ?>
+                <div class="inbox-card timesheet-card" data-queue-type="timesheets">
+                    <header class="inbox-card__header">
+                        <div class="inbox-card__heading">
+                            <span class="inbox-card__type">Resumen mensual</span>
+                            <strong class="inbox-card__title">
+                                <?= $periodStart instanceof DateTimeImmutable && $periodEnd instanceof DateTimeImmutable
+                                    ? htmlspecialchars($periodStart->format('d/m/Y') . ' - ' . $periodEnd->format('d/m/Y'))
+                                    : 'Mes actual' ?>
+                            </strong>
+                        </div>
+                    </header>
+                    <div class="inbox-card__body">
+                        <div class="inbox-card__summary">
+                            <div><span class="meta-label">Aprobadas</span><div><?= round($approvedMonthHours, 2) ?>h</div></div>
+                            <div><span class="meta-label">Pendientes</span><div><?= round($pendingMonthHours, 2) ?>h</div></div>
+                            <div><span class="meta-label">Rechazadas</span><div><?= round($rejectedMonthHours, 2) ?>h</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <?php if (empty($talentApprovalWeeks)): ?>
+                    <p class="section-muted empty">Aún no tienes semanas registradas en este periodo.</p>
+                <?php else: ?>
+                    <div class="timesheet-cards">
+                        <?php foreach ($talentApprovalWeeks as $week): ?>
+                            <?php
+                            $start = new DateTimeImmutable((string) ($week['week_start'] ?? 'now'));
+                            $stateWeight = (int) ($week['status_weight'] ?? 0);
+                            $state = $stateWeight >= 5 ? 'Aprobada' : ($stateWeight >= 4 ? 'Rechazada' : 'Pendiente');
+                            $stateClass = $stateWeight >= 5 ? 'status-success' : ($stateWeight >= 4 ? 'status-danger' : 'status-warning');
+                            ?>
+                            <article class="inbox-card timesheet-card" data-queue-type="timesheets">
+                                <header class="inbox-card__header">
+                                    <div class="inbox-card__heading">
+                                        <span class="inbox-card__type">Semana</span>
+                                        <strong class="inbox-card__title">Semana <?= htmlspecialchars($start->format('W')) ?></strong>
+                                        <div class="meta-line">Total: <?= round((float) ($week['total_hours'] ?? 0), 2) ?>h</div>
+                                    </div>
+                                    <div class="badge <?= htmlspecialchars($stateClass) ?>"><?= htmlspecialchars($state) ?></div>
+                                </header>
+                                <div class="inbox-card__footer">
+                                    <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars($start->format('o-\WW')) ?>">Ver semana</a>
+                                    <span class="meta-line">Aprobador: <?= htmlspecialchars((string) ($week['approver_name'] ?? 'Sin asignar')) ?></span>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
         </section>
 
         <?php if (!empty($dispatchQueue) && ($roleFlags['can_manage'] ?? false)): ?>

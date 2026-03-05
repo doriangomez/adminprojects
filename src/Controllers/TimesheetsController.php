@@ -60,10 +60,16 @@ class TimesheetsController extends Controller
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+        $canApprove = $this->auth->canApproveTimesheets();
 
         if (!$timesheetsEnabled) {
             http_response_code(404);
             exit('El módulo de timesheets no está habilitado.');
+        }
+
+        if (!$canApprove) {
+            header('Location: /approvals');
+            return;
         }
 
         $weekValue = trim((string) ($_GET['week'] ?? ''));

@@ -12,6 +12,7 @@ $projectsForTimesheet = is_array($projectsForTimesheet ?? null) ? $projectsForTi
 $tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet : [];
 $recentActivitySuggestions = is_array($recentActivitySuggestions ?? null) ? $recentActivitySuggestions : [];
 $activityTypes = is_array($activityTypes ?? null) ? $activityTypes : [];
+$canApprove = !empty($canApprove);
 $selectedWeekSummary = is_array($selectedWeekSummary ?? null) ? $selectedWeekSummary : [];
 $weekIndicators = is_array($weekIndicators ?? null) ? $weekIndicators : [];
 $weekStatus = (string) ($selectedWeekSummary['status'] ?? 'draft');
@@ -34,7 +35,9 @@ foreach ($gridDays as $day) {
     <div class="timesheet-tabs card">
         <a class="tab active" href="<?= $basePath ?>/timesheets?week=<?= urlencode($weekValue) ?>">Registro de horas</a>
         <a class="tab" href="<?= $basePath ?>/approvals">Aprobación de horas</a>
-        <a class="tab" href="<?= $basePath ?>/timesheets/analytics?week=<?= urlencode($weekValue) ?>">Analítica gerencial</a>
+        <?php if ($canApprove): ?>
+            <a class="tab" href="<?= $basePath ?>/timesheets/analytics?week=<?= urlencode($weekValue) ?>">Analítica gerencial</a>
+        <?php endif; ?>
     </div>
 
     <?php if (!$canReport): ?>
@@ -166,17 +169,11 @@ foreach ($gridDays as $day) {
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label>Fase (opcional)
-                            <input type="text" name="phase_name" maxlength="120">
-                        </label>
                         <label>Horas*
                             <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
                         </label>
                         <label>Descripción breve*
                             <input type="text" name="activity_description" maxlength="255" required>
-                        </label>
-                        <label>Comentario*
-                            <input type="text" name="comment" maxlength="255" required>
                         </label>
                         <label>Tipo actividad
                             <select name="activity_type">
@@ -186,20 +183,41 @@ foreach ($gridDays as $day) {
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="had_blocker" id="qa-blocker"> Bloqueo</label>
+                        <label>Fase (opcional)
+                            <input type="text" name="phase_name" maxlength="120">
+                        </label>
+                        <label class="toggle-field">
+                            <span class="toggle-caption">Bloqueo</span>
+                            <span class="switch">
+                                <input type="checkbox" name="had_blocker" id="qa-blocker" value="1">
+                                <span class="slider"></span>
+                            </span>
+                            <span class="toggle-state" data-toggle-state="qa-blocker">OFF</span>
+                        </label>
                         <label class="conditional hidden" id="qa-blocker-wrap">Descripción del bloqueo
                             <input type="text" name="blocker_description" maxlength="500">
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="generated_deliverable" id="qa-deliverable"> Entregable</label>
+                        <label class="toggle-field">
+                            <span class="toggle-caption">Entregable</span>
+                            <span class="switch">
+                                <input type="checkbox" name="generated_deliverable" id="qa-deliverable" value="1">
+                                <span class="slider"></span>
+                            </span>
+                            <span class="toggle-state" data-toggle-state="qa-deliverable">OFF</span>
+                        </label>
                         <label class="conditional hidden" id="qa-deliverable-wrap">Nombre / descripción de entregable
                             <input type="text" name="deliverable_note" maxlength="255">
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="had_significant_progress" id="qa-progress"> Avance significativo</label>
-                        <label class="conditional hidden" id="qa-progress-wrap">Nota de avance
-                            <input type="text" name="progress_note" maxlength="255">
+                        <label class="toggle-field">
+                            <span class="toggle-caption">Avance significativo</span>
+                            <span class="switch">
+                                <input type="checkbox" name="had_significant_progress" id="qa-progress" value="1">
+                                <span class="slider"></span>
+                            </span>
+                            <span class="toggle-state" data-toggle-state="qa-progress">OFF</span>
                         </label>
-                        <label>Comentario operativo (opcional)
-                            <textarea name="operational_comment" rows="2"></textarea>
+                        <label>Comentario operativo*
+                            <input type="text" name="comment" maxlength="255" required>
                         </label>
                         <div class="quick-actions">
                             <button type="submit" class="btn primary" data-submit-mode="save">Guardar</button>
@@ -276,7 +294,16 @@ foreach ($gridDays as $day) {
 .quick-add-box{position:sticky;top:150px;display:flex;flex-direction:column;gap:10px}
 #quick-add-form{display:flex;flex-direction:column;gap:8px}
 #quick-add-form label{display:flex;flex-direction:column;gap:4px;font-size:13px}
-.toggle-line{flex-direction:row !important;align-items:center;gap:8px !important}
+.toggle-field{display:grid !important;grid-template-columns:1fr auto auto;align-items:center;gap:10px !important}
+.toggle-caption{font-size:13px;color:var(--text-primary)}
+.toggle-state{font-size:11px;font-weight:600;color:var(--text-secondary);min-width:28px;text-align:right}
+.toggle-state.is-on{color:var(--primary)}
+.switch{position:relative;display:inline-block;width:44px;height:24px}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#cbd5e1;border-radius:999px;transition:.2s}
+.switch .slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(15,23,42,.25)}
+.switch input:checked + .slider{background:#7c3aed}
+.switch input:checked + .slider:before{transform:translateX(20px)}
 .conditional.hidden{display:none !important}
 .quick-actions{display:grid;grid-template-columns:1fr;gap:6px}
 .quick-lists{display:flex;flex-direction:column;gap:10px}
@@ -299,7 +326,6 @@ foreach ($gridDays as $day) {
   const deliverableToggle = document.getElementById('qa-deliverable');
   const deliverableWrap = document.getElementById('qa-deliverable-wrap');
   const progressToggle = document.getElementById('qa-progress');
-  const progressWrap = document.getElementById('qa-progress-wrap');
   const templatesKey = 'timesheet.quick.templates.v1';
   let lastSubmitMode = 'save';
 
@@ -341,18 +367,31 @@ foreach ($gridDays as $day) {
     }
   };
 
-  const toggleConditional = (toggle, wrap) => {
+  const toggleConditional = (toggle, wrap, requiredWhenOn = false) => {
     wrap?.classList.toggle('hidden', !toggle.checked);
+    const input = wrap?.querySelector('input');
+    if (input) {
+      input.required = requiredWhenOn && Boolean(toggle.checked);
+    }
     if (!toggle.checked) {
-      const input = wrap?.querySelector('input');
       if (input) input.value = '';
     }
   };
 
+  const syncToggleLabels = () => {
+    document.querySelectorAll('[data-toggle-state]').forEach((state) => {
+      const inputId = state.getAttribute('data-toggle-state');
+      const input = inputId ? document.getElementById(inputId) : null;
+      const isOn = Boolean(input?.checked);
+      state.textContent = isOn ? 'ON' : 'OFF';
+      state.classList.toggle('is-on', isOn);
+    });
+  };
+
   const syncToggles = () => {
-    toggleConditional(blockerToggle, blockerWrap);
+    toggleConditional(blockerToggle, blockerWrap, true);
     toggleConditional(deliverableToggle, deliverableWrap);
-    toggleConditional(progressToggle, progressWrap);
+    syncToggleLabels();
   };
 
   projectInput?.addEventListener('change', filterTasksByProject);
@@ -394,7 +433,6 @@ foreach ($gridDays as $day) {
     form.querySelector('[name="blocker_description"]').value = data.blocker_description || '';
     form.querySelector('[name="generated_deliverable"]').checked = Boolean(Number(data.generated_deliverable || 0));
     form.querySelector('[name="had_significant_progress"]').checked = Boolean(Number(data.had_significant_progress || 0));
-    form.querySelector('[name="operational_comment"]').value = data.operational_comment || '';
     syncToggles();
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -403,12 +441,13 @@ foreach ($gridDays as $day) {
     event.preventDefault();
     const formData = new FormData(form);
     const raw = Object.fromEntries(formData.entries());
+    raw.had_blocker = blockerToggle?.checked ? '1' : '0';
+    raw.generated_deliverable = deliverableToggle?.checked ? '1' : '0';
+    raw.had_significant_progress = progressToggle?.checked ? '1' : '0';
     const activityId = Number(raw.activity_id || 0);
     const deliverableNote = String(raw.deliverable_note || '').trim();
-    const progressNote = String(raw.progress_note || '').trim();
-    const operationalParts = [String(raw.operational_comment || '').trim()].filter(Boolean);
+    const operationalParts = [String(raw.comment || '').trim()].filter(Boolean);
     if (deliverableNote !== '') operationalParts.push(`Entregable: ${deliverableNote}`);
-    if (progressNote !== '') operationalParts.push(`Avance: ${progressNote}`);
     raw.operational_comment = operationalParts.join(' | ');
 
     const endpoint = activityId > 0 ? '/timesheets/activities/update' : '/timesheets/activities/create';
