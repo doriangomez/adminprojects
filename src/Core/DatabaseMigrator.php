@@ -811,6 +811,35 @@ class DatabaseMigrator
     }
 
 
+    public function ensureTimesheetTemplatesTable(): void
+    {
+        if ($this->db->tableExists('timesheet_templates')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'CREATE TABLE timesheet_templates (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    template_name VARCHAR(120) NOT NULL,
+                    project_id INT NULL,
+                    task_id INT NULL,
+                    activity_type VARCHAR(60) NULL,
+                    activity_description VARCHAR(255) NULL,
+                    phase_name VARCHAR(120) NULL,
+                    usage_count INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_tt_user (user_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+            );
+        } catch (\PDOException $e) {
+            error_log('Error creando tabla timesheet_templates: ' . $e->getMessage());
+        }
+    }
+
     public function ensureProjectStoppersModule(): void
     {
         if (!$this->db->tableExists('projects')) {

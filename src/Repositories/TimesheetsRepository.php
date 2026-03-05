@@ -2237,6 +2237,180 @@ class TimesheetsRepository
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
     }
 
+    public function duplicateTimesheetEntry(int $userId, int $entryId, string $targetDate): int
+    {
+        $entry = $this->db->fetchOne(
+            'SELECT * FROM timesheets WHERE id = :id AND user_id = :user LIMIT 1',
+            [':id' => $entryId, ':user' => $userId]
+        );
+
+        if (!$entry) {
+            throw new InvalidArgumentException('No se encontró la entrada de timesheet.');
+        }
+
+        if ((string) ($entry['status'] ?? '') !== 'draft') {
+            throw new InvalidArgumentException('Solo se pueden duplicar entradas en borrador.');
+        }
+
+        $payload = [
+            'task_id' => (int) ($entry['task_id'] ?? 0),
+            'project_id' => (int) ($entry['project_id'] ?? 0),
+            'talent_id' => (int) ($entry['talent_id'] ?? 0),
+            'user_id' => $userId,
+            'assignment_id' => $entry['assignment_id'] ?? null,
+            'approver_user_id' => $entry['approver_user_id'] ?? null,
+            'date' => $targetDate,
+            'hours' => (float) ($entry['hours'] ?? 0),
+            'status' => 'draft',
+            'comment' => (string) ($entry['comment'] ?? ''),
+            'approval_comment' => null,
+            'billable' => (int) ($entry['billable'] ?? 0),
+            'approved_by' => null,
+            'approved_at' => null,
+            'phase_name' => $entry['phase_name'] ?? null,
+            'subphase_name' => $entry['subphase_name'] ?? null,
+            'activity_type' => $entry['activity_type'] ?? null,
+            'activity_description' => $entry['activity_description'] ?? null,
+            'had_blocker' => (int) ($entry['had_blocker'] ?? 0),
+            'blocker_description' => $entry['blocker_description'] ?? null,
+            'had_significant_progress' => (int) ($entry['had_significant_progress'] ?? 0),
+            'generated_deliverable' => (int) ($entry['generated_deliverable'] ?? 0),
+            'operational_comment' => $entry['operational_comment'] ?? null,
+            'linked_stopper_id' => null,
+        ];
+
+        return $this->createTimesheet($payload);
+    }
+
+    public function deleteTimesheetEntry(int $userId, int $entryId): bool
+    {
+        $entry = $this->db->fetchOne(
+            'SELECT id, status, task_id FROM timesheets WHERE id = :id AND user_id = :user LIMIT 1',
+            [':id' => $entryId, ':user' => $userId]
+        );
+
+        if (!$entry) {
+            throw new InvalidArgumentException('No se encontró la entrada de timesheet.');
+        }
+
+        if ((string) ($entry['status'] ?? '') !== 'draft') {
+            throw new InvalidArgumentException('Solo se pueden eliminar entradas en borrador.');
+        }
+
+        $this->db->execute('DELETE FROM timesheets WHERE id = :id', [':id' => $entryId]);
+        $this->refreshTaskActualHours((int) ($entry['task_id'] ?? 0));
+
+        return true;
+    }
+
+    public function moveTimesheetEntry(int $userId, int $entryId, string $targetDate): bool
+    {
+        $entry = $this->db->fetchOne(
+            'SELECT id, status, date FROM timesheets WHERE id = :id AND user_id = :user LIMIT 1',
+            [':id' => $entryId, ':user' => $userId]
+        );
+
+        if (!$entry) {
+            throw new InvalidArgumentException('No se encontró la entrada de timesheet.');
+        }
+
+        if ((string) ($entry['status'] ?? '') !== 'draft') {
+            throw new InvalidArgumentException('Solo se pueden mover entradas en borrador.');
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets SET date = :date, updated_at = NOW() WHERE id = :id',
+            [':date' => $targetDate, ':id' => $entryId]
+        );
+
+        return true;
+    }
+
+    public function duplicateDayEntries(int $userId, string $sourceDate, string $targetDate): int
+    {
+        $entries = $this->db->fetchAll(
+            'SELECT * FROM timesheets WHERE user_id = :user AND date = :date AND status = :status',
+            [':user' => $userId, ':date' => $sourceDate, ':status' => 'draft']
+        );
+
+        if (empty($entries)) {
+            throw new InvalidArgumentException('No hay entradas en borrador para duplicar en el día seleccionado.');
+        }
+
+        $count = 0;
+        foreach ($entries as $entry) {
+            $payload = [
+                'task_id' => (int) ($entry['task_id'] ?? 0),
+                'project_id' => (int) ($entry['project_id'] ?? 0),
+                'talent_id' => (int) ($entry['talent_id'] ?? 0),
+                'user_id' => $userId,
+                'assignment_id' => $entry['assignment_id'] ?? null,
+                'approver_user_id' => $entry['approver_user_id'] ?? null,
+                'date' => $targetDate,
+                'hours' => (float) ($entry['hours'] ?? 0),
+                'status' => 'draft',
+                'comment' => (string) ($entry['comment'] ?? ''),
+                'approval_comment' => null,
+                'billable' => (int) ($entry['billable'] ?? 0),
+                'approved_by' => null,
+                'approved_at' => null,
+                'phase_name' => $entry['phase_name'] ?? null,
+                'subphase_name' => $entry['subphase_name'] ?? null,
+                'activity_type' => $entry['activity_type'] ?? null,
+                'activity_description' => $entry['activity_description'] ?? null,
+                'had_blocker' => 0,
+                'blocker_description' => null,
+                'had_significant_progress' => 0,
+                'generated_deliverable' => 0,
+                'operational_comment' => $entry['operational_comment'] ?? null,
+                'linked_stopper_id' => null,
+            ];
+
+            $this->createTimesheet($payload);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    public function userTemplates(int $userId): array
+    {
+        if (!$this->db->tableExists('timesheet_templates')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT tt.*, p.name AS project_name
+             FROM timesheet_templates tt
+             LEFT JOIN projects p ON p.id = tt.project_id
+             WHERE tt.user_id = :user
+             ORDER BY tt.usage_count DESC, tt.updated_at DESC
+             LIMIT 10',
+            [':user' => $userId]
+        );
+    }
+
+    public function saveTemplate(int $userId, array $data): int
+    {
+        if (!$this->db->tableExists('timesheet_templates')) {
+            return 0;
+        }
+
+        return (int) $this->db->insert(
+            'INSERT INTO timesheet_templates (user_id, template_name, project_id, task_id, activity_type, activity_description, phase_name, created_at, updated_at)
+             VALUES (:user, :name, :project, :task, :type, :desc, :phase, NOW(), NOW())',
+            [
+                ':user' => $userId,
+                ':name' => trim((string) ($data['template_name'] ?? '')),
+                ':project' => (int) ($data['project_id'] ?? 0),
+                ':task' => (int) ($data['task_id'] ?? 0),
+                ':type' => trim((string) ($data['activity_type'] ?? '')),
+                ':desc' => trim((string) ($data['activity_description'] ?? '')),
+                ':phase' => trim((string) ($data['phase_name'] ?? '')),
+            ]
+        );
+    }
+
     private function activeProjectCondition(string $alias): string
     {
         $conditions = [];

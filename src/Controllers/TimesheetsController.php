@@ -23,6 +23,104 @@ class TimesheetsController extends Controller
         $weekEnd = $weekStart->modify('+6 days');
         $weekValue = $weekStart->format('o-\\WW');
 
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
+        }
+
+        $periodStart = $weekStart->modify('first day of this month')->setTime(0, 0);
+        $periodEnd = $weekStart->modify('last day of this month')->setTime(0, 0);
+        $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd);
+        $userTemplates = $repo->userTemplates($userId);
+
+        $this->render('timesheets/index', [
+            'title' => 'Timesheet',
+            'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
+            'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
+            'recentActivitySuggestions' => $canReport ? $repo->recentActivitySuggestions($userId, 8) : [],
+            'activityTypes' => $repo->activityTypesCatalog(),
+            'weeklyGrid' => $canReport ? $repo->weeklyGridForUser($userId, $weekStart) : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0],
+            'selectedWeekSummary' => $repo->weekSummaryForUser($userId, $weekStart),
+            'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
+            'projectBreakdown' => $projectBreakdown,
+            'userTemplates' => $userTemplates,
+            'canApprove' => $canApprove,
+            'canReport' => $canReport,
+            'canManageWorkflow' => $canManageWorkflow,
+            'canDeleteWeek' => $canDeleteWeek,
+            'canManageAdvanced' => $canManageAdvanced,
+            'timesheetsEnabled' => $timesheetsEnabled,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'weekValue' => $weekValue,
+        ]);
+    }
+
+    public function approval(): void
+    {
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $canApprove = $this->auth->canApproveTimesheets();
+        $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
+        $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
+        $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
+        $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+        $weekValue = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
+        $weekEnd = $weekStart->modify('+6 days');
+        $weekValue = $weekStart->format('o-\\WW');
+
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
+        }
+
+        if (!$canApprove && !$canManageAdvanced) {
+            $this->denyAccess('No tienes permisos para acceder a la aprobación de timesheets.');
+        }
+
+        $talentFilter = (int) ($_GET['talent_id'] ?? 0);
+        $talentOptions = $this->db->fetchAll('SELECT id, name FROM talents ORDER BY name ASC');
+        $managedWeekEntries = $repo->managedWeekEntries($weekStart, $talentFilter > 0 ? $talentFilter : null);
+        $pendingApprovalsByWeek = $repo->pendingApprovalsByWeek($user);
+        $weekApprovalHistory = $repo->weekApprovalHistoryByApprover($user);
+
+        $this->render('timesheets/approval', [
+            'title' => 'Timesheet – Aprobación',
+            'canApprove' => $canApprove,
+            'canManageWorkflow' => $canManageWorkflow,
+            'canDeleteWeek' => $canDeleteWeek,
+            'canManageAdvanced' => $canManageAdvanced,
+            'timesheetsEnabled' => $timesheetsEnabled,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'weekValue' => $weekValue,
+            'talentFilter' => $talentFilter,
+            'talentOptions' => $talentOptions,
+            'managedWeekEntries' => $managedWeekEntries,
+            'pendingApprovalsByWeek' => $pendingApprovalsByWeek,
+            'weekApprovalHistory' => $weekApprovalHistory,
+        ]);
+    }
+
+    public function analytics(): void
+    {
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $canApprove = $this->auth->canApproveTimesheets();
+        $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+        $weekValue = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
+        $weekEnd = $weekStart->modify('+6 days');
+        $weekValue = $weekStart->format('o-\\WW');
+
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
+        }
+
         $periodType = trim((string) ($_GET['period'] ?? 'month'));
         if (!in_array($periodType, ['month', 'custom'], true)) {
             $periodType = 'month';
@@ -43,11 +141,6 @@ class TimesheetsController extends Controller
             $talentSort = 'load_desc';
         }
 
-        if (!$timesheetsEnabled) {
-            http_response_code(404);
-            exit('El módulo de timesheets no está habilitado.');
-        }
-
         $executiveSummary = $repo->executiveSummary($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
         $approvedWeeks = $repo->approvedWeeksByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
         $talentBreakdown = $repo->talentBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $talentSort);
@@ -55,29 +148,12 @@ class TimesheetsController extends Controller
         $activityTypeBreakdown = $repo->activityTypeBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
         $phaseBreakdown = $repo->phaseBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
         $projectsForFilter = $repo->projectsCatalog();
-        $talentFilter = (int) ($_GET['talent_id'] ?? 0);
-        $managedWeekEntries = ($canApprove || $canManageAdvanced) ? $repo->managedWeekEntries($weekStart, $talentFilter > 0 ? $talentFilter : null) : [];
-        $talentOptions = $this->db->fetchAll('SELECT id, name FROM talents ORDER BY name ASC');
+        $monthlySummary = $repo->monthlySummaryForUser($userId, $weekStart);
+        $weeksHistory = $repo->weeksHistoryForUser($userId);
 
-        $this->render('timesheets/index', [
-            'title' => 'Timesheets',
-            'rows' => $repo->weekly($user),
-            'kpis' => $repo->kpis($user),
-            'weeksHistory' => $repo->weeksHistoryForUser($userId),
-            'selectedWeekSummary' => $repo->weekSummaryForUser($userId, $weekStart),
-            'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
-            'monthlySummary' => $repo->monthlySummaryForUser($userId, $weekStart),
-            'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
-            'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
-            'recentActivitySuggestions' => $canReport ? $repo->recentActivitySuggestions($userId, 8) : [],
-            'activityTypes' => $repo->activityTypesCatalog(),
-            'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
-            'weeklyGrid' => $canReport ? $repo->weeklyGridForUser($userId, $weekStart) : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0],
+        $this->render('timesheets/analytics', [
+            'title' => 'Timesheet – Analítica',
             'canApprove' => $canApprove,
-            'canReport' => $canReport,
-            'canManageWorkflow' => $canManageWorkflow,
-            'canDeleteWeek' => $canDeleteWeek,
-            'canManageAdvanced' => $canManageAdvanced,
             'timesheetsEnabled' => $timesheetsEnabled,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
@@ -94,9 +170,8 @@ class TimesheetsController extends Controller
             'activityTypeBreakdown' => $activityTypeBreakdown,
             'phaseBreakdown' => $phaseBreakdown,
             'talentSort' => $talentSort,
-            'managedWeekEntries' => $managedWeekEntries,
-            'talentOptions' => $talentOptions,
-            'talentFilter' => $talentFilter,
+            'monthlySummary' => $monthlySummary,
+            'weeksHistory' => $weeksHistory,
         ]);
     }
 
@@ -256,7 +331,6 @@ class TimesheetsController extends Controller
 
     public function create(): void
     {
-        // Mantener compatibilidad con formulario anterior.
         $this->saveCell();
     }
 
@@ -290,22 +364,168 @@ class TimesheetsController extends Controller
 
         if ($projectId <= 0 || $date === '' || $hours <= 0) {
             http_response_code(400);
-            exit('Proyecto, fecha y horas son requeridos para registrar actividad.');
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'Proyecto, fecha y horas son requeridos para registrar actividad.']);
+            return;
         }
 
         try {
-            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, true);
+            $result = $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, true);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
-            $weekDate = $this->parseDateValue($date);
-            $weekValue = $weekDate ? $weekDate->modify('monday this week')->format('o-\\WW') : (new DateTimeImmutable('monday this week'))->format('o-\\WW');
-            header('Location: /timesheets?week=' . urlencode($weekValue));
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'id' => $result['id'] ?? null]);
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
-            exit($e->getMessage());
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
         } catch (\Throwable $e) {
             error_log('Error guardando actividad de timesheet: ' . $e->getMessage());
             http_response_code(500);
-            exit('No se pudo registrar la actividad.');
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo registrar la actividad.']);
+        }
+    }
+
+    public function duplicateEntry(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $entryId = (int) ($_POST['entry_id'] ?? 0);
+        $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        if ($entryId <= 0 || $targetDate === '') {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'ID de entrada y fecha destino son requeridos.']);
+            return;
+        }
+
+        try {
+            $newId = $repo->duplicateTimesheetEntry($userId, $entryId, $targetDate);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'id' => $newId]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error duplicando entrada de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo duplicar la entrada.']);
+        }
+    }
+
+    public function deleteEntry(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $entryId = (int) ($_POST['entry_id'] ?? 0);
+
+        if ($entryId <= 0) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'ID de entrada requerido.']);
+            return;
+        }
+
+        try {
+            $repo->deleteTimesheetEntry($userId, $entryId);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error eliminando entrada de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo eliminar la entrada.']);
+        }
+    }
+
+    public function moveEntry(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $entryId = (int) ($_POST['entry_id'] ?? 0);
+        $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        if ($entryId <= 0 || $targetDate === '') {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'ID de entrada y fecha destino son requeridos.']);
+            return;
+        }
+
+        try {
+            $repo->moveTimesheetEntry($userId, $entryId, $targetDate);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error moviendo entrada de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo mover la entrada.']);
+        }
+    }
+
+    public function duplicateDay(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $sourceDate = trim((string) ($_POST['source_date'] ?? ''));
+        $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        if ($sourceDate === '' || $targetDate === '') {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'Fecha origen y destino son requeridas.']);
+            return;
+        }
+
+        try {
+            $count = $repo->duplicateDayEntries($userId, $sourceDate, $targetDate);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'duplicated' => $count]);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error duplicando día de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo duplicar el día.']);
         }
     }
 
@@ -334,7 +554,7 @@ class TimesheetsController extends Controller
 
         try {
             $repo->updateWeekApprovalStatus($userId, $weekStart, $status, $comment !== '' ? $comment : null);
-            header('Location: /approvals');
+            header('Location: /timesheets/approval');
         } catch (\Throwable $e) {
             error_log('Error al aprobar semana de timesheets: ' . $e->getMessage());
             http_response_code(500);
@@ -398,7 +618,7 @@ class TimesheetsController extends Controller
                 http_response_code(400);
                 exit('Acción administrativa inválida.');
             }
-            header('Location: /timesheets?week=' . urlencode((string) ($_POST['week'] ?? '')));
+            header('Location: /timesheets/approval?week=' . urlencode((string) ($_POST['week'] ?? '')));
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -429,7 +649,7 @@ class TimesheetsController extends Controller
                 http_response_code(400);
                 exit('No hay semanas aprobadas o rechazadas para reabrir.');
             }
-            header('Location: /approvals');
+            header('Location: /timesheets/approval');
         } catch (\Throwable $e) {
             error_log('Error al reabrir semana de timesheets: ' . $e->getMessage());
             http_response_code(500);
@@ -453,7 +673,7 @@ class TimesheetsController extends Controller
 
         try {
             $repo->softDeleteWeekWorkflow($userId, $weekStart, $approverUserId, $comment !== '' ? $comment : null);
-            header('Location: /approvals');
+            header('Location: /timesheets/approval');
         } catch (\Throwable $e) {
             error_log('Error al eliminar workflow de semana de timesheets: ' . $e->getMessage());
             http_response_code(500);
@@ -541,7 +761,7 @@ class TimesheetsController extends Controller
                 error_log('Error al notificar aprobación de timesheet: ' . $e->getMessage());
             }
 
-            header('Location: /timesheets');
+            header('Location: /timesheets/approval');
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());

@@ -33,6 +33,7 @@ class App
         $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
+        $migrator->ensureTimesheetTemplatesTable();
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();
@@ -518,6 +519,14 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
 
         if (str_starts_with($path, '/timesheets')) {
             $controller = new TimesheetsController($this->db, $this->auth);
+            if ($path === '/timesheets/approval' && $method === 'GET') {
+                $controller->approval();
+                return;
+            }
+            if ($path === '/timesheets/analytics' && $method === 'GET') {
+                $controller->analytics();
+                return;
+            }
             if ($path === '/timesheets/cell' && $method === 'POST') {
                 $controller->saveCell();
                 return;
@@ -560,6 +569,22 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
             if ($path === '/timesheets/activity' && $method === 'POST') {
                 $controller->createActivity();
+                return;
+            }
+            if ($path === '/timesheets/duplicate-entry' && $method === 'POST') {
+                $controller->duplicateEntry();
+                return;
+            }
+            if ($path === '/timesheets/delete-entry' && $method === 'POST') {
+                $controller->deleteEntry();
+                return;
+            }
+            if ($path === '/timesheets/move-entry' && $method === 'POST') {
+                $controller->moveEntry();
+                return;
+            }
+            if ($path === '/timesheets/duplicate-day' && $method === 'POST') {
+                $controller->duplicateDay();
                 return;
             }
             if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {
