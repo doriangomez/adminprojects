@@ -467,6 +467,88 @@ class TalentCapacityRepository
         ];
     }
 
+    public function simulationData(array $user): array
+    {
+        [$visibilitySql, $visibilityParams] = $this->projectVisibility($user);
+
+        $talents = $this->db->fetchAll(
+            'SELECT t.id, t.name, t.role, t.capacidad_horaria, t.weekly_capacity, t.availability
+             FROM talents t
+             WHERE (t.active = 1 OR t.active IS NULL)
+             ORDER BY t.name ASC'
+        );
+
+        if (empty($talents)) {
+            return ['talents' => [], 'filter_options' => $this->filterOptions($visibilitySql, $visibilityParams)];
+        }
+
+        $talentIds = array_map(static fn (array $t): int => (int) $t['id'], $talents);
+
+        $now = new \DateTimeImmutable();
+        $rangeStart = $now->format('Y-m-01');
+        $rangeEnd = $now->modify('+2 months')->format('Y-m-t');
+
+        $params = array_merge($visibilityParams, [':from' => $rangeStart, ':to' => $rangeEnd]);
+
+        $assignmentRows = $this->db->fetchAll(
+            'SELECT a.talent_id, a.start_date, a.end_date, a.planned_hours, a.weekly_hours
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             LEFT JOIN clients c ON c.id = p.client_id
+             WHERE a.talent_id IN (' . implode(',', array_map('intval', $talentIds)) . ')
+               AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))
+               AND (a.start_date IS NULL OR a.start_date <= :to)
+               AND (a.end_date IS NULL OR a.end_date >= :from)
+               ' . $visibilitySql,
+            $params
+        );
+
+        $talentAssignedHours = [];
+        foreach ($assignmentRows as $row) {
+            $talentId = (int) ($row['talent_id'] ?? 0);
+            $start = max($rangeStart, (string) ($row['start_date'] ?: $rangeStart));
+            $end = min($rangeEnd, (string) ($row['end_date'] ?: $rangeEnd));
+            if ($start > $end) {
+                continue;
+            }
+            $workingDays = $this->businessDays($start, $end);
+            if ($workingDays <= 0) {
+                continue;
+            }
+            $weeklyHours = (float) ($row['weekly_hours'] ?? 0);
+            $plannedHours = (float) ($row['planned_hours'] ?? 0);
+            $totalHours = $weeklyHours > 0 ? ($weeklyHours / 5) * $workingDays : $plannedHours;
+            $talentAssignedHours[$talentId] = ($talentAssignedHours[$talentId] ?? 0.0) + $totalHours;
+        }
+
+        $totalRangeDays = $this->businessDays($rangeStart, $rangeEnd);
+
+        $result = [];
+        foreach ($talents as $talent) {
+            $talentId = (int) $talent['id'];
+            $weeklyCapacity = $this->weeklyCapacity($talent);
+            $periodCapacity = ($weeklyCapacity / 5) * $totalRangeDays;
+            $assignedHours = round($talentAssignedHours[$talentId] ?? 0, 1);
+            $utilization = $periodCapacity > 0 ? round(($assignedHours / $periodCapacity) * 100, 1) : 0.0;
+
+            $result[] = [
+                'id' => $talentId,
+                'name' => (string) ($talent['name'] ?? ''),
+                'role' => (string) ($talent['role'] ?? ''),
+                'weekly_capacity' => round($weeklyCapacity, 1),
+                'period_capacity' => round($periodCapacity, 1),
+                'assigned_hours' => $assignedHours,
+                'utilization' => $utilization,
+            ];
+        }
+
+        return [
+            'talents' => $result,
+            'range' => ['start' => $rangeStart, 'end' => $rangeEnd],
+            'filter_options' => $this->filterOptions($visibilitySql, $visibilityParams),
+        ];
+    }
+
     private function emptyAnalytics(): array
     {
         return [

@@ -1,5 +1,6 @@
 <?php
 $basePath = $basePath ?? '';
+$activeTab = $activeTab ?? 'capacity';
 $filters = is_array($filters ?? null) ? $filters : [];
 $dashboard = is_array($dashboard ?? null) ? $dashboard : [];
 $talents = is_array($dashboard['talents'] ?? null) ? $dashboard['talents'] : [];
@@ -157,6 +158,8 @@ foreach ($availableTalents as $item) {
     $maxAvailable = max($maxAvailable, (float) ($item['available'] ?? 0));
 }
 ?>
+
+<?php include __DIR__ . '/_tabs.php'; ?>
 
 <section class="capacity-shell">
     <header class="capacity-header">

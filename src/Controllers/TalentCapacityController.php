@@ -29,6 +29,23 @@ class TalentCapacityController extends Controller
             'title' => 'Gestión Visual de Carga y Capacidad del Talento',
             'filters' => $filters,
             'dashboard' => $dashboard,
+            'activeTab' => 'capacity',
+        ]);
+    }
+
+    public function simulation(): void
+    {
+        $this->requirePermission('talents.view');
+
+        $user = $this->auth->user() ?? [];
+        $repo = new TalentCapacityRepository($this->db);
+        $simData = $repo->simulationData($user);
+
+        $this->render('talent_capacity/simulation', [
+            'title' => 'Simulación de Capacidad',
+            'simTalents' => $simData['talents'] ?? [],
+            'simRange' => $simData['range'] ?? [],
+            'activeTab' => 'simulation',
         ]);
     }
 }
