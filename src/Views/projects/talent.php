@@ -3,6 +3,7 @@ $basePath = $basePath ?? '';
 $project = $project ?? [];
 $assignments = is_array($assignments ?? null) ? $assignments : [];
 $talents = is_array($talents ?? null) ? $talents : [];
+$talentAllocationMap = $talentAllocationMap ?? [];
 $assignmentLabels = [
     'active' => 'Activo',
     'paused' => 'Inactivo',
@@ -55,14 +56,46 @@ $assignmentBadge = static function (string $status): string {
                     <span>Acciones</span>
                 </div>
                 <?php foreach ($assignments as $assignment): ?>
-                    <div class="talent-row">
+                    <?php
+                    $assignmentStatus = (string) ($assignment['assignment_status'] ?? 'active');
+                    $talentId = (int) ($assignment['talent_id'] ?? 0);
+                    $allocation = $talentAllocationMap[$talentId] ?? ['total_percent' => 0, 'assignments' => []];
+                    $capacidadSemana = (float) ($assignment['capacidad_horaria'] ?? 40);
+                    if ($capacidadSemana <= 0) {
+                        $capacidadSemana = 40.0;
+                    }
+                    $canEditDedication = $assignmentStatus === 'active';
+                    ?>
+                    <div class="talent-row" data-assignment-id="<?= (int) ($assignment['id'] ?? 0) ?>">
                         <div>
                             <strong><?= htmlspecialchars($assignment['talent_name'] ?? 'Talento') ?></strong>
                             <small class="section-muted"><?= htmlspecialchars($assignment['start_date'] ?? 'N/A') ?> → <?= htmlspecialchars($assignment['end_date'] ?? 'N/A') ?></small>
+                            <?php if (!empty($allocation['assignments'])): ?>
+                                <div class="talent-capacity-summary">
+                                    <?php foreach ($allocation['assignments'] as $a): ?>
+                                        <small><?= htmlspecialchars((string) round($a['percent'], 0)) ?>% <?= htmlspecialchars($a['project_name']) ?></small>
+                                    <?php endforeach; ?>
+                                    <small class="capacity-divider"><?= htmlspecialchars((string) round($allocation['total_percent'], 0)) ?>% ocupado · <?= htmlspecialchars((string) max(0, round(100 - $allocation['total_percent'], 0))) ?>% disponible</small>
+                                </div>
+                            <?php endif; ?>
                         </div>
                         <span><?= htmlspecialchars($assignment['role'] ?? '') ?></span>
-                        <span><?= htmlspecialchars((string) ($assignment['allocation_percent'] ?? 0)) ?>% · <?= htmlspecialchars((string) ($assignment['weekly_hours'] ?? 0)) ?>h/sem</span>
-                        <?php $assignmentStatus = (string) ($assignment['assignment_status'] ?? 'active'); ?>
+                        <div class="dedication-cell">
+                            <?php if ($canEditDedication): ?>
+                                <div class="dedication-slider-wrap" data-capacidad="<?= htmlspecialchars((string) $capacidadSemana) ?>">
+                                    <input type="range" class="dedication-slider" min="0" max="100" step="1"
+                                           value="<?= (int) round((float) ($assignment['allocation_percent'] ?? 0)) ?>"
+                                           data-assignment-id="<?= (int) ($assignment['id'] ?? 0) ?>">
+                                    <div class="dedication-display">
+                                        <span class="dedication-percent"><?= (int) round((float) ($assignment['allocation_percent'] ?? 0)) ?>%</span>
+                                        <span class="dedication-hours"><?= number_format((float) ($assignment['weekly_hours'] ?? 0), 1) ?>h/sem</span>
+                                    </div>
+                                    <button type="button" class="dedication-save-btn action-btn primary small" style="display:none">Guardar</button>
+                                </div>
+                            <?php else: ?>
+                                <span><?= htmlspecialchars((string) round((float) ($assignment['allocation_percent'] ?? 0))) ?>% · <?= htmlspecialchars((string) ($assignment['weekly_hours'] ?? 0)) ?>h/sem</span>
+                            <?php endif; ?>
+                        </div>
                         <span class="badge <?= $assignmentBadge($assignmentStatus) ?>">
                             <?= htmlspecialchars($assignmentLabels[$assignmentStatus] ?? ucfirst($assignmentStatus)) ?>
                         </span>
@@ -188,8 +221,118 @@ $assignmentBadge = static function (string $status): string {
     .action-btn.warning { background: color-mix(in srgb, var(--warning) 16%, var(--surface) 84%); color: var(--text-primary); border-color: color-mix(in srgb, var(--warning) 35%, var(--border) 65%); }
     .action-btn.danger { background: color-mix(in srgb, var(--danger) 18%, var(--surface) 82%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .talent-capacity-summary { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+    .talent-capacity-summary small { font-size:11px; color: var(--text-secondary); }
+    .capacity-divider { border-top:1px dashed var(--border); padding-top:4px; margin-top:2px; font-weight:600; }
+    .dedication-cell { display:flex; flex-direction:column; gap:4px; min-width:140px; }
+    .dedication-slider-wrap { display:flex; flex-direction:column; gap:6px; }
+    .dedication-slider { width:100%; min-width:100px; height:8px; -webkit-appearance:none; appearance:none; background: color-mix(in srgb, var(--text-secondary) 25%, var(--background)); border-radius:4px; }
+    .dedication-slider::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background: var(--primary); cursor:pointer; border:2px solid var(--surface); box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+    .dedication-slider::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background: var(--primary); cursor:pointer; border:2px solid var(--surface); }
+    .dedication-display { display:flex; flex-direction:column; gap:0; font-size:13px; }
+    .dedication-percent { font-weight:700; }
+    .dedication-hours { font-size:11px; color: var(--text-secondary); }
+    .dedication-save-btn { align-self:flex-start; }
+    .timesheet-exceeds-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; }
+    .timesheet-exceeds-modal__content { background: var(--surface); border-radius:16px; padding:24px; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+    .timesheet-exceeds-modal__title { font-size:18px; font-weight:700; margin:0 0 12px; }
+    .timesheet-exceeds-modal__msg { color: var(--text-secondary); margin-bottom:20px; line-height:1.5; }
+    .timesheet-exceeds-modal__actions { display:flex; gap:10px; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
     }
 </style>
+<script>
+(function() {
+    const basePath = <?= json_encode($basePath) ?>;
+    const projectId = <?= (int) ($project['id'] ?? 0) ?>;
+
+    document.querySelectorAll('.dedication-slider-wrap').forEach(function(wrap) {
+        const slider = wrap.querySelector('.dedication-slider');
+        const percentEl = wrap.querySelector('.dedication-percent');
+        const hoursEl = wrap.querySelector('.dedication-hours');
+        const saveBtn = wrap.querySelector('.dedication-save-btn');
+        const capacidad = parseFloat(wrap.dataset.capacidad || 40);
+        const assignmentId = parseInt(slider.dataset.assignmentId, 10);
+
+        function updateDisplay() {
+            const pct = parseInt(slider.value, 10);
+            const hours = capacidad * (pct / 100);
+            percentEl.textContent = pct + '%';
+            hoursEl.textContent = hours.toFixed(1) + 'h/sem';
+        }
+
+        slider.addEventListener('input', function() {
+            updateDisplay();
+            saveBtn.style.display = 'inline-flex';
+        });
+
+        updateDisplay();
+
+        saveBtn.addEventListener('click', function() {
+            const pct = parseFloat(slider.value);
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+
+            fetch(basePath + '/projects/' + projectId + '/talent/assignments/' + assignmentId + '/allocation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ allocation_percent: pct })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    percentEl.textContent = Math.round(data.allocation_percent) + '%';
+                    hoursEl.textContent = data.weekly_hours.toFixed(1) + 'h/sem';
+                    slider.value = Math.round(data.allocation_percent);
+                    saveBtn.style.display = 'none';
+                    window.location.reload();
+                } else if (data.code === 'TIMESHEET_EXCEEDS') {
+                    showTimesheetExceedsModal(data, slider, saveBtn, wrap, capacidad, assignmentId);
+                } else {
+                    alert(data.error || 'Error al guardar');
+                }
+            })
+            .catch(function() { alert('Error de conexión'); })
+            .finally(function() { saveBtn.disabled = false; saveBtn.textContent = 'Guardar'; });
+        });
+    });
+
+    function showTimesheetExceedsModal(data, slider, saveBtn, wrap, capacidad, assignmentId) {
+        const existing = document.getElementById('timesheet-exceeds-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'timesheet-exceeds-modal';
+        modal.className = 'timesheet-exceeds-modal';
+        modal.innerHTML = '<div class="timesheet-exceeds-modal__content">' +
+            '<h3 class="timesheet-exceeds-modal__title">Advertencia</h3>' +
+            '<p class="timesheet-exceeds-modal__msg">' + (data.error || 'Las horas registradas en timesheet superan la nueva dedicación.') + '</p>' +
+            '<div class="timesheet-exceeds-modal__actions">' +
+            '<button type="button" class="action-btn" data-action="cancel">Cancelar</button>' +
+            '<button type="button" class="action-btn primary" data-action="adjust">Ajustar dedicación</button>' +
+            '</div></div>';
+        document.body.appendChild(modal);
+
+        modal.querySelector('[data-action="cancel"]').addEventListener('click', function() {
+            modal.remove();
+            saveBtn.style.display = 'none';
+            slider.value = slider.dataset.originalValue || 0;
+            wrap.querySelector('.dedication-percent').textContent = (slider.dataset.originalValue || 0) + '%';
+            const h = capacidad * ((slider.dataset.originalValue || 0) / 100);
+            wrap.querySelector('.dedication-hours').textContent = h.toFixed(1) + 'h/sem';
+        });
+
+        modal.querySelector('[data-action="adjust"]').addEventListener('click', function() {
+            const minPct = data.min_percent || 0;
+            slider.value = Math.ceil(minPct);
+            slider.dispatchEvent(new Event('input'));
+            modal.remove();
+            saveBtn.click();
+        });
+
+        slider.dataset.originalValue = slider.value;
+    }
+})();
+</script>

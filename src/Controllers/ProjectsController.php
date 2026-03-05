@@ -313,11 +313,20 @@ class ProjectsController extends Controller
         $assignments = $repo->assignmentsForProject($id, $user);
         $talents = (new TalentsRepository($this->db))->assignmentOptions();
 
+        $talentAllocationMap = [];
+        $talentIds = array_unique(array_filter(array_map(static fn ($a) => (int) ($a['talent_id'] ?? 0), $assignments)));
+        foreach ($talentIds as $tid) {
+            if ($tid > 0) {
+                $talentAllocationMap[$tid] = $repo->totalAllocationPercentForTalent($tid);
+            }
+        }
+
         $this->render('projects/talent', [
             'title' => 'Gestionar talento',
             'project' => $project,
             'assignments' => $assignments,
             'talents' => $talents,
+            'talentAllocationMap' => $talentAllocationMap,
         ]);
     }
 
@@ -748,6 +757,85 @@ class ProjectsController extends Controller
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
+        }
+    }
+
+    public function updateTalentAssignmentAllocation(int $projectId, int $assignmentId): void
+    {
+        $this->requirePermission('projects.manage');
+        header('Content-Type: application/json; charset=utf-8');
+
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'Proyecto no encontrado']);
+            return;
+        }
+
+        $payload = [];
+        $contentType = $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            $rawBody = file_get_contents('php://input') ?: '';
+            $payload = json_decode($rawBody, true) ?? [];
+        } else {
+            $payload = $_POST;
+        }
+
+        $allocationPercent = isset($payload['allocation_percent']) ? (float) $payload['allocation_percent'] : null;
+        $weeklyHours = isset($payload['weekly_hours']) ? (float) $payload['weekly_hours'] : null;
+        $forceIfTimesheetExceeds = !empty($payload['force_if_timesheet_exceeds']);
+
+        try {
+            $result = $repo->updateAssignmentAllocation(
+                $projectId,
+                $assignmentId,
+                $allocationPercent,
+                $weeklyHours,
+                $forceIfTimesheetExceeds
+            );
+
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'project_talent_assignment',
+                $assignmentId,
+                'allocation_updated',
+                [
+                    'project_id' => $projectId,
+                    'allocation_percent' => $result['allocation_percent'],
+                    'weekly_hours' => $result['weekly_hours'],
+                ]
+            );
+
+            echo json_encode([
+                'ok' => true,
+                'allocation_percent' => $result['allocation_percent'],
+                'weekly_hours' => $result['weekly_hours'],
+                'capacidad_semana' => $result['capacidad_semana'],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $msg = $e->getMessage();
+            if (str_starts_with($msg, 'TIMESHEET_EXCEEDS|')) {
+                $parts = explode('|', $msg, 3);
+                $message = $parts[1] ?? $msg;
+                $data = [];
+                if (isset($parts[2])) {
+                    $data = json_decode($parts[2], true) ?? [];
+                }
+                http_response_code(400);
+                echo json_encode([
+                    'ok' => false,
+                    'error' => $message,
+                    'code' => 'TIMESHEET_EXCEEDS',
+                    'min_percent' => $data['min_percent'] ?? null,
+                    'max_hours_logged' => $data['max_hours_logged'] ?? null,
+                ]);
+                return;
+            }
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => $msg]);
         }
     }
 
