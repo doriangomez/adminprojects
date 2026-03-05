@@ -195,6 +195,18 @@ class ConfigService
             ],
             'timesheets' => [
                 'enabled' => false,
+                'minimum_weekly_hours' => 0,
+                'lock_incomplete_week' => true,
+                'activity_types' => [
+                    'desarrollo',
+                    'analisis',
+                    'reunion',
+                    'documentacion',
+                    'soporte',
+                    'investigacion',
+                    'pruebas',
+                    'gestion_pm',
+                ],
             ],
             'billing' => [
                 'enabled' => true,

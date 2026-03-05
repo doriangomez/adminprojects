@@ -226,6 +226,11 @@ class ConfigController extends Controller
                 ],
                 'timesheets' => [
                     'enabled' => isset($_POST['timesheets_enabled']),
+                    'minimum_weekly_hours' => max(0, (int) ($_POST['timesheets_minimum_weekly_hours'] ?? ($current['operational_rules']['timesheets']['minimum_weekly_hours'] ?? 0))),
+                    'lock_incomplete_week' => isset($_POST['timesheets_lock_incomplete_week']),
+                    'activity_types' => $this->parseList(
+                        $_POST['timesheets_activity_types'] ?? implode(', ', $current['operational_rules']['timesheets']['activity_types'] ?? [])
+                    ),
                 ],
                 'billing' => [
                     'enabled' => isset($_POST['billing_enabled']),
