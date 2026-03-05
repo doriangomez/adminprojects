@@ -730,6 +730,25 @@ class DatabaseMigrator
                      WHERE ts.user_id IS NULL'
                 );
             }
+
+            if ($this->db->tableExists('tasks') && !$this->db->columnExists('tasks', 'completed_at')) {
+                $this->db->execute('ALTER TABLE tasks ADD COLUMN completed_at DATETIME NULL AFTER due_date');
+                $this->db->clearColumnCache();
+            }
+
+            if (
+                $this->db->tableExists('tasks')
+                && $this->db->columnExists('tasks', 'status')
+                && $this->db->columnExists('tasks', 'completed_at')
+            ) {
+                $this->db->execute(
+                    'UPDATE tasks
+                     SET completed_at = CASE
+                        WHEN status IN ("done", "completed") THEN COALESCE(completed_at, updated_at, created_at, NOW())
+                        ELSE NULL
+                     END'
+                );
+            }
         } catch (\PDOException $e) {
             error_log('Error asegurando esquema de timesheets: ' . $e->getMessage());
         }

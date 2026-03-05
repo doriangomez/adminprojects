@@ -273,6 +273,8 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Tu usuario no tiene un talento asociado.');
         }
 
+        $this->assertWeekIsEditable($userId, $date);
+
         $linkedStopperSelect = $this->db->columnExists('timesheets', 'linked_stopper_id') ? ', linked_stopper_id' : '';
         $existing = $this->db->fetchOne(
             'SELECT id, status, task_id, hours' . $linkedStopperSelect . '
@@ -282,7 +284,7 @@ class TimesheetsRepository
             [':user' => $userId, ':project' => $projectId, ':date' => $date]
         );
 
-        if ($existing && !in_array((string) ($existing['status'] ?? ''), ['draft'], true)) {
+        if ($existing && !in_array((string) ($existing['status'] ?? ''), ['draft', 'rejected'], true)) {
             throw new InvalidArgumentException('La celda no es editable porque la semana ya fue enviada.');
         }
 
@@ -401,6 +403,7 @@ class TimesheetsRepository
         if ($hours <= 0 || $hours > 24) {
             throw new InvalidArgumentException('Las horas deben estar entre 0 y 24.');
         }
+        $this->assertWeekIsEditable($userId, $date);
 
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
@@ -428,7 +431,18 @@ class TimesheetsRepository
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $structured = $this->sanitizeStructuredMetadata($metadata);
+        $taskManagementMode = strtolower(trim((string) ($metadata['task_management_mode'] ?? 'existing')));
+        if (!in_array($taskManagementMode, ['existing', 'completed', 'pending'], true)) {
+            $taskManagementMode = 'existing';
+        }
+
         $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
+        if ($taskManagementMode !== 'existing') {
+            $taskTitle = $structured['activity_description'] !== ''
+                ? $structured['activity_description']
+                : trim($comment);
+            $taskId = $this->createTaskFromTimesheetActivity($projectId, $talentId, $taskTitle, $taskManagementMode);
+        }
 
         return $this->createTimesheet([
             'task_id' => $taskId,
@@ -476,6 +490,11 @@ class TimesheetsRepository
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe o no se puede editar.');
         }
+        $currentDate = (string) ($current['date'] ?? '');
+        if ($currentDate !== '') {
+            $this->assertWeekIsEditable($userId, $currentDate);
+        }
+        $this->assertWeekIsEditable($userId, $date);
 
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
@@ -553,6 +572,10 @@ class TimesheetsRepository
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe o no se puede eliminar.');
         }
+        $currentDate = (string) ($current['date'] ?? '');
+        if ($currentDate !== '') {
+            $this->assertWeekIsEditable($userId, $currentDate);
+        }
 
         $taskId = (int) ($current['task_id'] ?? 0);
         $this->db->execute(
@@ -571,6 +594,7 @@ class TimesheetsRepository
     public function duplicateDraftActivity(int $activityId, int $userId, string $targetDate): int
     {
         $this->assertValidDate($targetDate);
+        $this->assertWeekIsEditable($userId, $targetDate);
         $current = $this->findUserActivity($activityId, $userId, false);
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe.');
@@ -609,6 +633,11 @@ class TimesheetsRepository
         if (!$current) {
             throw new InvalidArgumentException('La actividad no existe o no se puede mover.');
         }
+        $currentDate = (string) ($current['date'] ?? '');
+        if ($currentDate !== '') {
+            $this->assertWeekIsEditable($userId, $currentDate);
+        }
+        $this->assertWeekIsEditable($userId, $targetDate);
 
         if ((string) ($current['date'] ?? '') === $targetDate) {
             return true;
@@ -652,6 +681,8 @@ class TimesheetsRepository
     {
         $this->assertValidDate($sourceDate);
         $this->assertValidDate($targetDate);
+        $this->assertWeekIsEditable($userId, $sourceDate);
+        $this->assertWeekIsEditable($userId, $targetDate);
         if ($sourceDate === $targetDate) {
             throw new InvalidArgumentException('El día origen y destino no pueden ser iguales.');
         }
@@ -1671,13 +1702,20 @@ class TimesheetsRepository
             return (int) $task['id'];
         }
 
+        $columns = ['project_id', 'title', 'status', 'priority', 'estimated_hours', 'actual_hours', 'created_at', 'updated_at'];
+        $values = [':project', ':title', ':status', ':priority', '0', '0', 'NOW()', 'NOW()'];
+        if ($this->db->columnExists('tasks', 'completed_at')) {
+            $columns[] = 'completed_at';
+            $values[] = 'NULL';
+        }
+
         return (int) $this->db->insert(
-            'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, created_at, updated_at)
-             VALUES (:project, :title, :status, :priority, 0, 0, NOW(), NOW())',
+            'INSERT INTO tasks (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', $values) . ')',
             [
                 ':project' => $projectId,
                 ':title' => 'Registro de horas',
-                ':status' => 'todo',
+                ':status' => 'pending',
                 ':priority' => 'medium',
             ]
         );
@@ -2228,6 +2266,53 @@ class TimesheetsRepository
         return $this->resolveTimesheetTaskId($projectId);
     }
 
+    private function createTaskFromTimesheetActivity(int $projectId, int $talentId, string $rawTitle, string $taskManagementMode): int
+    {
+        if (!$this->db->tableExists('tasks')) {
+            throw new InvalidArgumentException('No hay tareas disponibles para registrar horas.');
+        }
+
+        $title = $this->limitText($rawTitle, 180);
+        if ($title === '') {
+            $title = 'Actividad registrada desde timesheet';
+        }
+
+        $status = $taskManagementMode === 'completed' ? 'completed' : 'pending';
+        $isCompleted = $status === 'completed';
+        $columns = ['project_id', 'title', 'status', 'priority', 'estimated_hours', 'actual_hours', 'created_at', 'updated_at'];
+        $values = [':project', ':title', ':status', ':priority', '0', '0', 'NOW()', 'NOW()'];
+        $params = [
+            ':project' => $projectId,
+            ':title' => $title,
+            ':status' => $status,
+            ':priority' => 'medium',
+        ];
+
+        if ($this->db->columnExists('tasks', 'assignee_id')) {
+            $columns[] = 'assignee_id';
+            $values[] = ':assignee_id';
+            $params[':assignee_id'] = $talentId > 0 ? $talentId : null;
+        }
+
+        if ($this->db->columnExists('tasks', 'description')) {
+            $columns[] = 'description';
+            $values[] = ':description';
+            $params[':description'] = $title;
+        }
+
+        if ($this->db->columnExists('tasks', 'completed_at')) {
+            $columns[] = 'completed_at';
+            $values[] = ':completed_at';
+            $params[':completed_at'] = $isCompleted ? date('Y-m-d H:i:s') : null;
+        }
+
+        return (int) $this->db->insert(
+            'INSERT INTO tasks (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', $values) . ')',
+            $params
+        );
+    }
+
     private function taskBelongsToProject(int $taskId, int $projectId): bool
     {
         if (!$this->db->tableExists('tasks')) {
@@ -2284,6 +2369,23 @@ class TimesheetsRepository
             new \DateTimeImmutable($date);
         } catch (\Throwable $e) {
             throw new InvalidArgumentException('Fecha inválida.');
+        }
+    }
+
+    private function assertWeekIsEditable(int $userId, string $date): void
+    {
+        $this->assertValidDate($date);
+        try {
+            $day = new \DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            throw new InvalidArgumentException('Fecha inválida.');
+        }
+
+        $weekStart = $day->modify('monday this week')->setTime(0, 0);
+        $summary = $this->weekSummaryForUser($userId, $weekStart);
+        $status = (string) ($summary['status'] ?? 'draft');
+        if (in_array($status, ['submitted', 'approved'], true)) {
+            throw new InvalidArgumentException('Semana enviada. Registros bloqueados.');
         }
     }
 

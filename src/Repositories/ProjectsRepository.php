@@ -2040,7 +2040,7 @@ class ProjectsRepository
             return 0;
         }
 
-        $openStatuses = ['todo', 'in_progress', 'review', 'blocked'];
+        $openStatuses = ['todo', 'pending', 'in_progress', 'review', 'blocked'];
         $params = [':projectId' => $projectId];
         $statusPlaceholders = [];
 

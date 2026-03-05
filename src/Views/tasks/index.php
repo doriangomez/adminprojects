@@ -7,10 +7,12 @@ $talents = is_array($talents ?? null) ? $talents : [];
 
 $statusMeta = [
     'todo' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-muted'],
+    'pending' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-muted'],
     'in_progress' => ['label' => 'En progreso', 'icon' => '🔄', 'class' => 'status-info'],
     'review' => ['label' => 'En revisión', 'icon' => '⚠️', 'class' => 'status-warning'],
     'blocked' => ['label' => 'Bloqueada', 'icon' => '⛔', 'class' => 'status-danger'],
     'done' => ['label' => 'Completada', 'icon' => '✅', 'class' => 'status-success'],
+    'completed' => ['label' => 'Completada', 'icon' => '✅', 'class' => 'status-success'],
 ];
 
 $priorityMeta = [
