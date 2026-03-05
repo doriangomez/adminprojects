@@ -36,6 +36,8 @@ class ProjectsRepository
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
         $hasActiveColumn = $this->db->columnExists('projects', 'active');
         $hasBillableColumn = $this->db->columnExists('projects', 'is_billable');
+        $hasAuditLogTable = $this->db->tableExists('audit_log');
+        $hasProjectStoppersTable = $this->db->tableExists('project_stoppers');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -100,12 +102,37 @@ class ProjectsRepository
             'prisk.risks AS risk_codes',
             'c.name AS client',
             $hasBillableColumn ? 'p.is_billable' : '0 AS is_billable',
+            $hasAuditLogTable ? 'COALESCE(pnotes.notes_count, 0) AS notes_count' : '0 AS notes_count',
+            $hasProjectStoppersTable ? 'COALESCE(pstop.total_count, 0) AS blockers_count' : '0 AS blockers_count',
+            $hasProjectStoppersTable ? 'COALESCE(pstop.critical_count, 0) AS blocker_critical_count' : '0 AS blocker_critical_count',
+            $hasProjectStoppersTable ? 'COALESCE(pstop.high_count, 0) AS blocker_high_count' : '0 AS blocker_high_count',
         ];
 
         $joins = [
             'JOIN clients c ON c.id = p.client_id',
             'LEFT JOIN (SELECT project_id, GROUP_CONCAT(risk_code) AS risks FROM project_risk_evaluations WHERE selected = 1 GROUP BY project_id) prisk ON prisk.project_id = p.id',
         ];
+
+        if ($hasAuditLogTable) {
+            $joins[] = "LEFT JOIN (
+                SELECT entity_id AS project_id, COUNT(*) AS notes_count
+                FROM audit_log
+                WHERE entity = 'project_note' AND action = 'project_note_created'
+                GROUP BY entity_id
+            ) pnotes ON pnotes.project_id = p.id";
+        }
+
+        if ($hasProjectStoppersTable) {
+            $joins[] = "LEFT JOIN (
+                SELECT project_id,
+                       COUNT(*) AS total_count,
+                       SUM(CASE WHEN impact_level = 'critico' THEN 1 ELSE 0 END) AS critical_count,
+                       SUM(CASE WHEN impact_level = 'alto' THEN 1 ELSE 0 END) AS high_count
+                FROM project_stoppers
+                WHERE status <> 'cerrado'
+                GROUP BY project_id
+            ) pstop ON pstop.project_id = p.id";
+        }
 
         if ($hasRiskScoreColumn) {
             $select[] = 'p.risk_score';
@@ -174,18 +201,26 @@ class ProjectsRepository
         $projects = $this->db->fetchAll($sql, $params);
         $projectIds = array_values(array_filter(array_map(static fn (array $project): int => (int) ($project['id'] ?? 0), $projects)));
 
-        $notesByProject = $this->latestNotesByProject($projectIds);
-        $stoppersByProject = $this->activeStoppersByProject($projectIds);
         $scopeChangesByProject = $this->scopeChangesByProject($projectIds);
         $progressByProject = $this->progressActivityByProject($projectIds);
 
-        return array_map(fn (array $project) => $this->attachProjectOperationalData(
-            $this->attachProjectSignal($project),
-            $notesByProject[(int) ($project['id'] ?? 0)] ?? null,
-            $stoppersByProject[(int) ($project['id'] ?? 0)] ?? null,
-            $scopeChangesByProject[(int) ($project['id'] ?? 0)] ?? false,
-            $progressByProject[(int) ($project['id'] ?? 0)] ?? null
-        ), $projects);
+        return array_map(function (array $project) use ($scopeChangesByProject, $progressByProject): array {
+            $projectId = (int) ($project['id'] ?? 0);
+            $noteData = ['count' => (int) ($project['notes_count'] ?? 0)];
+            $stopperData = [
+                'total_count' => (int) ($project['blockers_count'] ?? 0),
+                'critical_count' => (int) ($project['blocker_critical_count'] ?? 0),
+                'high_count' => (int) ($project['blocker_high_count'] ?? 0),
+            ];
+
+            return $this->attachProjectOperationalData(
+                $this->attachProjectSignal($project),
+                $noteData,
+                $stopperData,
+                $scopeChangesByProject[$projectId] ?? false,
+                $progressByProject[$projectId] ?? null
+            );
+        }, $projects);
     }
 
     public function find(int $id): ?array
