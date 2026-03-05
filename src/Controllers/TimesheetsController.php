@@ -57,6 +57,11 @@ class TimesheetsController extends Controller
 
     public function analytics(): void
     {
+        if (!$this->auth->canManageAdvancedTimesheets()) {
+            http_response_code(404);
+            exit('No tienes permiso para acceder a la analítica gerencial.');
+        }
+
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();

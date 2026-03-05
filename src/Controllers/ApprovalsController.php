@@ -36,12 +36,20 @@ class ApprovalsController extends Controller
             ];
         }
 
+        $timesheetRepo = new TimesheetsRepository($this->db);
         $timesheetApprovals = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->pendingApprovalsByWeek($user)
+            ? $timesheetRepo->pendingApprovalsByWeek($user)
             : [];
         $timesheetHistory = $this->auth->canApproveTimesheets()
-            ? (new TimesheetsRepository($this->db))->weekApprovalHistoryByApprover($user)
+            ? $timesheetRepo->weekApprovalHistoryByApprover($user)
             : [];
+
+        $approvedHoursForTalent = [];
+        $showTalentApprovedSection = false;
+        if ($this->auth->isTimesheetsEnabled() && !$this->auth->canApproveTimesheets() && $userId > 0) {
+            $approvedHoursForTalent = $timesheetRepo->approvedHoursForUser($userId, 12);
+            $showTalentApprovedSection = true;
+        }
 
         $this->render('approvals/index', [
             'title' => 'Bandeja de Aprobaciones',
@@ -54,6 +62,8 @@ class ApprovalsController extends Controller
             'timesheetHistory' => $timesheetHistory,
             'canManageTimesheetWorkflow' => $this->auth->canManageTimesheetWorkflow(),
             'canDeleteTimesheetWorkflowRecords' => $this->auth->canDeleteTimesheetWorkflowRecords(),
+            'approvedHoursForTalent' => $approvedHoursForTalent,
+            'showTalentApprovedSection' => $showTalentApprovedSection,
         ]);
     }
 }

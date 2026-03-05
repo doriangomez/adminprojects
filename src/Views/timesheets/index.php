@@ -34,7 +34,9 @@ foreach ($gridDays as $day) {
     <div class="timesheet-tabs card">
         <a class="tab active" href="<?= $basePath ?>/timesheets?week=<?= urlencode($weekValue) ?>">Registro de horas</a>
         <a class="tab" href="<?= $basePath ?>/approvals">Aprobación de horas</a>
+        <?php if (!empty($canManageAdvanced)): ?>
         <a class="tab" href="<?= $basePath ?>/timesheets/analytics?week=<?= urlencode($weekValue) ?>">Analítica gerencial</a>
+        <?php endif; ?>
     </div>
 
     <?php if (!$canReport): ?>
@@ -175,9 +177,6 @@ foreach ($gridDays as $day) {
                         <label>Descripción breve*
                             <input type="text" name="activity_description" maxlength="255" required>
                         </label>
-                        <label>Comentario*
-                            <input type="text" name="comment" maxlength="255" required>
-                        </label>
                         <label>Tipo actividad
                             <select name="activity_type">
                                 <option value="">Sin clasificar</option>
@@ -186,17 +185,41 @@ foreach ($gridDays as $day) {
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="had_blocker" id="qa-blocker"> Bloqueo</label>
+                        <div class="toggle-row">
+                            <label class="switch">
+                                <input type="hidden" name="had_blocker" value="0">
+                                <input type="checkbox" name="had_blocker" id="qa-blocker" value="1">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="toggle-label">Bloqueo</span>
+                            <span class="toggle-state" id="qa-blocker-state">OFF</span>
+                        </div>
                         <label class="conditional hidden" id="qa-blocker-wrap">Descripción del bloqueo
                             <input type="text" name="blocker_description" maxlength="500">
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="generated_deliverable" id="qa-deliverable"> Entregable</label>
-                        <label class="conditional hidden" id="qa-deliverable-wrap">Nombre / descripción de entregable
+                        <div class="toggle-row">
+                            <label class="switch">
+                                <input type="hidden" name="generated_deliverable" value="0">
+                                <input type="checkbox" name="generated_deliverable" id="qa-deliverable" value="1">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="toggle-label">Entregable</span>
+                            <span class="toggle-state" id="qa-deliverable-state">OFF</span>
+                        </div>
+                        <label class="conditional hidden" id="qa-deliverable-wrap">Descripción del entregable (opcional)
                             <input type="text" name="deliverable_note" maxlength="255">
                         </label>
-                        <label class="toggle-line"><input type="checkbox" name="had_significant_progress" id="qa-progress"> Avance significativo</label>
-                        <label class="conditional hidden" id="qa-progress-wrap">Nota de avance
-                            <input type="text" name="progress_note" maxlength="255">
+                        <div class="toggle-row">
+                            <label class="switch">
+                                <input type="hidden" name="had_significant_progress" value="0">
+                                <input type="checkbox" name="had_significant_progress" id="qa-progress" value="1">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="toggle-label">Avance significativo</span>
+                            <span class="toggle-state" id="qa-progress-state">OFF</span>
+                        </div>
+                        <label>Comentario*
+                            <input type="text" name="comment" maxlength="255" required>
                         </label>
                         <label>Comentario operativo (opcional)
                             <textarea name="operational_comment" rows="2"></textarea>
@@ -277,6 +300,16 @@ foreach ($gridDays as $day) {
 #quick-add-form{display:flex;flex-direction:column;gap:8px}
 #quick-add-form label{display:flex;flex-direction:column;gap:4px;font-size:13px}
 .toggle-line{flex-direction:row !important;align-items:center;gap:8px !important}
+.toggle-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.toggle-row .toggle-label{font-size:13px;font-weight:500}
+.toggle-row .toggle-state{font-size:12px;color:var(--text-secondary);min-width:28px}
+.switch{position:relative;display:inline-block;width:40px;height:20px}
+.switch input[type="checkbox"]{display:none}
+.switch input[type="hidden"]{display:none}
+.slider{position:absolute;cursor:pointer;background:#ccc;border-radius:20px;top:0;left:0;right:0;bottom:0;transition:.2s}
+.slider:before{content:"";position:absolute;height:16px;width:16px;left:2px;bottom:2px;background:white;transition:.2s;border-radius:50%}
+.switch input[type="checkbox"]:checked+.slider{background:var(--primary,#7c3aed)}
+.switch input[type="checkbox"]:checked+.slider:before{transform:translateX(20px)}
 .conditional.hidden{display:none !important}
 .quick-actions{display:grid;grid-template-columns:1fr;gap:6px}
 .quick-lists{display:flex;flex-direction:column;gap:10px}
@@ -299,7 +332,6 @@ foreach ($gridDays as $day) {
   const deliverableToggle = document.getElementById('qa-deliverable');
   const deliverableWrap = document.getElementById('qa-deliverable-wrap');
   const progressToggle = document.getElementById('qa-progress');
-  const progressWrap = document.getElementById('qa-progress-wrap');
   const templatesKey = 'timesheet.quick.templates.v1';
   let lastSubmitMode = 'save';
 
@@ -349,10 +381,16 @@ foreach ($gridDays as $day) {
     }
   };
 
+  const updateToggleState = (toggle, stateEl) => {
+    if (stateEl) stateEl.textContent = toggle?.checked ? 'ON' : 'OFF';
+  };
+
   const syncToggles = () => {
     toggleConditional(blockerToggle, blockerWrap);
     toggleConditional(deliverableToggle, deliverableWrap);
-    toggleConditional(progressToggle, progressWrap);
+    updateToggleState(blockerToggle, document.getElementById('qa-blocker-state'));
+    updateToggleState(deliverableToggle, document.getElementById('qa-deliverable-state'));
+    updateToggleState(progressToggle, document.getElementById('qa-progress-state'));
   };
 
   projectInput?.addEventListener('change', filterTasksByProject);
@@ -390,11 +428,16 @@ foreach ($gridDays as $day) {
     form.querySelector('[name="activity_description"]').value = data.activity_description || '';
     form.querySelector('[name="comment"]').value = data.comment || '';
     form.querySelector('[name="activity_type"]').value = data.activity_type || '';
-    form.querySelector('[name="had_blocker"]').checked = Boolean(Number(data.had_blocker || 0));
+    blockerToggle.checked = Boolean(Number(data.had_blocker || 0));
     form.querySelector('[name="blocker_description"]').value = data.blocker_description || '';
-    form.querySelector('[name="generated_deliverable"]').checked = Boolean(Number(data.generated_deliverable || 0));
-    form.querySelector('[name="had_significant_progress"]').checked = Boolean(Number(data.had_significant_progress || 0));
-    form.querySelector('[name="operational_comment"]').value = data.operational_comment || '';
+    deliverableToggle.checked = Boolean(Number(data.generated_deliverable || 0));
+    progressToggle.checked = Boolean(Number(data.had_significant_progress || 0));
+    const opComment = String(data.operational_comment || '');
+    const parts = opComment.split(' | ').map(p => p.trim()).filter(Boolean);
+    const deliverablePart = parts.find(p => p.startsWith('Entregable:'));
+    const opParts = parts.filter(p => !p.startsWith('Entregable:'));
+    form.querySelector('[name="deliverable_note"]').value = data.deliverable_note || (deliverablePart ? deliverablePart.replace(/^Entregable:\s*/, '').trim() : '');
+    form.querySelector('[name="operational_comment"]').value = opParts.join(' | ');
     syncToggles();
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -405,10 +448,8 @@ foreach ($gridDays as $day) {
     const raw = Object.fromEntries(formData.entries());
     const activityId = Number(raw.activity_id || 0);
     const deliverableNote = String(raw.deliverable_note || '').trim();
-    const progressNote = String(raw.progress_note || '').trim();
     const operationalParts = [String(raw.operational_comment || '').trim()].filter(Boolean);
     if (deliverableNote !== '') operationalParts.push(`Entregable: ${deliverableNote}`);
-    if (progressNote !== '') operationalParts.push(`Avance: ${progressNote}`);
     raw.operational_comment = operationalParts.join(' | ');
 
     const endpoint = activityId > 0 ? '/timesheets/activities/update' : '/timesheets/activities/create';

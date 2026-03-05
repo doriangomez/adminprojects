@@ -966,6 +966,39 @@ class TimesheetsRepository
         ];
     }
 
+    public function approvedHoursForUser(int $userId, int $limitWeeks = 12): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT DATE_SUB(date, INTERVAL WEEKDAY(date) DAY) AS week_start,
+                    DATE_ADD(DATE_SUB(date, INTERVAL WEEKDAY(date) DAY), INTERVAL 6 DAY) AS week_end,
+                    COALESCE(SUM(hours), 0) AS approved_hours,
+                    COUNT(*) AS entries
+             FROM timesheets
+             WHERE user_id = :user
+               AND status = \'approved\'
+             GROUP BY DATE_SUB(date, INTERVAL WEEKDAY(date) DAY)
+             ORDER BY week_start DESC
+             LIMIT ' . max(1, min(52, $limitWeeks)),
+            [':user' => $userId]
+        );
+
+        $out = [];
+        foreach ($rows as $row) {
+            $weekStart = $row['week_start'] ?? '';
+            $weekEnd = $row['week_end'] ?? '';
+            $out[] = [
+                'week_start' => $weekStart,
+                'week_end' => $weekEnd,
+                'week_label' => $weekStart !== '' && $weekEnd !== ''
+                    ? (new \DateTimeImmutable($weekStart))->format('d/m') . ' - ' . (new \DateTimeImmutable($weekEnd))->format('d/m/Y')
+                    : '',
+                'approved_hours' => (float) ($row['approved_hours'] ?? 0),
+                'entries' => (int) ($row['entries'] ?? 0),
+            ];
+        }
+        return $out;
+    }
+
     public function monthlySummaryForUser(int $userId, \DateTimeImmutable $weekStart): array
     {
         $monthStart = $weekStart->modify('first day of this month')->setTime(0, 0);

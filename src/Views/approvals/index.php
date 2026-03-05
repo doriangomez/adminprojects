@@ -6,6 +6,8 @@ $approvalQueue = is_array($approvalQueue ?? null) ? $approvalQueue : [];
 $dispatchQueue = is_array($dispatchQueue ?? null) ? $dispatchQueue : [];
 $timesheetApprovals = is_array($timesheetApprovals ?? null) ? $timesheetApprovals : [];
 $timesheetHistory = is_array($timesheetHistory ?? null) ? $timesheetHistory : [];
+$approvedHoursForTalent = is_array($approvedHoursForTalent ?? null) ? $approvedHoursForTalent : [];
+$showTalentApprovedSection = (bool) ($showTalentApprovedSection ?? false);
 $canManageTimesheetWorkflow = (bool) ($canManageTimesheetWorkflow ?? false);
 $canDeleteTimesheetWorkflowRecords = (bool) ($canDeleteTimesheetWorkflowRecords ?? false);
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
@@ -167,6 +169,36 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
             <?php endif; ?>
         </section>
 
+        <?php if (!empty($showTalentApprovedSection)): ?>
+        <section class="approvals-section" data-queue="talent-approved">
+            <header>
+                <h3>Horas aprobadas</h3>
+                <p class="section-muted">Tus horas que han sido aprobadas por el responsable.</p>
+            </header>
+            <?php if ($approvedHoursForTalent === []): ?>
+                <p class="section-muted empty">Aún no tienes horas aprobadas.</p>
+            <?php else: ?>
+            <div class="timesheet-cards">
+                <?php foreach ($approvedHoursForTalent as $week): ?>
+                    <article class="inbox-card timesheet-card status-success" data-queue-type="timesheets">
+                        <header class="inbox-card__header">
+                            <div class="inbox-card__heading">
+                                <span class="inbox-card__type">Semana</span>
+                                <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
+                                <div class="meta-line">Horas aprobadas: <strong><?= htmlspecialchars((string) round((float) ($week['approved_hours'] ?? 0), 2)) ?>h</strong></div>
+                            </div>
+                            <div class="badge status-success">Aprobada</div>
+                        </header>
+                        <div class="inbox-card__footer">
+                            <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </section>
+        <?php endif; ?>
+
         <section class="approvals-section" data-queue="timesheets">
             <header>
                 <h3>Timesheets por aprobar</h3>
@@ -311,6 +343,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .approvals-section[data-queue="review"] header h3::before { content:"🔎"; }
     .approvals-section[data-queue="validation"] header h3::before { content:"✅"; }
     .approvals-section[data-queue="approval"] header h3::before { content:"🟢"; }
+    .approvals-section[data-queue="talent-approved"] header h3::before { content:"✅"; }
     .approvals-section[data-queue="timesheets"] header h3::before { content:"🕒"; }
     .approvals-section[data-queue="dispatch-validation"] header h3::before { content:"📨"; }
     .approvals-section[data-queue="dispatch-approval"] header h3::before { content:"📬"; }
