@@ -698,6 +698,56 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTimesheetActivitySchema(): void
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        try {
+            $newColumns = [
+                'activity_type'          => "VARCHAR(60) NULL DEFAULT NULL AFTER comment",
+                'activity_description'   => "TEXT NULL DEFAULT NULL AFTER activity_type",
+                'has_blocker'            => "TINYINT(1) NOT NULL DEFAULT 0 AFTER activity_description",
+                'blocker_description'    => "TEXT NULL DEFAULT NULL AFTER has_blocker",
+                'has_significant_advance'=> "TINYINT(1) NOT NULL DEFAULT 0 AFTER blocker_description",
+                'has_deliverable'        => "TINYINT(1) NOT NULL DEFAULT 0 AFTER has_significant_advance",
+                'operational_comment'    => "TEXT NULL DEFAULT NULL AFTER has_deliverable",
+                'phase_name'             => "VARCHAR(150) NULL DEFAULT NULL AFTER operational_comment",
+                'subtask_name'           => "VARCHAR(200) NULL DEFAULT NULL AFTER phase_name",
+            ];
+
+            foreach ($newColumns as $col => $def) {
+                if (!$this->db->columnExists('timesheets', $col)) {
+                    $this->db->execute("ALTER TABLE timesheets ADD COLUMN {$col} {$def}");
+                    $this->db->clearColumnCache();
+                }
+            }
+
+            if (!$this->db->tableExists('project_activity_log')) {
+                $this->db->execute(
+                    'CREATE TABLE project_activity_log (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        project_id INT NOT NULL,
+                        timesheet_id INT NULL,
+                        user_id INT NULL,
+                        talent_name VARCHAR(200) NULL,
+                        activity_type VARCHAR(60) NULL,
+                        description TEXT NULL,
+                        hours DECIMAL(6,2) NOT NULL DEFAULT 0,
+                        log_date DATE NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_pal_project (project_id),
+                        INDEX idx_pal_date (log_date),
+                        CONSTRAINT fk_pal_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando esquema de actividades de timesheets: ' . $e->getMessage());
+        }
+    }
+
     public function ensureNotificationsLog(): void
     {
         if ($this->db->tableExists('notifications_log')) {

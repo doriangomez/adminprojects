@@ -33,6 +33,7 @@ class App
         $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
+        $migrator->ensureTimesheetActivitySchema();
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();
@@ -556,6 +557,18 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
             if ($path === '/timesheets/create' && $method === 'POST') {
                 $controller->create();
+                return;
+            }
+            if ($path === '/timesheets/activity' && $method === 'POST') {
+                $controller->saveActivity();
+                return;
+            }
+            if ($path === '/timesheets/autocomplete' && $method === 'GET') {
+                $controller->autocomplete();
+                return;
+            }
+            if ($path === '/timesheets/delete-activity' && $method === 'POST') {
+                $controller->deleteActivity();
                 return;
             }
             if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {
