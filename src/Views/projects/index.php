@@ -114,7 +114,13 @@ $truncateText = static function (string $text, int $limit = 120): string {
         return '';
     }
 
-    return function_exists('mb_substr') ? mb_substr($normalized, 0, $limit) : substr($normalized, 0, $limit);
+    $length = function_exists('mb_strlen') ? mb_strlen($normalized) : strlen($normalized);
+    if ($length <= $limit) {
+        return $normalized;
+    }
+
+    $slice = function_exists('mb_substr') ? mb_substr($normalized, 0, $limit) : substr($normalized, 0, $limit);
+    return rtrim($slice) . '…';
 };
 
 $stopperSeverityLabel = static function (string $impactLevel): string {
@@ -306,25 +312,21 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-table {
         width: 100%;
-        table-layout: fixed;
+        table-layout: auto;
         border-collapse: collapse;
         background: var(--surface);
         border-radius: 14px;
-        overflow: hidden;
+        overflow: visible;
         border: 1px solid var(--border);
     }
 
     .project-table th,
     .project-table td {
-        padding: 9px 10px;
+        padding: 11px 10px;
         border-bottom: 1px solid var(--border);
         text-align: left;
         vertical-align: middle;
-        font-size: 14px;
-        max-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        font-size: 13px;
     }
 
     .project-table th {
@@ -334,31 +336,38 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         color: var(--text-secondary);
         background: color-mix(in srgb, var(--text-secondary) 14%, var(--background));
         font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .project-table td {
+        white-space: normal;
+    }
+
+    .project-table tbody tr:last-child td {
+        border-bottom: none;
     }
 
     .project-row { cursor: pointer; }
     .project-row:hover { background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
 
     .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
-    .project-client { color: var(--text-secondary); font-size: 13px; margin: 2px 0 0; }
+    .project-client { color: var(--text-secondary); font-size: 12px; margin: 2px 0 0; }
+    .project-cell { min-width: 320px; }
+    .project-main { display: flex; flex-direction: column; gap: 2px; }
 
     .project-context-preview {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         gap: 6px;
-        max-width: 100%;
-        margin-top: 6px;
-        padding: 4px 0;
+        margin-top: 7px;
+        padding: 0;
         color: color-mix(in srgb, var(--text-secondary) 86%, var(--background));
-        font-size: 13px;
+        font-size: 12px;
         line-height: 1.35;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 
     .project-context-preview .context-icon {
-        font-size: 12px;
+        font-size: 11px;
         line-height: 1;
         flex-shrink: 0;
     }
@@ -371,27 +380,17 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .project-context-preview .context-text {
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    .context-history-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 4px;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: var(--text-secondary);
+    .project-context-stats {
+        margin-top: 7px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
         font-size: 12px;
+        color: var(--text-secondary);
         font-weight: 600;
-        text-decoration: none;
-    }
-
-    .context-history-button .history-icon { font-size: 12px; }
-
-    .context-history-button:hover {
-        color: var(--text-primary);
-        text-decoration: underline;
     }
 
 
@@ -461,8 +460,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .badge.billable-on { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
     .badge.billable-off { background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--background)); }
 
-    .progress-track { width: 130px; height: 10px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
+    .progress-track { width: 112px; height: 6px; background: color-mix(in srgb, var(--text-secondary) 20%, var(--background)); border-radius: 999px; overflow: hidden; }
     .progress-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 55%, var(--background)), color-mix(in srgb, var(--success) 70%, var(--background))); }
+    .progress-compact { display: flex; flex-direction: column; gap: 5px; }
+    .progress-value { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+    .pm-cell-text { font-weight: 600; color: var(--text-primary); }
 
     .signal-list, .note-cell, .stopper-cell { display: flex; flex-direction: column; gap: 4px; }
     .signal-pill { font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--warning) 80%, var(--text-primary)); }
@@ -478,7 +480,18 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .badge.blocker-critical { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
     .badge.blocker-high { background: color-mix(in srgb, #f59e0b 22%, var(--background)); color: #b45309; border-color: color-mix(in srgb, #f59e0b 36%, var(--background)); }
 
-    .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .table-actions-menu {
+        display: inline-flex;
+        position: relative;
+    }
+
+    .actions-cell {
+        text-align: right;
+        width: 1%;
+        white-space: nowrap;
+    }
+
+    .menu-trigger::-webkit-details-marker { display: none; }
 
     .icon-button {
         width: 30px;
@@ -607,7 +620,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
         .project-table { font-size: 13px; }
-        .progress-track { width: 90px; }
+        .project-cell { min-width: 240px; }
+        .progress-track { width: 80px; }
     }
 </style>
 
@@ -772,35 +786,21 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     <?php if ($viewMode === 'table'): ?>
         <table class="project-table" aria-label="Listado de proyectos">
             <colgroup>
-                <col style="width: 15%;">
-                <col style="width: 11%;">
+                <col style="width: 42%;">
+                <col style="width: 14%;">
+                <col style="width: 12%;">
+                <col style="width: 12%;">
                 <col style="width: 10%;">
                 <col style="width: 8%;">
-                <col style="width: 8%;">
-                <col style="width: 9%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
-                <col style="width: 12%;">
-                <col style="width: 8%;">
-                <col style="width: 8%;">
-                <col style="width: 5%;">
-                <col style="width: 9%;">
-                <col style="width: 8%;">
+                <col style="width: 2%;">
             </colgroup>
             <thead>
                 <tr>
                     <th>Proyecto</th>
-                    <th>Cliente</th>
                     <th>PM</th>
-                    <th>Metodología</th>
-                    <th>Stage-gate</th>
                     <th>Estado</th>
                     <th>Salud</th>
                     <th>Avance</th>
-                    <th>Notas clave</th>
-                    <th>Bloqueos</th>
-                    <th>Horas R/P</th>
-                    <th>Señales</th>
                     <th>Facturación</th>
                     <th>Acciones</th>
                 </tr>
@@ -812,59 +812,60 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
                         $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
                         $progress = (float) ($project['progress'] ?? 0);
+                        $progressLabel = rtrim(rtrim(number_format($progress, 1, '.', ''), '0'), '.');
                         $pmName = $project['pm_name'] ?? 'Sin PM asignado';
-                        $methodology = $project['methodology'] ?? 'No definido';
                         $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
-                        $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
                         $riskCount = count($riskCodes);
-                        $signals = is_array($project['signals'] ?? null) ? $project['signals'] : [];
                         $noteData = is_array($project['latest_note'] ?? null) ? $project['latest_note'] : [];
                         $stopperData = is_array($project['top_stopper'] ?? null) ? $project['top_stopper'] : [];
-                        $hasSignal = !empty($signals);
-                        $rowLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?return=' . urlencode($returnUrl);
-                        $previewType = '';
-                        $previewLabel = '';
-                        $previewIcon = '';
+                        $projectId = (int) ($project['id'] ?? 0);
+                        $rowLink = $basePath . '/projects/' . $projectId . '?return=' . urlencode($returnUrl);
+                        $notePreviewText = trim((string) ($noteData['text'] ?? ''));
+                        $stopperPreviewText = trim((string) ($stopperData['text'] ?? ''));
+                        $noteTimestamp = strtotime((string) ($noteData['created_at'] ?? '')) ?: null;
+                        $stopperTimestamp = strtotime((string) ($stopperData['created_at'] ?? '')) ?: null;
+                        $previewType = 'note';
+                        $previewLabel = 'Nota';
+                        $previewIcon = '📝';
                         $previewText = '';
 
-                        $stopperPreview = trim((string) ($stopperData['text'] ?? ''));
-                        if ($stopperPreview !== '') {
-                            $previewType = 'stopper';
-                            $previewLabel = 'Bloqueo';
-                            $previewIcon = '⛔';
-                            $previewText = $stopperPreview;
-                        } else {
-                            $notePreview = trim((string) ($noteData['text'] ?? ''));
-                            if ($notePreview !== '') {
-                                $previewType = 'note';
-                                $previewLabel = 'Nota';
-                                $previewIcon = '📝';
-                                $previewText = $notePreview;
+                        if ($notePreviewText !== '' || $stopperPreviewText !== '') {
+                            $useStopperPreview = false;
+                            if ($stopperPreviewText !== '') {
+                                if ($notePreviewText === '') {
+                                    $useStopperPreview = true;
+                                } elseif ($stopperTimestamp !== null && $noteTimestamp !== null) {
+                                    $useStopperPreview = $stopperTimestamp >= $noteTimestamp;
+                                } elseif ($stopperTimestamp !== null && $noteTimestamp === null) {
+                                    $useStopperPreview = true;
+                                }
+                            }
+
+                            if ($useStopperPreview) {
+                                $previewType = 'stopper';
+                                $previewLabel = 'Bloqueo';
+                                $previewIcon = '⛔';
+                                $previewText = $stopperPreviewText;
+                            } else {
+                                $previewText = $notePreviewText;
                             }
                         }
 
                         $previewText = $truncateText((string) $previewText, 120);
-                        $previewHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
+                        $previewHref = $basePath . '/projects/' . $projectId
                             . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
                             . '&return=' . urlencode($returnUrl);
-                        $historyHref = $basePath . '/projects/' . (int) ($project['id'] ?? 0)
-                            . '?view=seguimiento&return=' . urlencode($returnUrl);
-                        $notePreview = $truncateText((string) ($noteData['text'] ?? ''), 96);
-                        $hasNotes = $notePreview !== '';
                         $blockersCount = (int) ($stopperData['total_count'] ?? 0);
-                        $blockerSeverity = $blockersCount > 0
-                            ? $stopperSeverityLabel((string) ($stopperData['impact_level'] ?? 'bajo'))
-                            : '—';
-                        $latestBlockerText = $truncateText((string) ($stopperData['text'] ?? ''), 100);
-                        $realHours = (float) ($project['actual_hours'] ?? 0);
-                        $plannedHoursValue = (float) ($project['planned_hours'] ?? 0);
-                        $hoursRatio = ($realHours > 0 || $plannedHoursValue > 0)
-                            ? number_format($realHours, 0, ',', '.') . ' / ' . number_format($plannedHoursValue, 0, ',', '.')
-                            : '—';
+                        $clientName = $project['client'] ?? 'Cliente no registrado';
+                        $isBillable = (int) ($project['is_billable'] ?? 0) === 1;
+                        $compactHealth = (int) (($project['health_score']['total_score'] ?? 0));
                     ?>
                     <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
-                        <td>
-                            <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                        <td class="project-cell">
+                            <div class="project-main">
+                                <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                                <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
+                            </div>
                             <?php if ($previewText !== ''): ?>
                                 <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
                                     <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
@@ -878,89 +879,44 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <span class="context-text">Sin notas o bloqueos registrados.</span>
                                 </span>
                             <?php endif; ?>
-                            <a class="context-history-button" data-no-row href="<?= htmlspecialchars($historyHref) ?>" title="Ver historial de notas" data-open-notes-panel data-project-name="<?= htmlspecialchars($project['name']) ?>" data-project-notes-url="<?= htmlspecialchars($historyHref) ?>">
-                                <span class="history-icon" aria-hidden="true">🗒️</span>
-                                Ver notas
-                            </a>
-                            <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos activos: <?= $riskCount ?></div>
+                            <div class="project-context-stats">
+                                <span>⚠ Riesgos: <?= $riskCount ?></span>
+                                <span>⛔ Bloqueos: <?= $blockersCount ?></span>
+                            </div>
                         </td>
-                        <td>
-                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
-                        </td>
-                        <td><?= htmlspecialchars($pmName) ?></td>
-                        <td>
-                            <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
-                        </td>
-                        <td>
-                            <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
-                        </td>
+                        <td><span class="pm-cell-text"><?= htmlspecialchars($pmName) ?></span></td>
                         <td>
                             <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                         </td>
                         <td>
-                            <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
                             <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
                             <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
                         </td>
                         <td>
-                            <div style="display:flex; flex-direction:column; gap:6px;">
+                            <div class="progress-compact">
                                 <div class="progress-track" aria-hidden="true">
                                     <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                 </div>
-                                <span style="font-size:12px; color: var(--text-secondary);"><?= $progress ?>%</span>
+                                <span class="progress-value"><?= $progressLabel ?>%</span>
                             </div>
                         </td>
                         <td>
-                            <?php if ($hasNotes): ?>
-                                <div class="project-context-preview" title="<?= htmlspecialchars((string) ($noteData['text'] ?? '')) ?>">
-                                    <span class="context-text"><?= htmlspecialchars($notePreview) ?></span>
+                            <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? 'Facturable' : 'No facturable' ?></span>
+                        </td>
+                        <td class="actions-cell">
+                            <details class="menu-details table-actions-menu" data-no-row>
+                                <summary class="menu-trigger" aria-label="Acciones" data-no-row>⋯</summary>
+                                <div class="menu-list">
+                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>?return=<?= urlencode($returnUrl) ?>" data-no-row>Ver detalle</a>
+                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>/edit?return=<?= urlencode($returnUrl) ?>" data-no-row>Editar</a>
+                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" data-no-row>Documentos</a>
+                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>/talent?return=<?= urlencode($returnUrl) ?>" data-no-row>Talento</a>
+                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>/costs?return=<?= urlencode($returnUrl) ?>" data-no-row>Costos</a>
+                                    <form action="<?= $basePath ?>/projects/<?= $projectId ?>/close" method="GET" data-no-row>
+                                        <button type="submit" data-no-row>Cerrar proyecto</button>
+                                    </form>
                                 </div>
-                                <a class="context-history-button" data-no-row href="<?= htmlspecialchars($historyHref) ?>" title="Ver historial de notas" data-open-notes-panel data-project-name="<?= htmlspecialchars($project['name']) ?>" data-project-notes-url="<?= htmlspecialchars($historyHref) ?>">
-                                    <span class="history-icon" aria-hidden="true">🗒️</span>
-                                    Ver completo
-                                </a>
-                            <?php else: ?>
-                                <span class="muted">Sin datos</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($blockersCount > 0): ?>
-                                <span title="<?= htmlspecialchars($latestBlockerText !== '' ? $latestBlockerText : 'Sin detalle del bloqueo') ?>">
-                                    <?= $blockersCount ?> · <?= htmlspecialchars($blockerSeverity) ?>
-                                </span>
-                            <?php else: ?>
-                                <span class="muted">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= htmlspecialchars($hoursRatio) ?></td>
-                        <td>
-                            <span class="indicator-cell" title="<?= $hasSignal ? htmlspecialchars(implode(' · ', $signals)) : 'Sin alertas' ?>"><?= $hasSignal ? '⚠' : '—' ?></span>
-                        </td>
-                        <td>
-                            <?php $isBillable = (int) ($project['is_billable'] ?? 0) === 1; ?>
-                            <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? '🟢 Facturable' : '⚪ No facturable' ?></span>
-                        </td>
-                        <td>
-                            <div class="table-actions">
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>" title="Ver detalle" data-no-row>
-                                    👁️
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>" title="Editar" data-no-row>
-                                    ✏️
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" title="Documentos" data-no-row>
-                                    📂
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>" title="Talento" data-no-row>
-                                    👥
-                                </a>
-                                <a class="icon-button" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>" title="Costos" data-no-row>
-                                    💵
-                                </a>
-                                <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET" style="margin:0" data-no-row>
-                                    <button class="icon-button" type="submit" title="Cerrar" data-no-row>🛑</button>
-                                </form>
-                            </div>
+                            </details>
                         </td>
                     </tr>
                 <?php endforeach; ?>
