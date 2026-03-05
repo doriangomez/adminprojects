@@ -562,6 +562,22 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 $controller->createActivity();
                 return;
             }
+            if ($path === '/timesheets/update-activity' && $method === 'POST') {
+                $controller->updateActivity();
+                return;
+            }
+            if ($path === '/timesheets/delete-entry' && $method === 'POST') {
+                $controller->deleteEntry();
+                return;
+            }
+            if ($path === '/timesheets/duplicate-day' && $method === 'POST') {
+                $controller->duplicateDay();
+                return;
+            }
+            if ($path === '/timesheets/analytics' && $method === 'GET') {
+                $controller->analytics();
+                return;
+            }
             if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {
                 $controller->updateStatus((int) $matches[1], $matches[2]);
                 return;

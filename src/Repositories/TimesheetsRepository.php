@@ -388,6 +388,155 @@ class TimesheetsRepository
         return ['id' => $id, 'updated' => false];
     }
 
+    public function deleteDraftEntry(int $timesheetId, int $userId): void
+    {
+        $entry = $this->db->fetchOne(
+            'SELECT id, status, user_id FROM timesheets WHERE id = :id LIMIT 1',
+            [':id' => $timesheetId]
+        );
+
+        if (!$entry) {
+            throw new \InvalidArgumentException('Actividad no encontrada.');
+        }
+        if ((int) ($entry['user_id'] ?? 0) !== $userId) {
+            throw new \InvalidArgumentException('No tienes permiso para eliminar esta actividad.');
+        }
+        if ((string) ($entry['status'] ?? '') !== 'draft') {
+            throw new \InvalidArgumentException('Solo se pueden eliminar actividades en estado borrador.');
+        }
+
+        $this->db->execute('DELETE FROM timesheets WHERE id = :id', [':id' => $timesheetId]);
+    }
+
+    public function updateDraftEntry(
+        int $timesheetId,
+        int $userId,
+        int $projectId,
+        string $date,
+        float $hours,
+        string $comment = '',
+        array $metadata = []
+    ): void
+    {
+        $entry = $this->db->fetchOne(
+            'SELECT id, status, user_id FROM timesheets WHERE id = :id LIMIT 1',
+            [':id' => $timesheetId]
+        );
+
+        if (!$entry) {
+            throw new \InvalidArgumentException('Actividad no encontrada.');
+        }
+        if ((int) ($entry['user_id'] ?? 0) !== $userId) {
+            throw new \InvalidArgumentException('No tienes permiso para editar esta actividad.');
+        }
+        if ((string) ($entry['status'] ?? '') !== 'draft') {
+            throw new \InvalidArgumentException('Solo se pueden editar actividades en estado borrador.');
+        }
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total FROM timesheets WHERE user_id = :user AND date = :date AND id <> :id',
+            [':user' => $userId, ':date' => $date, ':id' => $timesheetId]
+        );
+        if ((float) ($dayTotalRow['total'] ?? 0) + $hours > 24) {
+            throw new \InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
+        }
+
+        $structured = $this->sanitizeStructuredMetadata($metadata);
+        $taskId = $this->resolveTaskForEntry($projectId, $structured['task_id']);
+
+        $set = [
+            'project_id = :project_id',
+            'task_id = :task_id',
+            'date = :date',
+            'hours = :hours',
+            'comment = :comment',
+            'updated_at = NOW()',
+        ];
+        $params = [
+            ':project_id' => $projectId,
+            ':task_id' => $taskId,
+            ':date' => $date,
+            ':hours' => $hours,
+            ':comment' => $comment,
+            ':id' => $timesheetId,
+        ];
+
+        foreach ($this->structuredColumnMap() as $column => $key) {
+            if (!$this->db->columnExists('timesheets', $column)) {
+                continue;
+            }
+            $set[] = $column . ' = :' . $column;
+            $params[':' . $column] = $structured[$key];
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets SET ' . implode(', ', $set) . ' WHERE id = :id',
+            $params
+        );
+    }
+
+    public function duplicateDayActivities(int $userId, string $sourceDate, string $targetDate): int
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $sourceDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $targetDate)) {
+            throw new \InvalidArgumentException('Fechas inválidas.');
+        }
+        if ($sourceDate === $targetDate) {
+            throw new \InvalidArgumentException('La fecha destino debe ser diferente a la fecha origen.');
+        }
+
+        $sourceEntries = $this->db->fetchAll(
+            'SELECT * FROM timesheets WHERE user_id = :user AND date = :date AND status = :status',
+            [':user' => $userId, ':date' => $sourceDate, ':status' => 'draft']
+        );
+
+        if (empty($sourceEntries)) {
+            throw new \InvalidArgumentException('No hay actividades en borrador en la fecha origen.');
+        }
+
+        $dayTotalRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total FROM timesheets WHERE user_id = :user AND date = :date',
+            [':user' => $userId, ':date' => $targetDate]
+        );
+        $currentTargetTotal = (float) ($dayTotalRow['total'] ?? 0);
+        $sourceTotal = array_sum(array_column($sourceEntries, 'hours'));
+
+        if ($currentTargetTotal + $sourceTotal > 24) {
+            throw new \InvalidArgumentException('Duplicar estas actividades superaría las 24 horas en el día destino.');
+        }
+
+        $structuredCols = array_keys($this->structuredColumnMap());
+
+        $count = 0;
+        foreach ($sourceEntries as $entry) {
+            $payload = [
+                'task_id' => $entry['task_id'],
+                'project_id' => $entry['project_id'],
+                'talent_id' => $entry['talent_id'],
+                'user_id' => $userId,
+                'assignment_id' => $entry['assignment_id'],
+                'approver_user_id' => $entry['approver_user_id'],
+                'date' => $targetDate,
+                'hours' => $entry['hours'],
+                'status' => 'draft',
+                'comment' => $entry['comment'],
+                'billable' => 0,
+                'approved_by' => null,
+                'approved_at' => null,
+            ];
+
+            foreach ($structuredCols as $col) {
+                if ($this->db->columnExists('timesheets', $col) && isset($entry[$col])) {
+                    $payload[$col] = $entry[$col];
+                }
+            }
+
+            $this->createTimesheet($payload);
+            $count++;
+        }
+
+        return $count;
+    }
+
     public function submitWeek(
         int $userId,
         \DateTimeImmutable $weekStart,
