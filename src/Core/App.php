@@ -39,6 +39,7 @@ class App
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensurePmoMotorTables();
         $this->auth = new Auth($this->db);
     }
 
@@ -277,6 +278,10 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/notes$#', $path, $matches) && $method === 'POST') {
                 $controller->createNote((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/pmo-refresh$#', $path, $matches) && $method === 'POST') {
+                $controller->pmoRefresh((int) $matches[1]);
                 return;
             }
             if (preg_match('#^/projects/(\d+)/stoppers$#', $path, $matches) && $method === 'POST') {

@@ -438,10 +438,19 @@ class TimesheetsRepository
 
         $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
         if ($taskManagementMode !== 'existing') {
-            $taskTitle = $structured['activity_description'] !== ''
-                ? $structured['activity_description']
-                : trim($comment);
-            $taskId = $this->createTaskFromTimesheetActivity($projectId, $talentId, $taskTitle, $taskManagementMode);
+            $customTitle = trim((string) ($metadata['new_task_title'] ?? ''));
+            $taskTitle = $customTitle !== '' ? $customTitle
+                : ($structured['activity_description'] !== '' ? $structured['activity_description'] : trim($comment));
+            $taskPriority = trim((string) ($metadata['new_task_priority'] ?? 'medium'));
+            $taskDueDate = trim((string) ($metadata['new_task_due_date'] ?? ''));
+            $taskId = $this->createTaskFromTimesheetActivity(
+                $projectId,
+                $talentId,
+                $taskTitle,
+                $taskManagementMode,
+                $taskPriority,
+                $taskDueDate
+            );
         }
 
         return $this->createTimesheet([
@@ -2266,8 +2275,14 @@ class TimesheetsRepository
         return $this->resolveTimesheetTaskId($projectId);
     }
 
-    private function createTaskFromTimesheetActivity(int $projectId, int $talentId, string $rawTitle, string $taskManagementMode): int
-    {
+    private function createTaskFromTimesheetActivity(
+        int $projectId,
+        int $talentId,
+        string $rawTitle,
+        string $taskManagementMode,
+        string $priority = 'medium',
+        string $dueDate = ''
+    ): int {
         if (!$this->db->tableExists('tasks')) {
             throw new InvalidArgumentException('No hay tareas disponibles para registrar horas.');
         }
@@ -2277,21 +2292,30 @@ class TimesheetsRepository
             $title = 'Actividad registrada desde timesheet';
         }
 
+        $validPriorities = ['low', 'medium', 'high'];
+        $priority = in_array($priority, $validPriorities, true) ? $priority : 'medium';
         $status = $taskManagementMode === 'completed' ? 'completed' : 'pending';
         $isCompleted = $status === 'completed';
+
         $columns = ['project_id', 'title', 'status', 'priority', 'estimated_hours', 'actual_hours', 'created_at', 'updated_at'];
         $values = [':project', ':title', ':status', ':priority', '0', '0', 'NOW()', 'NOW()'];
         $params = [
             ':project' => $projectId,
             ':title' => $title,
             ':status' => $status,
-            ':priority' => 'medium',
+            ':priority' => $priority,
         ];
 
         if ($this->db->columnExists('tasks', 'assignee_id')) {
             $columns[] = 'assignee_id';
             $values[] = ':assignee_id';
             $params[':assignee_id'] = $talentId > 0 ? $talentId : null;
+        }
+
+        if ($this->db->columnExists('tasks', 'due_date') && $dueDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+            $columns[] = 'due_date';
+            $values[] = ':due_date';
+            $params[':due_date'] = $dueDate;
         }
 
         if ($this->db->columnExists('tasks', 'description')) {
@@ -2379,6 +2403,11 @@ class TimesheetsRepository
             $day = new \DateTimeImmutable($date);
         } catch (\Throwable $e) {
             throw new InvalidArgumentException('Fecha inválida.');
+        }
+
+        $dow = (int) $day->format('N');
+        if ($dow === 6 || $dow === 7) {
+            throw new InvalidArgumentException('No se pueden registrar horas en sábado ni domingo.');
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);

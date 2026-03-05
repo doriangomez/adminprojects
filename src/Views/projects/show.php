@@ -536,6 +536,131 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
             </article>
         </section>
 
+        <?php
+        $pmoSnapshot = is_array($pmoSnapshot ?? null) ? $pmoSnapshot : [];
+        $pmoAlerts = is_array($pmoAlerts ?? null) ? $pmoAlerts : [];
+        $pmoHoursTrend = is_array($pmoHoursTrend ?? null) ? $pmoHoursTrend : [];
+        $riskScore = (float) ($pmoSnapshot['risk_score'] ?? 0);
+        $riskClass = $riskScore >= 70 ? 'pmo-risk-critical' : ($riskScore >= 40 ? 'pmo-risk-high' : ($riskScore >= 20 ? 'pmo-risk-medium' : 'pmo-risk-low'));
+        $riskLabel = $riskScore >= 70 ? 'Crítico' : ($riskScore >= 40 ? 'Alto' : ($riskScore >= 20 ? 'Medio' : 'Bajo'));
+        $progressHours = $pmoSnapshot['progress_hours'] ?? null;
+        $progressTasks = $pmoSnapshot['progress_tasks'] ?? null;
+        $progressManualPmo = (float) ($pmoSnapshot['progress_manual'] ?? $projectProgress ?? 0);
+        ?>
+        <section class="pmo-motor-section">
+            <div class="pmo-motor-header">
+                <div>
+                    <p class="eyebrow">Motor PMO Automático</p>
+                    <h4>Indicadores calculados</h4>
+                </div>
+                <?php if (!empty($canManage)): ?>
+                    <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/pmo-refresh" style="display:inline">
+                        <button type="submit" class="action-btn">Recalcular</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+
+            <div class="pmo-indicators-grid">
+                <article class="pmo-indicator-card">
+                    <span class="pmo-indicator-label">Avance (Manual)</span>
+                    <div class="pmo-bar-wrap">
+                        <div class="pmo-bar" style="width:<?= min(100, $progressManualPmo) ?>%;background:var(--primary)"></div>
+                    </div>
+                    <strong class="pmo-indicator-value"><?= round($progressManualPmo, 1) ?>%</strong>
+                    <small class="pmo-indicator-sub">Actualizado por el equipo</small>
+                </article>
+
+                <article class="pmo-indicator-card">
+                    <span class="pmo-indicator-label">Avance por Horas</span>
+                    <div class="pmo-bar-wrap">
+                        <?php if ($progressHours !== null): ?>
+                            <div class="pmo-bar" style="width:<?= min(100, (float)$progressHours) ?>%;background:#6366f1"></div>
+                        <?php endif; ?>
+                    </div>
+                    <strong class="pmo-indicator-value">
+                        <?= $progressHours !== null ? round((float)$progressHours, 1) . '%' : 'Sin plan' ?>
+                    </strong>
+                    <small class="pmo-indicator-sub">
+                        <?= number_format((float)($pmoSnapshot['real_hours'] ?? 0), 1) ?>h aprobadas
+                        <?php if ((float)($pmoSnapshot['planned_hours'] ?? 0) > 0): ?>
+                            / <?= number_format((float)($pmoSnapshot['planned_hours'] ?? 0), 1) ?>h planificadas
+                        <?php endif; ?>
+                    </small>
+                </article>
+
+                <article class="pmo-indicator-card">
+                    <span class="pmo-indicator-label">Avance por Tareas</span>
+                    <div class="pmo-bar-wrap">
+                        <?php if ($progressTasks !== null): ?>
+                            <div class="pmo-bar" style="width:<?= min(100, (float)$progressTasks) ?>%;background:#10b981"></div>
+                        <?php endif; ?>
+                    </div>
+                    <strong class="pmo-indicator-value">
+                        <?= $progressTasks !== null ? round((float)$progressTasks, 1) . '%' : 'Sin tareas' ?>
+                    </strong>
+                    <small class="pmo-indicator-sub">
+                        <?= (int)($pmoSnapshot['done_tasks'] ?? 0) ?>/<?= (int)($pmoSnapshot['total_tasks'] ?? 0) ?> tareas cerradas
+                        <?php if ((int)($pmoSnapshot['overdue_tasks'] ?? 0) > 0): ?>
+                            · <span style="color:var(--danger)"><?= (int)($pmoSnapshot['overdue_tasks'] ?? 0) ?> vencidas</span>
+                        <?php endif; ?>
+                    </small>
+                </article>
+
+                <article class="pmo-indicator-card <?= $riskClass ?>">
+                    <span class="pmo-indicator-label">Riesgo PMO</span>
+                    <div class="pmo-risk-gauge">
+                        <span class="pmo-risk-score"><?= round($riskScore, 0) ?></span>
+                        <span class="pmo-risk-max">/100</span>
+                    </div>
+                    <strong class="pmo-indicator-value"><?= $riskLabel ?></strong>
+                    <small class="pmo-indicator-sub">
+                        <?= (int)($pmoSnapshot['open_blockers'] ?? 0) ?> bloqueo(s) · <?= (int)($pmoSnapshot['inactive_business_days'] ?? 0) ?> días inactivo
+                    </small>
+                </article>
+            </div>
+
+            <?php if ($pmoAlerts !== []): ?>
+                <div class="pmo-alerts-list">
+                    <p class="eyebrow" style="margin-bottom:8px">Alertas PMO activas (<?= count($pmoAlerts) ?>)</p>
+                    <?php foreach ($pmoAlerts as $alert): ?>
+                        <?php
+                        $alertSeverity = (string)($alert['severity'] ?? 'medium');
+                        $alertClass = match($alertSeverity) { 'critical' => 'pmo-alert-critical', 'high' => 'pmo-alert-high', 'medium' => 'pmo-alert-medium', default => 'pmo-alert-low' };
+                        ?>
+                        <div class="pmo-alert-item <?= $alertClass ?>">
+                            <strong><?= htmlspecialchars((string)($alert['message'] ?? '')) ?></strong>
+                            <?php if (!empty($alert['detail'])): ?>
+                                <small><?= htmlspecialchars((string)($alert['detail'] ?? '')) ?></small>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($pmoHoursTrend !== []): ?>
+                <div class="pmo-trend-section">
+                    <p class="eyebrow">Tendencia de horas (últimas 4 semanas)</p>
+                    <div class="pmo-trend-bars">
+                        <?php
+                        $maxH = max(array_map(fn($r) => (float)($r['total_hours'] ?? 0), $pmoHoursTrend));
+                        $maxH = $maxH > 0 ? $maxH : 1;
+                        ?>
+                        <?php foreach ($pmoHoursTrend as $wk): ?>
+                            <?php $pct = min(100, ((float)($wk['total_hours'] ?? 0) / $maxH) * 100); ?>
+                            <div class="pmo-trend-bar-col">
+                                <div class="pmo-trend-bar-wrap">
+                                    <div class="pmo-trend-bar-approved" style="height:<?= min(100, ((float)($wk['approved_hours'] ?? 0) / $maxH) * 100) ?>%"></div>
+                                    <div class="pmo-trend-bar-total" style="height:<?= $pct ?>%"></div>
+                                </div>
+                                <small><?= htmlspecialchars('S' . ((string)($wk['wk'] ?? ''))) ?></small>
+                                <small><?= round((float)($wk['total_hours'] ?? 0), 1) ?>h</small>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </section>
+
 
 
 
@@ -1241,6 +1366,41 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     .indicator-card strong { font-size:18px; color: var(--text-primary); display:block; }
     .indicator-card small { font-size:12px; color: var(--text-secondary); }
     .indicator-icon { width:36px; height:36px; border-radius:10px; background: color-mix(in srgb, var(--primary) 12%, var(--background)); display:inline-flex; align-items:center; justify-content:center; }
+    .pmo-motor-section { display:flex; flex-direction:column; gap:14px; border:1px solid var(--border); border-radius:16px; padding:16px; background:var(--surface); }
+    .pmo-motor-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .pmo-indicators-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+    .pmo-indicator-card { border:1px solid var(--border); border-radius:12px; padding:12px; background:color-mix(in srgb,var(--background) 60%,var(--surface)); display:flex; flex-direction:column; gap:6px; }
+    .pmo-indicator-label { font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-secondary); }
+    .pmo-indicator-value { font-size:20px; font-weight:800; color:var(--text-primary); }
+    .pmo-indicator-sub { font-size:11px; color:var(--text-secondary); }
+    .pmo-bar-wrap { height:6px; background:color-mix(in srgb,var(--text-secondary) 20%,var(--background)); border-radius:999px; overflow:hidden; }
+    .pmo-bar { height:100%; border-radius:999px; transition:width .3s; }
+    .pmo-risk-gauge { display:flex; align-items:baseline; gap:2px; }
+    .pmo-risk-score { font-size:28px; font-weight:900; }
+    .pmo-risk-max { font-size:13px; color:var(--text-secondary); }
+    .pmo-risk-low { border-color:color-mix(in srgb,var(--success) 40%,var(--border)); background:color-mix(in srgb,var(--success) 8%,var(--surface)); }
+    .pmo-risk-low .pmo-risk-score { color:var(--success); }
+    .pmo-risk-medium { border-color:color-mix(in srgb,var(--warning) 50%,var(--border)); background:color-mix(in srgb,var(--warning) 8%,var(--surface)); }
+    .pmo-risk-medium .pmo-risk-score { color:var(--warning); }
+    .pmo-risk-high { border-color:color-mix(in srgb,#f97316 50%,var(--border)); background:color-mix(in srgb,#f97316 8%,var(--surface)); }
+    .pmo-risk-high .pmo-risk-score { color:#f97316; }
+    .pmo-risk-critical { border-color:color-mix(in srgb,var(--danger) 50%,var(--border)); background:color-mix(in srgb,var(--danger) 8%,var(--surface)); }
+    .pmo-risk-critical .pmo-risk-score { color:var(--danger); }
+    .pmo-alerts-list { display:flex; flex-direction:column; gap:8px; }
+    .pmo-alert-item { border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:4px; border:1px solid; }
+    .pmo-alert-item strong { font-size:13px; }
+    .pmo-alert-item small { font-size:12px; }
+    .pmo-alert-critical { background:color-mix(in srgb,var(--danger) 10%,var(--surface)); border-color:color-mix(in srgb,var(--danger) 35%,var(--border)); color:var(--danger); }
+    .pmo-alert-high { background:color-mix(in srgb,#f97316 10%,var(--surface)); border-color:color-mix(in srgb,#f97316 35%,var(--border)); color:#c2410c; }
+    .pmo-alert-medium { background:color-mix(in srgb,var(--warning) 10%,var(--surface)); border-color:color-mix(in srgb,var(--warning) 35%,var(--border)); color:color-mix(in srgb,var(--warning) 80%,var(--text-primary)); }
+    .pmo-alert-low { background:color-mix(in srgb,var(--text-secondary) 8%,var(--surface)); border-color:var(--border); color:var(--text-secondary); }
+    .pmo-trend-section { display:flex; flex-direction:column; gap:8px; }
+    .pmo-trend-bars { display:flex; align-items:flex-end; gap:8px; height:80px; }
+    .pmo-trend-bar-col { display:flex; flex-direction:column; align-items:center; gap:2px; flex:1; height:100%; }
+    .pmo-trend-bar-wrap { flex:1; width:100%; display:flex; align-items:flex-end; gap:2px; border-bottom:1px solid var(--border); padding-bottom:2px; position:relative; }
+    .pmo-trend-bar-total { flex:1; background:color-mix(in srgb,var(--primary) 25%,var(--background)); border-radius:4px 4px 0 0; min-height:2px; }
+    .pmo-trend-bar-approved { position:absolute; bottom:0; left:0; width:50%; background:var(--primary); border-radius:4px 4px 0 0; min-height:2px; }
+    .pmo-trend-bar-col small { font-size:10px; color:var(--text-secondary); white-space:nowrap; }
     .progress-history { display:flex; }
     .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; width:100%; }
     .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }

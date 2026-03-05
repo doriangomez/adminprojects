@@ -353,7 +353,9 @@ class TimesheetsController extends Controller
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
             'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? 'existing')),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
+            'new_task_title' => trim((string) ($_POST['new_task_title'] ?? '')),
+            'new_task_priority' => trim((string) ($_POST['new_task_priority'] ?? 'medium')),
+            'new_task_due_date' => trim((string) ($_POST['new_task_due_date'] ?? '')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),

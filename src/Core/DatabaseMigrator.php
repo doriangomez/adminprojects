@@ -2613,4 +2613,90 @@ class DatabaseMigrator
         }
     }
 
+    public function ensurePmoMotorTables(): void
+    {
+        try {
+            $this->createPmoSnapshotsTable();
+            $this->createPmoAlertsTable();
+            $this->ensurePlannedHoursOnProjects();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tablas PMO Motor: ' . $e->getMessage());
+        }
+    }
+
+    private function createPmoSnapshotsTable(): void
+    {
+        if ($this->db->tableExists('project_pmo_snapshots')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_pmo_snapshots (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                snapshot_date DATE NOT NULL,
+                progress_manual DECIMAL(5,2) NULL COMMENT "Avance manual (projects.progress)",
+                progress_hours DECIMAL(5,2) NULL COMMENT "Avance por horas aprobadas / planificadas",
+                progress_tasks DECIMAL(5,2) NULL COMMENT "Avance por tareas cerradas / total",
+                real_hours DECIMAL(10,2) NOT NULL DEFAULT 0,
+                planned_hours DECIMAL(10,2) NOT NULL DEFAULT 0,
+                total_tasks INT NOT NULL DEFAULT 0,
+                done_tasks INT NOT NULL DEFAULT 0,
+                overdue_tasks INT NOT NULL DEFAULT 0,
+                open_blockers INT NOT NULL DEFAULT 0,
+                critical_blockers INT NOT NULL DEFAULT 0,
+                risk_score DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT "Score 0-100, mayor = más riesgo",
+                inactive_business_days INT NOT NULL DEFAULT 0,
+                calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_pmo_snapshot_project_date (project_id, snapshot_date),
+                INDEX idx_pmo_snapshots_date (snapshot_date),
+                CONSTRAINT fk_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
+
+    private function createPmoAlertsTable(): void
+    {
+        if ($this->db->tableExists('project_pmo_alerts')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_pmo_alerts (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                alert_type VARCHAR(60) NOT NULL COMMENT "overconsumption|task_gap|critical_blocker|inactivity|overdue_tasks|progress_inconsistency",
+                severity ENUM("low","medium","high","critical") NOT NULL DEFAULT "medium",
+                message TEXT NOT NULL,
+                detail TEXT NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                resolved_at TIMESTAMP NULL DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_pmo_alerts_project_active (project_id, is_active),
+                INDEX idx_pmo_alerts_type (alert_type),
+                CONSTRAINT fk_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
+
+    private function ensurePlannedHoursOnProjects(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('projects', 'planned_hours')) {
+            $this->db->execute(
+                'ALTER TABLE projects ADD COLUMN planned_hours DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER actual_hours'
+            );
+        }
+
+        if (!$this->db->columnExists('projects', 'actual_hours')) {
+            $this->db->execute(
+                'ALTER TABLE projects ADD COLUMN actual_hours DECIMAL(10,2) NOT NULL DEFAULT 0'
+            );
+        }
+    }
+
 }

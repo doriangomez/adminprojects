@@ -1850,6 +1850,11 @@ class ProjectsController extends Controller
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
 
+        $pmoMotor = new PmoMotorService($this->db);
+        $pmoSnapshot = $pmoMotor->getOrRefreshSnapshot($id);
+        $pmoAlerts = $pmoMotor->activeAlerts($id);
+        $pmoHoursTrend = $pmoMotor->hoursTrend($id);
+
         return array_merge([
             'title' => 'Detalle de proyecto',
             'project' => $project,
@@ -1893,9 +1898,28 @@ class ProjectsController extends Controller
             'stopperStatusOptions' => array_values(array_filter(self::STOPPER_STATUSES, static fn (string $status): bool => $status !== 'cerrado')),
             'canCloseStoppers' => $this->auth->can('project.stoppers.close'),
             'responsibleUsers' => (new UsersRepository($this->db))->findByRoleNames(['Administrador', 'PMO', 'Líder de Proyecto', 'Talento']),
+            'pmoSnapshot' => $pmoSnapshot,
+            'pmoAlerts' => $pmoAlerts,
+            'pmoHoursTrend' => $pmoHoursTrend,
         ], $deleteContext);
     }
 
+
+    public function pmoRefresh(int $id): void
+    {
+        if (!$this->auth->can('projects.view')) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        try {
+            (new PmoMotorService($this->db))->recalculate($id);
+        } catch (\Throwable $e) {
+            error_log('Error recalculando PMO Motor para proyecto ' . $id . ': ' . $e->getMessage());
+        }
+
+        header('Location: /projects/' . $id . '?view=resumen');
+    }
 
     public function toggleBillingConfig(int $projectId): void
     {
