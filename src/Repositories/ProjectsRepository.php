@@ -201,17 +201,24 @@ class ProjectsRepository
         $projects = $this->db->fetchAll($sql, $params);
         $projectIds = array_values(array_filter(array_map(static fn (array $project): int => (int) ($project['id'] ?? 0), $projects)));
 
+        $latestNotesByProject = $this->latestNotesByProject($projectIds);
+        $activeStoppersByProject = $this->activeStoppersByProject($projectIds);
         $scopeChangesByProject = $this->scopeChangesByProject($projectIds);
         $progressByProject = $this->progressActivityByProject($projectIds);
 
-        return array_map(function (array $project) use ($scopeChangesByProject, $progressByProject): array {
+        return array_map(function (array $project) use ($latestNotesByProject, $activeStoppersByProject, $scopeChangesByProject, $progressByProject): array {
             $projectId = (int) ($project['id'] ?? 0);
-            $noteData = ['count' => (int) ($project['notes_count'] ?? 0)];
+            $noteData = $latestNotesByProject[$projectId] ?? [];
+            $noteData['count'] = (int) ($project['notes_count'] ?? 0);
             $stopperData = [
                 'total_count' => (int) ($project['blockers_count'] ?? 0),
                 'critical_count' => (int) ($project['blocker_critical_count'] ?? 0),
                 'high_count' => (int) ($project['blocker_high_count'] ?? 0),
             ];
+
+            if (isset($activeStoppersByProject[$projectId])) {
+                $stopperData = array_merge($stopperData, $activeStoppersByProject[$projectId]);
+            }
 
             return $this->attachProjectOperationalData(
                 $this->attachProjectSignal($project),
