@@ -693,8 +693,87 @@ class DatabaseMigrator
                      WHERE ts.user_id IS NULL'
                 );
             }
+
+            $this->ensureTimesheetActivityColumns();
+            $this->ensureTimesheetActivityTypesTable();
+            $this->ensureTimesheetAutocompleteTable();
         } catch (\PDOException $e) {
             error_log('Error asegurando esquema de timesheets: ' . $e->getMessage());
+        }
+    }
+
+    private function ensureTimesheetActivityColumns(): void
+    {
+        $columns = [
+            'activity_type' => 'VARCHAR(50) NULL',
+            'activity_description' => 'VARCHAR(500) NULL',
+            'phase' => 'VARCHAR(80) NULL',
+            'subphase' => 'VARCHAR(80) NULL',
+            'has_blocker' => 'TINYINT(1) DEFAULT 0',
+            'blocker_description' => 'TEXT NULL',
+            'has_advance' => 'TINYINT(1) DEFAULT 0',
+            'has_deliverable' => 'TINYINT(1) DEFAULT 0',
+        ];
+        foreach ($columns as $col => $def) {
+            if (!$this->db->columnExists('timesheets', $col)) {
+                $this->db->execute(sprintf('ALTER TABLE timesheets ADD COLUMN %s %s', $col, $def));
+                $this->db->clearColumnCache();
+            }
+        }
+    }
+
+    private function ensureTimesheetActivityTypesTable(): void
+    {
+        if (!$this->db->tableExists('timesheet_activity_types')) {
+            $this->db->execute(
+                'CREATE TABLE timesheet_activity_types (
+                    code VARCHAR(50) PRIMARY KEY,
+                    label VARCHAR(100) NOT NULL,
+                    sort_order INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+            $types = [
+                ['desarrollo', 'Desarrollo', 1],
+                ['analisis', 'Análisis', 2],
+                ['reunion', 'Reunión', 3],
+                ['documentacion', 'Documentación', 4],
+                ['soporte', 'Soporte', 5],
+                ['investigacion', 'Investigación', 6],
+                ['pruebas', 'Pruebas', 7],
+                ['gestion_pm', 'Gestión PM', 8],
+            ];
+            foreach ($types as $t) {
+                $this->db->execute(
+                    'INSERT IGNORE INTO timesheet_activity_types (code, label, sort_order) VALUES (:code, :label, :ord)',
+                    [':code' => $t[0], ':label' => $t[1], ':ord' => $t[2]]
+                );
+            }
+        }
+    }
+
+    private function ensureTimesheetAutocompleteTable(): void
+    {
+        if (!$this->db->tableExists('timesheet_autocomplete')) {
+            $this->db->execute(
+                'CREATE TABLE timesheet_autocomplete (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    project_id INT NOT NULL,
+                    task_id INT NULL,
+                    phase VARCHAR(80) NULL,
+                    activity_type VARCHAR(50) NULL,
+                    usage_count INT DEFAULT 1,
+                    last_used_at DATE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_autocomplete_user (user_id),
+                    INDEX idx_autocomplete_user_project (user_id, project_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
         }
     }
 

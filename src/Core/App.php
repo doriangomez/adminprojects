@@ -522,6 +522,18 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 $controller->saveCell();
                 return;
             }
+            if ($path === '/timesheets/api/activities' && $method === 'GET') {
+                $controller->apiActivities();
+                return;
+            }
+            if ($path === '/timesheets/api/autocomplete' && $method === 'GET') {
+                $controller->apiAutocomplete();
+                return;
+            }
+            if ($path === '/timesheets/api/activity-types' && $method === 'GET') {
+                $controller->apiActivityTypes();
+                return;
+            }
             if ($path === '/timesheets/submit-week' && $method === 'POST') {
                 $controller->submitWeek();
                 return;

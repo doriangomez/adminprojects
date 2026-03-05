@@ -222,6 +222,20 @@
             "external_talent_requires_approval": true,
             "budget_change_requires_approval": true
         },
+        "timesheets": {
+            "enabled": true,
+            "activity_types": [
+                {"code": "desarrollo", "label": "Desarrollo"},
+                {"code": "analisis", "label": "Análisis"},
+                {"code": "reunion", "label": "Reunión"},
+                {"code": "documentacion", "label": "Documentación"},
+                {"code": "soporte", "label": "Soporte"},
+                {"code": "investigacion", "label": "Investigación"},
+                {"code": "pruebas", "label": "Pruebas"},
+                {"code": "gestion_pm", "label": "Gestión PM"}
+            ],
+            "autocomplete_enabled": true
+        },
         "health_scoring": {
             "weights": {
                 "documental": 0.25,

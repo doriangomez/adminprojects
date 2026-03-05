@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Repositories\AuditLogRepository;
+use App\Repositories\ProjectStoppersRepository;
 use App\Repositories\TimesheetsRepository;
+use App\Services\TimesheetIntegrationService;
 
 class TimesheetsController extends Controller
 {
@@ -90,6 +92,8 @@ class TimesheetsController extends Controller
             'managedWeekEntries' => $managedWeekEntries,
             'talentOptions' => $talentOptions,
             'talentFilter' => $talentFilter,
+            'weekActivities' => $canReport ? $repo->activitiesForWeek($userId, $weekStart) : [],
+            'activityTypes' => $repo->activityTypes(),
         ]);
     }
 
@@ -114,8 +118,21 @@ class TimesheetsController extends Controller
             exit('Proyecto y fecha son requeridos.');
         }
 
+        $activity = [];
+        foreach (['activity_type', 'activity_description', 'phase', 'subphase', 'task_id', 'has_blocker', 'blocker_description', 'has_advance', 'has_deliverable'] as $k) {
+            if (isset($_POST[$k])) {
+                if (in_array($k, ['has_blocker', 'has_advance', 'has_deliverable'], true)) {
+                    $activity[$k] = filter_var($_POST[$k], FILTER_VALIDATE_BOOLEAN);
+                } elseif ($k === 'task_id') {
+                    $activity[$k] = (int) $_POST[$k] > 0 ? (int) $_POST[$k] : null;
+                } else {
+                    $activity[$k] = trim((string) $_POST[$k]);
+                }
+            }
+        }
+
         try {
-            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment);
+            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $activity);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
             header('Content-Type: application/json');
             echo json_encode(['ok' => true]);
@@ -257,7 +274,15 @@ class TimesheetsController extends Controller
         }
 
         try {
-            $repo->updateWeekApprovalStatus($userId, $weekStart, $status, $comment !== '' ? $comment : null);
+            [$updated, $approvedIds] = $repo->updateWeekApprovalStatus($userId, $weekStart, $status, $comment !== '' ? $comment : null);
+            if ($status === 'approved' && $approvedIds !== []) {
+                $auditRepo = new AuditLogRepository($this->db);
+                $stoppersRepo = new ProjectStoppersRepository($this->db);
+                $integration = new TimesheetIntegrationService($this->db, $auditRepo, $stoppersRepo);
+                foreach ($approvedIds as $tid) {
+                    $integration->onTimesheetApproved($tid, $userId);
+                }
+            }
             header('Location: /approvals');
         } catch (\Throwable $e) {
             error_log('Error al aprobar semana de timesheets: ' . $e->getMessage());
@@ -385,6 +410,58 @@ class TimesheetsController extends Controller
         }
     }
 
+    public function apiActivities(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Acceso denegado']);
+            return;
+        }
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $weekValue = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
+
+        $repo = new TimesheetsRepository($this->db);
+        $activities = $repo->activitiesForWeek($userId, $weekStart);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['activities' => $activities], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function apiAutocomplete(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Acceso denegado']);
+            return;
+        }
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $projectId = (int) ($_GET['project_id'] ?? 0);
+        $limit = min(20, max(5, (int) ($_GET['limit'] ?? 10)));
+
+        $repo = new TimesheetsRepository($this->db);
+        $suggestions = $repo->autocompleteSuggestions($userId, $projectId > 0 ? $projectId : null, $limit);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['suggestions' => $suggestions], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function apiActivityTypes(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Acceso denegado']);
+            return;
+        }
+        $repo = new TimesheetsRepository($this->db);
+        $types = $repo->activityTypes();
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['types' => $types], JSON_UNESCAPED_UNICODE);
+    }
+
     private function parseWeekValue(string $weekValue): ?DateTimeImmutable
     {
         if (!preg_match('/^(\d{4})-W(\d{2})$/', $weekValue, $matches)) {
@@ -436,6 +513,12 @@ class TimesheetsController extends Controller
             $projectId = (int) ($repo->projectIdForTimesheet($timesheetId) ?? 0);
             if ($projectId > 0) {
                 (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            }
+            if ($status === 'approved') {
+                $auditRepo = new AuditLogRepository($this->db);
+                $stoppersRepo = new ProjectStoppersRepository($this->db);
+                (new TimesheetIntegrationService($this->db, $auditRepo, $stoppersRepo))
+                    ->onTimesheetApproved($timesheetId, $userId);
             }
 
             (new AuditLogRepository($this->db))->log(

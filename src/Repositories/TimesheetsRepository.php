@@ -194,7 +194,10 @@ class TimesheetsRepository
         ];
     }
 
-    public function upsertDraftCell(int $userId, int $projectId, string $date, float $hours, string $comment = ''): array
+    /**
+     * @param array{activity_type?: string, activity_description?: string, phase?: string, subphase?: string, task_id?: int|null, has_blocker?: bool, blocker_description?: string, has_advance?: bool, has_deliverable?: string} $activity
+     */
+    public function upsertDraftCell(int $userId, int $projectId, string $date, float $hours, string $comment = '', array $activity = []): array
     {
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
@@ -236,29 +239,42 @@ class TimesheetsRepository
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $approver = $approverUserId > 0 ? $approverUserId : null;
-        $taskId = $this->resolveTimesheetTaskId($projectId);
+        $taskId = isset($activity['task_id']) && (int) ($activity['task_id'] ?? 0) > 0
+            ? (int) $activity['task_id']
+            : $this->resolveTimesheetTaskId($projectId);
+
+        $activityCols = $this->activityColumnsForUpsert($activity);
 
         if ($existing) {
+            $setParts = [
+                'hours = :hours',
+                'comment = :comment',
+                'status = :status',
+                'approver_user_id = :approver',
+                'task_id = :task_id',
+                'updated_at = NOW()',
+            ];
+            $params = [
+                ':hours' => $hours,
+                ':comment' => $comment,
+                ':status' => 'draft',
+                ':approver' => $approver,
+                ':task_id' => $taskId,
+                ':id' => (int) $existing['id'],
+            ];
+            foreach ($activityCols as $col => $val) {
+                $setParts[] = $col . ' = :' . $col;
+                $params[':' . $col] = $val;
+            }
             $this->db->execute(
-                'UPDATE timesheets
-                 SET hours = :hours,
-                     comment = :comment,
-                     status = :status,
-                     approver_user_id = :approver,
-                     updated_at = NOW()
-                 WHERE id = :id',
-                [
-                    ':hours' => $hours,
-                    ':comment' => $comment,
-                    ':status' => 'draft',
-                    ':approver' => $approver,
-                    ':id' => (int) $existing['id'],
-                ]
+                'UPDATE timesheets SET ' . implode(', ', $setParts) . ' WHERE id = :id',
+                $params
             );
+            $this->recordAutocompleteUsage($userId, $projectId, $taskId, $activity, $date);
             return ['id' => (int) $existing['id'], 'updated' => true];
         }
 
-        $id = $this->createTimesheet([
+        $payload = [
             'task_id' => $taskId,
             'project_id' => $projectId,
             'talent_id' => $talentId,
@@ -272,9 +288,164 @@ class TimesheetsRepository
             'billable' => 0,
             'approved_by' => null,
             'approved_at' => null,
-        ]);
-
+        ];
+        foreach ($activityCols as $col => $val) {
+            $payload[$col] = $val;
+        }
+        $id = $this->createTimesheet($payload);
+        $this->recordAutocompleteUsage($userId, $projectId, $taskId, $activity, $date);
         return ['id' => $id, 'updated' => false];
+    }
+
+    /** @return array<string, mixed> */
+    private function activityColumnsForUpsert(array $activity): array
+    {
+        $cols = [];
+        $map = [
+            'activity_type' => 'activity_type',
+            'activity_description' => 'activity_description',
+            'phase' => 'phase',
+            'subphase' => 'subphase',
+            'has_blocker' => 'has_blocker',
+            'blocker_description' => 'blocker_description',
+            'has_advance' => 'has_advance',
+            'has_deliverable' => 'has_deliverable',
+        ];
+        foreach ($map as $key => $col) {
+            if (!$this->db->columnExists('timesheets', $col)) {
+                continue;
+            }
+            if (!array_key_exists($key, $activity)) {
+                continue;
+            }
+            $v = $activity[$key];
+            if ($key === 'has_blocker' || $key === 'has_advance' || $key === 'has_deliverable') {
+                $cols[$col] = $v ? 1 : 0;
+            } else {
+                $cols[$col] = $v;
+            }
+        }
+        return $cols;
+    }
+
+    private function recordAutocompleteUsage(int $userId, int $projectId, int $taskId, array $activity, string $date): void
+    {
+        if (!$this->db->tableExists('timesheet_autocomplete') || $projectId <= 0) {
+            return;
+        }
+        try {
+            $phase = trim((string) ($activity['phase'] ?? ''));
+            $activityType = trim((string) ($activity['activity_type'] ?? ''));
+            $taskIdVal = $taskId > 0 ? $taskId : null;
+            $phaseVal = $phase !== '' ? $phase : null;
+            $atypeVal = $activityType !== '' ? $activityType : null;
+
+            $rows = $this->db->fetchAll(
+                'SELECT id, usage_count FROM timesheet_autocomplete
+                 WHERE user_id = :uid AND project_id = :pid
+                   AND ((:tid IS NULL AND task_id IS NULL) OR task_id = :tid2)
+                   AND ((:phase IS NULL AND phase IS NULL) OR phase = :phase2)
+                   AND ((:atype IS NULL AND activity_type IS NULL) OR activity_type = :atype2)
+                 LIMIT 1',
+                [
+                    ':uid' => $userId,
+                    ':pid' => $projectId,
+                    ':tid' => $taskIdVal,
+                    ':tid2' => $taskIdVal,
+                    ':phase' => $phaseVal,
+                    ':phase2' => $phaseVal,
+                    ':atype' => $atypeVal,
+                    ':atype2' => $atypeVal,
+                ]
+            );
+            $existing = $rows[0] ?? null;
+            if ($existing) {
+                $this->db->execute(
+                    'UPDATE timesheet_autocomplete SET usage_count = usage_count + 1, last_used_at = :date, updated_at = NOW() WHERE id = :id',
+                    [':date' => $date, ':id' => (int) $existing['id']]
+                );
+            } else {
+                $this->db->insert(
+                    'INSERT INTO timesheet_autocomplete (user_id, project_id, task_id, phase, activity_type, usage_count, last_used_at)
+                     VALUES (:uid, :pid, :tid, :phase, :atype, 1, :date)',
+                    [
+                        ':uid' => $userId,
+                        ':pid' => $projectId,
+                        ':tid' => $taskIdVal,
+                        ':phase' => $phaseVal,
+                        ':atype' => $atypeVal,
+                        ':date' => $date,
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('Timesheet autocomplete record error: ' . $e->getMessage());
+        }
+    }
+
+    public function activitiesForWeek(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $rows = $this->db->fetchAll(
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.comment,
+                    ts.activity_type, ts.activity_description, ts.phase, ts.subphase,
+                    ts.has_blocker, ts.blocker_description, ts.has_advance, ts.has_deliverable,
+                    COALESCE(ts.project_id, t.project_id) AS project_id,
+                    p.name AS project_name, t.title AS task_title, t.id AS task_id
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.user_id = :user AND ts.date BETWEEN :start AND :end
+             ORDER BY ts.date ASC, ts.id ASC',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+        $byDate = [];
+        foreach ($rows as $r) {
+            $date = (string) ($r['date'] ?? '');
+            if (!isset($byDate[$date])) {
+                $byDate[$date] = [];
+            }
+            $byDate[$date][] = $r;
+        }
+        return $byDate;
+    }
+
+    public function activityTypes(): array
+    {
+        if (!$this->db->tableExists('timesheet_activity_types')) {
+            return [];
+        }
+        return $this->db->fetchAll('SELECT code, label, sort_order FROM timesheet_activity_types ORDER BY sort_order ASC, code ASC');
+    }
+
+    public function autocompleteSuggestions(int $userId, ?int $projectId = null, int $limit = 10): array
+    {
+        if (!$this->db->tableExists('timesheet_autocomplete')) {
+            return [];
+        }
+        $params = [':uid' => $userId, ':limit' => $limit];
+        $where = 'user_id = :uid';
+        if ($projectId !== null && $projectId > 0) {
+            $where .= ' AND project_id = :pid';
+            $params[':pid'] = $projectId;
+        }
+        $limit = (int) $limit;
+        $limit = $limit <= 0 ? 10 : min(20, $limit);
+        return $this->db->fetchAll(
+            "SELECT ta.project_id, ta.task_id, ta.phase, ta.activity_type,
+                    p.name AS project_name, t.title AS task_title
+             FROM timesheet_autocomplete ta
+             LEFT JOIN projects p ON p.id = ta.project_id
+             LEFT JOIN tasks t ON t.id = ta.task_id
+             WHERE {$where}
+             ORDER BY ta.usage_count DESC, ta.last_used_at DESC
+             LIMIT {$limit}",
+            $params
+        );
     }
 
     public function submitWeek(int $userId, \DateTimeImmutable $weekStart): int
@@ -741,7 +912,10 @@ class TimesheetsRepository
         return array_values($grouped);
     }
 
-    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null): int
+    /**
+     * @return array{0: int, 1: array<int>} [updated count, approved timesheet IDs when status=approved]
+     */
+    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null): array
     {
         $start = new \DateTimeImmutable($weekStart);
         $end = $start->modify('+6 days');
@@ -753,6 +927,18 @@ class TimesheetsRepository
             ':start' => $start->format('Y-m-d'),
             ':end' => $end->format('Y-m-d'),
         ];
+
+        $approvedIds = [];
+        if ($status === 'approved') {
+            $rows = $this->db->fetchAll(
+                'SELECT id FROM timesheets
+                 WHERE approver_user_id = :approver_where
+                   AND date BETWEEN :start AND :end
+                   AND status IN ("submitted", "pending", "pending_approval")',
+                $params
+            );
+            $approvedIds = array_map(static fn ($r) => (int) ($r['id'] ?? 0), $rows);
+        }
 
         $column = $status === 'approved'
             ? 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
@@ -775,7 +961,7 @@ class TimesheetsRepository
             $this->logWeekWorkflowAction($start, $approverUserId, $status, $comment, 'pending', $status, $approverUserId);
         }
 
-        return $updated;
+        return [$updated, $approvedIds];
     }
 
     public function reopenWeek(int $actorUserId, string $weekStart, int $approverUserId, ?string $comment = null): int
@@ -1091,9 +1277,9 @@ class TimesheetsRepository
             ':status' => $payload['status'],
             ':comment' => $payload['comment'],
             ':approval_comment' => $payload['approval_comment'] ?? null,
-            ':billable' => (int) $payload['billable'],
-            ':approved_by' => $payload['approved_by'],
-            ':approved_at' => $payload['approved_at'],
+            ':billable' => (int) ($payload['billable'] ?? 0),
+            ':approved_by' => $payload['approved_by'] ?? null,
+            ':approved_at' => $payload['approved_at'] ?? null,
         ];
 
         if ($this->db->columnExists('timesheets', 'project_id')) {
@@ -1106,12 +1292,25 @@ class TimesheetsRepository
             $params[':user_id'] = $payload['user_id'] ?? null;
         }
 
+        foreach (['activity_type', 'activity_description', 'phase', 'subphase', 'has_blocker', 'blocker_description', 'has_advance', 'has_deliverable'] as $col) {
+            if ($this->db->columnExists('timesheets', $col) && array_key_exists($col, $payload)) {
+                $columns[] = $col;
+                $v = $payload[$col];
+                $params[':' . $col] = in_array($col, ['has_blocker', 'has_advance', 'has_deliverable'], true) ? ($v ? 1 : 0) : $v;
+            }
+        }
+
         $columns[] = 'created_at';
         $columns[] = 'updated_at';
 
+        $placeholders = [];
+        foreach ($columns as $c) {
+            $placeholders[] = $c === 'created_at' || $c === 'updated_at' ? 'NOW()' : ':' . $c;
+        }
+
         $timesheetId = $this->db->insert(
             'INSERT INTO timesheets (' . implode(', ', $columns) . ')
-             VALUES (' . implode(', ', array_keys($params)) . ', NOW(), NOW())',
+             VALUES (' . implode(', ', $placeholders) . ')',
             $params
         );
 

@@ -32,6 +32,12 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
 $managedWeekEntries = is_array($managedWeekEntries ?? null) ? $managedWeekEntries : [];
 $talentOptions = is_array($talentOptions ?? null) ? $talentOptions : [];
 $talentFilter = (int) ($talentFilter ?? 0);
+$weekActivities = is_array($weekActivities ?? null) ? $weekActivities : [];
+$activityTypes = is_array($activityTypes ?? null) ? $activityTypes : [];
+$viewMode = (string) ($_GET['view'] ?? 'grid');
+if (!in_array($viewMode, ['grid', 'calendar'], true)) {
+    $viewMode = 'grid';
+}
 
 $statusMap = [
     'approved' => ['label' => 'Aprobada', 'class' => 'approved'],
@@ -59,9 +65,15 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
             <h2>Timesheets</h2>
             <p class="section-muted">Operativo + Analítico + Gerencial.</p>
         </div>
-        <form method="GET" class="filters-grid">
+        <form method="GET" class="filters-grid" id="timesheet-filters-form">
             <label>Semana
                 <input type="week" name="week" value="<?= htmlspecialchars($weekValue) ?>">
+            </label>
+            <label>Vista
+                <select name="view" onchange="this.form.submit()">
+                    <option value="grid" <?= $viewMode === 'grid' ? 'selected' : '' ?>>Cuadrícula</option>
+                    <option value="calendar" <?= $viewMode === 'calendar' ? 'selected' : '' ?>>Calendario</option>
+                </select>
             </label>
             <label>Periodo
                 <select name="period" id="period-select">
@@ -254,6 +266,84 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
             <?php endif; ?>
 
             <?php if ($canReport): ?>
+            <?php if ($viewMode === 'calendar'): ?>
+            <section class="card timesheet-calendar-view" id="calendar-view">
+                <header class="timesheet-pro-header">
+                    <div>
+                        <h3>Vista calendario semanal</h3>
+                        <p class="section-muted">Registro de actividad operativa por día. Agrega actividades con el botón rápido.</p>
+                    </div>
+                    <div class="timesheet-calendar-actions">
+                        <button type="button" class="primary-button" id="quick-add-btn">+ Agregar actividad</button>
+                    </div>
+                </header>
+                <div class="talent-summary-grid">
+                    <article><span>Total semana</span><strong id="cal-week-total"><?= round($weekTotal, 2) ?>h</strong></article>
+                    <article><span>Capacidad</span><strong><?= round($weeklyCapacity, 2) ?>h</strong></article>
+                    <article><span>% cumplimiento</span><strong><?= $weeklyCapacity > 0 ? round(min(100, ($weekTotal / $weeklyCapacity) * 100), 2) : 0 ?>%</strong></article>
+                </div>
+                <div class="calendar-week-grid">
+                    <?php for ($i = 0; $i < 7; $i++):
+                        $day = $weekStart->modify('+' . $i . ' days');
+                        $dateKey = $day->format('Y-m-d');
+                        $dayActivities = $weekActivities[$dateKey] ?? [];
+                        $dayTotal = array_sum(array_map(fn($a) => (float)($a['hours'] ?? 0), $dayActivities));
+                    ?>
+                    <div class="calendar-day-column" data-date="<?= htmlspecialchars($dateKey) ?>">
+                        <div class="calendar-day-header">
+                            <strong><?= ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][$i] ?></strong>
+                            <span><?= $day->format('d') ?></span>
+                            <span class="day-total"><?= round($dayTotal, 2) ?>h</span>
+                        </div>
+                        <div class="calendar-day-activities">
+                            <?php foreach ($dayActivities as $act): ?>
+                            <div class="activity-card status-<?= htmlspecialchars((string)($act['status'] ?? 'draft')) ?>" data-id="<?= (int)($act['id'] ?? 0) ?>">
+                                <div class="activity-card-main">
+                                    <strong><?= htmlspecialchars((string)($act['project_name'] ?? 'Proyecto')) ?></strong>
+                                    <span><?= round((float)($act['hours'] ?? 0), 2) ?>h</span>
+                                </div>
+                                <?php if (!empty($act['activity_description'])): ?>
+                                <p class="activity-desc"><?= htmlspecialchars((string)$act['activity_description']) ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($act['activity_type'])): ?>
+                                <span class="activity-type-badge"><?= htmlspecialchars((string)$act['activity_type']) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php endforeach; ?>
+                            <button type="button" class="add-activity-slot" data-date="<?= htmlspecialchars($dateKey) ?>" title="Agregar actividad">+</button>
+                        </div>
+                    </div>
+                    <?php endfor; ?>
+                </div>
+                <div class="timesheet-actions-row">
+                    <form method="POST" action="<?= $basePath ?>/timesheets/submit-week" class="inline-form">
+                        <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
+                        <button type="submit" class="primary-button" <?= $selectedStatus === 'approved' ? 'disabled' : '' ?>>Enviar semana</button>
+                    </form>
+                </div>
+                <dialog id="activity-modal" class="activity-modal">
+                    <form id="activity-form" class="activity-form">
+                        <h4>Registro de actividad</h4>
+                        <input type="hidden" name="date" id="activity-date">
+                        <label>Proyecto <select name="project_id" id="activity-project" required></select></label>
+                        <label>Tarea <select name="task_id" id="activity-task"><option value="">—</option></select></label>
+                        <label>Fase <input type="text" name="phase" id="activity-phase" placeholder="Opcional"></label>
+                        <label>Tipo de actividad <select name="activity_type" id="activity-type"></select></label>
+                        <label>Descripción breve <input type="text" name="activity_description" id="activity-description" required placeholder="Descripción de la actividad"></label>
+                        <label>Horas <input type="number" step="0.25" min="0.25" max="24" name="hours" id="activity-hours" required></label>
+                        <label>Comentario operativo <input type="text" name="comment" id="activity-comment" placeholder="Opcional"></label>
+                        <label class="checkbox-label"><input type="checkbox" name="has_blocker" id="activity-has-blocker"> ¿Hubo bloqueo?</label>
+                        <div id="blocker-desc-wrap" style="display:none">
+                            <label>Descripción del bloqueo <textarea name="blocker_description" id="activity-blocker-desc" rows="2"></textarea></label>
+                        </div>
+                        <div class="activity-modal-actions">
+                            <button type="button" class="secondary-button" id="activity-cancel">Cancelar</button>
+                            <button type="submit" class="primary-button">Guardar</button>
+                        </div>
+                    </form>
+                </dialog>
+            </section>
+            <?php else: ?>
             <?php
                 $pendingHours = 0.0;
                 $approvedHours = 0.0;
@@ -350,6 +440,7 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
                 </dialog>
             </section>
             <?php endif; ?>
+            <?php endif; ?>
         </section>
 
         <aside class="card side-column">
@@ -372,7 +463,9 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
 <style>
 .timesheets-shell{display:flex;flex-direction:column;gap:16px}.timesheet-layout{display:grid;grid-template-columns:2fr 1fr;gap:16px}.main-column{display:flex;flex-direction:column;gap:16px}.side-column{height:max-content}.filters-grid{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:10px;align-items:end}.filters-grid label{display:flex;flex-direction:column;gap:4px}.kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}.kpi strong{font-size:1.4rem}.kpi.approved{border-top:4px solid #16a34a}.kpi.rejected{border-top:4px solid #dc2626}.kpi.draft{border-top:4px solid #6b7280}.kpi.pending{border-top:4px solid #eab308}.weeks-row{display:flex;gap:10px;overflow:auto;padding-bottom:6px}.week-card{min-width:170px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);border-radius:12px;padding:10px;text-decoration:none;color:inherit}.week-card.active{outline:2px solid var(--accent)}.week-card.approved{border-left:6px solid #16a34a}.week-card.rejected{border-left:6px solid #dc2626}.week-card.submitted{border-left:6px solid #eab308}.week-card.draft{border-left:6px solid #6b7280}.week-card.partial{border-left:6px solid #2563eb}.badge-state{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px}.badge-state.approved{background:#dcfce7;color:#166534}.badge-state.rejected{background:#fee2e2;color:#991b1b}.badge-state.submitted{background:#fef3c7;color:#92400e}.badge-state.draft{background:#e5e7eb;color:#374151}.summary-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px}.table-wrap{overflow:auto}.hour-input{width:64px;padding:4px;border:1px solid var(--border);border-radius:8px}.cell.locked{background:#e0f2fe}
 .professional-timesheet{padding:20px;border:1px solid #e5e7eb;background:#fff}.professional-timesheet.approved{border-left:5px solid #16a34a}.professional-timesheet.rejected{border-left:5px solid #dc2626}.professional-timesheet.submitted{border-left:5px solid #eab308}.timesheet-pro-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}.timesheet-status{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.autosave-indicator{font-size:12px;color:#64748b}.autosave-indicator.saving{color:#2563eb}.autosave-indicator.saved{color:#16a34a}.autosave-indicator.error{color:#dc2626}.talent-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px;margin-bottom:14px}.talent-summary-grid article{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#f8fafc;display:flex;flex-direction:column;gap:4px}.talent-summary-grid span{font-size:12px;color:#64748b}.talent-summary-grid strong{font-size:20px}.timesheet-actions-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.modern-week-grid th,.modern-week-grid td{vertical-align:middle}.project-label{min-width:240px;font-weight:600}.cell-editor{display:flex;align-items:center;gap:6px}.comment-trigger{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:4px 6px;cursor:pointer;opacity:.7}.comment-trigger.has-comment{border-color:#2563eb;opacity:1}.comment-trigger:disabled{opacity:.3;cursor:not-allowed}.status-approved{background:#f0fdf4}.status-rejected{background:#fff1f2}.status-submitted,.status-pending,.status-pending_approval{background:#fffbeb}.status-draft{background:#fff}.week-history-log{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:12px}.week-history-log ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}.comment-modal{border:none;border-radius:12px;max-width:520px;width:95%}.comment-modal::backdrop{background:rgba(15,23,42,.45)}.comment-modal-body{display:flex;flex-direction:column;gap:10px;padding:18px}.comment-modal textarea{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px;resize:vertical}.comment-modal-actions{display:flex;justify-content:flex-end;gap:8px}
-@media (max-width: 1024px){.timesheet-layout{grid-template-columns:1fr}.talent-summary-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}.timesheet-pro-header{flex-direction:column}.timesheet-status{align-items:flex-start}}
+.timesheet-calendar-view .calendar-week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;min-height:320px}.calendar-day-column{border:1px solid var(--border);border-radius:12px;background:#f8fafc;min-height:200px}.calendar-day-header{background:var(--surface);padding:10px;border-radius:10px 10px 0 0;display:flex;flex-direction:column;gap:4px;font-size:13px}.calendar-day-header .day-total{color:var(--accent);font-weight:700}.calendar-day-activities{padding:8px;display:flex;flex-direction:column;gap:8px;min-height:140px}.activity-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px}.activity-card-main{display:flex;justify-content:space-between;align-items:center}.activity-desc{margin:6px 0 0;font-size:11px;color:#64748b;line-height:1.3}.activity-type-badge{font-size:10px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:6px}.add-activity-slot{border:2px dashed #cbd5e1;background:transparent;border-radius:10px;padding:12px;cursor:pointer;font-size:18px;color:#94a3b8;transition:all .2s}.add-activity-slot:hover{background:#f1f5f9;color:var(--accent);border-color:var(--accent)}.activity-modal{border:none;border-radius:16px;max-width:480px;width:95%}.activity-modal::backdrop{background:rgba(15,23,42,.5)}.activity-form{display:flex;flex-direction:column;gap:12px;padding:20px}.activity-form label{display:flex;flex-direction:column;gap:4px;font-size:13px}.activity-form input,.activity-form select,.activity-form textarea{padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px}.activity-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}.checkbox-label{flex-direction:row!important;align-items:center}
+@media (max-width: 1024px){.timesheet-layout{grid-template-columns:1fr}.talent-summary-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}.timesheet-pro-header{flex-direction:column}.timesheet-status{align-items:flex-start}.calendar-week-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width: 640px){.calendar-week-grid{grid-template-columns:1fr}}
 </style>
 
 <script>
@@ -489,5 +582,61 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
     await saveCell(activeInput);
     modal.close();
   });
+
+  const calendarView = document.getElementById('calendar-view');
+  if (calendarView) {
+    const projectsForTimesheet = <?= json_encode(array_map(fn($p) => ['project_id' => (int)($p['project_id'] ?? 0), 'project' => (string)($p['project'] ?? '')], is_array($projectsForTimesheet ?? null) ? $projectsForTimesheet : [])) ?>;
+    const activityTypes = <?= json_encode($activityTypes) ?>;
+    const activityModal = document.getElementById('activity-modal');
+    const activityForm = document.getElementById('activity-form');
+    const quickAddBtn = document.getElementById('quick-add-btn');
+    const activityCancel = document.getElementById('activity-cancel');
+    const hasBlocker = document.getElementById('activity-has-blocker');
+    const blockerDescWrap = document.getElementById('blocker-desc-wrap');
+
+    const projectSelect = document.getElementById('activity-project');
+    projectSelect.innerHTML = '<option value="">Selecciona proyecto</option>' + projectsForTimesheet.map(p => `<option value="${p.project_id}">${p.project}</option>`).join('');
+
+    const typeSelect = document.getElementById('activity-type');
+    typeSelect.innerHTML = '<option value="">—</option>' + (activityTypes || []).map(t => `<option value="${t.code}">${t.label}</option>`).join('');
+
+    function openActivityModal(date) {
+      document.getElementById('activity-date').value = date;
+      document.getElementById('activity-hours').value = '2';
+      activityModal?.showModal();
+    }
+
+    quickAddBtn?.addEventListener('click', () => openActivityModal(new Date().toISOString().slice(0,10)));
+    calendarView.querySelectorAll('.add-activity-slot').forEach(btn => {
+      btn.addEventListener('click', () => openActivityModal(btn.dataset.date));
+    });
+
+    activityCancel?.addEventListener('click', () => activityModal?.close());
+    hasBlocker?.addEventListener('change', () => { blockerDescWrap.style.display = hasBlocker.checked ? 'block' : 'none'; });
+
+    activityForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(activityForm);
+      const payload = new URLSearchParams({
+        project_id: fd.get('project_id'),
+        date: fd.get('date'),
+        hours: fd.get('hours'),
+        comment: fd.get('comment') || '',
+        activity_type: fd.get('activity_type') || '',
+        activity_description: fd.get('activity_description') || '',
+        phase: fd.get('phase') || '',
+        has_blocker: hasBlocker?.checked ? '1' : '0',
+        blocker_description: fd.get('blocker_description') || ''
+      });
+      const res = await fetch('<?= $basePath ?>/timesheets/cell', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload });
+      if (res.ok) {
+        activityModal?.close();
+        window.location.reload();
+      } else {
+        const msg = await res.text();
+        alert(msg || 'Error al guardar');
+      }
+    });
+  }
 })();
 </script>
