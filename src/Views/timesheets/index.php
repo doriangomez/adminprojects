@@ -12,13 +12,17 @@ $weeklyGrid = is_array($weeklyGrid ?? null) ? $weeklyGrid : [];
 $gridDays = is_array($weeklyGrid['days'] ?? null) ? $weeklyGrid['days'] : [];
 $gridRows = is_array($weeklyGrid['rows'] ?? null) ? $weeklyGrid['rows'] : [];
 $dayTotals = is_array($weeklyGrid['day_totals'] ?? null) ? $weeklyGrid['day_totals'] : [];
+$activitiesByDay = is_array($weeklyGrid['activities_by_day'] ?? null) ? $weeklyGrid['activities_by_day'] : [];
 $weekTotal = (float) ($weeklyGrid['week_total'] ?? 0);
 $weeklyCapacity = (float) ($weeklyGrid['weekly_capacity'] ?? 0);
 $requiresFullReport = !empty($weeklyGrid['requires_full_report']);
+$activityTypes = is_array($activityTypes ?? null) ? $activityTypes : (is_array($weeklyGrid['activity_types'] ?? null) ? $weeklyGrid['activity_types'] : []);
 $weeksHistory = is_array($weeksHistory ?? null) ? $weeksHistory : [];
 $selectedWeekSummary = is_array($selectedWeekSummary ?? null) ? $selectedWeekSummary : [];
 $weekHistoryLog = is_array($weekHistoryLog ?? null) ? $weekHistoryLog : [];
 $monthlySummary = is_array($monthlySummary ?? null) ? $monthlySummary : [];
+$tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet : [];
+$recentActivitySuggestions = is_array($recentActivitySuggestions ?? null) ? $recentActivitySuggestions : [];
 $periodType = (string) ($periodType ?? 'month');
 $periodStart = $periodStart ?? $weekStart->modify('first day of this month')->setTime(0, 0);
 $periodEnd = $periodEnd ?? $weekStart->modify('last day of this month')->setTime(0, 0);
@@ -28,6 +32,8 @@ $executiveSummary = is_array($executiveSummary ?? null) ? $executiveSummary : []
 $approvedWeeks = is_array($approvedWeeks ?? null) ? $approvedWeeks : [];
 $talentBreakdown = is_array($talentBreakdown ?? null) ? $talentBreakdown : [];
 $projectBreakdown = is_array($projectBreakdown ?? null) ? $projectBreakdown : [];
+$activityTypeBreakdown = is_array($activityTypeBreakdown ?? null) ? $activityTypeBreakdown : [];
+$phaseBreakdown = is_array($phaseBreakdown ?? null) ? $phaseBreakdown : [];
 $talentSort = (string) ($talentSort ?? 'load_desc');
 $managedWeekEntries = is_array($managedWeekEntries ?? null) ? $managedWeekEntries : [];
 $talentOptions = is_array($talentOptions ?? null) ? $talentOptions : [];
@@ -318,6 +324,121 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
                     <?php endif; ?>
                 </div>
 
+                <section class="quick-entry-shell">
+                    <article class="quick-entry-card">
+                        <h4>Registro rapido de actividad</h4>
+                        <form method="POST" action="<?= $basePath ?>/timesheets/activity" class="quick-entry-form" id="quick-activity-form">
+                            <input type="hidden" name="sync_operational" value="1">
+                            <label>Fecha
+                                <input type="date" name="date" value="<?= htmlspecialchars($weekStart->format('Y-m-d')) ?>" required>
+                            </label>
+                            <label>Proyecto
+                                <select name="project_id" id="quick-project" required>
+                                    <option value="">Seleccionar...</option>
+                                    <?php foreach ($projectsForTimesheet as $project): ?>
+                                        <option value="<?= (int) ($project['project_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($project['project'] ?? '')) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Tarea asociada
+                                <select name="task_id" id="quick-task">
+                                    <option value="0">Registro general</option>
+                                    <?php foreach ($tasksForTimesheet as $task): ?>
+                                        <option value="<?= (int) ($task['task_id'] ?? 0) ?>" data-project-id="<?= (int) ($task['project_id'] ?? 0) ?>">
+                                            <?= htmlspecialchars((string) ($task['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($task['task_title'] ?? '')) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Fase
+                                <input type="text" name="phase_name" maxlength="120" placeholder="Ej: Ejecucion">
+                            </label>
+                            <label>Subfase
+                                <input type="text" name="subphase_name" maxlength="120" placeholder="Opcional">
+                            </label>
+                            <label>Tipo de actividad
+                                <select name="activity_type">
+                                    <option value="">Sin clasificar</option>
+                                    <?php foreach ($activityTypes as $type): ?>
+                                        <option value="<?= htmlspecialchars((string) $type) ?>"><?= htmlspecialchars((string) ucfirst(str_replace('_', ' ', (string) $type))) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                            <label>Descripcion breve
+                                <input type="text" name="activity_description" maxlength="255" placeholder="Que se hizo" required>
+                            </label>
+                            <label>Horas
+                                <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
+                            </label>
+                            <label>Comentario diario
+                                <input type="text" name="comment" placeholder="Contexto corto para la celda">
+                            </label>
+                            <label class="quick-flag"><input type="checkbox" name="had_blocker" value="1" id="quick-had-blocker"> Hubo bloqueo</label>
+                            <label id="quick-blocker-wrap" class="hidden">Descripcion del bloqueo
+                                <input type="text" name="blocker_description" maxlength="500" placeholder="Describe el impedimento">
+                            </label>
+                            <label class="quick-flag"><input type="checkbox" name="had_significant_progress" value="1"> Hubo avance significativo</label>
+                            <label class="quick-flag"><input type="checkbox" name="generated_deliverable" value="1"> Se genero entregable</label>
+                            <label class="full-row">Comentario operativo
+                                <textarea name="operational_comment" rows="2" placeholder="Notas operativas para timeline"></textarea>
+                            </label>
+                            <button type="submit" class="primary-button">Guardar actividad</button>
+                        </form>
+                        <?php if ($recentActivitySuggestions !== []): ?>
+                            <div class="recent-activities">
+                                <strong>Recientes (autocompletado)</strong>
+                                <div class="recent-activity-list">
+                                    <?php foreach ($recentActivitySuggestions as $recent): ?>
+                                        <button
+                                            type="button"
+                                            class="chip recent-activity"
+                                            data-project-id="<?= (int) ($recent['project_id'] ?? 0) ?>"
+                                            data-task-id="<?= (int) ($recent['task_id'] ?? 0) ?>"
+                                            data-activity-type="<?= htmlspecialchars((string) ($recent['activity_type'] ?? ''), ENT_QUOTES) ?>"
+                                            data-activity-description="<?= htmlspecialchars((string) ($recent['activity_description'] ?? ''), ENT_QUOTES) ?>"
+                                            data-phase-name="<?= htmlspecialchars((string) ($recent['phase_name'] ?? ''), ENT_QUOTES) ?>"
+                                            data-subphase-name="<?= htmlspecialchars((string) ($recent['subphase_name'] ?? ''), ENT_QUOTES) ?>"
+                                        >
+                                            <?= htmlspecialchars((string) ($recent['project'] ?? 'Proyecto')) ?> · <?= htmlspecialchars((string) ($recent['activity_description'] ?? 'Actividad')) ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </article>
+                    <article class="calendar-entry-card">
+                        <h4>Vista calendario semanal (Lunes a Domingo)</h4>
+                        <div class="calendar-week-grid">
+                            <?php foreach ($gridDays as $day): ?>
+                                <?php
+                                $dayDate = (string) ($day['key'] ?? '');
+                                $dayItems = is_array($activitiesByDay[$dayDate] ?? null) ? $activitiesByDay[$dayDate] : [];
+                                $totalDayHours = (float) ($dayTotals[$dayDate] ?? 0);
+                                ?>
+                                <div class="calendar-day">
+                                    <header>
+                                        <strong><?= htmlspecialchars((string) ($day['label'] ?? '')) ?> <?= htmlspecialchars((string) ($day['number'] ?? '')) ?></strong>
+                                        <span><?= round($totalDayHours, 2) ?>h</span>
+                                    </header>
+                                    <?php if ($dayItems === []): ?>
+                                        <p class="section-muted">Sin actividad registrada.</p>
+                                    <?php else: ?>
+                                        <ul>
+                                            <?php foreach ($dayItems as $item): ?>
+                                                <li>
+                                                    <strong><?= htmlspecialchars((string) ($item['project'] ?? 'Proyecto')) ?></strong>
+                                                    <span><?= htmlspecialchars((string) (($item['activity_description'] ?? '') !== '' ? $item['activity_description'] : ($item['activity_type'] ?? 'Actividad'))) ?> · <?= round((float) ($item['hours'] ?? 0), 2) ?>h</span>
+                                                    <?php if (!empty($item['had_blocker'])): ?><small class="pill danger">Bloqueo</small><?php endif; ?>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </article>
+                </section>
+
                 <div class="table-wrap"><table class="clean-table week-grid modern-week-grid"><thead><tr><th>Proyecto / tarea</th><?php foreach ($gridDays as $day): ?><th><?= htmlspecialchars($day['label']) ?><br><small><?= htmlspecialchars($day['number']) ?></small></th><?php endforeach; ?><th>Total</th></tr></thead><tbody>
                 <?php foreach ($gridRows as $row): ?><tr><td class="project-label"><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td><?php foreach ($gridDays as $day): $date=$day['key']; $cell=$row['cells'][$date] ?? ['hours'=>0,'status'=>'draft','comment'=>'']; $hours=(float)($cell['hours']??0); $cellStatus = (string) ($cell['status'] ?? 'draft'); $canEditCell = $cellStatus === 'draft'; ?><td class="cell status-<?= htmlspecialchars($cellStatus) ?> <?= $canEditCell ? '' : 'locked' ?>"><div class="cell-editor"><input type="number" step="0.25" min="0" max="24" value="<?= htmlspecialchars(rtrim(rtrim(number_format($hours, 2, '.', ''), '0'), '.')) ?>" data-date="<?= htmlspecialchars($date) ?>" data-project="<?= (int) ($row['project_id'] ?? 0) ?>" data-comment="<?= htmlspecialchars((string) ($cell['comment'] ?? ''), ENT_QUOTES) ?>" data-status="<?= htmlspecialchars($cellStatus) ?>" class="hour-input" <?= $canEditCell ? '' : 'disabled' ?>><button type="button" class="comment-trigger <?= trim((string) ($cell['comment'] ?? '')) !== '' ? 'has-comment' : '' ?>" title="<?= htmlspecialchars(trim((string) ($cell['comment'] ?? '')) !== '' ? (string) ($cell['comment'] ?? '') : 'Agregar comentario diario', ENT_QUOTES) ?>" data-project-name="<?= htmlspecialchars((string) ($row['project'] ?? ''), ENT_QUOTES) ?>" data-day-label="<?= htmlspecialchars((string) ($day['label'] ?? ''), ENT_QUOTES) ?>" <?= $canEditCell ? '' : 'disabled' ?>>📝</button></div></td><?php endforeach; ?><td><strong class="row-total"><?= htmlspecialchars((string) round((float) ($row['total'] ?? 0), 2)) ?></strong></td></tr><?php endforeach; ?>
                 <tr class="total-row"><td><strong>Total por día</strong></td><?php foreach ($gridDays as $day): $total=(float)($dayTotals[$day['key']] ?? 0); ?><td><strong class="day-total" data-day-total="<?= htmlspecialchars($day['key']) ?>"><?= htmlspecialchars((string) round($total, 2)) ?></strong></td><?php endforeach; ?><td><strong id="week-total-footer"><?= htmlspecialchars((string) round($weekTotal, 2)) ?></strong></td></tr>
@@ -364,6 +485,25 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
             </ul>
             <h4>Proyecto con mayor consumo</h4>
             <p><?= htmlspecialchars((string) ($projectBreakdown[0]['project'] ?? 'Sin datos')) ?> (<?= round((float) ($projectBreakdown[0]['total_hours'] ?? 0), 2) ?>h)</p>
+            <h4>Distribucion del esfuerzo por tipo</h4>
+            <ul class="summary-list">
+                <?php foreach (array_slice($activityTypeBreakdown, 0, 6) as $row): ?>
+                    <li><?= htmlspecialchars((string) ucfirst(str_replace('_', ' ', (string) ($row['activity_type'] ?? 'sin_clasificar')))) ?>:
+                        <strong><?= round((float) ($row['total_hours'] ?? 0), 2) ?>h</strong>
+                        <small>(<?= round((float) ($row['percent'] ?? 0), 2) ?>%)</small>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <h4>Horas por fase / subfase</h4>
+            <ul class="summary-list">
+                <?php foreach (array_slice($phaseBreakdown, 0, 5) as $row): ?>
+                    <li>
+                        <?= htmlspecialchars((string) ($row['phase_name'] ?? 'sin_fase')) ?> /
+                        <?= htmlspecialchars((string) ($row['subphase_name'] ?? 'sin_subfase')) ?>:
+                        <strong><?= round((float) ($row['total_hours'] ?? 0), 2) ?>h</strong>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
             <button class="secondary-button" onclick="window.print()">Descargar informe consolidado</button>
         </aside>
     </div>
@@ -372,7 +512,8 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
 <style>
 .timesheets-shell{display:flex;flex-direction:column;gap:16px}.timesheet-layout{display:grid;grid-template-columns:2fr 1fr;gap:16px}.main-column{display:flex;flex-direction:column;gap:16px}.side-column{height:max-content}.filters-grid{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:10px;align-items:end}.filters-grid label{display:flex;flex-direction:column;gap:4px}.kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}.kpi strong{font-size:1.4rem}.kpi.approved{border-top:4px solid #16a34a}.kpi.rejected{border-top:4px solid #dc2626}.kpi.draft{border-top:4px solid #6b7280}.kpi.pending{border-top:4px solid #eab308}.weeks-row{display:flex;gap:10px;overflow:auto;padding-bottom:6px}.week-card{min-width:170px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);border-radius:12px;padding:10px;text-decoration:none;color:inherit}.week-card.active{outline:2px solid var(--accent)}.week-card.approved{border-left:6px solid #16a34a}.week-card.rejected{border-left:6px solid #dc2626}.week-card.submitted{border-left:6px solid #eab308}.week-card.draft{border-left:6px solid #6b7280}.week-card.partial{border-left:6px solid #2563eb}.badge-state{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px}.badge-state.approved{background:#dcfce7;color:#166534}.badge-state.rejected{background:#fee2e2;color:#991b1b}.badge-state.submitted{background:#fef3c7;color:#92400e}.badge-state.draft{background:#e5e7eb;color:#374151}.summary-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px}.table-wrap{overflow:auto}.hour-input{width:64px;padding:4px;border:1px solid var(--border);border-radius:8px}.cell.locked{background:#e0f2fe}
 .professional-timesheet{padding:20px;border:1px solid #e5e7eb;background:#fff}.professional-timesheet.approved{border-left:5px solid #16a34a}.professional-timesheet.rejected{border-left:5px solid #dc2626}.professional-timesheet.submitted{border-left:5px solid #eab308}.timesheet-pro-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}.timesheet-status{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.autosave-indicator{font-size:12px;color:#64748b}.autosave-indicator.saving{color:#2563eb}.autosave-indicator.saved{color:#16a34a}.autosave-indicator.error{color:#dc2626}.talent-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px;margin-bottom:14px}.talent-summary-grid article{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#f8fafc;display:flex;flex-direction:column;gap:4px}.talent-summary-grid span{font-size:12px;color:#64748b}.talent-summary-grid strong{font-size:20px}.timesheet-actions-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.modern-week-grid th,.modern-week-grid td{vertical-align:middle}.project-label{min-width:240px;font-weight:600}.cell-editor{display:flex;align-items:center;gap:6px}.comment-trigger{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:4px 6px;cursor:pointer;opacity:.7}.comment-trigger.has-comment{border-color:#2563eb;opacity:1}.comment-trigger:disabled{opacity:.3;cursor:not-allowed}.status-approved{background:#f0fdf4}.status-rejected{background:#fff1f2}.status-submitted,.status-pending,.status-pending_approval{background:#fffbeb}.status-draft{background:#fff}.week-history-log{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:12px}.week-history-log ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}.comment-modal{border:none;border-radius:12px;max-width:520px;width:95%}.comment-modal::backdrop{background:rgba(15,23,42,.45)}.comment-modal-body{display:flex;flex-direction:column;gap:10px;padding:18px}.comment-modal textarea{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px;resize:vertical}.comment-modal-actions{display:flex;justify-content:flex-end;gap:8px}
-@media (max-width: 1024px){.timesheet-layout{grid-template-columns:1fr}.talent-summary-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}.timesheet-pro-header{flex-direction:column}.timesheet-status{align-items:flex-start}}
+.quick-entry-shell{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-bottom:14px}.quick-entry-card,.calendar-entry-card{border:1px solid #e2e8f0;border-radius:12px;padding:12px;background:#f8fafc}.quick-entry-form{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px}.quick-entry-form label{display:flex;flex-direction:column;gap:4px}.quick-entry-form .full-row{grid-column:1/-1}.quick-entry-form input,.quick-entry-form select,.quick-entry-form textarea{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px}.quick-entry-form .primary-button{grid-column:1/-1}.quick-flag{justify-content:center}.hidden{display:none !important}.recent-activities{margin-top:10px}.recent-activity-list{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:4px 10px;cursor:pointer}.calendar-week-grid{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:8px}.calendar-day{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px;min-height:110px}.calendar-day header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.calendar-day ul{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:5px}.calendar-day li{display:flex;flex-direction:column;gap:2px}.pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px}.pill.danger{background:#fee2e2;color:#991b1b}
+@media (max-width: 1024px){.timesheet-layout{grid-template-columns:1fr}.talent-summary-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}.timesheet-pro-header{flex-direction:column}.timesheet-status{align-items:flex-start}.quick-entry-shell{grid-template-columns:1fr}.calendar-week-grid{grid-template-columns:1fr}}
 </style>
 
 <script>
@@ -382,6 +523,60 @@ $compliancePercent = (float) ($executiveSummary['compliance_percent'] ?? 0);
   periodSelect?.addEventListener('change', () => {
     const custom = periodSelect.value === 'custom';
     rangeInputs.forEach((el) => { el.disabled = !custom; });
+  });
+
+  const quickForm = document.getElementById('quick-activity-form');
+  const quickProject = document.getElementById('quick-project');
+  const quickTask = document.getElementById('quick-task');
+  const blockerToggle = document.getElementById('quick-had-blocker');
+  const blockerWrap = document.getElementById('quick-blocker-wrap');
+
+  function filterTasksByProject() {
+    if (!quickTask) return;
+    const selectedProject = Number(quickProject?.value || 0);
+    quickTask.querySelectorAll('option[data-project-id]').forEach((option) => {
+      const optionProject = Number(option.dataset.projectId || 0);
+      const visible = selectedProject <= 0 || optionProject === selectedProject;
+      option.hidden = !visible;
+    });
+    const selectedTask = quickTask.selectedOptions[0];
+    if (selectedTask && selectedTask.hidden) {
+      quickTask.value = '0';
+    }
+  }
+
+  quickProject?.addEventListener('change', filterTasksByProject);
+  filterTasksByProject();
+
+  blockerToggle?.addEventListener('change', () => {
+    if (!blockerWrap) return;
+    blockerWrap.classList.toggle('hidden', !blockerToggle.checked);
+    if (!blockerToggle.checked) {
+      blockerWrap.querySelector('input')?.setAttribute('value', '');
+      const blockerInput = blockerWrap.querySelector('input');
+      if (blockerInput) blockerInput.value = '';
+    }
+  });
+
+  document.querySelectorAll('.recent-activity').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!quickForm) return;
+      const projectInput = quickForm.querySelector('[name="project_id"]');
+      const taskInput = quickForm.querySelector('[name="task_id"]');
+      const typeInput = quickForm.querySelector('[name="activity_type"]');
+      const descriptionInput = quickForm.querySelector('[name="activity_description"]');
+      const phaseInput = quickForm.querySelector('[name="phase_name"]');
+      const subphaseInput = quickForm.querySelector('[name="subphase_name"]');
+
+      if (projectInput) projectInput.value = button.dataset.projectId || '';
+      filterTasksByProject();
+      if (taskInput) taskInput.value = button.dataset.taskId || '0';
+      if (typeInput) typeInput.value = button.dataset.activityType || '';
+      if (descriptionInput) descriptionInput.value = button.dataset.activityDescription || '';
+      if (phaseInput) phaseInput.value = button.dataset.phaseName || '';
+      if (subphaseInput) subphaseInput.value = button.dataset.subphaseName || '';
+      descriptionInput?.focus();
+    });
   });
 
   const autosave = document.getElementById('autosave-indicator');

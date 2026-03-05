@@ -10,6 +10,16 @@ use InvalidArgumentException;
 class TimesheetsRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];
+    private const DEFAULT_ACTIVITY_TYPES = [
+        'desarrollo',
+        'analisis',
+        'reunion',
+        'documentacion',
+        'soporte',
+        'investigacion',
+        'pruebas',
+        'gestion_pm',
+    ];
 
     public function __construct(private Database $db)
     {
@@ -113,11 +123,14 @@ class TimesheetsRepository
         $talentId = $this->talentIdForUser($userId);
         $entries = [];
         if ($talentId !== null) {
+            $structuredSelect = $this->structuredTimesheetSelectColumns();
+            $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
             $entries = $this->db->fetchAll(
-                'SELECT id, project_id, date, hours, status, comment
+                'SELECT id, project_id, task_id, date, hours, status, comment' . $structuredSegment . '
                  FROM timesheets
                  WHERE user_id = :user
-                   AND date BETWEEN :start AND :end',
+                   AND date BETWEEN :start AND :end
+                 ORDER BY date ASC, updated_at DESC, id DESC',
                 [
                     ':user' => $userId,
                     ':start' => $weekStart->format('Y-m-d'),
@@ -138,19 +151,54 @@ class TimesheetsRepository
 
         $cells = [];
         $dayTotals = array_fill_keys(array_column($days, 'key'), 0.0);
+        $activitiesByDay = array_fill_keys(array_column($days, 'key'), []);
         foreach ($entries as $entry) {
             $projectId = (int) ($entry['project_id'] ?? 0);
             $date = (string) ($entry['date'] ?? '');
             if (!isset($projectMap[$projectId]) || !isset($dayTotals[$date])) {
                 continue;
             }
-            $cells[$projectId][$date] = [
+            if (!isset($cells[$projectId][$date])) {
+                $cells[$projectId][$date] = [
+                    'id' => (int) ($entry['id'] ?? 0),
+                    'hours' => 0.0,
+                    'status' => 'draft',
+                    'comment' => '',
+                    'entries' => [],
+                ];
+            }
+
+            $entryHours = (float) ($entry['hours'] ?? 0);
+            $entryStatus = (string) ($entry['status'] ?? 'draft');
+            $entryComment = trim((string) ($entry['comment'] ?? ''));
+            $cells[$projectId][$date]['hours'] += $entryHours;
+            $cells[$projectId][$date]['status'] = $this->mergeTimesheetStatus((string) $cells[$projectId][$date]['status'], $entryStatus);
+            if ($cells[$projectId][$date]['comment'] === '' && $entryComment !== '') {
+                $cells[$projectId][$date]['comment'] = $entryComment;
+            }
+
+            $activityItem = [
                 'id' => (int) ($entry['id'] ?? 0),
-                'hours' => (float) ($entry['hours'] ?? 0),
-                'status' => (string) ($entry['status'] ?? 'draft'),
-                'comment' => (string) ($entry['comment'] ?? ''),
+                'task_id' => isset($entry['task_id']) ? (int) $entry['task_id'] : null,
+                'hours' => $entryHours,
+                'status' => $entryStatus,
+                'comment' => $entryComment,
+                'phase_name' => trim((string) ($entry['phase_name'] ?? '')),
+                'subphase_name' => trim((string) ($entry['subphase_name'] ?? '')),
+                'activity_type' => trim((string) ($entry['activity_type'] ?? '')),
+                'activity_description' => trim((string) ($entry['activity_description'] ?? '')),
+                'had_blocker' => (int) ($entry['had_blocker'] ?? 0) === 1,
+                'blocker_description' => trim((string) ($entry['blocker_description'] ?? '')),
+                'had_significant_progress' => (int) ($entry['had_significant_progress'] ?? 0) === 1,
+                'generated_deliverable' => (int) ($entry['generated_deliverable'] ?? 0) === 1,
+                'operational_comment' => trim((string) ($entry['operational_comment'] ?? '')),
             ];
-            $dayTotals[$date] += (float) ($entry['hours'] ?? 0);
+            $cells[$projectId][$date]['entries'][] = $activityItem;
+            $activitiesByDay[$date][] = array_merge($activityItem, [
+                'project_id' => $projectId,
+                'project' => (string) ($projectMap[$projectId]['project'] ?? ''),
+            ]);
+            $dayTotals[$date] += $entryHours;
         }
 
         $rows = [];
@@ -167,6 +215,7 @@ class TimesheetsRepository
                     'hours' => 0.0,
                     'status' => 'draft',
                     'comment' => '',
+                    'entries' => [],
                 ];
             }
             $rows[] = [
@@ -184,6 +233,13 @@ class TimesheetsRepository
             $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
         }
 
+        foreach ($activitiesByDay as &$dayItems) {
+            usort($dayItems, static function (array $a, array $b): int {
+                return strcmp((string) ($a['project'] ?? ''), (string) ($b['project'] ?? ''));
+            });
+        }
+        unset($dayItems);
+
         return [
             'days' => $days,
             'rows' => $rows,
@@ -191,10 +247,20 @@ class TimesheetsRepository
             'week_total' => array_sum($dayTotals),
             'weekly_capacity' => $weeklyCapacity,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
+            'activities_by_day' => $activitiesByDay,
+            'activity_types' => $this->activityTypesCatalog(),
         ];
     }
 
-    public function upsertDraftCell(int $userId, int $projectId, string $date, float $hours, string $comment = ''): array
+    public function upsertDraftCell(
+        int $userId,
+        int $projectId,
+        string $date,
+        float $hours,
+        string $comment = '',
+        array $metadata = [],
+        bool $syncOperational = false
+    ): array
     {
         $assignment = $this->assignmentForProject($projectId, $userId);
         if (!$assignment) {
@@ -206,8 +272,9 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Tu usuario no tiene un talento asociado.');
         }
 
+        $linkedStopperSelect = $this->db->columnExists('timesheets', 'linked_stopper_id') ? ', linked_stopper_id' : '';
         $existing = $this->db->fetchOne(
-            'SELECT id, status, task_id, hours
+            'SELECT id, status, task_id, hours' . $linkedStopperSelect . '
              FROM timesheets
              WHERE user_id = :user AND project_id = :project AND date = :date
              LIMIT 1',
@@ -236,29 +303,53 @@ class TimesheetsRepository
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $approver = $approverUserId > 0 ? $approverUserId : null;
-        $taskId = $this->resolveTimesheetTaskId($projectId);
+        $structured = $this->sanitizeStructuredMetadata($metadata);
+        $applyStructuredFields = $metadata !== [];
+        $taskId = $this->resolveTaskForEntry($projectId, $structured['task_id']);
 
         if ($existing) {
+            $set = [
+                'task_id = :task_id',
+                'hours = :hours',
+                'comment = :comment',
+                'status = :status',
+                'approver_user_id = :approver',
+                'updated_at = NOW()',
+            ];
+            $params = [
+                ':task_id' => $taskId,
+                ':hours' => $hours,
+                ':comment' => $comment,
+                ':status' => 'draft',
+                ':approver' => $approver,
+                ':id' => (int) $existing['id'],
+            ];
+
+            if ($applyStructuredFields) {
+                foreach ($this->structuredColumnMap() as $column => $key) {
+                    if (!$this->db->columnExists('timesheets', $column)) {
+                        continue;
+                    }
+                    $set[] = $column . ' = :' . $column;
+                    $params[':' . $column] = $structured[$key];
+                }
+            }
+
             $this->db->execute(
                 'UPDATE timesheets
-                 SET hours = :hours,
-                     comment = :comment,
-                     status = :status,
-                     approver_user_id = :approver,
-                     updated_at = NOW()
+                 SET ' . implode(",\n                     ", $set) . '
                  WHERE id = :id',
-                [
-                    ':hours' => $hours,
-                    ':comment' => $comment,
-                    ':status' => 'draft',
-                    ':approver' => $approver,
-                    ':id' => (int) $existing['id'],
-                ]
+                $params
             );
+
+            if ($syncOperational && $hours > 0) {
+                $this->syncOperationalArtifacts((int) $existing['id'], $userId);
+            }
+
             return ['id' => (int) $existing['id'], 'updated' => true];
         }
 
-        $id = $this->createTimesheet([
+        $payload = [
             'task_id' => $taskId,
             'project_id' => $projectId,
             'talent_id' => $talentId,
@@ -272,18 +363,63 @@ class TimesheetsRepository
             'billable' => 0,
             'approved_by' => null,
             'approved_at' => null,
-        ]);
+        ];
+        if ($applyStructuredFields) {
+            $payload = array_merge($payload, [
+                'phase_name' => $structured['phase_name'],
+                'subphase_name' => $structured['subphase_name'],
+                'activity_type' => $structured['activity_type'],
+                'activity_description' => $structured['activity_description'],
+                'had_blocker' => $structured['had_blocker'],
+                'blocker_description' => $structured['blocker_description'],
+                'had_significant_progress' => $structured['had_significant_progress'],
+                'generated_deliverable' => $structured['generated_deliverable'],
+                'operational_comment' => $structured['operational_comment'],
+                'linked_stopper_id' => null,
+            ]);
+        }
+
+        $id = $this->createTimesheet($payload);
+
+        if ($syncOperational && $hours > 0) {
+            $this->syncOperationalArtifacts($id, $userId);
+        }
 
         return ['id' => $id, 'updated' => false];
     }
 
-    public function submitWeek(int $userId, \DateTimeImmutable $weekStart): int
+    public function submitWeek(
+        int $userId,
+        \DateTimeImmutable $weekStart,
+        float $minimumWeeklyHours = 0.0,
+        bool $lockIncompleteWeek = true
+    ): int
     {
         $weekEnd = $weekStart->modify('+6 days');
         $profile = $this->talentProfileForUser($userId) ?? [];
         $requiresFull = (int) ($profile['requiere_reporte_horas'] ?? 0) === 1;
 
-        if ($requiresFull) {
+        if ($minimumWeeklyHours > 0) {
+            $weeklyTotalRow = $this->db->fetchOne(
+                'SELECT COALESCE(SUM(hours), 0) AS total
+                 FROM timesheets
+                 WHERE user_id = :user
+                   AND date BETWEEN :start AND :end',
+                [
+                    ':user' => $userId,
+                    ':start' => $weekStart->format('Y-m-d'),
+                    ':end' => $weekEnd->format('Y-m-d'),
+                ]
+            );
+            $weeklyTotal = (float) ($weeklyTotalRow['total'] ?? 0);
+            if ($weeklyTotal < $minimumWeeklyHours) {
+                throw new InvalidArgumentException(
+                    sprintf('No se puede enviar la semana: mínimo requerido %.2fh y registradas %.2fh.', $minimumWeeklyHours, $weeklyTotal)
+                );
+            }
+        }
+
+        if ($requiresFull && $lockIncompleteWeek) {
             $rows = $this->db->fetchAll(
                 'SELECT date, COALESCE(SUM(hours), 0) AS hours
                  FROM timesheets
@@ -969,6 +1105,173 @@ class TimesheetsRepository
         );
     }
 
+    public function tasksForTimesheetEntry(int $userId): array
+    {
+        if (
+            !$this->db->tableExists('project_talent_assignments')
+            || !$this->db->tableExists('projects')
+            || !$this->db->tableExists('tasks')
+        ) {
+            return [];
+        }
+
+        $projectStatusCondition = $this->activeProjectCondition('p');
+        $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
+
+        return $this->db->fetchAll(
+            'SELECT tk.id AS task_id, tk.title AS task_title, p.id AS project_id, p.name AS project
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             JOIN tasks tk ON tk.project_id = p.id
+             JOIN talents t ON t.user_id = a.user_id
+             WHERE a.user_id = :user
+               AND COALESCE(t.requiere_reporte_horas, 0) = 1
+               AND ' . $assignmentStatusCondition .
+            ($projectStatusCondition !== '' ? ' AND ' . $projectStatusCondition : '') . '
+             ORDER BY p.name ASC, tk.title ASC',
+            [':user' => $userId]
+        );
+    }
+
+    public function recentActivitySuggestions(int $userId, int $limit = 8): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $sqlLimit = max(1, min(30, $limit * 4));
+
+        $rows = $this->db->fetchAll(
+            'SELECT ts.project_id, ts.task_id, ts.activity_type, ts.activity_description, ts.phase_name, ts.subphase_name,
+                    p.name AS project, tk.title AS task
+             FROM timesheets ts
+             LEFT JOIN projects p ON p.id = ts.project_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             WHERE ts.user_id = :user
+               AND (
+                    COALESCE(ts.activity_description, "") <> ""
+                    OR COALESCE(ts.comment, "") <> ""
+               )
+             ORDER BY ts.updated_at DESC, ts.id DESC
+             LIMIT ' . $sqlLimit,
+            [
+                ':user' => $userId,
+            ]
+        );
+
+        $unique = [];
+        foreach ($rows as $row) {
+            $fingerprint = implode('|', [
+                (int) ($row['project_id'] ?? 0),
+                (int) ($row['task_id'] ?? 0),
+                strtolower(trim((string) ($row['activity_type'] ?? ''))),
+                strtolower(trim((string) ($row['activity_description'] ?? ''))),
+                strtolower(trim((string) ($row['phase_name'] ?? ''))),
+                strtolower(trim((string) ($row['subphase_name'] ?? ''))),
+            ]);
+            if (isset($unique[$fingerprint])) {
+                continue;
+            }
+            $unique[$fingerprint] = [
+                'project_id' => (int) ($row['project_id'] ?? 0),
+                'task_id' => (int) ($row['task_id'] ?? 0),
+                'project' => (string) ($row['project'] ?? ''),
+                'task' => (string) ($row['task'] ?? ''),
+                'activity_type' => (string) ($row['activity_type'] ?? ''),
+                'activity_description' => (string) ($row['activity_description'] ?? ''),
+                'phase_name' => (string) ($row['phase_name'] ?? ''),
+                'subphase_name' => (string) ($row['subphase_name'] ?? ''),
+            ];
+            if (count($unique) >= $limit) {
+                break;
+            }
+        }
+
+        return array_values($unique);
+    }
+
+    public function activityTypesCatalog(): array
+    {
+        $config = (new \ConfigService($this->db))->getConfig();
+        $configured = $config['operational_rules']['timesheets']['activity_types'] ?? [];
+        $activityTypes = [];
+        foreach ($configured as $type) {
+            $value = strtolower(trim((string) $type));
+            if ($value === '') {
+                continue;
+            }
+            $activityTypes[$value] = $value;
+        }
+
+        if ($activityTypes === []) {
+            foreach (self::DEFAULT_ACTIVITY_TYPES as $type) {
+                $activityTypes[$type] = $type;
+            }
+        }
+
+        return array_values($activityTypes);
+    }
+
+    public function activityTypeBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    {
+        $params = [
+            ':start' => $periodStart->format('Y-m-d'),
+            ':end' => $periodEnd->format('Y-m-d'),
+        ];
+        $where = $this->timesheetScopeWhere($user, $params);
+        if ($projectId !== null && $projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
+            $params[':project'] = $projectId;
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT COALESCE(NULLIF(TRIM(ts.activity_type), ""), "sin_clasificar") AS activity_type,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY COALESCE(NULLIF(TRIM(ts.activity_type), ""), "sin_clasificar")
+             ORDER BY total_hours DESC',
+            $params
+        );
+
+        $total = array_reduce($rows, static fn(float $carry, array $row): float => $carry + (float) ($row['total_hours'] ?? 0), 0.0);
+        foreach ($rows as &$row) {
+            $hours = (float) ($row['total_hours'] ?? 0);
+            $row['percent'] = $total > 0 ? round(($hours / $total) * 100, 2) : 0.0;
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    public function phaseBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    {
+        $params = [
+            ':start' => $periodStart->format('Y-m-d'),
+            ':end' => $periodEnd->format('Y-m-d'),
+        ];
+        $where = $this->timesheetScopeWhere($user, $params);
+        if ($projectId !== null && $projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
+            $params[':project'] = $projectId;
+        }
+
+        return $this->db->fetchAll(
+            'SELECT COALESCE(NULLIF(TRIM(ts.phase_name), ""), "sin_fase") AS phase_name,
+                    COALESCE(NULLIF(TRIM(ts.subphase_name), ""), "sin_subfase") AS subphase_name,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
+             GROUP BY COALESCE(NULLIF(TRIM(ts.phase_name), ""), "sin_fase"), COALESCE(NULLIF(TRIM(ts.subphase_name), ""), "sin_subfase")
+             ORDER BY total_hours DESC',
+            $params
+        );
+    }
+
     public function projectsForTimesheetEntry(int $userId): array
     {
         if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('projects')) {
@@ -1095,6 +1398,26 @@ class TimesheetsRepository
             ':approved_by' => $payload['approved_by'],
             ':approved_at' => $payload['approved_at'],
         ];
+
+        $structuredInsertMap = [
+            'phase_name' => 'phase_name',
+            'subphase_name' => 'subphase_name',
+            'activity_type' => 'activity_type',
+            'activity_description' => 'activity_description',
+            'had_blocker' => 'had_blocker',
+            'blocker_description' => 'blocker_description',
+            'had_significant_progress' => 'had_significant_progress',
+            'generated_deliverable' => 'generated_deliverable',
+            'operational_comment' => 'operational_comment',
+            'linked_stopper_id' => 'linked_stopper_id',
+        ];
+        foreach ($structuredInsertMap as $column => $payloadKey) {
+            if (!$this->db->columnExists('timesheets', $column)) {
+                continue;
+            }
+            $columns[] = $column;
+            $params[':' . $column] = $payload[$payloadKey] ?? null;
+        }
 
         if ($this->db->columnExists('timesheets', 'project_id')) {
             $columns[] = 'project_id';
@@ -1496,7 +1819,8 @@ class TimesheetsRepository
         }
 
         $row = $this->db->fetchOne(
-            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, timesheet_approver_user_id, is_outsourcing
+            'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, timesheet_approver_user_id, is_outsourcing,
+                    capacidad_horaria, weekly_capacity
              FROM talents
              WHERE user_id = :user
              LIMIT 1',
@@ -1550,6 +1874,317 @@ class TimesheetsRepository
                 ]
             );
         }
+    }
+
+    private function structuredTimesheetSelectColumns(string $alias = ''): string
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+        $columns = [
+            'phase_name',
+            'subphase_name',
+            'activity_type',
+            'activity_description',
+            'had_blocker',
+            'blocker_description',
+            'had_significant_progress',
+            'generated_deliverable',
+            'operational_comment',
+            'linked_stopper_id',
+            'updated_at',
+        ];
+
+        $available = [];
+        foreach ($columns as $column) {
+            if ($this->db->columnExists('timesheets', $column)) {
+                $available[] = $prefix . $column;
+            }
+        }
+
+        return implode(', ', $available);
+    }
+
+    private function resolveTaskForEntry(int $projectId, int $candidateTaskId): int
+    {
+        if ($candidateTaskId > 0 && $this->taskBelongsToProject($candidateTaskId, $projectId)) {
+            return $candidateTaskId;
+        }
+
+        return $this->resolveTimesheetTaskId($projectId);
+    }
+
+    private function taskBelongsToProject(int $taskId, int $projectId): bool
+    {
+        if (!$this->db->tableExists('tasks')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT 1 FROM tasks WHERE id = :task AND project_id = :project LIMIT 1',
+            [':task' => $taskId, ':project' => $projectId]
+        );
+
+        return $row !== null;
+    }
+
+    private function structuredColumnMap(): array
+    {
+        return [
+            'phase_name' => 'phase_name',
+            'subphase_name' => 'subphase_name',
+            'activity_type' => 'activity_type',
+            'activity_description' => 'activity_description',
+            'had_blocker' => 'had_blocker',
+            'blocker_description' => 'blocker_description',
+            'had_significant_progress' => 'had_significant_progress',
+            'generated_deliverable' => 'generated_deliverable',
+            'operational_comment' => 'operational_comment',
+        ];
+    }
+
+    private function sanitizeStructuredMetadata(array $metadata): array
+    {
+        $activityType = strtolower(trim((string) ($metadata['activity_type'] ?? '')));
+        if ($activityType !== '' && !in_array($activityType, $this->activityTypesCatalog(), true)) {
+            $activityType = '';
+        }
+
+        return [
+            'task_id' => max(0, (int) ($metadata['task_id'] ?? 0)),
+            'phase_name' => $this->limitText((string) ($metadata['phase_name'] ?? ''), 120),
+            'subphase_name' => $this->limitText((string) ($metadata['subphase_name'] ?? ''), 120),
+            'activity_type' => $this->limitText($activityType, 60),
+            'activity_description' => $this->limitText((string) ($metadata['activity_description'] ?? ''), 255),
+            'had_blocker' => $this->toFlag($metadata['had_blocker'] ?? 0),
+            'blocker_description' => trim((string) ($metadata['blocker_description'] ?? '')),
+            'had_significant_progress' => $this->toFlag($metadata['had_significant_progress'] ?? 0),
+            'generated_deliverable' => $this->toFlag($metadata['generated_deliverable'] ?? 0),
+            'operational_comment' => trim((string) ($metadata['operational_comment'] ?? '')),
+        ];
+    }
+
+    private function toFlag(mixed $value): int
+    {
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        return in_array($normalized, ['1', 'true', 'on', 'yes', 'si'], true) ? 1 : 0;
+    }
+
+    private function limitText(string $value, int $maxLength): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        return strlen($trimmed) > $maxLength ? substr($trimmed, 0, $maxLength) : $trimmed;
+    }
+
+    private function mergeTimesheetStatus(string $currentStatus, string $incomingStatus): string
+    {
+        $normalize = static function (string $status): string {
+            if (in_array($status, ['submitted', 'pending_approval'], true)) {
+                return 'pending';
+            }
+
+            return $status;
+        };
+        $weights = [
+            'approved' => 5,
+            'rejected' => 4,
+            'pending' => 3,
+            'draft' => 2,
+        ];
+
+        $current = $normalize($currentStatus);
+        $incoming = $normalize($incomingStatus);
+        $currentWeight = $weights[$current] ?? 1;
+        $incomingWeight = $weights[$incoming] ?? 1;
+
+        return $incomingWeight > $currentWeight ? $incoming : $current;
+    }
+
+    private function syncOperationalArtifacts(int $timesheetId, int $actorUserId): void
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return;
+        }
+
+        $requiredColumns = [
+            'phase_name',
+            'subphase_name',
+            'activity_type',
+            'activity_description',
+            'had_blocker',
+            'blocker_description',
+            'had_significant_progress',
+            'generated_deliverable',
+            'operational_comment',
+            'linked_stopper_id',
+        ];
+        foreach ($requiredColumns as $column) {
+            if (!$this->db->columnExists('timesheets', $column)) {
+                return;
+            }
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT ts.id, ts.project_id, ts.task_id, ts.user_id, ts.date, ts.hours, ts.comment,
+                    ts.phase_name, ts.subphase_name, ts.activity_type, ts.activity_description,
+                    ts.had_blocker, ts.blocker_description, ts.had_significant_progress,
+                    ts.generated_deliverable, ts.operational_comment, ts.linked_stopper_id,
+                    p.name AS project_name, tk.title AS task_title, u.name AS user_name
+             FROM timesheets ts
+             LEFT JOIN projects p ON p.id = ts.project_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             LEFT JOIN users u ON u.id = ts.user_id
+             WHERE ts.id = :id
+             LIMIT 1',
+            [':id' => $timesheetId]
+        );
+
+        if (!$row) {
+            return;
+        }
+
+        $projectId = (int) ($row['project_id'] ?? 0);
+        if ($projectId <= 0) {
+            return;
+        }
+
+        $authorUserId = (int) ($row['user_id'] ?? 0);
+        $actor = $actorUserId > 0 ? $actorUserId : $authorUserId;
+
+        (new AuditLogRepository($this->db))->log(
+            $actor > 0 ? $actor : null,
+            'project_note',
+            $projectId,
+            'project_note_created',
+            [
+                'note' => $this->buildOperationalNote($row),
+                'source' => 'timesheet',
+                'timesheet_id' => (int) ($row['id'] ?? 0),
+                'activity_type' => $row['activity_type'] ?? null,
+            ]
+        );
+
+        $hasBlocker = (int) ($row['had_blocker'] ?? 0) === 1;
+        $blockerDescription = trim((string) ($row['blocker_description'] ?? ''));
+        if (!$hasBlocker || $blockerDescription === '' || !$this->db->tableExists('project_stoppers')) {
+            return;
+        }
+
+        $responsibleId = $this->resolveExistingUserId($authorUserId)
+            ?? $this->resolveExistingUserId($actorUserId)
+            ?? 1;
+        $linkedStopperId = (int) ($row['linked_stopper_id'] ?? 0);
+
+        if ($linkedStopperId > 0) {
+            $this->db->execute(
+                'UPDATE project_stoppers
+                 SET description = :description,
+                     updated_by = :updated_by,
+                     updated_at = NOW()
+                 WHERE id = :id AND project_id = :project_id',
+                [
+                    ':description' => $blockerDescription,
+                    ':updated_by' => $responsibleId,
+                    ':id' => $linkedStopperId,
+                    ':project_id' => $projectId,
+                ]
+            );
+            return;
+        }
+
+        $detectedAt = (string) ($row['date'] ?? date('Y-m-d'));
+        $estimatedResolution = (new \DateTimeImmutable($detectedAt))->modify('+3 days')->format('Y-m-d');
+        $activityContext = trim((string) ($row['activity_description'] ?? '')) ?: trim((string) ($row['activity_type'] ?? ''));
+        $stopperTitle = 'Bloqueo Timesheet';
+        if ($activityContext !== '') {
+            $stopperTitle .= ': ' . $this->limitText($activityContext, 120);
+        }
+
+        $stopperId = (new ProjectStoppersRepository($this->db))->create(
+            $projectId,
+            [
+                'title' => $stopperTitle,
+                'description' => $blockerDescription,
+                'stopper_type' => 'interno',
+                'impact_level' => 'medio',
+                'affected_area' => 'tiempo',
+                'responsible_id' => $responsibleId,
+                'detected_at' => $detectedAt,
+                'estimated_resolution_at' => $estimatedResolution,
+                'status' => ProjectStoppersRepository::STATUS_OPEN,
+            ],
+            $responsibleId
+        );
+
+        if ($stopperId > 0 && $this->db->columnExists('timesheets', 'linked_stopper_id')) {
+            $this->db->execute(
+                'UPDATE timesheets SET linked_stopper_id = :stopper WHERE id = :id',
+                [':stopper' => $stopperId, ':id' => $timesheetId]
+            );
+        }
+    }
+
+    private function buildOperationalNote(array $row): string
+    {
+        $author = trim((string) ($row['user_name'] ?? 'Talento'));
+        $hours = round((float) ($row['hours'] ?? 0), 2);
+        $description = trim((string) ($row['activity_description'] ?? ''));
+        if ($description === '') {
+            $description = trim((string) ($row['comment'] ?? ''));
+        }
+        if ($description === '') {
+            $description = trim((string) ($row['task_title'] ?? 'Actividad operativa'));
+        }
+
+        $parts = [];
+        $parts[] = sprintf('Actividad registrada por %s: %s - %sh', $author, $description, rtrim(rtrim(number_format($hours, 2, '.', ''), '0'), '.'));
+        if (trim((string) ($row['project_name'] ?? '')) !== '') {
+            $parts[] = 'Proyecto: ' . trim((string) ($row['project_name'] ?? ''));
+        }
+        if (trim((string) ($row['task_title'] ?? '')) !== '') {
+            $parts[] = 'Tarea: ' . trim((string) ($row['task_title'] ?? ''));
+        }
+        if (trim((string) ($row['phase_name'] ?? '')) !== '') {
+            $phaseLine = 'Fase: ' . trim((string) ($row['phase_name'] ?? ''));
+            if (trim((string) ($row['subphase_name'] ?? '')) !== '') {
+                $phaseLine .= ' / ' . trim((string) ($row['subphase_name'] ?? ''));
+            }
+            $parts[] = $phaseLine;
+        }
+        if (trim((string) ($row['activity_type'] ?? '')) !== '') {
+            $parts[] = 'Tipo: ' . trim((string) ($row['activity_type'] ?? ''));
+        }
+        if ((int) ($row['had_blocker'] ?? 0) === 1 && trim((string) ($row['blocker_description'] ?? '')) !== '') {
+            $parts[] = 'Bloqueo: ' . trim((string) ($row['blocker_description'] ?? ''));
+        }
+        if ((int) ($row['had_significant_progress'] ?? 0) === 1) {
+            $parts[] = 'Avance significativo: si';
+        }
+        if ((int) ($row['generated_deliverable'] ?? 0) === 1) {
+            $parts[] = 'Entregable generado: si';
+        }
+        if (trim((string) ($row['operational_comment'] ?? '')) !== '') {
+            $parts[] = 'Comentario operativo: ' . trim((string) ($row['operational_comment'] ?? ''));
+        }
+
+        return implode("\n", $parts);
+    }
+
+    private function resolveExistingUserId(int $userId): ?int
+    {
+        if ($userId <= 0 || !$this->db->tableExists('users')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne('SELECT id FROM users WHERE id = :id LIMIT 1', [':id' => $userId]);
+
+        return $row ? (int) $row['id'] : null;
     }
 
 

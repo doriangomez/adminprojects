@@ -591,6 +591,25 @@ class DatabaseMigrator
                 $this->db->clearColumnCache();
             }
 
+            $structuredColumns = [
+                'phase_name' => 'VARCHAR(120) NULL AFTER comment',
+                'subphase_name' => 'VARCHAR(120) NULL AFTER phase_name',
+                'activity_type' => 'VARCHAR(60) NULL AFTER subphase_name',
+                'activity_description' => 'VARCHAR(255) NULL AFTER activity_type',
+                'had_blocker' => 'TINYINT(1) NOT NULL DEFAULT 0 AFTER activity_description',
+                'blocker_description' => 'TEXT NULL AFTER had_blocker',
+                'had_significant_progress' => 'TINYINT(1) NOT NULL DEFAULT 0 AFTER blocker_description',
+                'generated_deliverable' => 'TINYINT(1) NOT NULL DEFAULT 0 AFTER had_significant_progress',
+                'operational_comment' => 'TEXT NULL AFTER generated_deliverable',
+                'linked_stopper_id' => 'BIGINT NULL AFTER operational_comment',
+            ];
+            foreach ($structuredColumns as $column => $definition) {
+                if (!$this->db->columnExists('timesheets', $column)) {
+                    $this->db->execute(sprintf('ALTER TABLE timesheets ADD COLUMN %s %s', $column, $definition));
+                    $this->db->clearColumnCache();
+                }
+            }
+
             if (!$this->db->columnExists('timesheets', 'approval_comment')) {
                 $this->db->execute('ALTER TABLE timesheets ADD COLUMN approval_comment TEXT NULL AFTER comment');
                 $this->db->clearColumnCache();
@@ -643,6 +662,24 @@ class DatabaseMigrator
                         )
                     );
                 }
+            }
+
+            if ($this->db->columnExists('timesheets', 'linked_stopper_id')
+                && !$this->db->foreignKeyExists('timesheets', 'linked_stopper_id', 'project_stoppers')
+                && $this->db->tableExists('project_stoppers')
+            ) {
+                $this->db->execute(
+                    'ALTER TABLE timesheets ADD CONSTRAINT fk_timesheets_linked_stopper_id
+                     FOREIGN KEY (linked_stopper_id) REFERENCES project_stoppers(id)'
+                );
+            }
+
+            if (!$this->db->indexExists('timesheets', 'idx_timesheets_activity_type')) {
+                $this->db->execute('ALTER TABLE timesheets ADD INDEX idx_timesheets_activity_type (activity_type)');
+            }
+
+            if (!$this->db->indexExists('timesheets', 'idx_timesheets_project_week')) {
+                $this->db->execute('ALTER TABLE timesheets ADD INDEX idx_timesheets_project_week (project_id, date)');
             }
 
             if ($this->db->columnExists('timesheets', 'assignment_id') && $this->db->tableExists('tasks')) {

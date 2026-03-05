@@ -558,6 +558,10 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 $controller->create();
                 return;
             }
+            if ($path === '/timesheets/activity' && $method === 'POST') {
+                $controller->createActivity();
+                return;
+            }
             if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {
                 $controller->updateStatus((int) $matches[1], $matches[2]);
                 return;

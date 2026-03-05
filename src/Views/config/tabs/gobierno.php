@@ -126,6 +126,35 @@
                         </label>
                     </div>
                 </div>
+                <div class="config-form-grid" style="margin-top:14px;">
+                    <label class="input-stack">
+                        <span>Timesheets · mínimo semanal (h)</span>
+                        <input
+                            name="timesheets_minimum_weekly_hours"
+                            form="governance-config-form"
+                            type="number"
+                            min="0"
+                            max="168"
+                            value="<?= htmlspecialchars((string) ($configData['operational_rules']['timesheets']['minimum_weekly_hours'] ?? 0)) ?>"
+                        >
+                    </label>
+                    <label class="input-stack">
+                        <span>Tipos de actividad (coma separada)</span>
+                        <input
+                            name="timesheets_activity_types"
+                            form="governance-config-form"
+                            type="text"
+                            value="<?= htmlspecialchars(implode(', ', $configData['operational_rules']['timesheets']['activity_types'] ?? ['desarrollo', 'analisis', 'reunion', 'documentacion', 'soporte', 'investigacion', 'pruebas', 'gestion_pm'])) ?>"
+                        >
+                    </label>
+                    <div class="input-stack" style="justify-content:flex-end;">
+                        <span>Bloquear envio de semana incompleta</span>
+                        <label class="toggle-switch toggle-switch--solo" aria-label="Bloquear semana incompleta">
+                            <input type="checkbox" name="timesheets_lock_incomplete_week" form="governance-config-form" <?= !empty($configData['operational_rules']['timesheets']['lock_incomplete_week']) ? 'checked' : '' ?>>
+                            <span class="toggle-track" aria-hidden="true"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
 

@@ -52,6 +52,8 @@ class TimesheetsController extends Controller
         $approvedWeeks = $repo->approvedWeeksByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
         $talentBreakdown = $repo->talentBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $talentSort);
         $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd);
+        $activityTypeBreakdown = $repo->activityTypeBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
+        $phaseBreakdown = $repo->phaseBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
         $projectsForFilter = $repo->projectsCatalog();
         $talentFilter = (int) ($_GET['talent_id'] ?? 0);
         $managedWeekEntries = ($canApprove || $canManageAdvanced) ? $repo->managedWeekEntries($weekStart, $talentFilter > 0 ? $talentFilter : null) : [];
@@ -66,6 +68,9 @@ class TimesheetsController extends Controller
             'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
             'monthlySummary' => $repo->monthlySummaryForUser($userId, $weekStart),
             'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
+            'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
+            'recentActivitySuggestions' => $canReport ? $repo->recentActivitySuggestions($userId, 8) : [],
+            'activityTypes' => $repo->activityTypesCatalog(),
             'pendingApprovals' => $canApprove ? $repo->pendingApprovals($user) : [],
             'weeklyGrid' => $canReport ? $repo->weeklyGridForUser($userId, $weekStart) : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0],
             'canApprove' => $canApprove,
@@ -86,6 +91,8 @@ class TimesheetsController extends Controller
             'approvedWeeks' => $approvedWeeks,
             'talentBreakdown' => $talentBreakdown,
             'projectBreakdown' => $projectBreakdown,
+            'activityTypeBreakdown' => $activityTypeBreakdown,
+            'phaseBreakdown' => $phaseBreakdown,
             'talentSort' => $talentSort,
             'managedWeekEntries' => $managedWeekEntries,
             'talentOptions' => $talentOptions,
@@ -108,6 +115,21 @@ class TimesheetsController extends Controller
         $date = trim((string) ($_POST['date'] ?? ''));
         $hours = max(0, (float) ($_POST['hours'] ?? 0));
         $comment = trim((string) ($_POST['comment'] ?? ''));
+        $syncOperational = filter_var($_POST['sync_operational'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $metadata = [];
+        if (array_key_exists('task_id', $_POST)) {
+            $metadata['task_id'] = (int) $_POST['task_id'];
+        }
+        foreach (['phase_name', 'subphase_name', 'activity_type', 'activity_description', 'blocker_description', 'operational_comment'] as $field) {
+            if (array_key_exists($field, $_POST)) {
+                $metadata[$field] = trim((string) $_POST[$field]);
+            }
+        }
+        foreach (['had_blocker', 'had_significant_progress', 'generated_deliverable'] as $flag) {
+            if (array_key_exists($flag, $_POST)) {
+                $metadata[$flag] = filter_var($_POST[$flag], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
 
         if ($projectId <= 0 || $date === '') {
             http_response_code(400);
@@ -115,7 +137,7 @@ class TimesheetsController extends Controller
         }
 
         try {
-            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment);
+            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, $syncOperational);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
             header('Content-Type: application/json');
             echo json_encode(['ok' => true]);
@@ -147,8 +169,13 @@ class TimesheetsController extends Controller
             exit('Semana inválida.');
         }
 
+        $config = (new ConfigService($this->db))->getConfig();
+        $timesheetRules = $config['operational_rules']['timesheets'] ?? [];
+        $minimumWeeklyHours = max(0, (float) ($timesheetRules['minimum_weekly_hours'] ?? 0));
+        $lockIncompleteWeek = (bool) ($timesheetRules['lock_incomplete_week'] ?? true);
+
         try {
-            $repo->submitWeek($userId, $weekStart);
+            $repo->submitWeek($userId, $weekStart, $minimumWeeklyHours, $lockIncompleteWeek);
             header('Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW')));
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -231,6 +258,55 @@ class TimesheetsController extends Controller
     {
         // Mantener compatibilidad con formulario anterior.
         $this->saveCell();
+    }
+
+    public function createActivity(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+
+        $projectId = (int) ($_POST['project_id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $hours = max(0, (float) ($_POST['hours'] ?? 0));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+        $metadata = [
+            'task_id' => (int) ($_POST['task_id'] ?? 0),
+            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
+            'subphase_name' => trim((string) ($_POST['subphase_name'] ?? '')),
+            'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
+            'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
+            'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'blocker_description' => trim((string) ($_POST['blocker_description'] ?? '')),
+            'had_significant_progress' => filter_var($_POST['had_significant_progress'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
+        ];
+
+        if ($projectId <= 0 || $date === '' || $hours <= 0) {
+            http_response_code(400);
+            exit('Proyecto, fecha y horas son requeridos para registrar actividad.');
+        }
+
+        try {
+            $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, true);
+            (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            $weekDate = $this->parseDateValue($date);
+            $weekValue = $weekDate ? $weekDate->modify('monday this week')->format('o-\\WW') : (new DateTimeImmutable('monday this week'))->format('o-\\WW');
+            header('Location: /timesheets?week=' . urlencode($weekValue));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Error guardando actividad de timesheet: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo registrar la actividad.');
+        }
     }
 
     public function approveWeek(): void
