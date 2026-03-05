@@ -357,19 +357,21 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-context-preview {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 6px;
         margin-top: 7px;
         padding: 0;
         color: color-mix(in srgb, var(--text-secondary) 86%, var(--background));
         font-size: 12px;
         line-height: 1.35;
+        flex-wrap: wrap;
     }
 
     .project-context-preview .context-icon {
         font-size: 11px;
         line-height: 1;
         flex-shrink: 0;
+        margin-top: 1px;
     }
 
     .project-context-preview .context-label {
@@ -378,9 +380,43 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .project-context-preview .context-text {
+        white-space: normal;
+        word-break: break-word;
+        flex: 1;
+        min-width: 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    }
+
+    .project-context-preview .context-text.is-expanded {
+        display: block;
+        -webkit-line-clamp: unset;
+        overflow: visible;
+    }
+
+    .context-toggle-btn {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--primary, #5b5fc7);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 2px 0;
+        margin-top: 2px;
+        flex-basis: 100%;
+        text-align: left;
+        margin-left: 0;
+    }
+
+    .context-toggle-btn:hover {
+        text-decoration: underline;
+    }
+
+    .context-toggle-btn.is-visible {
+        display: inline-block;
     }
 
     .project-context-stats {
@@ -851,7 +887,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             }
                         }
 
-                        $previewText = $truncateText((string) $previewText, 120);
+                        $fullPreviewText = trim((string) preg_replace('/\s+/', ' ', (string) $previewText));
+                        $previewText = $fullPreviewText;
                         $previewHref = $basePath . '/projects/' . $projectId
                             . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
                             . '&return=' . urlencode($returnUrl);
@@ -867,11 +904,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
                             </div>
                             <?php if ($previewText !== ''): ?>
-                                <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
-                                    <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
-                                    <span class="context-label"><?= $previewLabel ?>:</span>
-                                    <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
-                                </a>
+                                <div class="project-context-preview" data-context-block>
+                                    <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" style="display:contents;" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
+                                        <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
+                                        <span class="context-label"><?= $previewLabel ?>:</span>
+                                        <span class="context-text" data-context-text><?= htmlspecialchars($previewText) ?></span>
+                                    </a>
+                                    <button type="button" class="context-toggle-btn" data-no-row data-context-toggle aria-label="Ver texto completo">Ver más</button>
+                                </div>
                             <?php else: ?>
                                 <span class="project-context-preview" title="Sin notas o bloqueos registrados">
                                     <span class="context-icon" aria-hidden="true">📝</span>
@@ -1076,4 +1116,30 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             }
         });
     });
+
+    function initContextToggles() {
+        document.querySelectorAll('[data-context-block]').forEach((block) => {
+            const textEl = block.querySelector('[data-context-text]');
+            const toggleBtn = block.querySelector('[data-context-toggle]');
+            if (!textEl || !toggleBtn) return;
+
+            const isClamped = textEl.scrollHeight > textEl.clientHeight + 1;
+            if (isClamped) {
+                toggleBtn.classList.add('is-visible');
+            }
+
+            toggleBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const expanded = textEl.classList.toggle('is-expanded');
+                toggleBtn.textContent = expanded ? 'Ver menos' : 'Ver más';
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initContextToggles);
+    } else {
+        initContextToggles();
+    }
 </script>
