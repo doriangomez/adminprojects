@@ -25,10 +25,14 @@ class TalentCapacityController extends Controller
         $repo = new TalentCapacityRepository($this->db);
         $dashboard = $repo->dashboard($filters, $user);
 
+        $insightsService = new TalentCapacityInsightsService();
+        $insights = $insightsService->generate($dashboard);
+
         $this->render('talent_capacity/index', [
             'title' => 'Gestión Visual de Carga y Capacidad del Talento',
             'filters' => $filters,
             'dashboard' => $dashboard,
+            'insights' => $insights,
         ]);
     }
 }

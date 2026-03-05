@@ -150,6 +150,37 @@ $maxAvailable = 0.0;
 foreach ($availableTalents as $item) {
     $maxAvailable = max($maxAvailable, (float) ($item['available'] ?? 0));
 }
+
+$insights = is_array($insights ?? null) ? $insights : [];
+$insTeamUtil = is_array($insights['team_utilization'] ?? null) ? $insights['team_utilization'] : [];
+$insPeakWeeks = is_array($insights['peak_weeks'] ?? null) ? $insights['peak_weeks'] : [];
+$insTopTalents = is_array($insights['top_utilized_talents'] ?? null) ? $insights['top_utilized_talents'] : [];
+$insAvailable = is_array($insights['available_talents'] ?? null) ? $insights['available_talents'] : [];
+$insFreeCap = is_array($insights['free_capacity'] ?? null) ? $insights['free_capacity'] : [];
+
+$insightLevelIcon = static function (string $level): string {
+    $icons = [
+        'critical' => '&#xe160;',
+        'high' => '&#xe002;',
+        'optimal' => '&#xe86c;',
+        'moderate' => '&#xe8b2;',
+        'low' => '&#xe15b;',
+        'idle' => '&#xe88e;',
+    ];
+    return $icons[$level] ?? '&#xe8b2;';
+};
+
+$insightLevelClass = static function (string $level): string {
+    $classes = [
+        'critical' => 'insight-critical',
+        'high' => 'insight-high',
+        'optimal' => 'insight-optimal',
+        'moderate' => 'insight-moderate',
+        'low' => 'insight-low',
+        'idle' => 'insight-idle',
+    ];
+    return $classes[$level] ?? 'insight-moderate';
+};
 ?>
 
 <section class="capacity-shell">
@@ -211,6 +242,197 @@ foreach ($availableTalents as $item) {
         <article class="kpi-card"><strong><?= number_format((float) ($summary['overassigned_hours'] ?? 0), 1) ?>h</strong><span>Total horas sobreasignadas</span></article>
         <article class="kpi-card"><strong><?= (int) ($summary['risk_talents'] ?? 0) ?></strong><span>Talentos críticos (&gt;90%)</span></article>
         <article class="kpi-card"><strong><?= number_format((float) ($summary['idle_capacity'] ?? 0), 1) ?>h</strong><span>Capacidad ociosa global</span></article>
+    </section>
+
+    <section class="insights-panel">
+        <div class="insights-header">
+            <div>
+                <p class="eyebrow">Capa analítica</p>
+                <h3>Insights y Análisis Automático del Equipo</h3>
+                <small class="section-muted">Interpretaciones generadas automáticamente a partir del estado actual de carga y capacidad.</small>
+            </div>
+            <span class="badge insight-badge">Auto-generado</span>
+        </div>
+
+        <div class="insights-grid">
+            <!-- Nivel de utilización del equipo -->
+            <article class="insight-card <?= $insightLevelClass((string) ($insTeamUtil['level'] ?? 'moderate')) ?>">
+                <div class="insight-card-header">
+                    <div class="insight-icon-wrap">
+                        <span class="material-icons insight-icon"><?= $insightLevelIcon((string) ($insTeamUtil['level'] ?? 'moderate')) ?></span>
+                    </div>
+                    <div>
+                        <h4>Nivel de Utilización del Equipo</h4>
+                        <span class="insight-metric"><?= number_format((float) ($insTeamUtil['avg_utilization'] ?? 0), 1) ?>%</span>
+                    </div>
+                </div>
+                <?php $dist = $insTeamUtil['distribution'] ?? []; ?>
+                <?php if (!empty($dist)): ?>
+                    <div class="insight-distribution">
+                        <?php
+                        $distLabels = ['overload' => 'Sobrecarga', 'risk' => 'Riesgo', 'healthy' => 'Saludable', 'under' => 'Subutilizado', 'none' => 'Sin carga'];
+                        $distColors = ['overload' => '#ef4444', 'risk' => '#f59e0b', 'healthy' => '#22c55e', 'under' => '#60a5fa', 'none' => '#cbd5e1'];
+                        $totalDist = max(1, (int) ($insTeamUtil['total_talents'] ?? 1));
+                        ?>
+                        <div class="dist-bar">
+                            <?php foreach ($distLabels as $dKey => $dLabel): ?>
+                                <?php $dCount = (int) ($dist[$dKey] ?? 0); $dPct = ($dCount / $totalDist) * 100; ?>
+                                <?php if ($dPct > 0): ?>
+                                    <span class="dist-segment" style="width: <?= number_format($dPct, 1) ?>%; background: <?= $distColors[$dKey] ?>;" title="<?= $dLabel ?>: <?= $dCount ?>"></span>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="dist-legend">
+                            <?php foreach ($distLabels as $dKey => $dLabel): ?>
+                                <?php $dCount = (int) ($dist[$dKey] ?? 0); ?>
+                                <?php if ($dCount > 0): ?>
+                                    <span class="dist-legend-item"><i class="dist-dot" style="background: <?= $distColors[$dKey] ?>;"></i><?= $dCount ?> <?= $dLabel ?></span>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <p class="insight-interpretation"><?= htmlspecialchars((string) ($insTeamUtil['interpretation'] ?? '')) ?></p>
+            </article>
+
+            <!-- Semanas con mayor carga -->
+            <article class="insight-card">
+                <div class="insight-card-header">
+                    <div class="insight-icon-wrap insight-icon-weeks">
+                        <span class="material-icons insight-icon">&#xe916;</span>
+                    </div>
+                    <div>
+                        <h4>Semanas con Mayor Carga</h4>
+                        <span class="insight-metric"><?= (int) ($insPeakWeeks['critical_weeks'] ?? 0) ?> / <?= (int) ($insPeakWeeks['total_weeks'] ?? 0) ?> semanas críticas</span>
+                    </div>
+                </div>
+                <?php $topWeeks = $insPeakWeeks['top_weeks'] ?? []; ?>
+                <?php if (!empty($topWeeks)): ?>
+                    <div class="insight-mini-table">
+                        <?php foreach ($topWeeks as $tw): ?>
+                            <div class="insight-mini-row">
+                                <span class="insight-mini-label"><?= htmlspecialchars((string) ($tw['week'] ?? '')) ?></span>
+                                <div class="insight-mini-bar-track">
+                                    <span class="insight-mini-bar-fill <?= ((float) ($tw['avg_utilization'] ?? 0)) >= 90 ? 'bar-critical' : (((float) ($tw['avg_utilization'] ?? 0)) >= 70 ? 'bar-warning' : 'bar-ok') ?>"
+                                          style="width: <?= min(100, max(0, (float) ($tw['avg_utilization'] ?? 0))) ?>%"></span>
+                                </div>
+                                <span class="insight-mini-value"><?= number_format((float) ($tw['avg_utilization'] ?? 0), 1) ?>%</span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <p class="insight-interpretation"><?= htmlspecialchars((string) ($insPeakWeeks['interpretation'] ?? '')) ?></p>
+            </article>
+
+            <!-- Talentos con mayor utilización -->
+            <article class="insight-card">
+                <div class="insight-card-header">
+                    <div class="insight-icon-wrap insight-icon-top">
+                        <span class="material-icons insight-icon">&#xe7fd;</span>
+                    </div>
+                    <div>
+                        <h4>Talentos con Mayor Utilización</h4>
+                        <span class="insight-metric">
+                            <?= (int) ($insTopTalents['overloaded_count'] ?? 0) ?> sobrecargado(s),
+                            <?= (int) ($insTopTalents['at_risk_count'] ?? 0) ?> en riesgo
+                        </span>
+                    </div>
+                </div>
+                <?php $topTalents = $insTopTalents['top_talents'] ?? []; ?>
+                <?php if (!empty($topTalents)): ?>
+                    <div class="insight-talent-list">
+                        <?php foreach ($topTalents as $idx => $tt): ?>
+                            <div class="insight-talent-row">
+                                <span class="insight-talent-rank">#<?= $idx + 1 ?></span>
+                                <div class="insight-talent-info">
+                                    <strong><?= htmlspecialchars((string) ($tt['name'] ?? '')) ?></strong>
+                                    <small><?= htmlspecialchars((string) ($tt['role'] ?? '')) ?></small>
+                                </div>
+                                <div class="insight-talent-bar-wrap">
+                                    <div class="insight-mini-bar-track">
+                                        <span class="insight-mini-bar-fill <?= ((float) ($tt['utilization'] ?? 0)) > 100 ? 'bar-critical' : (((float) ($tt['utilization'] ?? 0)) >= 90 ? 'bar-warning' : 'bar-ok') ?>"
+                                              style="width: <?= min(100, max(0, (float) ($tt['utilization'] ?? 0))) ?>%"></span>
+                                    </div>
+                                </div>
+                                <span class="insight-talent-pct <?= ((float) ($tt['utilization'] ?? 0)) > 100 ? 'pct-critical' : (((float) ($tt['utilization'] ?? 0)) >= 90 ? 'pct-warning' : '') ?>"><?= number_format((float) ($tt['utilization'] ?? 0), 1) ?>%</span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <p class="insight-interpretation"><?= htmlspecialchars((string) ($insTopTalents['interpretation'] ?? '')) ?></p>
+            </article>
+
+            <!-- Talentos disponibles para asignación -->
+            <article class="insight-card">
+                <div class="insight-card-header">
+                    <div class="insight-icon-wrap insight-icon-available">
+                        <span class="material-icons insight-icon">&#xe7fe;</span>
+                    </div>
+                    <div>
+                        <h4>Talentos Disponibles para Asignación</h4>
+                        <span class="insight-metric"><?= (int) ($insAvailable['total_available'] ?? 0) ?> talento(s) · <?= number_format((float) ($insAvailable['total_free_hours'] ?? 0), 1) ?>h libres</span>
+                    </div>
+                </div>
+                <?php $availTalents = $insAvailable['talents'] ?? []; ?>
+                <?php if (!empty($availTalents)): ?>
+                    <?php $maxFree = max(1, (float) ($availTalents[0]['free_hours'] ?? 1)); ?>
+                    <div class="insight-talent-list">
+                        <?php foreach ($availTalents as $at): ?>
+                            <div class="insight-talent-row">
+                                <div class="insight-talent-info">
+                                    <strong><?= htmlspecialchars((string) ($at['name'] ?? '')) ?></strong>
+                                    <small><?= htmlspecialchars((string) ($at['role'] ?? '')) ?> · <?= number_format((float) ($at['utilization'] ?? 0), 1) ?>% utilizado</small>
+                                </div>
+                                <div class="insight-talent-bar-wrap">
+                                    <div class="insight-mini-bar-track">
+                                        <span class="insight-mini-bar-fill bar-available" style="width: <?= min(100, ((float) ($at['free_hours'] ?? 0) / $maxFree) * 100) ?>%"></span>
+                                    </div>
+                                </div>
+                                <span class="insight-talent-free"><?= number_format((float) ($at['free_hours'] ?? 0), 1) ?>h</span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <p class="insight-interpretation"><?= htmlspecialchars((string) ($insAvailable['interpretation'] ?? '')) ?></p>
+            </article>
+
+            <!-- Capacidad libre del equipo -->
+            <article class="insight-card insight-card-wide">
+                <div class="insight-card-header">
+                    <div class="insight-icon-wrap insight-icon-capacity">
+                        <span class="material-icons insight-icon">&#xe1b1;</span>
+                    </div>
+                    <div>
+                        <h4>Capacidad Libre del Equipo</h4>
+                        <span class="insight-metric"><?= number_format((float) ($insFreeCap['idle_hours'] ?? 0), 1) ?>h libres de <?= number_format((float) ($insFreeCap['total_capacity'] ?? 0), 1) ?>h totales</span>
+                    </div>
+                </div>
+                <div class="capacity-gauge-row">
+                    <div class="capacity-gauge">
+                        <div class="gauge-track">
+                            <span class="gauge-fill gauge-used" style="width: <?= min(100, max(0, (float) ($insFreeCap['used_percentage'] ?? 0))) ?>%"></span>
+                            <span class="gauge-fill gauge-free" style="width: <?= min(100, max(0, (float) ($insFreeCap['free_percentage'] ?? 0))) ?>%"></span>
+                        </div>
+                        <div class="gauge-labels">
+                            <span class="gauge-label"><i class="dist-dot" style="background: var(--primary);"></i>Asignado: <?= number_format((float) ($insFreeCap['used_percentage'] ?? 0), 1) ?>%</span>
+                            <span class="gauge-label"><i class="dist-dot" style="background: #22c55e;"></i>Libre: <?= number_format((float) ($insFreeCap['free_percentage'] ?? 0), 1) ?>%</span>
+                        </div>
+                    </div>
+                    <?php $topFreeWeeks = $insFreeCap['top_free_weeks'] ?? []; ?>
+                    <?php if (!empty($topFreeWeeks)): ?>
+                        <div class="capacity-free-weeks">
+                            <small class="section-muted">Semanas con mayor disponibilidad:</small>
+                            <div class="free-week-chips">
+                                <?php foreach ($topFreeWeeks as $fwKey => $fwHours): ?>
+                                    <span class="free-week-chip"><?= htmlspecialchars((string) $fwKey) ?> · <?= number_format((float) $fwHours, 1) ?>h</span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <p class="insight-interpretation"><?= htmlspecialchars((string) ($insFreeCap['interpretation'] ?? '')) ?></p>
+            </article>
+        </div>
     </section>
 
     <section class="capacity-block">
@@ -415,4 +637,76 @@ foreach ($availableTalents as $item) {
 .heat-healthy { background: rgba(34, 197, 94, .35); }
 .heat-high { background: rgba(250, 204, 21, .45); }
 .heat-overload { background: rgba(239, 68, 68, .45); }
+
+/* ── Insights Panel ── */
+.insights-panel { display: flex; flex-direction: column; gap: 16px; border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 20px; }
+.insights-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.insight-badge { background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(168,85,247,.12)); color: #6366f1; border: 1px solid rgba(99,102,241,.25); font-size: .78rem; padding: 4px 12px; border-radius: 999px; font-weight: 600; }
+.insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.insight-card { border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, var(--background)); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; transition: box-shadow .2s ease, border-color .2s ease; }
+.insight-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); border-color: rgba(99,102,241,.3); }
+.insight-card-wide { grid-column: 1 / -1; }
+.insight-card-header { display: flex; align-items: center; gap: 12px; }
+.insight-icon-wrap { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: linear-gradient(135deg, rgba(99,102,241,.15), rgba(168,85,247,.1)); }
+.insight-icon-weeks { background: linear-gradient(135deg, rgba(245,158,11,.15), rgba(251,191,36,.1)); }
+.insight-icon-top { background: linear-gradient(135deg, rgba(239,68,68,.12), rgba(248,113,113,.1)); }
+.insight-icon-available { background: linear-gradient(135deg, rgba(34,197,94,.15), rgba(74,222,128,.1)); }
+.insight-icon-capacity { background: linear-gradient(135deg, rgba(59,130,246,.15), rgba(96,165,250,.1)); }
+.insight-icon { font-size: 1.3rem; color: var(--text-primary); font-family: 'Material Icons', sans-serif; font-weight: normal; font-style: normal; }
+.insight-card-header h4 { margin: 0; font-size: .95rem; color: var(--text-primary); }
+.insight-metric { font-size: .82rem; color: var(--text-secondary); font-weight: 500; }
+
+.insight-card.insight-critical { border-left: 3px solid #ef4444; }
+.insight-card.insight-high { border-left: 3px solid #f59e0b; }
+.insight-card.insight-optimal { border-left: 3px solid #22c55e; }
+.insight-card.insight-moderate { border-left: 3px solid #60a5fa; }
+.insight-card.insight-low { border-left: 3px solid #94a3b8; }
+.insight-card.insight-idle { border-left: 3px solid #cbd5e1; }
+
+.insight-interpretation { margin: 0; padding: 10px 12px; font-size: .85rem; line-height: 1.55; color: var(--text-secondary); background: color-mix(in srgb, var(--background) 60%, var(--surface)); border-radius: 10px; border: 1px solid rgba(148,163,184,.15); }
+
+/* Distribution bar */
+.insight-distribution { display: flex; flex-direction: column; gap: 6px; }
+.dist-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; border: 1px solid rgba(148,163,184,.2); }
+.dist-segment { display: block; min-width: 2px; }
+.dist-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.dist-legend-item { display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; color: var(--text-secondary); }
+.dist-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+
+/* Mini table (weeks) */
+.insight-mini-table { display: flex; flex-direction: column; gap: 6px; }
+.insight-mini-row { display: flex; align-items: center; gap: 8px; }
+.insight-mini-label { font-size: .8rem; color: var(--text-secondary); min-width: 68px; flex-shrink: 0; font-weight: 500; }
+.insight-mini-bar-track { flex: 1; height: 8px; background: color-mix(in srgb, var(--background) 92%, var(--surface)); border-radius: 999px; overflow: hidden; border: 1px solid rgba(148,163,184,.15); }
+.insight-mini-bar-fill { display: block; height: 100%; border-radius: 999px; }
+.bar-critical { background: rgba(239,68,68,.55); }
+.bar-warning { background: rgba(245,158,11,.50); }
+.bar-ok { background: rgba(34,197,94,.45); }
+.bar-available { background: rgba(59,130,246,.45); }
+.insight-mini-value { font-size: .8rem; font-weight: 600; min-width: 48px; text-align: right; color: var(--text-primary); }
+
+/* Talent list */
+.insight-talent-list { display: flex; flex-direction: column; gap: 6px; }
+.insight-talent-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; border: 1px solid rgba(148,163,184,.12); background: color-mix(in srgb, var(--surface) 96%, var(--background)); }
+.insight-talent-rank { font-size: .78rem; font-weight: 700; color: var(--text-secondary); min-width: 24px; text-align: center; }
+.insight-talent-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex-shrink: 1; }
+.insight-talent-info strong { font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.insight-talent-info small { font-size: .74rem; color: var(--text-secondary); }
+.insight-talent-bar-wrap { flex: 1; min-width: 60px; }
+.insight-talent-pct { font-size: .82rem; font-weight: 600; min-width: 50px; text-align: right; }
+.pct-critical { color: #ef4444; }
+.pct-warning { color: #d97706; }
+.insight-talent-free { font-size: .82rem; font-weight: 600; min-width: 50px; text-align: right; color: #059669; }
+
+/* Capacity gauge */
+.capacity-gauge-row { display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap; }
+.capacity-gauge { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+.gauge-track { display: flex; height: 18px; border-radius: 999px; overflow: hidden; border: 1px solid rgba(148,163,184,.2); }
+.gauge-used { background: var(--primary); opacity: .7; }
+.gauge-free { background: #22c55e; opacity: .5; }
+.gauge-labels { display: flex; gap: 14px; }
+.gauge-label { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; color: var(--text-secondary); }
+.capacity-free-weeks { display: flex; flex-direction: column; gap: 6px; }
+.free-week-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.free-week-chip { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 500; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25); color: #15803d; }
 </style>
