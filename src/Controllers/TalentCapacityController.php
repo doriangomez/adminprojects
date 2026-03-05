@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Repositories\TalentCapacityRepository;
+use App\Services\TalentCapacityInsightsService;
 
 class TalentCapacityController extends Controller
 {
@@ -22,13 +23,17 @@ class TalentCapacityController extends Controller
                 : 'week',
         ];
 
-        $repo = new TalentCapacityRepository($this->db);
+        $repo      = new TalentCapacityRepository($this->db);
         $dashboard = $repo->dashboard($filters, $user);
 
+        $insightsService = new TalentCapacityInsightsService();
+        $insights        = $insightsService->generate($dashboard);
+
         $this->render('talent_capacity/index', [
-            'title' => 'Gestión Visual de Carga y Capacidad del Talento',
-            'filters' => $filters,
+            'title'     => 'Gestión Visual de Carga y Capacidad del Talento',
+            'filters'   => $filters,
             'dashboard' => $dashboard,
+            'insights'  => $insights,
         ]);
     }
 }
