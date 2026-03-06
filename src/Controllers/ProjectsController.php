@@ -1876,11 +1876,19 @@ class ProjectsController extends Controller
             : [];
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
-        $pmoAutomation = new PmoAutomationService($this->db);
-        $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
-        $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
-        $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
-        $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        try {
+            $pmoAutomation = new PmoAutomationService($this->db);
+            $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
+            $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
+            $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
+            $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        } catch (\Throwable $e) {
+            error_log('PmoAutomation error for project ' . $id . ': ' . $e->getMessage());
+            $pmoSnapshot = [];
+            $pmoAlerts = [];
+            $pmoHoursTrend = [];
+            $pmoActiveBlockers = [];
+        }
 
         return array_merge([
             'title' => 'Detalle de proyecto',

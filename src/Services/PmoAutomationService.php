@@ -322,10 +322,11 @@ class PmoAutomationService
              FROM timesheets
              WHERE project_id = :project
                AND had_blocker = 1
-               AND date BETWEEN DATE_SUB(:snapshot_date, INTERVAL 14 DAY) AND :snapshot_date',
+               AND date BETWEEN DATE_SUB(:snapshot_date_from, INTERVAL 14 DAY) AND :snapshot_date_to',
             [
                 ':project' => $projectId,
-                ':snapshot_date' => $snapshotDate,
+                ':snapshot_date_from' => $snapshotDate,
+                ':snapshot_date_to' => $snapshotDate,
             ]
         );
 
