@@ -491,6 +491,7 @@ CREATE TABLE timesheets (
     date DATE NOT NULL,
     hours DECIMAL(8,2) NOT NULL,
     status VARCHAR(20) NOT NULL,
+    submitted_at DATETIME NULL,
     comment TEXT NOT NULL,
     phase_name VARCHAR(120) NULL,
     subphase_name VARCHAR(120) NULL,

@@ -40,7 +40,7 @@ class ApprovalsController extends Controller
         $canApproveTimesheets = $this->auth->canApproveTimesheets();
         $canAccessTimesheets = $this->auth->canAccessTimesheets();
         $timesheetApprovals = $canApproveTimesheets
-            ? $timesheetsRepo->pendingApprovalsByWeek($user)
+            ? $timesheetsRepo->pendingApprovalsByWeekWithDays($user)
             : [];
         $timesheetHistory = $canApproveTimesheets
             ? $timesheetsRepo->weekApprovalHistoryByApprover($user)

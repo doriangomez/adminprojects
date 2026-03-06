@@ -31,6 +31,7 @@ class TimesheetsController extends Controller
             ? $repo->weeklyGridForUser($userId, $weekStart)
             : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0, 'activities_by_day' => []];
         $selectedWeekSummary = $repo->weekSummaryForUser($userId, $weekStart);
+        $dayStatuses = $canReport ? $repo->dayStatusesForWeek($userId, $weekStart) : [];
         $weekIndicators = $this->buildWeekIndicators($weeklyGrid);
 
         $this->render('timesheets/index', [
@@ -53,6 +54,7 @@ class TimesheetsController extends Controller
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
             'currentUserName' => (string) ($user['name'] ?? 'Usuario'),
+            'dayStatuses' => $dayStatuses,
         ]);
     }
 
@@ -229,6 +231,97 @@ class TimesheetsController extends Controller
 
         $repo->cancelWeekSubmission($userId, $weekStart);
         header('Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW')));
+    }
+
+    public function submitDay(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            $this->jsonResponse(403, ['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $userId = (int) (($this->auth->user() ?? [])['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+
+        if ($date === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fecha requerida.']);
+            return;
+        }
+
+        try {
+            $updated = $repo->submitDay($userId, $date);
+            $this->jsonResponse(200, ['ok' => true, 'updated' => $updated]);
+        } catch (\InvalidArgumentException $e) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error enviando día de timesheet: ' . $e->getMessage());
+            $this->jsonResponse(500, ['ok' => false, 'message' => 'No se pudo enviar el día.']);
+        }
+    }
+
+    public function cancelDaySubmission(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            $this->jsonResponse(403, ['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $userId = (int) (($this->auth->user() ?? [])['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+
+        if ($date === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fecha requerida.']);
+            return;
+        }
+
+        try {
+            $updated = $repo->cancelDaySubmission($userId, $date);
+            $this->jsonResponse(200, ['ok' => true, 'updated' => $updated]);
+        } catch (\Throwable $e) {
+            error_log('Error cancelando envío de día de timesheet: ' . $e->getMessage());
+            $this->jsonResponse(500, ['ok' => false, 'message' => 'No se pudo cancelar el envío del día.']);
+        }
+    }
+
+    public function approveDay(): void
+    {
+        if (!$this->auth->canApproveTimesheets()) {
+            $this->jsonResponse(403, ['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $targetUserId = (int) ($_POST['user_id'] ?? 0);
+        $status = trim((string) ($_POST['status'] ?? 'approved'));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        if ($date === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fecha requerida.']);
+            return;
+        }
+
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Estado inválido.']);
+            return;
+        }
+
+        if ($status === 'rejected' && $comment === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Debes indicar un comentario para rechazar.']);
+            return;
+        }
+
+        try {
+            $updated = $repo->approveDayStatus($userId, $date, $targetUserId, $status, $comment !== '' ? $comment : null);
+            $this->jsonResponse(200, ['ok' => true, 'updated' => $updated]);
+        } catch (\Throwable $e) {
+            error_log('Error al aprobar/rechazar día de timesheet: ' . $e->getMessage());
+            $this->jsonResponse(500, ['ok' => false, 'message' => 'No se pudo actualizar la aprobación del día.']);
+        }
     }
 
     public function reopenOwnWeek(): void

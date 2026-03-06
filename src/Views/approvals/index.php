@@ -187,10 +187,11 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                 <?php else: ?>
                     <div class="timesheet-cards">
                         <?php foreach ($timesheetApprovals as $week): ?>
+                            <?php $weekUserId = (int) ($week['user_id'] ?? 0); ?>
                             <article class="inbox-card timesheet-card" data-queue-type="timesheets">
                                 <header class="inbox-card__header">
                                     <div class="inbox-card__heading">
-                                        <span class="inbox-card__type">Semana</span>
+                                        <span class="inbox-card__type">Semana · <?= htmlspecialchars((string) ($week['talent'] ?? '')) ?></span>
                                         <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
                                         <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</div>
                                     </div>
@@ -205,6 +206,37 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
+
+                                    <div class="ts-day-breakdown">
+                                        <span class="meta-label">Detalle por día</span>
+                                        <?php foreach (($week['days'] ?? []) as $dayInfo): ?>
+                                            <?php
+                                            $dayDate = (string) ($dayInfo['date'] ?? '');
+                                            $dayHours = round((float) ($dayInfo['hours'] ?? 0), 2);
+                                            $dayEntries = is_array($dayInfo['entries'] ?? null) ? $dayInfo['entries'] : [];
+                                            $dayProjects = [];
+                                            foreach ($dayEntries as $de) {
+                                                $dp = (string) ($de['project'] ?? 'Proyecto');
+                                                $dayProjects[$dp] = ($dayProjects[$dp] ?? 0) + (float) ($de['hours'] ?? 0);
+                                            }
+                                            ?>
+                                            <div class="ts-day-row">
+                                                <div class="ts-day-info">
+                                                    <strong><?= htmlspecialchars($dayDate) ?></strong>
+                                                    <span><?= $dayHours ?>h</span>
+                                                    <span class="ts-day-projects">
+                                                        <?php foreach ($dayProjects as $dp => $dh): ?>
+                                                            <?= htmlspecialchars($dp) ?> (<?= round($dh, 2) ?>h)
+                                                        <?php endforeach; ?>
+                                                    </span>
+                                                </div>
+                                                <div class="ts-day-actions">
+                                                    <button type="button" class="action-btn small primary btn-approve-day" data-date="<?= htmlspecialchars($dayDate) ?>" data-user-id="<?= $weekUserId ?>" data-status="approved">Aprobar día</button>
+                                                    <button type="button" class="action-btn small danger btn-reject-day" data-date="<?= htmlspecialchars($dayDate) ?>" data-user-id="<?= $weekUserId ?>" data-status="rejected">Rechazar día</button>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
                                 <div class="inbox-card__footer">
                                     <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
@@ -212,19 +244,15 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                         <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
                                         <input type="hidden" name="status" value="approved">
                                         <input type="text" name="comment" placeholder="Detalle aprobación (opcional)">
-                                        <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
+                                        <button type="submit" class="action-btn small primary">Aprobar semana</button>
                                     </form>
                                     <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
                                         <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
                                         <input type="hidden" name="status" value="rejected">
                                         <input type="text" name="comment" placeholder="Motivo rechazo" required>
-                                        <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
+                                        <button type="submit" class="action-btn small danger">Rechazar semana</button>
                                     </form>
                                 </div>
-
-                                <?php foreach (($week['rows'] ?? []) as $row): ?>
-                                    <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
-                                <?php endforeach; ?>
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -438,6 +466,11 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .timesheet-card .inbox-card__footer { align-items:flex-start; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-primary); }
+    .ts-day-breakdown { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+    .ts-day-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%); }
+    .ts-day-info { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; }
+    .ts-day-projects { color:var(--text-secondary); font-size:12px; }
+    .ts-day-actions { display:flex; gap:6px; flex-shrink:0; }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
     }
@@ -447,6 +480,57 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     (() => {
         const basePath = <?= json_encode($basePath) ?>;
         const toast = document.querySelector('[data-toast]');
+
+        const postJson = async (path, payload) => {
+            const res = await fetch(`${basePath}${path}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(payload),
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || data.ok === false) {
+                throw new Error(data.message || 'No se pudo completar la acción.');
+            }
+            return data;
+        };
+
+        document.querySelectorAll('.btn-approve-day').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const date = btn.dataset.date || '';
+                const userId = btn.dataset.userId || '0';
+                if (!confirm(`¿Aprobar las horas del ${date}?`)) return;
+                btn.disabled = true;
+                try {
+                    await postJson('/timesheets/approve-day', { date, user_id: userId, status: 'approved' });
+                    btn.closest('.ts-day-row')?.remove();
+                    if (toast) { toast.textContent = `Día ${date} aprobado.`; toast.className = 'toast'; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 3500); }
+                } catch (error) {
+                    alert(error.message || 'No se pudo aprobar el día.');
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-reject-day').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const date = btn.dataset.date || '';
+                const userId = btn.dataset.userId || '0';
+                const comment = prompt(`Motivo de rechazo para ${date}:`);
+                if (!comment || comment.trim() === '') { alert('Debes indicar un motivo para rechazar.'); return; }
+                btn.disabled = true;
+                try {
+                    await postJson('/timesheets/approve-day', { date, user_id: userId, status: 'rejected', comment });
+                    btn.closest('.ts-day-row')?.remove();
+                    if (toast) { toast.textContent = `Día ${date} rechazado.`; toast.className = 'toast error'; toast.hidden = false; setTimeout(() => { toast.hidden = true; }, 3500); }
+                } catch (error) {
+                    alert(error.message || 'No se pudo rechazar el día.');
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
         const historyLabels = {
             file_created: 'Subido',
             document_uploaded: 'Subido',

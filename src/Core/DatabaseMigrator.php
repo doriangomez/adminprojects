@@ -586,6 +586,11 @@ class DatabaseMigrator
                 }
             }
 
+            if (!$this->db->columnExists('timesheets', 'submitted_at')) {
+                $this->db->execute('ALTER TABLE timesheets ADD COLUMN submitted_at DATETIME NULL AFTER status');
+                $this->db->clearColumnCache();
+            }
+
             if (!$this->db->columnExists('timesheets', 'comment')) {
                 $this->db->execute('ALTER TABLE timesheets ADD COLUMN comment TEXT NULL AFTER status');
                 $this->db->clearColumnCache();
