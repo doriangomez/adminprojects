@@ -1,5 +1,6 @@
 <?php
 $timesheetRules = is_array($configData['operational_rules']['timesheets'] ?? null) ? $configData['operational_rules']['timesheets'] : [];
+$absenceRules = is_array($configData['operational_rules']['absences'] ?? null) ? $configData['operational_rules']['absences'] : [];
 $calendarRules = is_array($timesheetRules['work_calendar'] ?? null) ? $timesheetRules['work_calendar'] : [];
 $workingDays = array_values(array_filter(
     array_map('intval', is_array($calendarRules['working_days'] ?? null) ? $calendarRules['working_days'] : [1, 2, 3, 4, 5]),
@@ -160,6 +161,39 @@ $weekdayLabels = [
                                     <label>Excepciones (uno por linea: YYYY-MM-DD|laboral/no_laboral|Motivo)</label>
                                     <textarea name="timesheets_exceptions" rows="5" class="operacion-textarea" placeholder="2026-03-21|laboral|Guardia de soporte&#10;2026-03-23|no_laboral|Cierre de oficina"><?= htmlspecialchars(implode("\n", $exceptionLines)) ?></textarea>
                                 </div>
+                            </div>
+                            <div class="operacion-card">
+                                <div class="operacion-card-header">
+                                    <span class="operacion-card-icon">🏖️</span>
+                                    <span class="operacion-card-title">Gestion de ausencias y vacaciones</span>
+                                </div>
+                                <div class="operacion-card-grid">
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Habilitar gestion de ausencias</span>
+                                        <input type="checkbox" name="absences_enabled" <?= !empty($absenceRules['enabled']) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Habilitar vacaciones</span>
+                                        <input type="checkbox" name="absences_vacations_enabled" <?= !empty($absenceRules['vacations_enabled']) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Bloquear registro de horas en ausencias</span>
+                                        <input type="checkbox" name="absences_block_timesheet" <?= !empty($absenceRules['block_timesheet_on_absence']) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Permitir excepciones para administradores</span>
+                                        <input type="checkbox" name="absences_admin_exceptions" <?= !empty($absenceRules['admin_exceptions']) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                </div>
+                                <p class="hint" style="margin:0;font-size:12px;">Cuando esta activo, el modulo Ausencias aparecera en el menu Talento y los dias de ausencia aprobados se descontaran de la capacidad disponible.</p>
                             </div>
                         </div>
                     </div>

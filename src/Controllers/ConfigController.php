@@ -262,6 +262,20 @@ class ConfigController extends Controller
                         'allow_admin_non_working_logging' => $allowAdminNonWorkingLogging,
                     ],
                 ],
+                'absences' => [
+                    'enabled' => array_key_exists('absences_enabled', $_POST)
+                        ? isset($_POST['absences_enabled'])
+                        : (bool) ($current['operational_rules']['absences']['enabled'] ?? false),
+                    'vacations_enabled' => array_key_exists('absences_vacations_enabled', $_POST)
+                        ? isset($_POST['absences_vacations_enabled'])
+                        : (bool) ($current['operational_rules']['absences']['vacations_enabled'] ?? true),
+                    'block_timesheet_on_absence' => array_key_exists('absences_block_timesheet', $_POST)
+                        ? isset($_POST['absences_block_timesheet'])
+                        : (bool) ($current['operational_rules']['absences']['block_timesheet_on_absence'] ?? true),
+                    'admin_exceptions' => array_key_exists('absences_admin_exceptions', $_POST)
+                        ? isset($_POST['absences_admin_exceptions'])
+                        : (bool) ($current['operational_rules']['absences']['admin_exceptions'] ?? true),
+                ],
                 'billing' => [
                     'enabled' => array_key_exists('billing_enabled', $_POST)
                         ? isset($_POST['billing_enabled'])

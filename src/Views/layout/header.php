@@ -1,6 +1,7 @@
 <?php
 $theme = $theme ?? (new ThemeRepository())->getActiveTheme();
 $timesheetsEnabled = $timesheetsEnabled ?? false;
+$absencesEnabled = $absencesEnabled ?? false;
 $basePath = '';
 $appDisplayName = $appName ?? 'PMO';
 $logoUrl = !empty($theme['logo_url']) ? $theme['logo_url'] : '';
@@ -700,10 +701,17 @@ error_log(sprintf(
                     <?php endif; ?>
                 </a>
             <?php endif; ?>
-            <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>" data-tone="green">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
-                <span class="nav-label">Talento</span>
-            </a>
+            <div class="nav-group">
+                <a href="<?= $basePath ?>/talents" class="nav-link <?= str_starts_with($normalizedPath, '/talents') ? 'active' : '' ?>" data-tone="green">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
+                    <span class="nav-label">Talento</span>
+                </a>
+                <?php if ($absencesEnabled && $auth->can('talent.absences.view')): ?>
+                    <div class="nav-submenu">
+                        <a href="<?= $basePath ?>/absences" class="nav-sublink <?= str_starts_with($normalizedPath, '/absences') ? 'active' : '' ?>">Ausencias</a>
+                    </div>
+                <?php endif; ?>
+            </div>
             <div class="nav-group">
                 <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= $isTalentCapacityRoute ? 'active' : '' ?>" data-tone="blue">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>

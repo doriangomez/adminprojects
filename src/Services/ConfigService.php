@@ -217,6 +217,12 @@ class ConfigService
                     'allow_admin_non_working_logging' => false,
                 ],
             ],
+            'absences' => [
+                'enabled' => false,
+                'vacations_enabled' => true,
+                'block_timesheet_on_absence' => true,
+                'admin_exceptions' => true,
+            ],
             'billing' => [
                 'enabled' => true,
             ],
@@ -331,6 +337,10 @@ class ConfigService
                     $stored['operational_rules']['approvals'] ?? []
                 ),
                 'timesheets' => $this->mergeTimesheetRules($stored['operational_rules']['timesheets'] ?? []),
+                'absences' => array_merge(
+                    $this->defaults['operational_rules']['absences'],
+                    $stored['operational_rules']['absences'] ?? []
+                ),
                 'billing' => array_merge(
                     $this->defaults['operational_rules']['billing'],
                     $stored['operational_rules']['billing'] ?? []
@@ -416,6 +426,10 @@ class ConfigService
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
                 )),
+                'absences' => array_merge(
+                    $current['operational_rules']['absences'] ?? $this->defaults['operational_rules']['absences'],
+                    $payload['operational_rules']['absences'] ?? []
+                ),
                 'billing' => array_merge(
                     $current['operational_rules']['billing'] ?? [],
                     $payload['operational_rules']['billing'] ?? []

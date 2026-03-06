@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Repositories\AuditLogRepository;
+use App\Repositories\TalentsRepository;
 use App\Repositories\TimesheetsRepository;
 
 class TimesheetsController extends Controller
@@ -149,6 +150,12 @@ class TimesheetsController extends Controller
 
         $projectId = (int) ($_POST['project_id'] ?? 0);
         $date = trim((string) ($_POST['date'] ?? ''));
+
+        if ($date !== '' && !$this->isAbsenceAllowed($userId, $date)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => 'No puedes registrar horas en una fecha de ausencia aprobada.']);
+            return;
+        }
         $hours = max(0, (float) ($_POST['hours'] ?? 0));
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $syncOperational = filter_var($_POST['sync_operational'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -380,6 +387,11 @@ class TimesheetsController extends Controller
 
         if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '' || $metadata['activity_type'] === '') {
             $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción, tipo de actividad y comentario son obligatorios.']);
+            return;
+        }
+
+        if ($date !== '' && !$this->isAbsenceAllowed($userId, $date)) {
+            $this->jsonResponse(403, ['ok' => false, 'message' => 'No puedes registrar horas en una fecha de ausencia aprobada.']);
             return;
         }
 
@@ -850,5 +862,47 @@ class TimesheetsController extends Controller
             http_response_code(500);
             exit('No se pudo actualizar el estado del timesheet.');
         }
+    }
+
+    /**
+     * Returns true if timesheet registration is allowed on the given date for the user.
+     * Blocks if: absence module is enabled, block_timesheet_on_absence is true,
+     * the user has an approved absence on that date, and the user is not an admin
+     * (or admin exceptions are disabled).
+     */
+    private function isAbsenceAllowed(int $userId, string $date): bool
+    {
+        $config = (new ConfigService($this->db))->getConfig();
+        $absenceConfig = $config['operational_rules']['absences'] ?? [];
+
+        if (empty($absenceConfig['enabled'])) {
+            return true;
+        }
+
+        if (empty($absenceConfig['block_timesheet_on_absence'])) {
+            return true;
+        }
+
+        if (!empty($absenceConfig['admin_exceptions']) && $this->auth->hasRole('Administrador')) {
+            return true;
+        }
+
+        $talent = (new TalentsRepository($this->db))->findByUserId($userId);
+        if (!$talent) {
+            return true;
+        }
+
+        $talentId = (int) $talent['id'];
+
+        $row = $this->db->fetchOne(
+            "SELECT COUNT(*) AS cnt FROM talent_absences
+             WHERE talent_id = :talent_id
+               AND LOWER(status) IN ('aprobado', 'approved')
+               AND start_date <= :date
+               AND end_date >= :date",
+            [':talent_id' => $talentId, ':date' => $date]
+        );
+
+        return ((int) ($row['cnt'] ?? 0)) === 0;
     }
 }
