@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Repositories\AuditLogRepository;
 use App\Repositories\TimesheetsRepository;
+use App\Repositories\TalentAbsencesRepository;
 
 class TimesheetsController extends Controller
 {
@@ -691,6 +692,9 @@ class TimesheetsController extends Controller
         $topProject = $byProject !== [] ? (string) array_key_first($byProject) : 'Sin datos';
         $topProjectHours = $byProject !== [] ? (float) reset($byProject) : 0.0;
 
+        $breakdown = is_array($weeklyGrid['capacity_breakdown'] ?? null) ? $weeklyGrid['capacity_breakdown'] : [];
+        $tooltipLines = $this->buildCapacityTooltipLines($breakdown);
+
         return [
             'week_total' => $weekTotal,
             'weekly_capacity' => $weeklyCapacity,
@@ -698,7 +702,34 @@ class TimesheetsController extends Controller
             'compliance_percent' => $compliance,
             'top_project' => $topProject,
             'top_project_hours' => $topProjectHours,
+            'capacity_breakdown' => $breakdown,
+            'capacity_tooltip' => $tooltipLines,
         ];
+    }
+
+    private function buildCapacityTooltipLines(array $breakdown): array
+    {
+        $labels = [
+            'festivos' => 'Festivos',
+            'vacaciones' => 'Vacaciones',
+            'incapacidad' => 'Incapacidad',
+            'permiso_personal' => 'Permiso personal',
+            'permiso_medico' => 'Permiso médico',
+            'capacitacion' => 'Capacitación',
+            'licencia' => 'Licencia',
+            'festivo_personal' => 'Festivo personal',
+        ];
+        $lines = [];
+        foreach ($labels as $key => $label) {
+            $hours = (float) ($breakdown[$key] ?? 0);
+            if ($hours > 0) {
+                $lines[] = "{$label}: " . round($hours, 2) . 'h';
+            }
+        }
+        if ($lines === []) {
+            $lines[] = 'Festivos: 0';
+        }
+        return $lines;
     }
 
     private function parseWeekValue(string $weekValue): ?DateTimeImmutable
@@ -796,6 +827,79 @@ class TimesheetsController extends Controller
             error_log('Error al actualizar estado de timesheet: ' . $e->getMessage());
             http_response_code(500);
             exit('No se pudo actualizar el estado del timesheet.');
+        }
+    }
+
+    public function createAbsence(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $talentId = (new TimesheetsRepository($this->db))->talentIdForUser($userId);
+        if ($talentId === null) {
+            http_response_code(400);
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Tu usuario no tiene un talento asociado.']);
+            return;
+        }
+
+        $type = trim((string) ($_POST['type'] ?? ''));
+        $startDate = trim((string) ($_POST['start_date'] ?? ''));
+        $endDate = trim((string) ($_POST['end_date'] ?? $startDate));
+        $hours = isset($_POST['hours']) ? (float) $_POST['hours'] : null;
+        $isFullDay = !isset($_POST['is_full_day']) || filter_var($_POST['is_full_day'], FILTER_VALIDATE_BOOLEAN);
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        if ($type === '' || $startDate === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Tipo y fecha de inicio son requeridos.']);
+            return;
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fechas deben estar en formato YYYY-MM-DD.']);
+            return;
+        }
+
+        try {
+            $repo = new TalentAbsencesRepository($this->db);
+            $absence = $repo->create($talentId, $userId, $type, $startDate, $endDate, $hours, $isFullDay, $comment !== '' ? $comment : null, $userId);
+            $this->jsonResponse(201, ['ok' => true, 'absence' => $absence]);
+        } catch (\InvalidArgumentException $e) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Error creando ausencia: ' . $e->getMessage());
+            $this->jsonResponse(500, ['ok' => false, 'message' => 'No se pudo crear la ausencia.']);
+        }
+    }
+
+    public function approveAbsence(int $absenceId): void
+    {
+        if (!$this->auth->canApproveTimesheets() && !$this->auth->hasRole('Administrador')) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TalentAbsencesRepository($this->db);
+        $absence = $repo->find($absenceId);
+        if ($absence === null) {
+            $this->jsonResponse(404, ['ok' => false, 'message' => 'Ausencia no encontrada.']);
+            return;
+        }
+
+        if ((string) ($absence['status'] ?? '') === 'aprobado') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'La ausencia ya está aprobada.']);
+            return;
+        }
+
+        try {
+            $repo->approve($absenceId);
+            $this->jsonResponse(200, ['ok' => true]);
+        } catch (\Throwable $e) {
+            error_log('Error aprobando ausencia: ' . $e->getMessage());
+            $this->jsonResponse(500, ['ok' => false, 'message' => 'No se pudo aprobar la ausencia.']);
         }
     }
 }

@@ -6,6 +6,7 @@ namespace App\Repositories;
 
 use Database;
 use InvalidArgumentException;
+use TalentCapacityService;
 use WorkCalendarService;
 
 class TimesheetsRepository
@@ -142,6 +143,19 @@ class TimesheetsRepository
             );
         }
 
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $baseWeeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
+        if ($baseWeeklyCapacity <= 0) {
+            $baseWeeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
+        }
+        if ($baseWeeklyCapacity <= 0) {
+            $baseWeeklyCapacity = 40.0;
+        }
+
+        $capacityService = new TalentCapacityService($this->db, $this->workCalendarService());
+        $capacityData = $capacityService->realCapacityForWeek($talentId, $userId, $weekStart, $baseWeeklyCapacity);
+        $absencesByDay = $capacityData['absences_by_day'] ?? [];
+
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
@@ -153,6 +167,14 @@ class TimesheetsRepository
                 'is_holiday' => false,
                 'is_exception' => false,
             ];
+            $dayAbsences = $absencesByDay[$dayKey] ?? [];
+            $hasBlockingAbsence = false;
+            foreach ($dayAbsences as $abs) {
+                if (!empty($abs['blocks_registration'])) {
+                    $hasBlockingAbsence = true;
+                    break;
+                }
+            }
             $days[] = [
                 'key' => $dayKey,
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
@@ -162,6 +184,8 @@ class TimesheetsRepository
                 'day_name' => (string) ($dayMeta['name'] ?? ''),
                 'is_holiday' => (bool) ($dayMeta['is_holiday'] ?? false),
                 'is_exception' => (bool) ($dayMeta['is_exception'] ?? false),
+                'absences' => $dayAbsences,
+                'has_blocking_absence' => $hasBlockingAbsence,
             ];
         }
 
@@ -244,12 +268,8 @@ class TimesheetsRepository
             ];
         }
 
-        $profile = $this->talentProfileForUser($userId) ?? [];
-        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
-        if ($weeklyCapacity <= 0) {
-            $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
-        }
-        $weeklyCapacity = $this->workCalendarService()->weeklyCapacityForWeek($weeklyCapacity, $weekStart);
+        $weeklyCapacity = $capacityData['capacity_real'];
+        $capacityBreakdown = $capacityData['breakdown'] ?? [];
 
         foreach ($activitiesByDay as &$dayItems) {
             usort($dayItems, static function (array $a, array $b): int {
@@ -264,6 +284,8 @@ class TimesheetsRepository
             'day_totals' => $dayTotals,
             'week_total' => array_sum($dayTotals),
             'weekly_capacity' => $weeklyCapacity,
+            'capacity_base' => $capacityData['capacity_base'] ?? $baseWeeklyCapacity,
+            'capacity_breakdown' => $capacityBreakdown,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
@@ -2470,6 +2492,13 @@ class TimesheetsRepository
         $dayMeta = $this->workCalendarService()->classifyDate($day);
         if (empty($dayMeta['is_working']) && !$this->canOverrideNonWorkingRestriction($userId, $dayMeta)) {
             throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
+        }
+
+        $talentId = $this->talentIdForUser($userId);
+        $capacityService = new TalentCapacityService($this->db, $this->workCalendarService());
+        $blockingAbsence = $capacityService->hasBlockingAbsenceOnDate($talentId, $userId, $date);
+        if ($blockingAbsence !== null) {
+            throw new InvalidArgumentException(TalentCapacityService::blockingAbsenceMessage($blockingAbsence));
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);

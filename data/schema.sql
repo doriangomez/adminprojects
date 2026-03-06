@@ -438,6 +438,27 @@ CREATE TABLE talents (
     FOREIGN KEY (timesheet_approver_user_id) REFERENCES users(id)
 );
 
+CREATE TABLE talent_absences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    talent_id INT NOT NULL,
+    user_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    hours DECIMAL(6,2) NULL,
+    is_full_day TINYINT(1) DEFAULT 1,
+    status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+    comment TEXT NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_talent_absences_talent_dates (talent_id, start_date, end_date),
+    INDEX idx_talent_absences_user_status (user_id, status),
+    FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE skills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(80) NOT NULL UNIQUE

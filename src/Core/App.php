@@ -33,6 +33,7 @@ class App
         $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
+        $migrator->ensureTalentAbsencesTable();
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();
@@ -589,6 +590,14 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
             if ($path === '/timesheets/duplicate-day' && $method === 'POST') {
                 $controller->duplicateDayApi();
+                return;
+            }
+            if ($path === '/timesheets/absences' && $method === 'POST') {
+                $controller->createAbsence();
+                return;
+            }
+            if (preg_match('#^/timesheets/absences/(\\d+)/approve$#', $path, $matches) && $method === 'POST') {
+                $controller->approveAbsence((int) $matches[1]);
                 return;
             }
             if (preg_match('#^/timesheets/(\\d+)/(approve|reject)$#', $path, $matches) && $method === 'POST') {

@@ -94,7 +94,7 @@ foreach ($gridDays as $day) {
             </form>
             <div class="header-badges">
                 <span class="pill neutral">Semana: <strong><?= htmlspecialchars($weekStart->format('d/m')) ?> - <?= htmlspecialchars($weekEnd->format('d/m')) ?></strong></span>
-                <span class="pill neutral">Meta: <strong><?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</strong></span>
+                <span class="pill neutral capacity-pill" title="<?= htmlspecialchars(implode("\n", $weekIndicators['capacity_tooltip'] ?? ['Capacidad real'])) ?>">Capacidad semanal: <strong><?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</strong></span>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn primary" id="focus-quick-add" <?= $weekLocked ? 'disabled' : '' ?>>+ Registrar actividad</button>
@@ -127,7 +127,7 @@ foreach ($gridDays as $day) {
         <?php endif; ?>
 
         <section class="indicators-grid">
-            <article class="card indicator"><span>Horas registradas / <?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
+            <article class="card indicator capacity-indicator" title="<?= htmlspecialchars(implode("\n", $weekIndicators['capacity_tooltip'] ?? [])) ?>"><span>Horas registradas / <?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
             <article class="card indicator"><span>Capacidad restante</span><strong><?= round((float) ($weekIndicators['remaining_capacity'] ?? 0), 2) ?>h</strong></article>
             <article class="card indicator"><span>Progreso semanal</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
             <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
@@ -162,19 +162,38 @@ foreach ($gridDays as $day) {
                         $dayLabel = trim($weekDayShort . ' ' . $dayNumber . ' ' . $monthShort);
                         $dayType = (string) ($day['day_type'] ?? ($dayWeekNumber >= 6 ? 'non_working' : 'working'));
                         $isWorkingDay = !empty($day['is_working']);
-                        $isBlockedDay = !$isWorkingDay;
+                        $hasBlockingAbsence = !empty($day['has_blocking_absence']);
+                        $isBlockedDay = !$isWorkingDay || $hasBlockingAbsence;
                         $isHoliday = $dayType === 'holiday';
                         $daySpecialName = trim((string) ($day['day_name'] ?? ''));
+                        $dayAbsences = is_array($day['absences'] ?? null) ? $day['absences'] : [];
+                        $absenceCssClass = '';
+                        if (!empty($dayAbsences)) {
+                            $firstType = $dayAbsences[0]['type'] ?? '';
+                            $absenceCssClass = $firstType === 'vacaciones' ? ' absence-vacaciones' : ($firstType === 'permiso_medico' ? ' absence-permiso-medico' : ' absence-other');
+                        }
                         ?>
-                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $isBlockedDay ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedDay ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>">
+                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $isBlockedDay ? ' non-working' : '' ?><?= $absenceCssClass ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedDay ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>">
                             <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
                                 <?php if ($dayType === 'holiday'): ?>
                                     <span class="day-state">🎉 Festivo</span>
+                                <?php elseif ($hasBlockingAbsence): ?>
+                                    <?php foreach ($dayAbsences as $abs): ?>
+                                        <?php if (!empty($abs['blocks_registration'])): ?>
+                                            <span class="day-state day-state-absence"><?= htmlspecialchars($abs['label']) ?></span>
+                                            <?php break; ?>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
                                 <?php elseif ($isBlockedDay): ?>
                                     <span class="day-state">No laboral</span>
                                 <?php endif; ?>
                             </header>
+                            <?php if (!empty($dayAbsences) && !$hasBlockingAbsence): ?>
+                                <?php foreach ($dayAbsences as $abs): ?>
+                                    <div class="day-absence-badge" style="background-color: <?= htmlspecialchars($abs['color'] ?? 'lightgray') ?>"><?= htmlspecialchars($abs['label']) ?><?= ($abs['hours'] ?? 0) > 0 ? ' ' . round((float) $abs['hours'], 2) . 'h' : '' ?></div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                             <?php if ($daySpecialName !== ''): ?>
                                 <div class="day-special-name"><?= htmlspecialchars($daySpecialName) ?></div>
                             <?php endif; ?>
@@ -187,6 +206,17 @@ foreach ($gridDays as $day) {
                                     <small>No hay actividades para este dia.</small>
                                     <?php if (!$weekLocked && !$isBlockedDay): ?>
                                         <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
+                                    <?php elseif ($hasBlockingAbsence): ?>
+                                        <?php
+                                        $blockingLabel = 'ausencia';
+                                        foreach ($dayAbsences as $abs) {
+                                            if (!empty($abs['blocks_registration'])) {
+                                                $blockingLabel = $abs['label'];
+                                                break;
+                                            }
+                                        }
+                                        ?>
+                                        <small>No puedes registrar horas. Estás en <?= htmlspecialchars($blockingLabel) ?> este día.</small>
                                     <?php elseif ($isHoliday): ?>
                                         <small>Este dia es festivo. Registro bloqueado.</small>
                                     <?php elseif ($isBlockedDay): ?>
@@ -427,7 +457,12 @@ foreach ($gridDays as $day) {
 .day-card.holiday-day{background:#ffe5e5;border-color:#f2b8b8}
 .day-card.non-working-day{background:#f8fafc;border-color:#cbd5e1}
 .day-card.non-working{border-style:dashed;cursor:not-allowed}
+.day-card.absence-vacaciones{background:#dbeafe;border-color:#93c5fd}
+.day-card.absence-permiso-medico{background:#fef9c3;border-color:#fde047}
+.day-card.absence-other{background:#f3e8ff;border-color:#e9d5ff}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
+.day-state.day-state-absence{color:#1e40af}
+.day-absence-badge{font-size:11px;padding:2px 6px;border-radius:6px;margin:2px 0;display:inline-block}
 .day-special-name{font-size:12px;color:#991b1b;font-weight:600;margin:2px 0 6px}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
 .day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
