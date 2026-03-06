@@ -207,6 +207,15 @@ class ConfigService
                     'pruebas',
                     'gestion_pm',
                 ],
+                'work_calendar' => [
+                    'country' => '',
+                    'working_days' => [1, 2, 3, 4, 5],
+                    'weekend_days' => [6, 7],
+                    'holidays' => [],
+                    'exceptions' => [],
+                    'allow_admin_holiday_logging' => false,
+                    'allow_admin_non_working_logging' => false,
+                ],
             ],
             'billing' => [
                 'enabled' => true,
@@ -321,10 +330,7 @@ class ConfigService
                     $this->defaults['operational_rules']['approvals'],
                     $stored['operational_rules']['approvals'] ?? []
                 ),
-                'timesheets' => array_merge(
-                    $this->defaults['operational_rules']['timesheets'],
-                    $stored['operational_rules']['timesheets'] ?? []
-                ),
+                'timesheets' => $this->mergeTimesheetRules($stored['operational_rules']['timesheets'] ?? []),
                 'billing' => array_merge(
                     $this->defaults['operational_rules']['billing'],
                     $stored['operational_rules']['billing'] ?? []
@@ -406,10 +412,10 @@ class ConfigService
                     $current['operational_rules']['approvals'],
                     $payload['operational_rules']['approvals'] ?? []
                 ),
-                'timesheets' => array_merge(
+                'timesheets' => $this->mergeTimesheetRules(array_merge(
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
-                ),
+                )),
                 'billing' => array_merge(
                     $current['operational_rules']['billing'] ?? [],
                     $payload['operational_rules']['billing'] ?? []
@@ -564,6 +570,22 @@ class ConfigService
         $notifications['events'] = $events;
 
         return $notifications;
+    }
+
+    private function mergeTimesheetRules(array $stored): array
+    {
+        $defaults = $this->defaults['operational_rules']['timesheets'] ?? [];
+        $rules = array_merge($defaults, $stored);
+        $rules['activity_types'] = array_values(array_filter(
+            is_array($rules['activity_types'] ?? null) ? $rules['activity_types'] : [],
+            static fn (mixed $type): bool => trim((string) $type) !== ''
+        ));
+        $rules['work_calendar'] = array_merge(
+            $defaults['work_calendar'] ?? [],
+            is_array($stored['work_calendar'] ?? null) ? $stored['work_calendar'] : []
+        );
+
+        return $rules;
     }
 
     private function readConfigStorage(): array
