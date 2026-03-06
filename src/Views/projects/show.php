@@ -31,6 +31,10 @@ $stopperAreaOptions = is_array($stopperAreaOptions ?? null) ? $stopperAreaOption
 $stopperStatusOptions = is_array($stopperStatusOptions ?? null) ? $stopperStatusOptions : [];
 $responsibleUsers = is_array($responsibleUsers ?? null) ? $responsibleUsers : [];
 $canCloseStoppers = !empty($canCloseStoppers);
+$pmoSnapshot = is_array($pmoSnapshot ?? null) ? $pmoSnapshot : [];
+$pmoAlerts = is_array($pmoAlerts ?? null) ? $pmoAlerts : [];
+$pmoHoursTrend = is_array($pmoHoursTrend ?? null) ? $pmoHoursTrend : [];
+$pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
 $view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos'], true) ? $view : 'documentos';
@@ -362,6 +366,10 @@ $healthBreakdown = is_array($healthScore['breakdown'] ?? null) ? $healthScore['b
 $healthRecommendations = is_array($healthScore['recommendations'] ?? null) ? $healthScore['recommendations'] : [];
 $healthHistory = is_array($healthHistory ?? null) ? $healthHistory : [];
 $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal' : ($healthTotal >= 75 ? 'attention' : 'critical')));
+$progressHoursAuto = isset($pmoSnapshot['progress_hours']) ? (float) $pmoSnapshot['progress_hours'] : null;
+$progressTasksAuto = isset($pmoSnapshot['progress_tasks']) ? (float) $pmoSnapshot['progress_tasks'] : null;
+$riskPmoScore = (int) ($pmoSnapshot['risk_score'] ?? 0);
+$riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : 'green');
 ?>
 
 <section class="project-shell">
@@ -494,6 +502,24 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                     </div>
                     <span class="project-progress__value"><?= $projectProgress ?>% completado</span>
                 </div>
+                <div class="pmo-kpis">
+                    <div class="pmo-kpi">
+                        <span>Avance manual</span>
+                        <strong><?= number_format($projectProgress, 1) ?>%</strong>
+                    </div>
+                    <div class="pmo-kpi">
+                        <span>Avance por horas</span>
+                        <strong><?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?></strong>
+                    </div>
+                    <div class="pmo-kpi">
+                        <span>Avance por tareas</span>
+                        <strong><?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></strong>
+                    </div>
+                    <div class="pmo-kpi">
+                        <span>Riesgo PMO</span>
+                        <strong class="status-<?= $riskPmoTone ?>"><?= $riskPmoScore ?>/100</strong>
+                    </div>
+                </div>
                 <div class="progress-meta">
                     <div class="progress-meta__item">
                         <span>Última actualización</span>
@@ -533,6 +559,52 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
                     <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
                     <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
                 </div>
+            </article>
+        </section>
+
+        <section class="pmo-grid">
+            <article class="card">
+                <h4>Alertas PMO</h4>
+                <?php if ($pmoAlerts === []): ?>
+                    <p class="section-muted">Sin alertas PMO activas.</p>
+                <?php else: ?>
+                    <ul class="alerts-list">
+                        <?php foreach ($pmoAlerts as $alert): ?>
+                            <li>
+                                <strong>[<?= strtoupper((string) ($alert['severity'] ?? 'green')) ?>]</strong>
+                                <?= htmlspecialchars((string) ($alert['title'] ?? 'Alerta')) ?>:
+                                <?= htmlspecialchars((string) ($alert['message'] ?? '')) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </article>
+            <article class="card">
+                <h4>Tendencia horas (últimas 4 semanas)</h4>
+                <?php if ($pmoHoursTrend === []): ?>
+                    <p class="section-muted">Aún no hay horas aprobadas para mostrar tendencia.</p>
+                <?php else: ?>
+                    <ul class="alerts-list">
+                        <?php foreach ($pmoHoursTrend as $week): ?>
+                            <li><?= htmlspecialchars((string) ($week['label'] ?? 'Semana')) ?>: <?= number_format((float) ($week['approved_hours'] ?? 0), 2) ?>h</li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </article>
+            <article class="card">
+                <h4>Bloqueos activos</h4>
+                <?php if ($pmoActiveBlockers === []): ?>
+                    <p class="section-muted">No hay bloqueos activos registrados.</p>
+                <?php else: ?>
+                    <ul class="alerts-list">
+                        <?php foreach ($pmoActiveBlockers as $blocker): ?>
+                            <li>
+                                <?= htmlspecialchars((string) ($blocker['title'] ?? 'Bloqueo')) ?>
+                                · <?= htmlspecialchars((string) ($blocker['impact_level'] ?? 'medio')) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
             </article>
         </section>
 
@@ -1230,6 +1302,14 @@ $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal
     .project-progress__bar { background: color-mix(in srgb, var(--text-secondary) 22%, var(--background)); border-radius:999px; overflow:hidden; height:8px; }
     .project-progress__bar div { height:100%; background: var(--primary); border-radius:999px; }
     .project-progress__value { font-size:12px; color: var(--text-secondary); }
+    .pmo-kpis { display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:8px; }
+    .pmo-kpi { border:1px solid var(--border); border-radius:10px; padding:8px; background: color-mix(in srgb, var(--surface) 90%, var(--background)); }
+    .pmo-kpi span { display:block; font-size:11px; color: var(--text-secondary); text-transform:uppercase; }
+    .pmo-kpi strong { font-size:18px; color: var(--text-primary); }
+    .pmo-kpi strong.status-red { color: var(--danger); }
+    .pmo-kpi strong.status-yellow { color: var(--warning); }
+    .pmo-kpi strong.status-green { color: var(--success); }
+    .pmo-grid { display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:12px; }
     .progress-meta { display:grid; gap:8px; width:100%; }
     .progress-meta__item { display:flex; flex-direction:column; gap:2px; font-size:12px; color: var(--text-secondary); }
     .progress-meta__item.full { grid-column: 1 / -1; }

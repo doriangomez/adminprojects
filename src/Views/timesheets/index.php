@@ -80,7 +80,7 @@ foreach ($gridDays as $day) {
             </div>
         </header>
         <?php if ($weekLocked): ?>
-            <section class="card week-locked-banner">Semana enviada. Registros bloqueados.</section>
+            <section class="card week-locked-banner">Semana enviada – registros bloqueados.</section>
         <?php endif; ?>
 
         <section class="indicators-grid">
@@ -123,8 +123,9 @@ foreach ($gridDays as $day) {
                                         <li class="activity-chip<?= $weekLocked ? ' is-locked' : '' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>">
                                             <div class="chip-main">
                                                 <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
-                                                <strong><?= htmlspecialchars($itemProject) ?> · <?= htmlspecialchars($itemDesc) ?></strong>
+                                                <strong><?= htmlspecialchars($itemDesc) ?></strong>
                                             </div>
+                                            <small class="chip-project">Proyecto: <?= htmlspecialchars($itemProject) ?></small>
                                             <div class="chip-meta">
                                                 <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
                                                 <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
@@ -177,9 +178,30 @@ foreach ($gridDays as $day) {
                         </label>
                         <div class="task-management-block">
                             <span class="task-management-title">Gestión de tarea</span>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="existing" checked> Usar tarea seleccionada</label>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="completed"> Registrar actividad finalizada</label>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="pending"> Crear tarea pendiente</label>
+                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="existing" checked> Usar tarea existente</label>
+                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="new"> Crear tarea nueva</label>
+                        </div>
+                        <div class="task-management-block conditional hidden" id="qa-new-task-fields">
+                            <span class="task-management-title">Nueva tarea</span>
+                            <label>Título de la tarea *
+                                <input type="text" name="new_task_title" maxlength="180">
+                            </label>
+                            <label>Prioridad
+                                <select name="new_task_priority">
+                                    <option value="medium">Media</option>
+                                    <option value="low">Baja</option>
+                                    <option value="high">Alta</option>
+                                </select>
+                            </label>
+                            <label>Fecha compromiso
+                                <input type="date" name="new_task_due_date">
+                            </label>
+                            <label>Estado inicial
+                                <select name="new_task_status">
+                                    <option value="pending">Pendiente</option>
+                                    <option value="completed">Completada</option>
+                                </select>
+                            </label>
                         </div>
                         <label>Horas*
                             <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
@@ -187,17 +209,15 @@ foreach ($gridDays as $day) {
                         <label>Descripción breve*
                             <input type="text" name="activity_description" maxlength="255" required>
                         </label>
-                        <label>Tipo actividad
-                            <select name="activity_type">
-                                <option value="">Sin clasificar</option>
+                        <label>Tipo de actividad *
+                            <select name="activity_type" required>
+                                <option value="">Seleccionar...</option>
                                 <?php foreach ($activityTypes as $type): ?>
                                     <option value="<?= htmlspecialchars((string) $type) ?>"><?= htmlspecialchars((string) ucfirst(str_replace('_', ' ', (string) $type))) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <label>Fase (opcional)
-                            <input type="text" name="phase_name" maxlength="120">
-                        </label>
+                        <div class="task-management-title">Bloque de contexto operativo</div>
                         <label class="toggle-field">
                             <span class="toggle-caption">Bloqueo</span>
                             <span class="switch">
@@ -248,7 +268,6 @@ foreach ($gridDays as $day) {
                                         <button type="button" class="chip-btn recent-fill"
                                             data-project-id="<?= (int) ($recent['project_id'] ?? 0) ?>"
                                             data-task-id="<?= (int) ($recent['task_id'] ?? 0) ?>"
-                                            data-phase-name="<?= htmlspecialchars((string) ($recent['phase_name'] ?? ''), ENT_QUOTES) ?>"
                                             data-activity-type="<?= htmlspecialchars((string) ($recent['activity_type'] ?? ''), ENT_QUOTES) ?>"
                                             data-activity-description="<?= htmlspecialchars((string) ($recent['activity_description'] ?? ''), ENT_QUOTES) ?>">
                                             <?= htmlspecialchars((string) ($recent['project'] ?? 'Proyecto')) ?> · <?= htmlspecialchars((string) ($recent['activity_description'] ?? 'Actividad')) ?>
@@ -305,6 +324,7 @@ foreach ($gridDays as $day) {
 .activity-chip.dragging{opacity:.5}
 .chip-main{display:flex;align-items:center;gap:8px}
 .chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+.chip-project{color:var(--text-secondary)}
 .chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
 .chip-actions{display:flex;gap:6px;flex-wrap:wrap}
 .quick-add-column{display:flex;flex-direction:column}
@@ -344,6 +364,8 @@ foreach ($gridDays as $day) {
   const projectInput = document.getElementById('qa-project');
   const taskInput = document.getElementById('qa-task');
   const taskManagementInputs = form ? form.querySelectorAll('input[name="task_management_mode"]') : [];
+  const newTaskWrap = document.getElementById('qa-new-task-fields');
+  const newTaskTitleInput = form ? form.querySelector('[name="new_task_title"]') : null;
   const blockerToggle = document.getElementById('qa-blocker');
   const blockerWrap = document.getElementById('qa-blocker-wrap');
   const deliverableToggle = document.getElementById('qa-deliverable');
@@ -397,6 +419,12 @@ foreach ($gridDays as $day) {
     taskInput.disabled = !useExistingTask;
     if (!useExistingTask) {
       taskInput.value = '0';
+    }
+    if (newTaskWrap) {
+      newTaskWrap.classList.toggle('hidden', useExistingTask);
+    }
+    if (newTaskTitleInput) {
+      newTaskTitleInput.required = !useExistingTask;
     }
   };
 
@@ -466,7 +494,6 @@ foreach ($gridDays as $day) {
     const modeInput = form.querySelector('input[name="task_management_mode"][value="existing"]');
     if (modeInput) modeInput.checked = true;
     syncTaskManagementMode();
-    form.querySelector('[name="phase_name"]').value = data.phase_name || '';
     form.querySelector('[name="hours"]').value = String(data.hours || '');
     form.querySelector('[name="activity_description"]').value = data.activity_description || '';
     form.querySelector('[name="comment"]').value = data.comment || '';
@@ -482,7 +509,7 @@ foreach ($gridDays as $day) {
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (weekLocked) {
-      alert('Semana enviada. Registros bloqueados.');
+      alert('Semana enviada – registros bloqueados.');
       return;
     }
     const formData = new FormData(form);
@@ -604,7 +631,6 @@ foreach ($gridDays as $day) {
       form.querySelector('[name="project_id"]').value = button.dataset.projectId || '';
       filterTasksByProject();
       form.querySelector('[name="task_id"]').value = button.dataset.taskId || '0';
-      form.querySelector('[name="phase_name"]').value = button.dataset.phaseName || '';
       form.querySelector('[name="activity_type"]').value = button.dataset.activityType || '';
       form.querySelector('[name="activity_description"]').value = button.dataset.activityDescription || '';
       form.querySelector('[name="activity_description"]').focus();
@@ -643,7 +669,6 @@ foreach ($gridDays as $day) {
         form.querySelector('[name="task_id"]').value = String(tpl.task_id || 0);
         form.querySelector('[name="activity_type"]').value = tpl.activity_type || '';
         form.querySelector('[name="activity_description"]').value = tpl.activity_description || '';
-        form.querySelector('[name="phase_name"]').value = tpl.phase_name || '';
       });
       list.appendChild(button);
 
@@ -668,7 +693,6 @@ foreach ($gridDays as $day) {
       project_id: projectId,
       project_label: projectLabel,
       task_id: Number(form.querySelector('[name="task_id"]').value || 0),
-      phase_name: form.querySelector('[name="phase_name"]').value || '',
       activity_type: form.querySelector('[name="activity_type"]').value || '',
       activity_description: form.querySelector('[name="activity_description"]').value || '',
     };

@@ -846,6 +846,10 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         $clientName = $project['client'] ?? 'Cliente no registrado';
                         $isBillable = (int) ($project['is_billable'] ?? 0) === 1;
                         $compactHealth = (int) (($project['health_score']['total_score'] ?? 0));
+                        $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
+                        $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
+                        $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
+                        $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
                     ?>
                     <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                         <td class="project-cell">
@@ -885,6 +889,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                 </div>
                                 <span class="progress-value"><?= $progressLabel ?>%</span>
+                                <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
+                                <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
                             </div>
                         </td>
                         <td>
@@ -924,6 +930,10 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                     $approvedDocs = (int) ($project['approved_documents'] ?? 0);
                     $hoursValue = number_format((float) ($project['actual_hours'] ?? 0), 0, ',', '.');
                     $costValue = number_format((float) ($project['actual_cost'] ?? 0), 0, ',', '.');
+                    $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
+                    $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
+                    $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
+                    $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
                 ?>
                 <article class="project-card">
                     <header>
@@ -964,6 +974,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                         </div>
                         <span style="font-size:12px; color: var(--text-secondary);">Avance <?= $progress ?>%</span>
+                        <div style="font-size:11px; color: var(--text-secondary); margin-top:4px;">
+                            Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
+                            Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
+                        </div>
+                        <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
                     </div>
 
                     <div class="card-metrics">

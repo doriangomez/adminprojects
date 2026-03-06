@@ -844,6 +844,20 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureProjectPmoAutomationModule(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        try {
+            $this->ensureProjectPmoSnapshotsTable();
+            $this->ensureProjectPmoAlertsTable();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando módulo PMO automático: ' . $e->getMessage());
+        }
+    }
+
     public function ensureDecisionCenterPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
@@ -2523,6 +2537,7 @@ class DatabaseMigrator
     private function ensureProjectStoppersTable(): void
     {
         if ($this->db->tableExists('project_stoppers')) {
+            $this->ensureProjectStoppersTaskColumn();
             return;
         }
 
@@ -2530,6 +2545,7 @@ class DatabaseMigrator
             'CREATE TABLE project_stoppers (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
+                task_id INT NULL,
                 title VARCHAR(190) NOT NULL,
                 description TEXT NOT NULL,
                 stopper_type ENUM("cliente","tecnico","interno","proveedor","financiero","legal") NOT NULL,
@@ -2546,10 +2562,101 @@ class DatabaseMigrator
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_project_stoppers_project_status (project_id, status),
                 INDEX idx_project_stoppers_impact (project_id, impact_level),
+                INDEX idx_project_stoppers_project_task (project_id, task_id),
                 CONSTRAINT fk_project_stoppers_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_stoppers_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
                 CONSTRAINT fk_project_stoppers_responsible FOREIGN KEY (responsible_id) REFERENCES users(id) ON DELETE RESTRICT,
                 CONSTRAINT fk_project_stoppers_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
                 CONSTRAINT fk_project_stoppers_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $this->ensureProjectStoppersTaskColumn();
+    }
+
+    private function ensureProjectStoppersTaskColumn(): void
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('project_stoppers', 'task_id')) {
+            $this->db->execute('ALTER TABLE project_stoppers ADD COLUMN task_id INT NULL AFTER project_id');
+            $this->db->clearColumnCache();
+        }
+
+        if (!$this->db->indexExists('project_stoppers', 'idx_project_stoppers_project_task')) {
+            $this->db->execute('ALTER TABLE project_stoppers ADD INDEX idx_project_stoppers_project_task (project_id, task_id)');
+        }
+
+        if (
+            $this->db->tableExists('tasks')
+            && !$this->db->foreignKeyExists('project_stoppers', 'task_id', 'tasks')
+        ) {
+            $this->db->execute(
+                'ALTER TABLE project_stoppers
+                 ADD CONSTRAINT fk_project_stoppers_task
+                 FOREIGN KEY (task_id) REFERENCES tasks(id)
+                 ON DELETE SET NULL'
+            );
+        }
+    }
+
+    private function ensureProjectPmoSnapshotsTable(): void
+    {
+        if ($this->db->tableExists('project_pmo_snapshots')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_pmo_snapshots (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                snapshot_date DATE NOT NULL,
+                progress_manual DECIMAL(5,2) NULL,
+                progress_hours DECIMAL(5,2) NULL,
+                progress_tasks DECIMAL(5,2) NULL,
+                risk_score INT NOT NULL DEFAULT 0,
+                planned_hours DECIMAL(12,2) NULL,
+                approved_hours DECIMAL(12,2) NOT NULL DEFAULT 0,
+                total_tasks INT NOT NULL DEFAULT 0,
+                done_tasks INT NOT NULL DEFAULT 0,
+                overdue_tasks INT NOT NULL DEFAULT 0,
+                open_blockers INT NOT NULL DEFAULT 0,
+                critical_blockers INT NOT NULL DEFAULT 0,
+                aged_blockers INT NOT NULL DEFAULT 0,
+                blocker_mentions INT NOT NULL DEFAULT 0,
+                stale_business_days INT NOT NULL DEFAULT 0,
+                payload_json JSON NULL,
+                generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date),
+                INDEX idx_project_pmo_snapshots_project_date (project_id, generated_at),
+                CONSTRAINT fk_project_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
+
+    private function ensureProjectPmoAlertsTable(): void
+    {
+        if ($this->db->tableExists('project_pmo_alerts')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_pmo_alerts (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                snapshot_id BIGINT NULL,
+                alert_type VARCHAR(80) NOT NULL,
+                severity ENUM("green", "yellow", "red") NOT NULL DEFAULT "yellow",
+                title VARCHAR(180) NOT NULL,
+                message TEXT NOT NULL,
+                status ENUM("open", "resolved") NOT NULL DEFAULT "open",
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP NULL,
+                INDEX idx_project_pmo_alerts_project_status (project_id, status, created_at),
+                CONSTRAINT fk_project_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_pmo_alerts_snapshot FOREIGN KEY (snapshot_id) REFERENCES project_pmo_snapshots(id) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }

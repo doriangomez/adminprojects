@@ -37,30 +37,40 @@ class ProjectStoppersRepository
 
     public function create(int $projectId, array $payload, int $actorId): int
     {
+        $columns = [
+            'project_id', 'title', 'description', 'stopper_type', 'impact_level', 'affected_area',
+            'responsible_id', 'detected_at', 'estimated_resolution_at', 'status', 'closure_comment',
+            'created_by', 'updated_by', 'created_at', 'updated_at',
+        ];
+        $values = [
+            ':project_id', ':title', ':description', ':stopper_type', ':impact_level', ':affected_area',
+            ':responsible_id', ':detected_at', ':estimated_resolution_at', ':status', 'NULL',
+            ':created_by', ':updated_by', 'NOW()', 'NOW()',
+        ];
+        $params = [
+            ':project_id' => $projectId,
+            ':title' => $payload['title'],
+            ':description' => $payload['description'],
+            ':stopper_type' => $payload['stopper_type'],
+            ':impact_level' => $payload['impact_level'],
+            ':affected_area' => $payload['affected_area'],
+            ':responsible_id' => $payload['responsible_id'],
+            ':detected_at' => $payload['detected_at'],
+            ':estimated_resolution_at' => $payload['estimated_resolution_at'],
+            ':status' => $payload['status'],
+            ':created_by' => $actorId,
+            ':updated_by' => $actorId,
+        ];
+        if ($this->db->columnExists('project_stoppers', 'task_id')) {
+            $columns[] = 'task_id';
+            $values[] = ':task_id';
+            $params[':task_id'] = isset($payload['task_id']) ? (int) $payload['task_id'] : null;
+        }
+
         return $this->db->insert(
-            'INSERT INTO project_stoppers (
-                project_id, title, description, stopper_type, impact_level, affected_area,
-                responsible_id, detected_at, estimated_resolution_at, status, closure_comment,
-                created_by, updated_by, created_at, updated_at
-            ) VALUES (
-                :project_id, :title, :description, :stopper_type, :impact_level, :affected_area,
-                :responsible_id, :detected_at, :estimated_resolution_at, :status, NULL,
-                :created_by, :updated_by, NOW(), NOW()
-            )',
-            [
-                ':project_id' => $projectId,
-                ':title' => $payload['title'],
-                ':description' => $payload['description'],
-                ':stopper_type' => $payload['stopper_type'],
-                ':impact_level' => $payload['impact_level'],
-                ':affected_area' => $payload['affected_area'],
-                ':responsible_id' => $payload['responsible_id'],
-                ':detected_at' => $payload['detected_at'],
-                ':estimated_resolution_at' => $payload['estimated_resolution_at'],
-                ':status' => $payload['status'],
-                ':created_by' => $actorId,
-                ':updated_by' => $actorId,
-            ]
+            'INSERT INTO project_stoppers (' . implode(', ', $columns) . ')
+             VALUES (' . implode(', ', $values) . ')',
+            $params
         );
     }
 

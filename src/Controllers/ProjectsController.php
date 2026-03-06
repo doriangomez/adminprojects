@@ -1849,6 +1849,11 @@ class ProjectsController extends Controller
             : [];
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
+        $pmoAutomation = new PmoAutomationService($this->db);
+        $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
+        $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
+        $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
+        $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
 
         return array_merge([
             'title' => 'Detalle de proyecto',
@@ -1893,6 +1898,10 @@ class ProjectsController extends Controller
             'stopperStatusOptions' => array_values(array_filter(self::STOPPER_STATUSES, static fn (string $status): bool => $status !== 'cerrado')),
             'canCloseStoppers' => $this->auth->can('project.stoppers.close'),
             'responsibleUsers' => (new UsersRepository($this->db))->findByRoleNames(['Administrador', 'PMO', 'Líder de Proyecto', 'Talento']),
+            'pmoSnapshot' => $pmoSnapshot,
+            'pmoAlerts' => $pmoAlerts,
+            'pmoHoursTrend' => $pmoHoursTrend,
+            'pmoActiveBlockers' => $pmoActiveBlockers,
         ], $deleteContext);
     }
 

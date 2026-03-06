@@ -170,6 +170,47 @@ CREATE TABLE project_health_history (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+CREATE TABLE project_pmo_snapshots (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    snapshot_date DATE NOT NULL,
+    progress_manual DECIMAL(5,2) NULL,
+    progress_hours DECIMAL(5,2) NULL,
+    progress_tasks DECIMAL(5,2) NULL,
+    risk_score INT NOT NULL DEFAULT 0,
+    planned_hours DECIMAL(12,2) NULL,
+    approved_hours DECIMAL(12,2) NOT NULL DEFAULT 0,
+    total_tasks INT NOT NULL DEFAULT 0,
+    done_tasks INT NOT NULL DEFAULT 0,
+    overdue_tasks INT NOT NULL DEFAULT 0,
+    open_blockers INT NOT NULL DEFAULT 0,
+    critical_blockers INT NOT NULL DEFAULT 0,
+    aged_blockers INT NOT NULL DEFAULT 0,
+    blocker_mentions INT NOT NULL DEFAULT 0,
+    stale_business_days INT NOT NULL DEFAULT 0,
+    payload_json JSON NULL,
+    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date),
+    INDEX idx_project_pmo_snapshots_project_date (project_id, generated_at),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE project_pmo_alerts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    snapshot_id BIGINT NULL,
+    alert_type VARCHAR(80) NOT NULL,
+    severity ENUM('green','yellow','red') NOT NULL DEFAULT 'yellow',
+    title VARCHAR(180) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('open','resolved') NOT NULL DEFAULT 'open',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP NULL,
+    INDEX idx_project_pmo_alerts_project_status (project_id, status, created_at),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (snapshot_id) REFERENCES project_pmo_snapshots(id) ON DELETE SET NULL
+);
+
 
 
 CREATE TABLE project_requirements (
@@ -581,6 +622,7 @@ CREATE TABLE outsourcing_followups (
 CREATE TABLE project_stoppers (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
+    task_id INT NULL,
     title VARCHAR(190) NOT NULL,
     description TEXT NOT NULL,
     stopper_type ENUM('cliente','tecnico','interno','proveedor','financiero','legal') NOT NULL,
@@ -597,7 +639,9 @@ CREATE TABLE project_stoppers (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_project_stoppers_project_status (project_id, status),
     INDEX idx_project_stoppers_impact (project_id, impact_level),
+    INDEX idx_project_stoppers_project_task (project_id, task_id),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
     FOREIGN KEY (responsible_id) REFERENCES users(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
     FOREIGN KEY (updated_by) REFERENCES users(id)
