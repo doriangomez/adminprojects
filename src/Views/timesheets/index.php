@@ -119,33 +119,48 @@ foreach ($gridDays as $day) {
                 </div>
                 <?php if (round((float) ($weekIndicators['week_total'] ?? 0), 2) <= 0): ?>
                     <div class="calendar-empty-banner">
-                        <strong>Sin actividades registradas</strong>
-                        <small>Registra tu primera actividad</small>
+                        <strong>Aún no hay actividades esta semana</strong>
+                        <?php if (!$weekLocked): ?>
+                            <button type="button" class="btn primary btn-sm" id="empty-banner-add">+ Registrar primera actividad</button>
+                        <?php else: ?>
+                            <small class="section-muted">Semana sin actividades registradas.</small>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
                 <div class="week-calendar-grid">
                     <?php foreach ($gridDays as $day): ?>
                         <?php
                         $dayDate = (string) ($day['key'] ?? '');
-                        $dayLabel = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
+                        $dayDt = new DateTimeImmutable($dayDate);
+                        $monthLabels = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                        $dayLabel = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? '') . ' ' . $monthLabels[(int)$dayDt->format('n') - 1]);
                         $items = is_array($activitiesByDay[$dayDate] ?? null) ? $activitiesByDay[$dayDate] : [];
-                        $dayWeekNumber = (int) ((new DateTimeImmutable($dayDate))->format('N'));
+                        $dayWeekNumber = (int) ($dayDt->format('N'));
                         $isWeekend = $dayWeekNumber >= 6;
                         $isBlockedWeekend = $isWeekend && !$canRegisterWeekend;
                         ?>
                         <article class="day-card<?= $isBlockedWeekend ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedWeekend ? '1' : '0' ?>">
-                            <header>
-                                <strong><?= htmlspecialchars($dayLabel) ?></strong>
-                                <?php if ($isBlockedWeekend): ?>
-                                    <span class="day-state">No laboral</span>
-                                <?php else: ?>
-                                    <span><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</span>
+                            <header class="day-card-header">
+                                <div class="day-header-top">
+                                    <strong class="day-label"><?= htmlspecialchars($dayLabel) ?></strong>
+                                    <?php if ($isBlockedWeekend): ?>
+                                        <span class="day-state">No laboral</span>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if (!$isBlockedWeekend): ?>
+                                    <div class="day-total-row">
+                                        <span class="day-total-hours"><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</span>
+                                        <span class="day-activity-count"><?= count($items) ?> actividad<?= count($items) !== 1 ? 'es' : '' ?></span>
+                                    </div>
                                 <?php endif; ?>
                             </header>
                             <?php if ($items === []): ?>
                                 <div class="day-empty-state">
-                                    <strong>Sin actividades registradas</strong>
-                                    <small>Registra tu primera actividad</small>
+                                    <?php if (!$isBlockedWeekend && !$weekLocked): ?>
+                                        <button type="button" class="btn-add-day-activity" data-date="<?= htmlspecialchars($dayDate) ?>">+ Agregar actividad</button>
+                                    <?php else: ?>
+                                        <span class="empty-day-label"><?= $isBlockedWeekend ? 'Día no laboral' : 'Sin actividades' ?></span>
+                                    <?php endif; ?>
                                 </div>
                             <?php else: ?>
                                 <ul class="activity-list">
@@ -166,6 +181,12 @@ foreach ($gridDays as $day) {
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
                                         <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $weekLocked ? ' is-locked' : '' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
+                                            <?php if (!$weekLocked): ?>
+                                                <div class="chip-drag-handle" title="Arrastra para mover a otro día">
+                                                    <span class="drag-dots">⠿</span>
+                                                    <span class="drag-hint">Arrastra para mover</span>
+                                                </div>
+                                            <?php endif; ?>
                                             <div class="chip-main">
                                                 <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
                                                 <strong><?= htmlspecialchars($itemDesc) ?></strong>
@@ -368,33 +389,49 @@ foreach ($gridDays as $day) {
 .timesheet-main-layout{display:grid;grid-template-columns:3fr 7fr;gap:14px}
 .calendar-column{display:flex;flex-direction:column;gap:10px;order:2}
 .calendar-heading h3{margin:0 0 4px}
-.calendar-empty-banner{border:1px dashed var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;background:color-mix(in srgb,var(--surface) 90%,var(--background))}
+.calendar-empty-banner{border:1px dashed var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;background:color-mix(in srgb,var(--surface) 90%,var(--background));align-items:flex-start}
 .calendar-empty-banner small{color:var(--text-secondary)}
-.week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px}
-.day-card{border:1px solid var(--border);border-radius:12px;padding:10px;min-height:190px;background:color-mix(in srgb,var(--surface) 94%,var(--background))}
-.day-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.day-card.non-working{background:#ffe5e5;border-style:dashed;cursor:not-allowed}
-.day-state{font-size:11px;font-weight:700;color:#b91c1c}
-.day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
-.day-empty-state strong{font-size:12px;color:var(--text-primary)}
+.btn-sm{font-size:12px;padding:6px 12px;border-radius:8px}
+.week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;align-items:start}
+.day-card{border:1px solid var(--border);border-radius:12px;padding:10px;background:color-mix(in srgb,var(--surface) 94%,var(--background));min-height:120px}
+.day-card-header{margin-bottom:8px}
+.day-header-top{display:flex;justify-content:space-between;align-items:center}
+.day-label{font-size:12px;font-weight:700;letter-spacing:.02em}
+.day-total-row{display:flex;justify-content:space-between;align-items:center;margin-top:5px;padding-top:5px;border-top:1px solid var(--border)}
+.day-total-hours{font-size:12px;font-weight:700;color:var(--primary)}
+.day-activity-count{font-size:11px;color:var(--text-secondary)}
+.day-card.non-working{background:#fff0f0;border-color:#fca5a5;border-style:dashed;cursor:not-allowed}
+.day-card.non-working .day-card-header{opacity:.7}
+.day-state{font-size:11px;font-weight:700;color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:2px 6px}
+.day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-secondary);min-height:60px}
+.empty-day-label{font-size:12px;color:var(--text-secondary)}
+.btn-add-day-activity{border:1px dashed color-mix(in srgb,var(--primary) 55%,var(--border));border-radius:8px;background:transparent;padding:7px 10px;cursor:pointer;color:var(--primary);font-size:12px;width:100%;text-align:center;transition:background .15s,border-color .15s;font-weight:600}
+.btn-add-day-activity:hover{background:color-mix(in srgb,var(--primary) 10%,var(--surface));border-color:var(--primary)}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-.activity-chip{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:6px;cursor:grab}
-.activity-chip:active{cursor:grabbing}
-.activity-chip.is-locked{opacity:.9}
-.activity-chip.dragging{opacity:.65;box-shadow:0 8px 18px rgba(15,23,42,.25)}
+.activity-chip{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:5px;cursor:grab;transition:box-shadow .15s,transform .1s}
+.activity-chip:hover{box-shadow:0 2px 10px rgba(15,23,42,.12);transform:translateY(-1px)}
+.activity-chip:active{cursor:grabbing;transform:none}
+.activity-chip.is-locked{opacity:.9;cursor:default}
+.activity-chip.is-locked:hover{box-shadow:none;transform:none}
+.activity-chip.dragging{opacity:.6;box-shadow:0 12px 28px rgba(15,23,42,.3);transform:rotate(1.5deg) scale(1.02)}
 .activity-chip.type-dev{border-left:4px solid #2563eb}
 .activity-chip.type-meeting{border-left:4px solid #9333ea}
 .activity-chip.type-support{border-left:4px solid #ea580c}
 .activity-chip.type-pm{border-left:4px solid #16a34a}
 .activity-chip.type-research{border-left:4px solid #6b7280}
+.chip-drag-handle{display:flex;align-items:center;gap:5px;padding-bottom:5px;border-bottom:1px dashed var(--border);margin-bottom:1px;opacity:.5;transition:opacity .15s}
+.activity-chip:hover .chip-drag-handle{opacity:1}
+.drag-dots{font-size:15px;color:var(--text-secondary);line-height:1;cursor:grab}
+.drag-hint{font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em}
 .chip-main{display:flex;align-items:center;gap:8px}
-.chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
-.chip-project{color:var(--text-secondary)}
+.chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;background:color-mix(in srgb,var(--primary) 12%,var(--surface));border-radius:4px;padding:1px 5px}
+.chip-project{color:var(--text-secondary);font-size:11px}
 .chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
 .chip-actions{display:flex;gap:6px;flex-wrap:wrap}
 .chip-action{font-size:12px;padding:5px 8px;border-radius:8px}
 .chip-action.danger{border-color:#dc3545;color:#dc3545;background:#fff}
 .chip-action.danger:hover{background:#ffe5e5}
+.day-card.is-drop-target .day-card-header{opacity:.6}
 .quick-add-column{display:flex;flex-direction:column;order:1}
 .quick-add-box{position:sticky;top:150px;display:flex;flex-direction:column;gap:10px}
 #quick-add-form{display:flex;flex-direction:column;gap:8px}
@@ -421,7 +458,7 @@ foreach ($gridDays as $day) {
 .quick-lists{display:flex;flex-direction:column;gap:10px}
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
 .chip-btn{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:5px 10px;cursor:pointer;font-size:12px}
-.day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border));box-shadow:0 8px 20px rgba(37,99,235,.18)}
+.day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 65%,var(--border));box-shadow:0 8px 24px rgba(37,99,235,.22);background:color-mix(in srgb,var(--primary) 7%,var(--surface))}
 @media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.week-calendar-grid{grid-template-columns:1fr}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
 </style>
 
@@ -865,6 +902,23 @@ foreach ($gridDays as $day) {
         alert(error.message || 'No se pudo mover la actividad.');
       }
     });
+  });
+
+  const focusFormWithDate = (dateStr) => {
+    if (weekLocked) return;
+    if (form && dateStr) {
+      form.querySelector('[name="date"]').value = dateStr;
+    }
+    document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => form?.querySelector('[name="project_id"]')?.focus(), 350);
+  };
+
+  document.querySelectorAll('.btn-add-day-activity').forEach((button) => {
+    button.addEventListener('click', () => focusFormWithDate(button.dataset.date || ''));
+  });
+
+  document.getElementById('empty-banner-add')?.addEventListener('click', () => {
+    focusFormWithDate('');
   });
 
   renderTemplates();
