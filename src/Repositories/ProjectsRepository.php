@@ -7,6 +7,7 @@ namespace App\Repositories;
 use ConfigService;
 use Database;
 use InvalidArgumentException;
+use TalentAvailabilityService;
 
 class ProjectsRepository
 {
@@ -14,6 +15,7 @@ class ProjectsRepository
 
     private array $signalRules;
     private ?array $assignmentCostTypeDefinition = null;
+    private ?TalentAvailabilityService $talentAvailabilityService = null;
 
     public function __construct(private Database $db)
     {
@@ -769,7 +771,7 @@ class ProjectsRepository
         $talent = [];
         if ($this->db->tableExists('talents') && $talentId > 0) {
             $talent = $this->db->fetchOne(
-                'SELECT weekly_capacity, capacidad_horaria FROM talents WHERE id = :id',
+                'SELECT weekly_capacity, capacidad_horaria, availability FROM talents WHERE id = :id',
                 [':id' => $talentId]
             ) ?: [];
         }
@@ -778,6 +780,14 @@ class ProjectsRepository
         if ($talentCapacity > 0) {
             $weeklyCapacity = $talentCapacity;
         }
+        if ($weeklyCapacity <= 0) {
+            $weeklyCapacity = 40.0;
+        }
+        $effectiveWeeklyCapacity = $this->resolveTalentEffectiveWeeklyCapacity(
+            $talentId,
+            $weeklyCapacity,
+            (float) ($talent['availability'] ?? 100)
+        );
 
         $newPercentTotal = (float) ($totalPercent['total_percent'] ?? 0) + (float) ($payload['allocation_percent'] ?? 0);
         $newHoursTotal = (float) ($totalHours['total_hours'] ?? 0) + (float) ($payload['weekly_hours'] ?? 0);
@@ -786,7 +796,7 @@ class ProjectsRepository
             throw new InvalidArgumentException('La asignación supera el 100% de disponibilidad del talento.');
         }
 
-        if ($weeklyCapacity > 0 && $payload['weekly_hours'] !== null && $newHoursTotal > $weeklyCapacity) {
+        if ($effectiveWeeklyCapacity > 0 && $payload['weekly_hours'] !== null && $newHoursTotal > $effectiveWeeklyCapacity) {
             throw new InvalidArgumentException('Las horas asignadas exceden la capacidad semanal del talento.');
         }
 
@@ -989,6 +999,7 @@ class ProjectsRepository
         }
 
         $weeklyCapacity = $this->resolveTalentWeeklyCapacity($talentId);
+        $effectiveWeeklyCapacity = $this->resolveTalentEffectiveWeeklyCapacity($talentId, $weeklyCapacity);
         $normalizedEditedField = strtolower(trim($editedField));
 
         if ($normalizedEditedField === 'weekly_hours') {
@@ -1051,7 +1062,7 @@ class ProjectsRepository
             throw new \InvalidArgumentException('La dedicación total del talento supera el 100% con este ajuste.');
         }
 
-        if ($weeklyCapacity > 0 && $newHoursTotal > $weeklyCapacity) {
+        if ($effectiveWeeklyCapacity > 0 && $newHoursTotal > $effectiveWeeklyCapacity) {
             throw new \InvalidArgumentException('Las horas semanales totales del talento exceden su capacidad estándar.');
         }
 
@@ -1065,7 +1076,7 @@ class ProjectsRepository
                 'max_logged_weekly_hours' => round($maxLogged, 2),
                 'assigned_weekly_hours' => $weeklyHours,
                 'conflict_weeks' => $conflicts,
-                'capacity_week' => round($weeklyCapacity, 2),
+                'capacity_week' => round($effectiveWeeklyCapacity, 2),
                 'allocation_percent' => $allocationPercent,
             ];
         }
@@ -1097,7 +1108,7 @@ class ProjectsRepository
                 'allocation_percent' => $allocationPercent,
                 'weekly_hours' => $weeklyHours,
             ],
-            'capacity_week' => round($weeklyCapacity, 2),
+            'capacity_week' => round($effectiveWeeklyCapacity, 2),
             'timesheet_conflicts' => $conflicts,
         ];
     }
@@ -1128,6 +1139,52 @@ class ProjectsRepository
         }
 
         return 40.0;
+    }
+
+    private function resolveTalentAvailabilityPercent(int $talentId): float
+    {
+        if ($talentId <= 0 || !$this->db->tableExists('talents') || !$this->db->columnExists('talents', 'availability')) {
+            return 100.0;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT availability FROM talents WHERE id = :id LIMIT 1',
+            [':id' => $talentId]
+        );
+
+        return max(0.0, min(100.0, (float) ($row['availability'] ?? 100)));
+    }
+
+    private function resolveTalentEffectiveWeeklyCapacity(int $talentId, float $weeklyCapacity, ?float $availability = null): float
+    {
+        $availabilityPercent = $availability ?? $this->resolveTalentAvailabilityPercent($talentId);
+        if ($talentId <= 0) {
+            return max(0.0, $weeklyCapacity) * ($availabilityPercent / 100);
+        }
+
+        $breakdown = $this->talentAvailabilityService()->weeklyCapacityBreakdown(
+            $talentId,
+            max(0.0, $weeklyCapacity),
+            new \DateTimeImmutable('monday this week'),
+            $availabilityPercent
+        );
+
+        $effective = (float) ($breakdown['weekly_real_hours'] ?? 0);
+        if ($effective <= 0 && $weeklyCapacity > 0) {
+            return max(0.0, $weeklyCapacity) * ($availabilityPercent / 100);
+        }
+
+        return $effective;
+    }
+
+    private function talentAvailabilityService(): TalentAvailabilityService
+    {
+        if ($this->talentAvailabilityService instanceof TalentAvailabilityService) {
+            return $this->talentAvailabilityService;
+        }
+
+        $this->talentAvailabilityService = new TalentAvailabilityService($this->db);
+        return $this->talentAvailabilityService;
     }
 
     private function weeklyTimesheetOveragesForAssignment(
