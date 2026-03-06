@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Repositories\AuditLogRepository;
+use App\Repositories\CalendarHolidaysRepository;
 use App\Repositories\TimesheetsRepository;
+use ConfigService;
 
 class TimesheetsController extends Controller
 {
@@ -18,7 +20,19 @@ class TimesheetsController extends Controller
         $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
         $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
         $canRegisterWeekend = $this->auth->hasRole('Administrador');
+        $config = (new ConfigService($this->db))->getConfig();
+        $adminCanRegisterHolidays = !empty($config['operational_rules']['work_calendar']['admin_can_register_holidays']);
+        $canRegisterHoliday = $canRegisterWeekend && $adminCanRegisterHolidays;
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+
+        $holidaysByDate = [];
+        $holidaysRepo = new CalendarHolidaysRepository($this->db);
+        if ($holidaysRepo->tableExists()) {
+            $holidaysByDate = $holidaysRepo->getHolidaysForDateRange(
+                $weekStart->format('Y-m-d'),
+                $weekEnd->format('Y-m-d')
+            );
+        }
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
         $weekEnd = $weekStart->modify('+6 days');
@@ -46,6 +60,8 @@ class TimesheetsController extends Controller
             'canManageWorkflow' => $canManageWorkflow,
             'timesheetsEnabled' => $timesheetsEnabled,
             'canRegisterWeekend' => $canRegisterWeekend,
+            'canRegisterHoliday' => $canRegisterHoliday,
+            'holidaysByDate' => $holidaysByDate,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'weekValue' => $weekValue,

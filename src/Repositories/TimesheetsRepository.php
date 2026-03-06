@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use ConfigService;
 use Database;
 use InvalidArgumentException;
 
@@ -232,6 +233,32 @@ class TimesheetsRepository
         $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
         if ($weeklyCapacity <= 0) {
             $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
+        }
+        if ($weeklyCapacity <= 0) {
+            $weeklyCapacity = 40.0;
+        }
+
+        $holidaysRepo = new CalendarHolidaysRepository($this->db);
+        if ($holidaysRepo->tableExists()) {
+            $holidaysInWeek = $holidaysRepo->getHolidaysForDateRange(
+                $weekStart->format('Y-m-d'),
+                $weekEnd->format('Y-m-d')
+            );
+            $holidaysOnWorkdays = 0;
+            foreach (array_keys($holidaysInWeek) as $holidayDate) {
+                try {
+                    $d = new \DateTimeImmutable($holidayDate);
+                    if ((int) $d->format('N') <= 5) {
+                        $holidaysOnWorkdays++;
+                    }
+                } catch (\Throwable $e) {
+                    // ignore invalid dates
+                }
+            }
+            if ($holidaysOnWorkdays > 0) {
+                $effectiveWorkdays = max(0, 5 - $holidaysOnWorkdays);
+                $weeklyCapacity = $weeklyCapacity * ($effectiveWorkdays / 5);
+            }
         }
 
         foreach ($activitiesByDay as &$dayItems) {
@@ -2445,6 +2472,24 @@ class TimesheetsRepository
 
         if ((int) $day->format('N') >= 6 && !$this->canRegisterWeekend($userId)) {
             throw new InvalidArgumentException('No se permite registrar horas en sábado o domingo.');
+        }
+
+        $holidaysRepo = new CalendarHolidaysRepository($this->db);
+        if ($holidaysRepo->tableExists()) {
+            $holiday = $holidaysRepo->getHolidayForDate($date);
+            if ($holiday !== null) {
+                $canRegisterHoliday = $this->canRegisterWeekend($userId);
+                if ($canRegisterHoliday) {
+                    $config = (new ConfigService($this->db))->getConfig();
+                    $canRegisterHoliday = !empty($config['operational_rules']['work_calendar']['admin_can_register_holidays']);
+                }
+                if (!$canRegisterHoliday) {
+                    $holidayName = trim((string) ($holiday['name'] ?? 'Festivo'));
+                    throw new InvalidArgumentException(
+                        'Este día es festivo (' . $holidayName . '). No se pueden registrar horas.'
+                    );
+                }
+            }
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);

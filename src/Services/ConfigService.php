@@ -208,6 +208,10 @@ class ConfigService
                     'gestion_pm',
                 ],
             ],
+            'work_calendar' => [
+                'work_days' => [1, 2, 3, 4, 5],
+                'admin_can_register_holidays' => false,
+            ],
             'billing' => [
                 'enabled' => true,
             ],
@@ -325,6 +329,10 @@ class ConfigService
                     $this->defaults['operational_rules']['timesheets'],
                     $stored['operational_rules']['timesheets'] ?? []
                 ),
+                'work_calendar' => array_merge(
+                    $this->defaults['operational_rules']['work_calendar'],
+                    $stored['operational_rules']['work_calendar'] ?? []
+                ),
                 'billing' => array_merge(
                     $this->defaults['operational_rules']['billing'],
                     $stored['operational_rules']['billing'] ?? []
@@ -409,6 +417,10 @@ class ConfigService
                 'timesheets' => array_merge(
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
+                ),
+                'work_calendar' => array_merge(
+                    $current['operational_rules']['work_calendar'] ?? [],
+                    $payload['operational_rules']['work_calendar'] ?? []
                 ),
                 'billing' => array_merge(
                     $current['operational_rules']['billing'] ?? [],

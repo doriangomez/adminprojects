@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Repositories\AuditLogRepository;
+use App\Repositories\CalendarHolidaysRepository;
 use App\Repositories\MasterFilesRepository;
 use App\Repositories\NotificationsLogRepository;
 use App\Repositories\PermissionsRepository;
@@ -45,6 +46,9 @@ class ConfigController extends Controller
             $risksByCategory[$category][] = $risk;
         }
 
+        $holidaysRepo = new CalendarHolidaysRepository($this->db);
+        $calendarHolidays = $holidaysRepo->tableExists() ? $holidaysRepo->listAll() : [];
+
         $this->render('config/index', [
             'title' => 'Configuración',
             'configData' => $config,
@@ -60,6 +64,7 @@ class ConfigController extends Controller
             'notificationCatalog' => NotificationCatalog::events(),
             'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
             'notificationMessage' => $_GET['notifications'] ?? null,
+            'calendarHolidays' => $calendarHolidays,
         ]);
     }
 
@@ -232,6 +237,14 @@ class ConfigController extends Controller
                         $_POST['timesheets_activity_types'] ?? implode(', ', $current['operational_rules']['timesheets']['activity_types'] ?? [])
                     ),
                 ],
+                'work_calendar' => [
+                    'work_days' => array_key_exists('work_days', $_POST)
+                        ? (array_map('intval', array_filter((array) $_POST['work_days'], static fn ($v) => $v >= 1 && $v <= 7)) ?: [1, 2, 3, 4, 5])
+                        : ($current['operational_rules']['work_calendar']['work_days'] ?? [1, 2, 3, 4, 5]),
+                    'admin_can_register_holidays' => array_key_exists('admin_can_register_holidays', $_POST)
+                        ? isset($_POST['admin_can_register_holidays'])
+                        : ($current['operational_rules']['work_calendar']['admin_can_register_holidays'] ?? false),
+                ],
                 'billing' => [
                     'enabled' => isset($_POST['billing_enabled']),
                 ],
@@ -286,7 +299,12 @@ class ConfigController extends Controller
             return;
         }
 
-        header('Location: /config?saved=1');
+        $tab = trim((string) ($_POST['tab'] ?? ''));
+        $redirect = '/config?saved=1';
+        if ($tab !== '' && array_key_exists($tab, ['identidad' => 1, 'apariencia' => 1, 'operacion' => 1, 'gobierno' => 1, 'calendario' => 1, 'catalogos' => 1, 'notificaciones' => 1, 'autenticacion' => 1])) {
+            $redirect = '/config?tab=' . urlencode($tab) . '&saved=1';
+        }
+        header('Location: ' . $redirect);
     }
 
     public function updateNotifications(): void
@@ -601,6 +619,47 @@ class ConfigController extends Controller
         header('Location: /config?saved=1');
     }
 
+    public function createCalendarHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $date = trim((string) ($_POST['holiday_date'] ?? ''));
+        $name = trim((string) ($_POST['holiday_name'] ?? ''));
+
+        if ($date === '' || $name === '') {
+            header('Location: /config?tab=calendario&error=missing');
+            return;
+        }
+
+        $repo = new CalendarHolidaysRepository($this->db);
+        if (!$repo->tableExists()) {
+            header('Location: /config?tab=calendario&error=table');
+            return;
+        }
+
+        try {
+            $repo->create($date, $name);
+        } catch (\Throwable $e) {
+            error_log('Error creando festivo: ' . $e->getMessage());
+            header('Location: /config?tab=calendario&error=create');
+            return;
+        }
+
+        header('Location: /config?tab=calendario&saved=1');
+    }
+
+    public function deleteCalendarHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id > 0) {
+            $repo = new CalendarHolidaysRepository($this->db);
+            $repo->delete($id);
+        }
+
+        header('Location: /config?tab=calendario&saved=1');
+    }
 
     public function updateGoogleWorkspace(): void
     {

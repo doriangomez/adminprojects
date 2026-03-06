@@ -282,11 +282,17 @@ class TalentCapacityRepository
 
     private function businessDays(string $start, string $end): int
     {
+        $holidaysRepo = new CalendarHolidaysRepository($this->db);
+        $holidays = $holidaysRepo->tableExists()
+            ? array_flip(array_keys($holidaysRepo->getHolidaysForDateRange($start, $end)))
+            : [];
+
         $count = 0;
         $cursor = new DateTimeImmutable($start);
         $limit = new DateTimeImmutable($end);
         while ($cursor <= $limit) {
-            if ((int) $cursor->format('N') <= 5) {
+            $dateStr = $cursor->format('Y-m-d');
+            if ((int) $cursor->format('N') <= 5 && !isset($holidays[$dateStr])) {
                 $count++;
             }
             $cursor = $cursor->modify('+1 day');

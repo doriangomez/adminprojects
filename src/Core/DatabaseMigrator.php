@@ -858,6 +858,34 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureCalendarWorkSchema(): void
+    {
+        try {
+            $this->createCalendarHolidaysTable();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando calendario laboral: ' . $e->getMessage());
+        }
+    }
+
+    private function createCalendarHolidaysTable(): void
+    {
+        if ($this->db->tableExists('calendar_holidays')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE calendar_holidays (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                holiday_date DATE NOT NULL,
+                name VARCHAR(180) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_calendar_holidays_date (holiday_date),
+                INDEX idx_calendar_holidays_date (holiday_date)
+            ) ENGINE=InnoDB'
+        );
+    }
+
     public function ensureDecisionCenterPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
