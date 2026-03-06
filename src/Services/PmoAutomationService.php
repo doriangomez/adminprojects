@@ -129,7 +129,7 @@ class PmoAutomationService
 
     public function hoursTrendForProject(int $projectId, int $weeks = 4): array
     {
-        if (!$this->db->tableExists('timesheets')) {
+        if (!$this->db->tableExists('timesheets') || !$this->db->columnExists('timesheets', 'project_id')) {
             return [];
         }
 
@@ -237,7 +237,7 @@ class PmoAutomationService
 
     private function approvedHours(int $projectId, string $snapshotDate): float
     {
-        if (!$this->db->tableExists('timesheets')) {
+        if (!$this->db->tableExists('timesheets') || !$this->db->columnExists('timesheets', 'project_id')) {
             return 0.0;
         }
 
@@ -334,7 +334,7 @@ class PmoAutomationService
 
     private function staleBusinessDays(int $projectId, array $project, DateTimeImmutable $snapshotDate): int
     {
-        if (!$this->db->tableExists('timesheets')) {
+        if (!$this->db->tableExists('timesheets') || !$this->db->columnExists('timesheets', 'project_id')) {
             return 0;
         }
 

@@ -744,9 +744,17 @@ class DatabaseMigrator
             }
 
             if ($this->db->columnExists('timesheets', 'comment')) {
-                $this->db->execute('UPDATE timesheets SET comment = \'\' WHERE comment IS NULL');
-                $this->db->execute('ALTER TABLE timesheets MODIFY comment TEXT NOT NULL');
-                $this->db->clearColumnCache();
+                $isNullable = (bool) $this->db->fetchOne(
+                    'SELECT COUNT(*) AS cnt FROM information_schema.columns
+                     WHERE table_schema = :schema AND table_name = "timesheets"
+                       AND column_name = "comment" AND is_nullable = "YES"',
+                    [':schema' => $this->db->databaseName()]
+                )['cnt'];
+                if ($isNullable) {
+                    $this->db->execute('UPDATE timesheets SET comment = \'\' WHERE comment IS NULL');
+                    $this->db->execute('ALTER TABLE timesheets MODIFY comment TEXT NOT NULL');
+                    $this->db->clearColumnCache();
+                }
             }
 
             if ($this->db->columnExists('timesheets', 'project_id')
@@ -810,33 +818,43 @@ class DatabaseMigrator
                 $this->db->execute('ALTER TABLE timesheets ADD INDEX idx_timesheets_project_week (project_id, date)');
             }
 
-            if ($this->db->columnExists('timesheets', 'assignment_id') && $this->db->tableExists('tasks')) {
-                $rows = $this->db->fetchAll(
-                    'SELECT ts.id, ts.talent_id, t.project_id
-                     FROM timesheets ts
-                     JOIN tasks t ON t.id = ts.task_id
-                     WHERE ts.assignment_id IS NULL'
-                );
+            if (
+                $this->db->columnExists('timesheets', 'assignment_id')
+                && $this->db->tableExists('tasks')
+                && $this->db->tableExists('project_talent_assignments')
+            ) {
+                $nullCount = (int) ($this->db->fetchOne(
+                    'SELECT COUNT(*) AS cnt FROM timesheets WHERE assignment_id IS NULL LIMIT 1'
+                )['cnt'] ?? 0);
 
-                foreach ($rows as $row) {
-                    $assignment = $this->db->fetchOne(
-                        'SELECT id FROM project_talent_assignments
-                         WHERE project_id = :project AND talent_id = :talent
-                         ORDER BY id ASC LIMIT 1',
-                        [
-                            ':project' => (int) ($row['project_id'] ?? 0),
-                            ':talent' => (int) ($row['talent_id'] ?? 0),
-                        ]
+                if ($nullCount > 0) {
+                    $rows = $this->db->fetchAll(
+                        'SELECT ts.id, ts.talent_id, t.project_id
+                         FROM timesheets ts
+                         JOIN tasks t ON t.id = ts.task_id
+                         WHERE ts.assignment_id IS NULL'
                     );
 
-                    if ($assignment) {
-                        $this->db->execute(
-                            'UPDATE timesheets SET assignment_id = :assignment WHERE id = :id',
+                    foreach ($rows as $row) {
+                        $assignment = $this->db->fetchOne(
+                            'SELECT id FROM project_talent_assignments
+                             WHERE project_id = :project AND talent_id = :talent
+                             ORDER BY id ASC LIMIT 1',
                             [
-                                ':assignment' => (int) $assignment['id'],
-                                ':id' => (int) $row['id'],
+                                ':project' => (int) ($row['project_id'] ?? 0),
+                                ':talent' => (int) ($row['talent_id'] ?? 0),
                             ]
                         );
+
+                        if ($assignment) {
+                            $this->db->execute(
+                                'UPDATE timesheets SET assignment_id = :assignment WHERE id = :id',
+                                [
+                                    ':assignment' => (int) $assignment['id'],
+                                    ':id' => (int) $row['id'],
+                                ]
+                            );
+                        }
                     }
                 }
             }
@@ -2817,6 +2835,10 @@ class DatabaseMigrator
     private function ensureProjectPmoSnapshotsTable(): void
     {
         if ($this->db->tableExists('project_pmo_snapshots')) {
+            if (!$this->db->columnExists('project_pmo_snapshots', 'payload_json')) {
+                $this->db->execute('ALTER TABLE project_pmo_snapshots ADD COLUMN payload_json JSON NULL');
+                $this->db->clearColumnCache();
+            }
             return;
         }
 
