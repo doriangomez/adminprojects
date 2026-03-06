@@ -909,6 +909,131 @@ class TimesheetsRepository
         return (int) ($row['total'] ?? 0);
     }
 
+    public function submitDay(int $userId, string $date): int
+    {
+        $this->assertValidDate($date);
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = "submitted",
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date = :date
+               AND status = "draft"',
+            [':user' => $userId, ':date' => $date]
+        );
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function cancelDaySubmission(int $userId, string $date): int
+    {
+        $this->assertValidDate($date);
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = "draft",
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date = :date
+               AND status IN ("submitted", "pending", "pending_approval")',
+            [':user' => $userId, ':date' => $date]
+        );
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function dayStatusesByWeek(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $rows = $this->db->fetchAll(
+            'SELECT date,
+                    MAX(CASE status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight,
+                    COUNT(DISTINCT status) AS status_count
+             FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+             GROUP BY date',
+            [
+                ':user' => $userId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd->format('Y-m-d'),
+            ]
+        );
+        $result = [];
+        foreach ($rows as $row) {
+            $result[(string) $row['date']] = $this->statusByWeight(
+                (int) ($row['status_weight'] ?? 2),
+                (int) ($row['status_count'] ?? 1)
+            );
+        }
+        return $result;
+    }
+
+    public function dayStatusForUser(int $userId, string $date): string
+    {
+        $this->assertValidDate($date);
+        $row = $this->db->fetchOne(
+            'SELECT MAX(CASE status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight,
+                    COUNT(DISTINCT status) AS status_count
+             FROM timesheets
+             WHERE user_id = :user AND date = :date',
+            [':user' => $userId, ':date' => $date]
+        );
+        if (!$row || $row['status_weight'] === null) {
+            return 'draft';
+        }
+        return $this->statusByWeight((int) ($row['status_weight'] ?? 2), (int) ($row['status_count'] ?? 1));
+    }
+
+    public function approveDayEntries(int $approverUserId, string $date, string $status, ?string $comment = null): int
+    {
+        $this->assertValidDate($date);
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            throw new InvalidArgumentException('Estado inválido.');
+        }
+
+        $column = $status === 'approved'
+            ? 'approved_by = :approver, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
+            : 'rejected_by = :approver, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :status,
+                 approval_comment = :comment,
+                 ' . $column . ',
+                 updated_at = NOW()
+             WHERE approver_user_id = :approver_where
+               AND date = :date
+               AND status IN ("submitted", "pending", "pending_approval")',
+            [
+                ':status' => $status,
+                ':comment' => $comment,
+                ':approver' => $approverUserId,
+                ':approver_where' => $approverUserId,
+                ':date' => $date,
+            ]
+        );
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
+    }
+
     public function reopenOwnWeekToDraft(int $userId, \DateTimeImmutable $weekStart, ?string $comment = null): int
     {
         $weekEnd = $weekStart->modify('+6 days');
@@ -2472,11 +2597,9 @@ class TimesheetsRepository
             throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
         }
 
-        $weekStart = $day->modify('monday this week')->setTime(0, 0);
-        $summary = $this->weekSummaryForUser($userId, $weekStart);
-        $status = (string) ($summary['status'] ?? 'draft');
-        if (in_array($status, ['submitted', 'approved'], true)) {
-            throw new InvalidArgumentException('Semana enviada – registros bloqueados.');
+        $dayStatus = $this->dayStatusForUser($userId, $date);
+        if (in_array($dayStatus, ['submitted', 'approved'], true)) {
+            throw new InvalidArgumentException('Día enviado – registros bloqueados para este día.');
         }
     }
 

@@ -187,6 +187,18 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                 <?php else: ?>
                     <div class="timesheet-cards">
                         <?php foreach ($timesheetApprovals as $week): ?>
+                            <?php
+                            $byDay = [];
+                            foreach (($week['rows'] ?? []) as $weekRow) {
+                                $rowDate = (string) ($weekRow['date'] ?? '');
+                                if ($rowDate === '') continue;
+                                $byDay[$rowDate]['total'] = ($byDay[$rowDate]['total'] ?? 0) + (float) ($weekRow['hours'] ?? 0);
+                                $byDay[$rowDate]['entries'][] = $weekRow;
+                            }
+                            ksort($byDay);
+                            $monthNames = [1=>'Ene',2=>'Feb',3=>'Mar',4=>'Abr',5=>'May',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Sep',10=>'Oct',11=>'Nov',12=>'Dic'];
+                            $dayNames = [1=>'Lun',2=>'Mar',3=>'Mié',4=>'Jue',5=>'Vie',6=>'Sáb',7=>'Dom'];
+                            ?>
                             <article class="inbox-card timesheet-card" data-queue-type="timesheets">
                                 <header class="inbox-card__header">
                                     <div class="inbox-card__heading">
@@ -205,6 +217,39 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
+
+                                    <?php if (!empty($byDay)): ?>
+                                        <div class="day-approval-grid">
+                                            <span class="meta-label" style="margin-bottom:6px;display:block;">Aprobación por día</span>
+                                            <?php foreach ($byDay as $dayDate => $dayData): ?>
+                                                <?php
+                                                $dayObj = new DateTimeImmutable($dayDate);
+                                                $dayNum = (int) $dayObj->format('N');
+                                                $dayLabel = ($dayNames[$dayNum] ?? '') . ' ' . $dayObj->format('d') . ' ' . ($monthNames[(int)$dayObj->format('n')] ?? '');
+                                                $dayHours = round((float) ($dayData['total'] ?? 0), 2);
+                                                ?>
+                                                <div class="day-approval-row">
+                                                    <div class="day-approval-info">
+                                                        <strong><?= htmlspecialchars($dayLabel) ?></strong>
+                                                        <span class="day-approval-hours"><?= $dayHours ?>h</span>
+                                                    </div>
+                                                    <div class="day-approval-actions">
+                                                        <form method="POST" action="<?= $basePath ?>/timesheets/approve-day" class="inline-form">
+                                                            <input type="hidden" name="date" value="<?= htmlspecialchars($dayDate) ?>">
+                                                            <input type="hidden" name="status" value="approved">
+                                                            <button type="submit" class="action-btn small primary">✅ Aprobar día</button>
+                                                        </form>
+                                                        <form method="POST" action="<?= $basePath ?>/timesheets/approve-day" class="inline-form day-reject-form">
+                                                            <input type="hidden" name="date" value="<?= htmlspecialchars($dayDate) ?>">
+                                                            <input type="hidden" name="status" value="rejected">
+                                                            <input type="text" name="comment" placeholder="Motivo rechazo" required class="day-reject-input">
+                                                            <button type="submit" class="action-btn small danger">❌ Rechazar</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="inbox-card__footer">
                                     <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
@@ -221,10 +266,6 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                         <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
                                     </form>
                                 </div>
-
-                                <?php foreach (($week['rows'] ?? []) as $row): ?>
-                                    <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
-                                <?php endforeach; ?>
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -438,6 +479,13 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .timesheet-card .inbox-card__footer { align-items:flex-start; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-primary); }
+    .day-approval-grid { margin-top:12px; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border); border-radius:10px; padding:10px; background:color-mix(in srgb,var(--surface) 90%,var(--background)); }
+    .day-approval-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:6px 8px; border-radius:8px; background:var(--surface); border:1px solid var(--border); }
+    .day-approval-info { display:flex; align-items:center; gap:8px; flex:1; min-width:120px; }
+    .day-approval-hours { font-size:12px; color:var(--text-secondary); font-weight:600; }
+    .day-approval-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .day-reject-input { min-width:160px; }
+    .day-reject-form { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
     }

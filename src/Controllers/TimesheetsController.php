@@ -53,6 +53,7 @@ class TimesheetsController extends Controller
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
             'currentUserName' => (string) ($user['name'] ?? 'Usuario'),
+            'dayStatuses' => $canReport ? $repo->dayStatusesByWeek($userId, $weekStart) : [],
         ]);
     }
 
@@ -514,6 +515,96 @@ class TimesheetsController extends Controller
         } catch (\Throwable $e) {
             error_log('Error duplicando día de timesheet (API): ' . $e->getMessage());
             $this->jsonResponse(500, ['ok' => false, 'message' => 'No se pudo duplicar el día.']);
+        }
+    }
+
+    public function submitDay(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            http_response_code(400);
+            exit('Fecha inválida.');
+        }
+
+        try {
+            $repo->submitDay($userId, $date);
+            $weekStart = $this->parseDateValue($date);
+            $weekKey = $weekStart ? $weekStart->modify('monday this week')->format('o-\\WW') : $weekValue;
+            header('Location: /timesheets?week=' . urlencode($weekKey));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
+    public function cancelDaySubmission(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $weekValue = trim((string) ($_POST['week'] ?? ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            http_response_code(400);
+            exit('Fecha inválida.');
+        }
+
+        $repo->cancelDaySubmission($userId, $date);
+        $weekStart = $this->parseDateValue($date);
+        $weekKey = $weekStart ? $weekStart->modify('monday this week')->format('o-\\WW') : $weekValue;
+        header('Location: /timesheets?week=' . urlencode($weekKey));
+    }
+
+    public function approveDay(): void
+    {
+        if (!$this->auth->canApproveTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $status = trim((string) ($_POST['status'] ?? 'approved'));
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            http_response_code(400);
+            exit('Estado inválido.');
+        }
+        if ($status === 'rejected' && $comment === '') {
+            http_response_code(400);
+            exit('Debes indicar un comentario para rechazar el día.');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            http_response_code(400);
+            exit('Fecha inválida.');
+        }
+
+        try {
+            $repo->approveDayEntries($userId, $date, $status, $comment !== '' ? $comment : null);
+            header('Location: /approvals');
+        } catch (\Throwable $e) {
+            error_log('Error al aprobar día de timesheets: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo actualizar la aprobación del día.');
         }
     }
 
