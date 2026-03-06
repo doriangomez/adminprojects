@@ -14,8 +14,14 @@ class TasksController extends Controller
     public function index(): void
     {
         $repo = new TasksRepository($this->db);
-        $this->requirePermission('tasks.view');
         $user = $this->auth->user() ?? [];
+        $role = $user['role'] ?? '';
+
+        $hasPermission = $this->auth->can('tasks.view') || $this->auth->can('talent_panel.view');
+        if (!$hasPermission) {
+            $this->denyAccess();
+            return;
+        }
 
         $this->render('tasks/index', [
             'title' => 'Tareas',
@@ -134,12 +140,35 @@ class TasksController extends Controller
 
     public function updateStatus(int $taskId): void
     {
-        $this->requirePermission('projects.manage');
+        $user = $this->auth->user() ?? [];
+        $role = $user['role'] ?? '';
+
+        $canManage = $this->auth->can('projects.manage');
+        $isTalent = in_array($role, ['Talento', 'Líder de Proyecto'], true);
+
+        if (!$canManage && !$isTalent) {
+            $this->denyAccess();
+            return;
+        }
 
         $status = (string) ($_POST['status'] ?? '');
         if (!in_array($status, self::ALLOWED_STATUSES, true)) {
             http_response_code(400);
             exit('Estado de tarea inválido.');
+        }
+
+        if ($isTalent && !$canManage) {
+            $talent = (new TalentsRepository($this->db))->findByUserId((int) ($user['id'] ?? 0));
+            if ($talent) {
+                $task = $this->db->fetchOne(
+                    'SELECT assignee_id FROM tasks WHERE id = :id LIMIT 1',
+                    [':id' => $taskId]
+                );
+                if (!$task || (int) ($task['assignee_id'] ?? 0) !== (int) $talent['id']) {
+                    http_response_code(403);
+                    exit('No puedes cambiar el estado de tareas que no te pertenecen.');
+                }
+            }
         }
 
         (new TasksRepository($this->db))->updateStatus($taskId, $status);

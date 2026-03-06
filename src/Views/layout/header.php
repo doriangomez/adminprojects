@@ -687,7 +687,11 @@ error_log(sprintf(
                     <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
                 <?php endif; ?>
             </a>
-            <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
+            <a href="<?= $basePath ?>/talent-panel" class="nav-link <?= str_starts_with($normalizedPath, '/talent-panel') ? 'active' : '' ?>" data-tone="violet">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7"/><path d="M17.5 14v7"/></svg></span>
+                <span class="nav-label">Panel de trabajo</span>
+            </a>
+            <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') && !str_starts_with($normalizedPath, '/talent-panel') ? 'active' : '' ?>" data-tone="violet">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h7"/><path d="M9 12h7"/><path d="M9 16h5"/><path d="m6.5 8 .5.5 1-1"/><path d="m6.5 12 .5.5 1-1"/><path d="m6.5 16 .5.5 1-1"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>

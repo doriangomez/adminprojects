@@ -2805,4 +2805,64 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTalentWorkPanelModule(): void
+    {
+        try {
+            $existing = $this->db->fetchOne(
+                "SELECT id FROM permissions WHERE code = 'talent_panel.view' LIMIT 1"
+            );
+
+            if (!$existing) {
+                $this->db->execute(
+                    "INSERT INTO permissions (code, name) VALUES
+                        ('talent_panel.view', 'Ver panel de trabajo del talento'),
+                        ('talent_panel.manage', 'Gestionar panel de trabajo (PMO)')
+                     ON DUPLICATE KEY UPDATE name = VALUES(name)"
+                );
+
+                $permCodes = ['talent_panel.view', 'talent_panel.manage'];
+                $roleGrants = [
+                    'Administrador' => $permCodes,
+                    'PMO' => $permCodes,
+                    'Talento' => ['talent_panel.view', 'tasks.view'],
+                    'Líder de Proyecto' => ['talent_panel.view', 'tasks.view'],
+                ];
+
+                foreach ($roleGrants as $roleName => $codes) {
+                    $role = $this->db->fetchOne(
+                        'SELECT id FROM roles WHERE nombre = :name LIMIT 1',
+                        [':name' => $roleName]
+                    );
+
+                    if (!$role) {
+                        continue;
+                    }
+
+                    foreach ($codes as $code) {
+                        $this->db->execute(
+                            'INSERT INTO role_permissions (role_id, permission_id)
+                             SELECT :role_id_value, p.id
+                             FROM permissions p
+                             WHERE p.code = :code_value
+                             AND NOT EXISTS (
+                                SELECT 1 FROM role_permissions rp
+                                WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                             )',
+                            [
+                                ':role_id_value' => (int) $role['id'],
+                                ':role_id_check' => (int) $role['id'],
+                                ':code_value' => $code,
+                            ]
+                        );
+                    }
+                }
+            }
+
+            if ($this->db->tableExists('tasks') && !$this->db->columnExists('tasks', 'description')) {
+                $this->db->execute('ALTER TABLE tasks ADD COLUMN description TEXT NULL AFTER title');
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando módulo de panel de trabajo del talento: ' . $e->getMessage());
+        }
+    }
 }

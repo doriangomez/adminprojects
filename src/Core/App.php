@@ -40,6 +40,7 @@ class App
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureTalentWorkPanelModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -420,6 +421,39 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
 
             $controller->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/talent-panel')) {
+            $controller = new TalentWorkPanelController($this->db, $this->auth);
+
+            if ($path === '/talent-panel/tasks/create' && $method === 'POST') {
+                $controller->createTask();
+                return;
+            }
+            if (preg_match('#^/talent-panel/tasks/(\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateTaskStatus((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/talent-panel/tasks/(\d+)/reassign$#', $path, $matches) && $method === 'POST') {
+                $controller->reassignTask((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/talent-panel/tasks/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteTask((int) $matches[1]);
+                return;
+            }
+            if ($path === '/talent-panel/pmo' && $method === 'GET') {
+                $controller->pmoPanel();
+                return;
+            }
+
+            $controller->index();
+            return;
+        }
+
+        if (preg_match('#^/api/talent-panel/tasks/(\d+)/status$#', $path, $matches) && $method === 'POST') {
+            (new TalentWorkPanelController($this->db, $this->auth))->updateTaskStatusApi((int) $matches[1]);
             return;
         }
 
