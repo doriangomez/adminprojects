@@ -72,7 +72,12 @@ class TasksController extends Controller
             'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
         ]);
 
-        header('Location: /tasks');
+        $redirect = trim((string) ($_POST['redirect'] ?? ''));
+        if ($redirect !== '' && str_starts_with($redirect, '/')) {
+            header('Location: ' . $redirect);
+        } else {
+            header('Location: /tasks');
+        }
     }
 
     public function edit(int $taskId): void
@@ -134,7 +139,7 @@ class TasksController extends Controller
 
     public function updateStatus(int $taskId): void
     {
-        $this->requirePermission('projects.manage');
+        $this->requirePermission('tasks.view');
 
         $status = (string) ($_POST['status'] ?? '');
         if (!in_array($status, self::ALLOWED_STATUSES, true)) {
@@ -142,7 +147,37 @@ class TasksController extends Controller
             exit('Estado de tarea inválido.');
         }
 
-        (new TasksRepository($this->db))->updateStatus($taskId, $status);
-        header('Location: /tasks');
+        $user = $this->auth->user() ?? [];
+        $repo = new TasksRepository($this->db);
+        $task = $repo->find($taskId, $user);
+
+        if (!$task) {
+            http_response_code(404);
+            exit('Tarea no encontrada.');
+        }
+
+        $canManage = $this->auth->can('projects.manage');
+        $talentId = (new \App\Repositories\TimesheetsRepository($this->db))->talentIdForUser((int) ($user['id'] ?? 0));
+
+        if (!$canManage && $talentId !== null) {
+            if (!$repo->isAssignee($taskId, $talentId)) {
+                http_response_code(403);
+                exit('Solo puedes cambiar el estado de tus propias tareas.');
+            }
+        }
+
+        $repo->updateStatus($taskId, $status);
+
+        $redirect = trim((string) ($_POST['redirect'] ?? ''));
+        if ($redirect !== '' && str_starts_with($redirect, '/')) {
+            header('Location: ' . $redirect);
+        } else {
+            $referer = parse_url($_SERVER['HTTP_REFERER'] ?? '', PHP_URL_PATH) ?: '';
+            if (str_contains($referer, 'work-panel') || str_contains($referer, 'panel-trabajo')) {
+                header('Location: ' . $referer);
+            } else {
+                header('Location: /tasks');
+            }
+        }
     }
 }

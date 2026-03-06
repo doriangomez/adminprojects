@@ -94,6 +94,11 @@ class App
             return;
         }
 
+        if ($path === '/work-panel' && $method === 'GET') {
+            (new TalentWorkPanelController($this->db, $this->auth))->index();
+            return;
+        }
+
         if ($path === '/pmo/decision-center' && $method === 'GET') {
             (new DecisionCenterController($this->db, $this->auth))->index();
             return;

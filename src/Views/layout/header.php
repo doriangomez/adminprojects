@@ -687,6 +687,10 @@ error_log(sprintf(
                     <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
                 <?php endif; ?>
             </a>
+            <a href="<?= $basePath ?>/work-panel" class="nav-link <?= $normalizedPath === '/work-panel' ? 'active' : '' ?>" data-tone="violet">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M12 4v16"/><path d="M4 8h4"/><path d="M16 8h4"/><path d="M4 16h4"/><path d="M16 16h4"/></svg></span>
+                <span class="nav-label">Panel de trabajo</span>
+            </a>
             <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h7"/><path d="M9 12h7"/><path d="M9 16h5"/><path d="m6.5 8 .5.5 1-1"/><path d="m6.5 12 .5.5 1-1"/><path d="m6.5 16 .5.5 1-1"/></svg></span>
                 <span class="nav-label">Tareas</span>

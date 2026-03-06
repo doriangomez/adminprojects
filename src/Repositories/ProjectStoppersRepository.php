@@ -177,4 +177,44 @@ class ProjectStoppersRepository
 
         return $totals;
     }
+
+    /**
+     * Bloqueos activos vinculados a tareas (task_id).
+     * Retorna mapa task_id => [stoppers] para mostrar ⚠ Bloqueado en el Kanban.
+     */
+    public function stoppersByTaskIds(array $taskIds): array
+    {
+        if (empty($taskIds) || !$this->db->columnExists('project_stoppers', 'task_id')) {
+            return [];
+        }
+
+        $ids = array_map('intval', array_filter($taskIds));
+        if (empty($ids)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $rows = $this->db->fetchAll(
+            'SELECT id, task_id, title, impact_level, status
+             FROM project_stoppers
+             WHERE task_id IN (' . $placeholders . ')
+               AND status IN ("abierto", "en_gestion", "escalado", "resuelto")
+             ORDER BY FIELD(impact_level, "critico", "alto", "medio", "bajo")',
+            $ids
+        );
+
+        $byTask = [];
+        foreach ($rows as $row) {
+            $tid = (int) ($row['task_id'] ?? 0);
+            if ($tid <= 0) {
+                continue;
+            }
+            if (!isset($byTask[$tid])) {
+                $byTask[$tid] = [];
+            }
+            $byTask[$tid][] = $row;
+        }
+
+        return $byTask;
+    }
 }

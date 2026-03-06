@@ -71,9 +71,19 @@ class TasksRepository
         $params = [':id' => $taskId];
 
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
+        if (!$this->isPrivileged($user)) {
+            $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
+            if ($hasPmColumn && $talentId === null) {
+                $conditions[] = 'p.pm_id = :pmId';
+                $params[':pmId'] = $user['id'];
+            } elseif ($talentId !== null) {
+                $conditions[] = '(p.pm_id = :pmId OR t.assignee_id = :talentId)';
+                $params[':pmId'] = $user['id'];
+                $params[':talentId'] = $talentId;
+            } elseif ($hasPmColumn) {
+                $conditions[] = 'p.pm_id = :pmId';
+                $params[':pmId'] = $user['id'];
+            }
         }
 
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -89,6 +99,18 @@ class TasksRepository
         );
 
         return $row ?: null;
+    }
+
+    private function talentIdForUser(int $userId): ?int
+    {
+        if ($userId <= 0 || !$this->db->tableExists('talents')) {
+            return null;
+        }
+        $row = $this->db->fetchOne(
+            'SELECT id FROM talents WHERE user_id = :user LIMIT 1',
+            [':user' => $userId]
+        );
+        return $row ? (int) $row['id'] : null;
     }
 
     public function updateTask(int $taskId, array $payload): void
@@ -183,6 +205,116 @@ class TasksRepository
              ORDER BY t.due_date ASC',
             $params
         );
+    }
+
+    /**
+     * Kanban de tareas filtrado por talento asignado (assignee_id).
+     * Para vista "Mis tareas" del talento.
+     */
+    public function kanbanByTalentId(int $talentId): array
+    {
+        $tasks = $this->db->fetchAll(
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.project_id,
+                    p.name AS project
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             WHERE t.assignee_id = :talentId
+             ORDER BY t.due_date ASC, t.id ASC',
+            [':talentId' => $talentId]
+        );
+        return $this->groupTasksByStatus($tasks);
+    }
+
+    /**
+     * Kanban para PMO/Admin: todas las tareas con talento asignado.
+     * Opcionalmente filtrado por proyecto.
+     */
+    public function kanbanForPmo(array $user, ?int $projectId = null): array
+    {
+        if (!$this->isPrivileged($user)) {
+            return $this->kanbanByTalentId(0);
+        }
+
+        $conditions = ['1=1'];
+        $params = [];
+
+        if ($projectId !== null && $projectId > 0) {
+            $conditions[] = 't.project_id = :projectId';
+            $params[':projectId'] = $projectId;
+        }
+
+        $tasks = $this->db->fetchAll(
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.project_id,
+                    p.name AS project, ta.name AS assignee, ta.id AS assignee_id
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             LEFT JOIN talents ta ON ta.id = t.assignee_id
+             WHERE ' . implode(' AND ', $conditions) . '
+             ORDER BY t.due_date ASC, t.id ASC',
+            $params
+        );
+        return $this->groupTasksByStatus($tasks);
+    }
+
+    /**
+     * Carga de trabajo por talento: tareas asignadas y horas estimadas.
+     */
+    public function workloadByTalent(array $user): array
+    {
+        if (!$this->isPrivileged($user)) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT ta.id AS talent_id, ta.name AS talent_name,
+                    COUNT(t.id) AS task_count,
+                    COALESCE(SUM(t.estimated_hours), 0) AS estimated_hours
+             FROM talents ta
+             LEFT JOIN tasks t ON t.assignee_id = ta.id
+               AND t.status NOT IN (\'done\', \'completed\')
+             WHERE EXISTS (SELECT 1 FROM project_talent_assignments a WHERE a.talent_id = ta.id)
+             GROUP BY ta.id, ta.name
+             ORDER BY task_count DESC, estimated_hours DESC'
+        );
+    }
+
+    /**
+     * Verifica si el talento es el asignado de la tarea.
+     */
+    public function isAssignee(int $taskId, int $talentId): bool
+    {
+        if ($taskId <= 0 || $talentId <= 0) {
+            return false;
+        }
+        $row = $this->db->fetchOne(
+            'SELECT 1 FROM tasks WHERE id = :taskId AND assignee_id = :talentId LIMIT 1',
+            [':taskId' => $taskId, ':talentId' => $talentId]
+        );
+        return $row !== null;
+    }
+
+    private function groupTasksByStatus(array $tasks): array
+    {
+        $grouped = [
+            'todo' => [],
+            'in_progress' => [],
+            'review' => [],
+            'blocked' => [],
+            'done' => [],
+        ];
+        foreach ($tasks as $task) {
+            $status = (string) ($task['status'] ?? 'todo');
+            if ($status === 'pending') {
+                $status = 'todo';
+            } elseif ($status === 'completed') {
+                $status = 'done';
+            }
+            if (!array_key_exists($status, $grouped)) {
+                $status = 'todo';
+            }
+            $grouped[$status][] = $task;
+        }
+        return $grouped;
     }
 
     private function isPrivileged(array $user): bool
