@@ -223,6 +223,8 @@ class TimesheetsRepository
         $cells = [];
         $dayTotals = array_fill_keys(array_column($days, 'key'), 0.0);
         $activitiesByDay = array_fill_keys(array_column($days, 'key'), []);
+        $dayStatuses = array_fill_keys(array_column($days, 'key'), 'draft');
+        $dayDraftEntries = array_fill_keys(array_column($days, 'key'), 0);
         foreach ($entries as $entry) {
             $projectId = (int) ($entry['project_id'] ?? 0);
             $date = (string) ($entry['date'] ?? '');
@@ -240,12 +242,16 @@ class TimesheetsRepository
             }
 
             $entryHours = (float) ($entry['hours'] ?? 0);
-            $entryStatus = (string) ($entry['status'] ?? 'draft');
+            $entryStatus = $this->normalizeWorkflowStatus((string) ($entry['status'] ?? 'draft'));
             $entryComment = trim((string) ($entry['comment'] ?? ''));
             $cells[$projectId][$date]['hours'] += $entryHours;
             $cells[$projectId][$date]['status'] = $this->mergeTimesheetStatus((string) $cells[$projectId][$date]['status'], $entryStatus);
             if ($cells[$projectId][$date]['comment'] === '' && $entryComment !== '') {
                 $cells[$projectId][$date]['comment'] = $entryComment;
+            }
+            $dayStatuses[$date] = $this->mergeTimesheetStatus((string) ($dayStatuses[$date] ?? 'draft'), $entryStatus);
+            if ($entryStatus === 'draft') {
+                $dayDraftEntries[$date] = (int) ($dayDraftEntries[$date] ?? 0) + 1;
             }
 
             $activityItem = [
@@ -313,6 +319,8 @@ class TimesheetsRepository
             'days' => $days,
             'rows' => $rows,
             'day_totals' => $dayTotals,
+            'day_statuses' => $dayStatuses,
+            'day_draft_entries' => $dayDraftEntries,
             'week_total' => array_sum($dayTotals),
             'weekly_capacity' => $weeklyCapacity,
             'weekly_capacity_base' => $weeklyBaseForWeek,
@@ -902,6 +910,45 @@ class TimesheetsRepository
         return $updated;
     }
 
+    public function submitDay(int $userId, string $date): int
+    {
+        $this->assertValidDate($date);
+        $dayStatus = $this->dayStatusForUser($userId, $date);
+        if (in_array($dayStatus, ['submitted', 'approved'], true)) {
+            throw new InvalidArgumentException('El día seleccionado ya está enviado o aprobado.');
+        }
+
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :submitted,
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date = :date
+               AND status = :draft',
+            [
+                ':submitted' => 'submitted',
+                ':draft' => 'draft',
+                ':user' => $userId,
+                ':date' => $date,
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        $updated = (int) ($row['total'] ?? 0);
+        if ($updated > 0) {
+            $dayStart = new \DateTimeImmutable($date);
+            $weekStart = $dayStart->modify('monday this week')->setTime(0, 0);
+            $weekEnd = $weekStart->modify('+6 days');
+            $this->createWeeklyOperationalSummaries($userId, $weekStart, $weekEnd);
+        }
+
+        return $updated;
+    }
+
     public function cancelWeekSubmission(int $userId, \DateTimeImmutable $weekStart): int
     {
         $weekEnd = $weekStart->modify('+6 days');
@@ -1327,13 +1374,47 @@ class TimesheetsRepository
         $grouped = [];
         foreach ($rows as $row) {
             $date = new \DateTimeImmutable((string) ($row['date'] ?? 'now'));
+            $dateKey = $date->format('Y-m-d');
             $weekStart = $date->modify('monday this week')->format('Y-m-d');
+            $ownerUserId = (int) ($row['user_id'] ?? 0);
+            $groupKey = $weekStart . '::' . $ownerUserId;
             $project = (string) ($row['project'] ?? 'Sin proyecto');
-            $grouped[$weekStart]['week_start'] = $weekStart;
-            $grouped[$weekStart]['week_label'] = $date->modify('monday this week')->format('d/m') . ' - ' . $date->modify('sunday this week')->format('d/m');
-            $grouped[$weekStart]['total_hours'] = ($grouped[$weekStart]['total_hours'] ?? 0) + (float) ($row['hours'] ?? 0);
-            $grouped[$weekStart]['rows'][] = $row;
-            $grouped[$weekStart]['projects'][$project] = ($grouped[$weekStart]['projects'][$project] ?? 0) + (float) ($row['hours'] ?? 0);
+            $hours = (float) ($row['hours'] ?? 0);
+            $normalizedStatus = $this->normalizeWorkflowStatus((string) ($row['status'] ?? 'draft'));
+
+            if (!isset($grouped[$groupKey])) {
+                $grouped[$groupKey] = [
+                    'week_start' => $weekStart,
+                    'week_label' => $date->modify('monday this week')->format('d/m') . ' - ' . $date->modify('sunday this week')->format('d/m'),
+                    'owner_user_id' => $ownerUserId,
+                    'owner_name' => (string) ($row['user_name'] ?? $row['talent'] ?? 'Talento'),
+                    'total_hours' => 0.0,
+                    'rows' => [],
+                    'projects' => [],
+                    'days' => [],
+                ];
+            }
+
+            $grouped[$groupKey]['total_hours'] += $hours;
+            $grouped[$groupKey]['rows'][] = $row;
+            $grouped[$groupKey]['projects'][$project] = ($grouped[$groupKey]['projects'][$project] ?? 0.0) + $hours;
+
+            if (!isset($grouped[$groupKey]['days'][$dateKey])) {
+                $grouped[$groupKey]['days'][$dateKey] = [
+                    'date' => $dateKey,
+                    'status' => 'draft',
+                    'total_hours' => 0.0,
+                    'project_summary' => [],
+                    'rows' => [],
+                ];
+            }
+            $grouped[$groupKey]['days'][$dateKey]['status'] = $this->mergeTimesheetStatus(
+                (string) ($grouped[$groupKey]['days'][$dateKey]['status'] ?? 'draft'),
+                $normalizedStatus
+            );
+            $grouped[$groupKey]['days'][$dateKey]['total_hours'] += $hours;
+            $grouped[$groupKey]['days'][$dateKey]['project_summary'][$project] = ($grouped[$groupKey]['days'][$dateKey]['project_summary'][$project] ?? 0.0) + $hours;
+            $grouped[$groupKey]['days'][$dateKey]['rows'][] = $row;
         }
 
         foreach ($grouped as &$week) {
@@ -1344,14 +1425,36 @@ class TimesheetsRepository
             usort($summary, static fn(array $a, array $b): int => strcmp($a['project'], $b['project']));
             $week['project_summary'] = $summary;
             unset($week['projects']);
+
+            $days = [];
+            ksort($week['days']);
+            foreach ($week['days'] as $day) {
+                $daySummary = [];
+                foreach (($day['project_summary'] ?? []) as $project => $hours) {
+                    $daySummary[] = ['project' => $project, 'hours' => $hours];
+                }
+                usort($daySummary, static fn(array $a, array $b): int => strcmp($a['project'], $b['project']));
+                $day['project_summary'] = $daySummary;
+                $days[] = $day;
+            }
+            $week['days'] = $days;
         }
         unset($week);
 
-        krsort($grouped);
-        return array_values($grouped);
+        $out = array_values($grouped);
+        usort($out, static function (array $a, array $b): int {
+            $weekCompare = strcmp((string) ($b['week_start'] ?? ''), (string) ($a['week_start'] ?? ''));
+            if ($weekCompare !== 0) {
+                return $weekCompare;
+            }
+
+            return strcmp((string) ($a['owner_name'] ?? ''), (string) ($b['owner_name'] ?? ''));
+        });
+
+        return $out;
     }
 
-    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null): int
+    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null, ?int $targetUserId = null): int
     {
         $start = new \DateTimeImmutable($weekStart);
         $end = $start->modify('+6 days');
@@ -1363,6 +1466,11 @@ class TimesheetsRepository
             ':start' => $start->format('Y-m-d'),
             ':end' => $end->format('Y-m-d'),
         ];
+        $whereUser = '';
+        if ($targetUserId !== null && $targetUserId > 0) {
+            $whereUser = ' AND user_id = :target_user_id';
+            $params[':target_user_id'] = $targetUserId;
+        }
 
         $column = $status === 'approved'
             ? 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
@@ -1375,6 +1483,7 @@ class TimesheetsRepository
                  updated_at = NOW()
              WHERE approver_user_id = :approver_where
                AND date BETWEEN :start AND :end
+               ' . $whereUser . '
                AND status IN ("submitted", "pending", "pending_approval")';
 
         $this->db->execute($sql, $params);
@@ -1386,6 +1495,44 @@ class TimesheetsRepository
         }
 
         return $updated;
+    }
+
+    public function updateDayApprovalStatus(int $approverUserId, string $date, string $status, ?string $comment = null, ?int $targetUserId = null): int
+    {
+        $this->assertValidDate($date);
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            throw new InvalidArgumentException('Estado de aprobación inválido.');
+        }
+
+        $params = [
+            ':status' => $status,
+            ':comment' => $comment,
+            ':approver_set' => $approverUserId,
+            ':approver_where' => $approverUserId,
+            ':date' => $date,
+        ];
+        $whereUser = '';
+        if ($targetUserId !== null && $targetUserId > 0) {
+            $whereUser = ' AND user_id = :target_user_id';
+            $params[':target_user_id'] = $targetUserId;
+        }
+
+        $column = $status === 'approved'
+            ? 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
+            : 'rejected_by = :approver_set, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
+        $sql = 'UPDATE timesheets
+             SET status = :status,
+                 approval_comment = :comment,
+                 ' . $column . ',
+                 updated_at = NOW()
+             WHERE approver_user_id = :approver_where
+               AND date = :date
+               ' . $whereUser . '
+               AND status IN ("submitted", "pending", "pending_approval")';
+
+        $this->db->execute($sql, $params);
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0);
     }
 
     public function reopenWeek(int $actorUserId, string $weekStart, int $approverUserId, ?string $comment = null): int
@@ -1425,7 +1572,7 @@ class TimesheetsRepository
                AND date BETWEEN :start AND :end
                AND status IN ("approved", "rejected")',
             [
-                ':status' => 'pending',
+                ':status' => 'submitted',
                 ':comment' => $comment,
                 ':approver' => $approverUserId,
                 ':start' => $start->format('Y-m-d'),
@@ -1436,7 +1583,7 @@ class TimesheetsRepository
         $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
         $updated = (int) ($row['total'] ?? 0);
         if ($updated > 0) {
-            $this->logWeekWorkflowAction($start, $actorUserId, 'reopened', $comment, $previousStatus, 'pending', $approverUserId);
+            $this->logWeekWorkflowAction($start, $actorUserId, 'reopened', $comment, $previousStatus, 'submitted', $approverUserId);
         }
 
         return $updated;
@@ -1459,7 +1606,7 @@ class TimesheetsRepository
                 ':end' => $end->format('Y-m-d'),
             ]
         );
-        $previousStatus = (string) ($row['status'] ?? 'pending');
+        $previousStatus = (string) ($row['status'] ?? 'submitted');
         if (!$row) {
             return 0;
         }
@@ -1960,11 +2107,13 @@ class TimesheetsRepository
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         return $this->db->fetchAll(
-            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment, p.name AS project, t.title AS task, ta.name AS talent, ts.approver_user_id
+            'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment,
+                    p.name AS project, t.title AS task, ta.name AS talent, ts.approver_user_id, ts.user_id, u.name AS user_name
              FROM timesheets ts
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
              JOIN talents ta ON ta.id = ts.talent_id
+             LEFT JOIN users u ON u.id = ts.user_id
              ' . $where . '
              ORDER BY ts.date DESC, ts.id DESC',
             $params
@@ -2541,7 +2690,7 @@ class TimesheetsRepository
         $summary = $this->weekSummaryForUser($userId, $weekStart);
         $status = (string) ($summary['status'] ?? 'draft');
         if (in_array($status, ['submitted', 'approved'], true)) {
-            throw new InvalidArgumentException('Semana enviada – registros bloqueados.');
+            throw new InvalidArgumentException('Registro enviado para aprobación: el día está bloqueado.');
         }
     }
 
@@ -2697,26 +2846,59 @@ class TimesheetsRepository
 
     private function mergeTimesheetStatus(string $currentStatus, string $incomingStatus): string
     {
-        $normalize = static function (string $status): string {
-            if (in_array($status, ['submitted', 'pending_approval'], true)) {
-                return 'pending';
-            }
-
-            return $status;
-        };
         $weights = [
             'approved' => 5,
             'rejected' => 4,
-            'pending' => 3,
+            'submitted' => 3,
             'draft' => 2,
         ];
 
-        $current = $normalize($currentStatus);
-        $incoming = $normalize($incomingStatus);
+        $current = $this->normalizeWorkflowStatus($currentStatus);
+        $incoming = $this->normalizeWorkflowStatus($incomingStatus);
         $currentWeight = $weights[$current] ?? 1;
         $incomingWeight = $weights[$incoming] ?? 1;
 
         return $incomingWeight > $currentWeight ? $incoming : $current;
+    }
+
+    private function normalizeWorkflowStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+        return match ($normalized) {
+            'submitted', 'pending', 'pending_approval' => 'submitted',
+            'approved' => 'approved',
+            'rejected' => 'rejected',
+            default => 'draft',
+        };
+    }
+
+    private function dayStatusForUser(int $userId, string $date): string
+    {
+        $row = $this->db->fetchOne(
+            'SELECT MAX(CASE status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight
+             FROM timesheets
+             WHERE user_id = :user
+               AND date = :date',
+            [
+                ':user' => $userId,
+                ':date' => $date,
+            ]
+        );
+
+        $weight = (int) ($row['status_weight'] ?? 0);
+        return match (true) {
+            $weight >= 5 => 'approved',
+            $weight >= 4 => 'rejected',
+            $weight >= 3 => 'submitted',
+            default => 'draft',
+        };
     }
 
     private function syncOperationalArtifacts(int $timesheetId, int $actorUserId): void

@@ -192,6 +192,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                     <div class="inbox-card__heading">
                                         <span class="inbox-card__type">Semana</span>
                                         <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
+                                        <div class="meta-line">Talento: <?= htmlspecialchars((string) ($week['owner_name'] ?? 'Sin usuario')) ?></div>
                                         <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</div>
                                     </div>
                                     <div class="badge status-warning">Pendiente</div>
@@ -210,21 +211,74 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                     <a class="action-btn small action-btn--view" href="<?= $basePath ?>/timesheets?week=<?= htmlspecialchars((new DateTimeImmutable((string) ($week['week_start'] ?? 'now')))->format('o-\WW')) ?>">Ver semana</a>
                                     <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
                                         <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
+                                        <input type="hidden" name="target_user_id" value="<?= (int) ($week['owner_user_id'] ?? 0) ?>">
                                         <input type="hidden" name="status" value="approved">
                                         <input type="text" name="comment" placeholder="Detalle aprobación (opcional)">
                                         <button type="submit" class="action-btn small primary">✅ Aprobar semana</button>
                                     </form>
                                     <form method="POST" action="<?= $basePath ?>/timesheets/approve-week" class="inline-form">
                                         <input type="hidden" name="week_start" value="<?= htmlspecialchars((string) ($week['week_start'] ?? '')) ?>">
+                                        <input type="hidden" name="target_user_id" value="<?= (int) ($week['owner_user_id'] ?? 0) ?>">
                                         <input type="hidden" name="status" value="rejected">
                                         <input type="text" name="comment" placeholder="Motivo rechazo" required>
                                         <button type="submit" class="action-btn small danger">❌ Rechazar semana</button>
                                     </form>
                                 </div>
 
-                                <?php foreach (($week['rows'] ?? []) as $row): ?>
-                                    <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
-                                <?php endforeach; ?>
+                                <?php if (!empty($week['days']) && is_array($week['days'])): ?>
+                                    <div class="timesheet-day-list">
+                                        <?php foreach ($week['days'] as $day): ?>
+                                            <?php
+                                            $dayDateRaw = (string) ($day['date'] ?? '');
+                                            $dayDate = new DateTimeImmutable($dayDateRaw !== '' ? $dayDateRaw : 'now');
+                                            $dayStatusRaw = strtolower(trim((string) ($day['status'] ?? 'submitted')));
+                                            if (in_array($dayStatusRaw, ['pending', 'pending_approval'], true)) {
+                                                $dayStatusRaw = 'submitted';
+                                            }
+                                            $dayStatusMeta = match ($dayStatusRaw) {
+                                                'approved' => ['label' => 'Aprobado', 'class' => 'status-success'],
+                                                'rejected' => ['label' => 'Rechazado', 'class' => 'status-danger'],
+                                                'submitted' => ['label' => 'Enviado', 'class' => 'status-info'],
+                                                default => ['label' => 'Borrador', 'class' => 'status-muted'],
+                                            };
+                                            $canApproveDay = false;
+                                            foreach (($day['rows'] ?? []) as $dayRow) {
+                                                $rowStatus = strtolower(trim((string) ($dayRow['status'] ?? '')));
+                                                if (in_array($rowStatus, ['submitted', 'pending', 'pending_approval'], true)) {
+                                                    $canApproveDay = true;
+                                                    break;
+                                                }
+                                            }
+                                            ?>
+                                            <div class="timesheet-day-row">
+                                                <div class="timesheet-day-summary">
+                                                    <strong><?= htmlspecialchars($dayDate->format('D d/m/Y')) ?></strong>
+                                                    <span class="status-pill <?= htmlspecialchars($dayStatusMeta['class']) ?>"><?= htmlspecialchars($dayStatusMeta['label']) ?></span>
+                                                    <div class="meta-line">Total: <?= round((float) ($day['total_hours'] ?? 0), 2) ?>h</div>
+                                                    <?php foreach (($day['project_summary'] ?? []) as $summary): ?>
+                                                        <div class="meta-line">• <?= htmlspecialchars((string) ($summary['project'] ?? '')) ?> · <?= htmlspecialchars((string) round((float) ($summary['hours'] ?? 0), 2)) ?>h</div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                                <div class="timesheet-day-actions">
+                                                    <form method="POST" action="<?= $basePath ?>/timesheets/approve-day" class="inline-form">
+                                                        <input type="hidden" name="date" value="<?= htmlspecialchars($dayDateRaw) ?>">
+                                                        <input type="hidden" name="target_user_id" value="<?= (int) ($week['owner_user_id'] ?? 0) ?>">
+                                                        <input type="hidden" name="status" value="approved">
+                                                        <input type="text" name="comment" placeholder="Comentario (opcional)">
+                                                        <button type="submit" class="action-btn small primary" <?= $canApproveDay ? '' : 'disabled' ?>>✅ Aprobar día</button>
+                                                    </form>
+                                                    <form method="POST" action="<?= $basePath ?>/timesheets/approve-day" class="inline-form">
+                                                        <input type="hidden" name="date" value="<?= htmlspecialchars($dayDateRaw) ?>">
+                                                        <input type="hidden" name="target_user_id" value="<?= (int) ($week['owner_user_id'] ?? 0) ?>">
+                                                        <input type="hidden" name="status" value="rejected">
+                                                        <input type="text" name="comment" placeholder="Motivo rechazo" required>
+                                                        <button type="submit" class="action-btn small danger" <?= $canApproveDay ? '' : 'disabled' ?>>❌ Rechazar día</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -436,10 +490,15 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     .timesheet-cards { display:grid; gap:14px; }
     .wrap-anywhere { overflow-wrap:anywhere; max-width:240px; }
     .timesheet-card .inbox-card__footer { align-items:flex-start; }
+    .timesheet-day-list { display:grid; gap:10px; margin-top:6px; }
+    .timesheet-day-row { display:grid; grid-template-columns:1.5fr 1fr; gap:10px; border:1px dashed var(--border); border-radius:10px; padding:10px; }
+    .timesheet-day-summary { display:flex; flex-direction:column; gap:4px; }
+    .timesheet-day-actions { display:flex; flex-direction:column; gap:8px; }
     .inline-form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .inline-form input { border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; background: var(--surface); color: var(--text-primary); }
     @media (max-width: 900px) {
         .inbox-card__header { flex-direction:column; align-items:flex-start; }
+        .timesheet-day-row { grid-template-columns:1fr; }
     }
 </style>
 
