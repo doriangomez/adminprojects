@@ -35,6 +35,7 @@ $pmoSnapshot = is_array($pmoSnapshot ?? null) ? $pmoSnapshot : [];
 $pmoAlerts = is_array($pmoAlerts ?? null) ? $pmoAlerts : [];
 $pmoHoursTrend = is_array($pmoHoursTrend ?? null) ? $pmoHoursTrend : [];
 $pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers : [];
+$detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
 $view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos'], true) ? $view : 'documentos';
@@ -373,6 +374,12 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
 ?>
 
 <section class="project-shell">
+    <?php if (!empty($detailWarnings)): ?>
+        <div class="project-inline-warning" role="alert">
+            <?= htmlspecialchars((string) $detailWarnings[0]) ?>
+        </div>
+    <?php endif; ?>
+
     <header class="project-header">
         <div class="project-title-block">
             <p class="eyebrow">Detalle de proyecto</p>
@@ -1249,6 +1256,14 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
 
 <style>
     .project-shell { display:flex; flex-direction:column; gap:16px; }
+    .project-inline-warning {
+        border:1px solid color-mix(in srgb, var(--warning) 45%, var(--surface) 55%);
+        background:color-mix(in srgb, var(--warning) 14%, var(--surface) 86%);
+        color:var(--text-primary);
+        border-radius:12px;
+        padding:10px 14px;
+        font-weight:600;
+    }
     .project-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); }
     .project-health-card { min-width: 180px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 90%, var(--background)); }
     .project-health-score { font-size: 24px; font-weight: 800; }
