@@ -25,10 +25,21 @@ $statusMeta = [
 ];
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
 $weekLocked = in_array($weekStatus, ['submitted', 'approved'], true);
+$currentUserName = trim((string) ($currentUserName ?? $user['name'] ?? 'Usuario'));
 $daysJson = [];
 foreach ($gridDays as $day) {
     $daysJson[(string) ($day['key'] ?? '')] = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
 }
+$activityTypeColors = [
+    'desarrollo' => '#3b82f6',
+    'reunion' => '#8b5cf6',
+    'soporte' => '#f97316',
+    'gestion_pm' => '#22c55e',
+    'investigacion' => '#6b7280',
+    'analisis' => '#0ea5e9',
+    'documentacion' => '#6366f1',
+    'pruebas' => '#ec4899',
+];
 ?>
 
 <section class="timesheet-ux">
@@ -52,10 +63,13 @@ foreach ($gridDays as $day) {
                     <input type="week" name="week" value="<?= htmlspecialchars($weekValue) ?>">
                 </label>
                 <button type="submit" class="btn-link">Cambiar</button>
+                <div class="week-status-badge">
+                    <span class="week-status-label">Estado semana:</span>
+                    <span class="pill status <?= htmlspecialchars($status['class']) ?>"><?= htmlspecialchars(strtoupper($status['label'])) ?></span>
+                </div>
             </form>
             <div class="header-badges">
-                <span class="pill neutral">Total semana: <strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></span>
-                <span class="pill status <?= htmlspecialchars($status['class']) ?>">Estado: <?= htmlspecialchars($status['label']) ?></span>
+                <span class="pill neutral">Total: <strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></span>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn primary" id="focus-quick-add" <?= $weekLocked ? 'disabled' : '' ?>>+ Registrar actividad</button>
@@ -84,71 +98,13 @@ foreach ($gridDays as $day) {
         <?php endif; ?>
 
         <section class="indicators-grid">
-            <article class="card indicator"><span>Horas registradas</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
-            <article class="card indicator"><span>Capacidad semanal</span><strong><?= round((float) ($weekIndicators['weekly_capacity'] ?? 0), 2) ?>h</strong></article>
-            <article class="card indicator"><span>% cumplimiento</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
-            <article class="card indicator"><span>Proyecto mayor consumo</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
+            <article class="card indicator"><span>Horas registradas / 40h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong> <small>de 40h</small></article>
+            <article class="card indicator"><span>Capacidad restante</span><strong><?= round(max(0, (float) ($weekIndicators['weekly_capacity'] ?? 0) - (float) ($weekIndicators['week_total'] ?? 0)), 2) ?>h</strong></article>
+            <article class="card indicator"><span>Progreso semanal</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
+            <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
         </section>
 
         <section class="timesheet-main-layout">
-            <div class="calendar-column card">
-                <div class="calendar-heading">
-                    <h3>Actividades registradas de la semana</h3>
-                    <p class="section-muted">Arrastra una actividad a otro día para moverla. Cada chip es editable.</p>
-                </div>
-                <div class="week-calendar-grid">
-                    <?php foreach ($gridDays as $day): ?>
-                        <?php
-                        $dayDate = (string) ($day['key'] ?? '');
-                        $dayLabel = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
-                        $items = is_array($activitiesByDay[$dayDate] ?? null) ? $activitiesByDay[$dayDate] : [];
-                        ?>
-                        <article class="day-card" data-drop-day="<?= htmlspecialchars($dayDate) ?>">
-                            <header>
-                                <strong><?= htmlspecialchars($dayLabel) ?></strong>
-                                <span><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</span>
-                            </header>
-                            <?php if ($items === []): ?>
-                                <p class="section-muted">Sin actividades.</p>
-                            <?php else: ?>
-                                <ul class="activity-list">
-                                    <?php foreach ($items as $item): ?>
-                                        <?php
-                                        $itemId = (int) ($item['id'] ?? 0);
-                                        $itemProject = (string) ($item['project'] ?? 'Proyecto');
-                                        $itemHours = (float) ($item['hours'] ?? 0);
-                                        $itemDesc = trim((string) ($item['activity_description'] ?? '')) ?: trim((string) ($item['activity_type'] ?? 'Actividad'));
-                                        $itemComment = (string) ($item['comment'] ?? '');
-                                        ?>
-                                        <li class="activity-chip<?= $weekLocked ? ' is-locked' : '' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>">
-                                            <div class="chip-main">
-                                                <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
-                                                <strong><?= htmlspecialchars($itemDesc) ?></strong>
-                                            </div>
-                                            <small class="chip-project">Proyecto: <?= htmlspecialchars($itemProject) ?></small>
-                                            <div class="chip-meta">
-                                                <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
-                                                <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
-                                                <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
-                                                <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
-                                            </div>
-                                            <?php if (!$weekLocked): ?>
-                                                <div class="chip-actions">
-                                                    <button type="button" class="btn-xs edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>Editar</button>
-                                                    <button type="button" class="btn-xs duplicate-activity" data-activity-id="<?= $itemId ?>">Duplicar</button>
-                                                    <button type="button" class="btn-xs move-activity" data-activity-id="<?= $itemId ?>">Mover</button>
-                                                    <button type="button" class="btn-xs danger delete-activity" data-activity-id="<?= $itemId ?>" title="Eliminar actividad">🗑 Eliminar</button>
-                                                </div>
-                                            <?php endif; ?>
-                                        </li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            <?php endif; ?>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
             <aside class="quick-add-column">
                 <section class="card quick-add-box" id="quick-add-box">
                     <h3>Quick Add</h3>
@@ -178,8 +134,11 @@ foreach ($gridDays as $day) {
                         </label>
                         <div class="task-management-block">
                             <span class="task-management-title">Gestión de tarea</span>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="existing" checked> Usar tarea existente</label>
-                            <label class="task-management-option"><input type="radio" name="task_management_mode" value="new"> Crear tarea nueva</label>
+                            <div class="task-toggle-buttons">
+                                <button type="button" class="task-toggle-btn active" data-mode="existing">Usar tarea existente</button>
+                                <button type="button" class="task-toggle-btn" data-mode="new">Crear tarea nueva</button>
+                            </div>
+                            <input type="hidden" name="task_management_mode" value="existing">
                         </div>
                         <div class="task-management-block conditional hidden" id="qa-new-task-fields">
                             <span class="task-management-title">Nueva tarea</span>
@@ -207,7 +166,7 @@ foreach ($gridDays as $day) {
                             <input type="number" name="hours" step="0.25" min="0.25" max="24" required>
                         </label>
                         <label>Descripción breve*
-                            <input type="text" name="activity_description" maxlength="255" required>
+                            <input type="text" name="activity_description" maxlength="255" required placeholder="Ej. Integración API Seguros">
                         </label>
                         <label>Tipo de actividad *
                             <select name="activity_type" required>
@@ -253,8 +212,10 @@ foreach ($gridDays as $day) {
                         </label>
                         <div class="quick-actions">
                             <button type="submit" class="btn primary" data-submit-mode="save">Guardar</button>
-                            <button type="submit" class="btn" data-submit-mode="save_duplicate">Guardar y duplicar</button>
-                            <button type="submit" class="btn" data-submit-mode="save_another">Guardar y agregar otra</button>
+                            <button type="submit" class="btn" data-submit-mode="save_duplicate">Guardar y duplicar día</button>
+                            <button type="submit" class="btn" data-submit-mode="save_another">Guardar y continuar</button>
+                        </div>
+                        <div class="quick-actions-secondary">
                             <button type="button" class="btn ghost" id="save-template">Guardar como plantilla</button>
                         </div>
                         </fieldset>
@@ -283,6 +244,81 @@ foreach ($gridDays as $day) {
                     </div>
                 </section>
             </aside>
+
+            <div class="calendar-column card">
+                <div class="calendar-heading">
+                    <h3>Calendario</h3>
+                    <p class="section-muted">Arrastra una actividad a otro día para moverla. Cada chip es editable.</p>
+                </div>
+                <div class="week-calendar-grid">
+                    <?php foreach ($gridDays as $day): ?>
+                        <?php
+                        $dayDate = (string) ($day['key'] ?? '');
+                        $dayLabel = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
+                        $items = is_array($activitiesByDay[$dayDate] ?? null) ? $activitiesByDay[$dayDate] : [];
+                        $isWeekend = !empty($day['is_weekend']);
+                        ?>
+                        <article class="day-card<?= $isWeekend ? ' day-weekend' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-is-weekend="<?= $isWeekend ? '1' : '0' ?>">
+                            <header>
+                                <strong><?= htmlspecialchars($dayLabel) ?></strong>
+                                <span><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</span>
+                            </header>
+                            <?php if ($isWeekend): ?>
+                                <p class="day-weekend-label">No laboral</p>
+                            <?php elseif ($items === []): ?>
+                                <div class="day-empty-state">
+                                    <p class="day-empty-title">Sin actividades registradas</p>
+                                    <p class="day-empty-cta">Registra tu primera actividad</p>
+                                </div>
+                            <?php else: ?>
+                                <ul class="activity-list">
+                                    <?php foreach ($items as $item): ?>
+                                        <?php
+                                        $itemId = (int) ($item['id'] ?? 0);
+                                        $itemProject = (string) ($item['project'] ?? 'Proyecto');
+                                        $itemTaskTitle = trim((string) ($item['task_title'] ?? ''));
+                                        $itemHours = (float) ($item['hours'] ?? 0);
+                                        $itemDesc = trim((string) ($item['activity_description'] ?? '')) ?: trim((string) ($item['activity_type'] ?? 'Actividad'));
+                                        $itemComment = (string) ($item['comment'] ?? '');
+                                        $itemType = strtolower(trim((string) ($item['activity_type'] ?? '')));
+                                        $chipColor = $activityTypeColors[$itemType] ?? '#6b7280';
+                                        $tooltipLines = [
+                                            'Proyecto: ' . $itemProject,
+                                            'Tarea: ' . ($itemTaskTitle !== '' ? $itemTaskTitle : $itemDesc),
+                                            'Horas: ' . round($itemHours, 2),
+                                            'Tipo: ' . ($itemType !== '' ? ucfirst(str_replace('_', ' ', $itemType)) : 'Sin clasificar'),
+                                            'Usuario: ' . $currentUserName,
+                                        ];
+                                        $tooltipText = implode(' | ', $tooltipLines);
+                                        ?>
+                                        <li class="activity-chip activity-chip-colored<?= $weekLocked ? ' is-locked' : '' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" style="--chip-color:<?= htmlspecialchars($chipColor) ?>" title="<?= htmlspecialchars($tooltipText) ?>">
+                                            <div class="chip-main">
+                                                <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
+                                                <strong><?= htmlspecialchars($itemDesc) ?></strong>
+                                            </div>
+                                            <small class="chip-project"><?= htmlspecialchars($itemProject) ?></small>
+                                            <div class="chip-meta">
+                                                <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
+                                                <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
+                                                <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
+                                                <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
+                                            </div>
+                                            <?php if (!$weekLocked): ?>
+                                                <div class="chip-actions">
+                                                    <button type="button" class="btn-xs edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏ Editar</button>
+                                                    <button type="button" class="btn-xs duplicate-activity" data-activity-id="<?= $itemId ?>">Duplicar</button>
+                                                    <button type="button" class="btn-xs move-activity" data-activity-id="<?= $itemId ?>">Mover</button>
+                                                    <button type="button" class="btn-xs btn-delete delete-activity" data-activity-id="<?= $itemId ?>" title="Eliminar actividad">🗑 Eliminar</button>
+                                                </div>
+                                            <?php endif; ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </section>
     <?php endif; ?>
 </section>
@@ -312,21 +348,41 @@ foreach ($gridDays as $day) {
 .indicators-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}
 .indicator{display:flex;flex-direction:column;gap:4px}
 .indicator span{color:var(--text-secondary);font-size:12px}
-.timesheet-main-layout{display:grid;grid-template-columns:7fr 3fr;gap:14px}
+.timesheet-main-layout{display:grid;grid-template-columns:3fr 7fr;gap:14px}
 .calendar-column{display:flex;flex-direction:column;gap:10px}
 .calendar-heading h3{margin:0 0 4px}
-.week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px}
+.week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:10px}
 .day-card{border:1px solid var(--border);border-radius:12px;padding:10px;min-height:190px;background:color-mix(in srgb,var(--surface) 94%,var(--background))}
+.day-card.day-weekend{background:#ffe5e5;border:1px dashed #fca5a5;cursor:not-allowed}
+.day-card.day-weekend .day-weekend-label{color:#b91c1c;font-size:12px;font-weight:600;margin:8px 0 0}
 .day-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.day-empty-state{padding:12px 0;text-align:center}
+.day-empty-title{color:var(--text-secondary);font-size:13px;margin:0 0 4px}
+.day-empty-cta{color:var(--primary);font-size:12px;font-weight:600;margin:0}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-.activity-chip{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
-.activity-chip.is-locked{opacity:.9}
-.activity-chip.dragging{opacity:.5}
+.activity-chip{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:6px;cursor:grab}
+.activity-chip:active{cursor:grabbing}
+.activity-chip.activity-chip-colored{border-left:4px solid var(--chip-color,#6b7280);background:color-mix(in srgb,var(--chip-color,#6b7280) 12%,var(--surface))}
+.activity-chip.is-locked{opacity:.9;cursor:default}
+.activity-chip.dragging{opacity:.5;box-shadow:0 8px 24px rgba(0,0,0,.15);cursor:grabbing}
 .chip-main{display:flex;align-items:center;gap:8px}
 .chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
-.chip-project{color:var(--text-secondary)}
-.chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
-.chip-actions{display:flex;gap:6px;flex-wrap:wrap}
+.chip-project{color:var(--text-secondary);font-size:11px}
+.chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary);font-size:11px}
+.chip-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn-delete{color:#dc3545!important;background:transparent!important;border-color:#dc3545!important}
+.btn-delete:hover{background:#ffe5e5!important;border-color:#dc3545!important}
+.task-toggle-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.task-toggle-btn{border:1px solid var(--border);border-radius:10px;padding:8px 14px;background:var(--surface);cursor:pointer;font-size:13px;transition:all .2s}
+.task-toggle-btn:hover{background:color-mix(in srgb,var(--primary) 8%,var(--surface));border-color:color-mix(in srgb,var(--primary) 40%,var(--border))}
+.task-toggle-btn.active{background:color-mix(in srgb,var(--primary) 18%,var(--surface));border-color:var(--primary);font-weight:600}
+.week-status-badge{display:flex;align-items:center;gap:8px}
+.week-status-label{font-size:12px;color:var(--text-secondary)}
+.quick-actions-secondary{margin-top:4px;padding-top:8px;border-top:1px dashed var(--border)}
+.pill.status.draft{background:#e5e7eb;color:#374151}
+.pill.status.submitted{background:#dbeafe;color:#1d4ed8}
+.pill.status.approved{background:#dcfce7;color:#166534}
+.pill.status.rejected{background:#fee2e2;color:#b91c1c}
 .quick-add-column{display:flex;flex-direction:column}
 .quick-add-box{position:sticky;top:150px;display:flex;flex-direction:column;gap:10px}
 #quick-add-form{display:flex;flex-direction:column;gap:8px}
@@ -351,7 +407,7 @@ foreach ($gridDays as $day) {
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
 .chip-btn{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:5px 10px;cursor:pointer;font-size:12px}
 .day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border))}
-@media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.week-calendar-grid{grid-template-columns:1fr}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+@media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr;order:revert}.week-calendar-grid{grid-template-columns:1fr}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.quick-add-column{order:-1}}
 </style>
 
 <script>
@@ -363,7 +419,8 @@ foreach ($gridDays as $day) {
   const form = document.getElementById('quick-add-form');
   const projectInput = document.getElementById('qa-project');
   const taskInput = document.getElementById('qa-task');
-  const taskManagementInputs = form ? form.querySelectorAll('input[name="task_management_mode"]') : [];
+  const taskToggleBtns = form ? form.querySelectorAll('.task-toggle-btn') : [];
+  const taskModeHidden = form ? form.querySelector('input[name="task_management_mode"]') : null;
   const newTaskWrap = document.getElementById('qa-new-task-fields');
   const newTaskTitleInput = form ? form.querySelector('[name="new_task_title"]') : null;
   const blockerToggle = document.getElementById('qa-blocker');
@@ -414,7 +471,7 @@ foreach ($gridDays as $day) {
 
   const syncTaskManagementMode = () => {
     if (!taskInput) return;
-    const selectedMode = form?.querySelector('input[name="task_management_mode"]:checked')?.value || 'existing';
+    const selectedMode = taskModeHidden?.value || 'existing';
     const useExistingTask = selectedMode === 'existing';
     taskInput.disabled = !useExistingTask;
     if (!useExistingTask) {
@@ -426,6 +483,9 @@ foreach ($gridDays as $day) {
     if (newTaskTitleInput) {
       newTaskTitleInput.required = !useExistingTask;
     }
+    taskToggleBtns.forEach((btn) => {
+      btn.classList.toggle('active', (btn.dataset.mode || '') === selectedMode);
+    });
   };
 
   const toggleConditional = (toggle, wrap, requiredWhenOn = false) => {
@@ -459,7 +519,13 @@ foreach ($gridDays as $day) {
   blockerToggle?.addEventListener('change', syncToggles);
   deliverableToggle?.addEventListener('change', syncToggles);
   progressToggle?.addEventListener('change', syncToggles);
-  taskManagementInputs.forEach((input) => input.addEventListener('change', syncTaskManagementMode));
+  taskToggleBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode || 'existing';
+      if (taskModeHidden) taskModeHidden.value = mode;
+      syncTaskManagementMode();
+    });
+  });
   filterTasksByProject();
   syncToggles();
   syncTaskManagementMode();
@@ -468,19 +534,24 @@ foreach ($gridDays as $day) {
     btn.addEventListener('click', () => { lastSubmitMode = btn.dataset.submitMode || 'save'; });
   });
 
+  const isWeekend = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay();
+    return day === 0 || day === 6;
+  };
+
   const resetForAnother = () => {
     const keepDate = form.querySelector('[name="date"]')?.value || '';
     const keepProject = form.querySelector('[name="project_id"]')?.value || '';
     const keepTask = form.querySelector('[name="task_id"]')?.value || '0';
-    const keepTaskMode = form.querySelector('input[name="task_management_mode"]:checked')?.value || 'existing';
+    const keepTaskMode = taskModeHidden?.value || 'existing';
     form.reset();
     form.querySelector('[name="activity_id"]').value = '';
     form.querySelector('[name="date"]').value = keepDate;
     form.querySelector('[name="project_id"]').value = keepProject;
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = keepTask;
-    const modeInput = form.querySelector(`input[name="task_management_mode"][value="${keepTaskMode}"]`);
-    if (modeInput) modeInput.checked = true;
+    if (taskModeHidden) taskModeHidden.value = keepTaskMode;
     syncToggles();
     syncTaskManagementMode();
   };
@@ -491,16 +562,21 @@ foreach ($gridDays as $day) {
     form.querySelector('[name="project_id"]').value = String(data.project_id || '');
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = String(data.task_id || 0);
-    const modeInput = form.querySelector('input[name="task_management_mode"][value="existing"]');
-    if (modeInput) modeInput.checked = true;
+    if (taskModeHidden) taskModeHidden.value = 'existing';
     syncTaskManagementMode();
     form.querySelector('[name="hours"]').value = String(data.hours || '');
     form.querySelector('[name="activity_description"]').value = data.activity_description || '';
-    form.querySelector('[name="comment"]').value = data.comment || '';
+    const opComment = String(data.operational_comment || data.comment || '');
+    const opParts = opComment.split(' | ');
+    const mainComment = opParts[0] || '';
+    const deliverablePart = opParts.find((p) => p.startsWith('Entregable:'));
+    const deliverableNote = deliverablePart ? deliverablePart.replace(/^Entregable:\s*/, '').trim() : '';
+    form.querySelector('[name="comment"]').value = mainComment;
     form.querySelector('[name="activity_type"]').value = data.activity_type || '';
     form.querySelector('[name="had_blocker"]').checked = Boolean(Number(data.had_blocker || 0));
     form.querySelector('[name="blocker_description"]').value = data.blocker_description || '';
     form.querySelector('[name="generated_deliverable"]').checked = Boolean(Number(data.generated_deliverable || 0));
+    form.querySelector('[name="deliverable_note"]').value = deliverableNote;
     form.querySelector('[name="had_significant_progress"]').checked = Boolean(Number(data.had_significant_progress || 0));
     syncToggles();
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -510,6 +586,11 @@ foreach ($gridDays as $day) {
     event.preventDefault();
     if (weekLocked) {
       alert('Semana enviada – registros bloqueados.');
+      return;
+    }
+    const dateVal = form.querySelector('[name="date"]')?.value || '';
+    if (dateVal && isWeekend(dateVal)) {
+      alert('Registro no permitido en fines de semana.');
       return;
     }
     const formData = new FormData(form);
@@ -591,7 +672,7 @@ foreach ($gridDays as $day) {
     button.addEventListener('click', async () => {
       if (weekLocked) return;
       const activityId = Number(button.dataset.activityId || 0);
-      if (!confirm('¿Eliminar esta actividad?')) return;
+      if (!confirm('¿Eliminar actividad?')) return;
       try {
         await post('/timesheets/activities/delete', { activity_id: String(activityId) });
         window.location.href = `${basePath}/timesheets?week=${encodeURIComponent(weekValue)}`;
@@ -721,6 +802,7 @@ foreach ($gridDays as $day) {
   document.querySelectorAll('[data-drop-day]').forEach((dayCard) => {
     dayCard.addEventListener('dragover', (event) => {
       if (weekLocked) return;
+      if (dayCard.dataset.isWeekend === '1') return;
       event.preventDefault();
       dayCard.classList.add('is-drop-target');
     });
@@ -729,6 +811,10 @@ foreach ($gridDays as $day) {
       event.preventDefault();
       dayCard.classList.remove('is-drop-target');
       if (weekLocked) return;
+      if (dayCard.dataset.isWeekend === '1') {
+        alert('Registro no permitido en fines de semana.');
+        return;
+      }
       if (!draggingActivityId) return;
       const targetDate = dayCard.dataset.dropDay || '';
       try {

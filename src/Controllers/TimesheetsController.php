@@ -33,6 +33,7 @@ class TimesheetsController extends Controller
         $selectedWeekSummary = $repo->weekSummaryForUser($userId, $weekStart);
         $weekIndicators = $this->buildWeekIndicators($weeklyGrid);
 
+        $user = $this->auth->user() ?? [];
         $this->render('timesheets/index', [
             'title' => 'Timesheets · Registro',
             'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
@@ -52,6 +53,7 @@ class TimesheetsController extends Controller
             'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
+            'currentUserName' => trim((string) ($user['name'] ?? 'Usuario')),
         ]);
     }
 
@@ -322,6 +324,11 @@ class TimesheetsController extends Controller
             exit('Proyecto, fecha, horas y tipo de actividad son requeridos para registrar actividad.');
         }
 
+        if ($this->isWeekend($date)) {
+            http_response_code(400);
+            exit('Registro no permitido en fines de semana.');
+        }
+
         try {
             $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -373,6 +380,11 @@ class TimesheetsController extends Controller
             return;
         }
 
+        if ($this->isWeekend($date)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Registro no permitido en fines de semana.']);
+            return;
+        }
+
         try {
             $activityId = $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -413,6 +425,9 @@ class TimesheetsController extends Controller
         try {
             if ($metadata['activity_type'] === '') {
                 throw new \InvalidArgumentException('Debes seleccionar un tipo de actividad.');
+            }
+            if ($this->isWeekend($date)) {
+                throw new \InvalidArgumentException('Registro no permitido en fines de semana.');
             }
             $updated = $repo->updateDraftActivity($activityId, $userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -459,6 +474,11 @@ class TimesheetsController extends Controller
         $activityId = (int) ($_POST['activity_id'] ?? 0);
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
 
+        if ($targetDate !== '' && $this->isWeekend($targetDate)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Registro no permitido en fines de semana.']);
+            return;
+        }
+
         try {
             $newId = $repo->duplicateDraftActivity($activityId, $userId, $targetDate);
             $this->jsonResponse(200, ['ok' => true, 'id' => $newId]);
@@ -482,6 +502,11 @@ class TimesheetsController extends Controller
         $activityId = (int) ($_POST['activity_id'] ?? 0);
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
 
+        if ($targetDate !== '' && $this->isWeekend($targetDate)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Registro no permitido en fines de semana.']);
+            return;
+        }
+
         try {
             $moved = $repo->moveDraftActivity($activityId, $userId, $targetDate);
             $this->jsonResponse(200, ['ok' => $moved]);
@@ -504,6 +529,11 @@ class TimesheetsController extends Controller
         $userId = (int) (($this->auth->user() ?? [])['id'] ?? 0);
         $sourceDate = trim((string) ($_POST['source_date'] ?? ''));
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        if ($targetDate !== '' && $this->isWeekend($targetDate)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Registro no permitido en fines de semana.']);
+            return;
+        }
 
         try {
             $created = $repo->duplicateDayActivities($userId, $sourceDate, $targetDate);
@@ -696,6 +726,17 @@ class TimesheetsController extends Controller
             'top_project' => $topProject,
             'top_project_hours' => $topProjectHours,
         ];
+    }
+
+    private function isWeekend(string $date): bool
+    {
+        try {
+            $dt = new \DateTimeImmutable($date);
+            $dayOfWeek = (int) $dt->format('N');
+            return $dayOfWeek >= 6;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function parseWeekValue(string $weekValue): ?DateTimeImmutable

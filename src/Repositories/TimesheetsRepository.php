@@ -123,14 +123,16 @@ class TimesheetsRepository
         $talentId = $this->talentIdForUser($userId);
         $entries = [];
         if ($talentId !== null) {
-            $structuredSelect = $this->structuredTimesheetSelectColumns();
+            $structuredSelect = $this->structuredTimesheetSelectColumns('ts');
             $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+            $taskTitleSelect = $this->db->tableExists('tasks') ? ', tk.title AS task_title' : '';
+            $taskJoin = $this->db->tableExists('tasks') ? ' LEFT JOIN tasks tk ON tk.id = ts.task_id' : '';
             $entries = $this->db->fetchAll(
-                'SELECT id, project_id, task_id, date, hours, status, comment' . $structuredSegment . '
-                 FROM timesheets
-                 WHERE user_id = :user
-                   AND date BETWEEN :start AND :end
-                 ORDER BY date ASC, updated_at DESC, id DESC',
+                'SELECT ts.id, ts.project_id, ts.task_id, ts.date, ts.hours, ts.status, ts.comment' . $taskTitleSelect . $structuredSegment . '
+                 FROM timesheets ts' . $taskJoin . '
+                 WHERE ts.user_id = :user
+                   AND ts.date BETWEEN :start AND :end
+                 ORDER BY ts.date ASC, ts.updated_at DESC, ts.id DESC',
                 [
                     ':user' => $userId,
                     ':start' => $weekStart->format('Y-m-d'),
@@ -142,10 +144,13 @@ class TimesheetsRepository
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
+            $dayOfWeek = (int) $day->format('N'); // 1=Mon .. 7=Sun
+            $isWeekend = $dayOfWeek >= 6;
             $days[] = [
                 'key' => $day->format('Y-m-d'),
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
                 'number' => $day->format('d'),
+                'is_weekend' => $isWeekend,
             ];
         }
 
@@ -180,6 +185,7 @@ class TimesheetsRepository
             $activityItem = [
                 'id' => (int) ($entry['id'] ?? 0),
                 'task_id' => isset($entry['task_id']) ? (int) $entry['task_id'] : null,
+                'task_title' => trim((string) ($entry['task_title'] ?? '')),
                 'hours' => $entryHours,
                 'status' => $entryStatus,
                 'comment' => $entryComment,
