@@ -258,16 +258,33 @@ class TimesheetsRepository
         }
         unset($dayItems);
 
+        $dayStatuses = $this->computeDayStatusesFromActivities($activitiesByDay);
+
         return [
             'days' => $days,
             'rows' => $rows,
             'day_totals' => $dayTotals,
+            'day_statuses' => $dayStatuses,
             'week_total' => array_sum($dayTotals),
             'weekly_capacity' => $weeklyCapacity,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
         ];
+    }
+
+    private function computeDayStatusesFromActivities(array $activitiesByDay): array
+    {
+        $dayStatuses = [];
+        foreach ($activitiesByDay as $date => $items) {
+            $status = 'draft';
+            foreach ($items as $item) {
+                $entryStatus = (string) ($item['status'] ?? 'draft');
+                $status = $this->mergeTimesheetStatus($status, $entryStatus);
+            }
+            $dayStatuses[$date] = $status === 'pending' || $status === 'pending_approval' ? 'submitted' : $status;
+        }
+        return $dayStatuses;
     }
 
     public function upsertDraftCell(
@@ -885,6 +902,88 @@ class TimesheetsRepository
         }
 
         return $updated;
+    }
+
+    public function submitDay(int $userId, string $date): int
+    {
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :submitted,
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 rejected_by = NULL,
+                 rejected_at = NULL,
+                 updated_at = NOW()
+             WHERE user_id = :user
+               AND date = :date
+               AND status = :draft',
+            [
+                ':submitted' => 'submitted',
+                ':draft' => 'draft',
+                ':user' => $userId,
+                ':date' => $date,
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        $updated = (int) ($row['total'] ?? 0);
+        if ($updated > 0) {
+            $dateObj = new \DateTimeImmutable($date);
+            $weekStart = $dateObj->modify('monday this week');
+            $weekEnd = $weekStart->modify('+6 days');
+            $this->createWeeklyOperationalSummaries($userId, $weekStart, $weekEnd);
+        }
+
+        return $updated;
+    }
+
+    public function approveDay(int $approverUserId, string $date): int
+    {
+        $column = 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL';
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :status,
+                 approval_comment = NULL,
+                 ' . $column . ',
+                 updated_at = NOW()
+             WHERE approver_user_id = :approver_where
+               AND date = :date
+               AND status IN ("submitted", "pending", "pending_approval")',
+            [
+                ':status' => 'approved',
+                ':approver_set' => $approverUserId,
+                ':approver_where' => $approverUserId,
+                ':date' => $date,
+            ]
+        );
+
+        return (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
+    }
+
+    public function rejectDay(int $approverUserId, string $date, ?string $comment = null): int
+    {
+        $this->db->execute(
+            'UPDATE timesheets
+             SET status = :status,
+                 approval_comment = :comment,
+                 rejected_by = :approver_set,
+                 rejected_at = NOW(),
+                 approved_by = NULL,
+                 approved_at = NULL,
+                 updated_at = NOW()
+             WHERE approver_user_id = :approver_where
+               AND date = :date
+               AND status IN ("submitted", "pending", "pending_approval")',
+            [
+                ':status' => 'rejected',
+                ':comment' => $comment,
+                ':approver_set' => $approverUserId,
+                ':approver_where' => $approverUserId,
+                ':date' => $date,
+            ]
+        );
+
+        return (int) (($this->db->fetchOne('SELECT ROW_COUNT() AS total')['total'] ?? 0));
     }
 
     public function cancelWeekSubmission(int $userId, \DateTimeImmutable $weekStart): int

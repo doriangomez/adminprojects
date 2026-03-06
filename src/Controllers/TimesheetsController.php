@@ -210,6 +210,40 @@ class TimesheetsController extends Controller
         }
     }
 
+    public function submitDay(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            $this->jsonResponse(403, ['ok' => false, 'message' => 'Acceso denegado']);
+            return;
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+
+        if ($date === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fecha requerida.']);
+            return;
+        }
+
+        try {
+            $dateObj = new DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fecha inválida.']);
+            return;
+        }
+
+        $updated = $repo->submitDay($userId, $date);
+        $weekValue = $dateObj->modify('monday this week')->format('o-\\WW');
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        if (str_contains($accept, 'application/json') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+            $this->jsonResponse(200, ['ok' => true, 'message' => 'Registro enviado para aprobación.', 'updated' => $updated, 'redirect' => '/timesheets?week=' . urlencode($weekValue)]);
+            return;
+        }
+        header('Location: /timesheets?week=' . urlencode($weekValue));
+    }
+
     public function cancelWeekSubmission(): void
     {
         if (!$this->auth->canAccessTimesheets()) {
@@ -550,6 +584,52 @@ class TimesheetsController extends Controller
         }
     }
 
+    public function approveDay(): void
+    {
+        if (!$this->auth->canApproveTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+
+        if ($date === '') {
+            http_response_code(400);
+            exit('Fecha requerida.');
+        }
+
+        $repo->approveDay($userId, $date);
+        header('Location: /approvals');
+    }
+
+    public function rejectDay(): void
+    {
+        if (!$this->auth->canApproveTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+
+        if ($date === '') {
+            http_response_code(400);
+            exit('Fecha requerida.');
+        }
+        if ($comment === '') {
+            http_response_code(400);
+            exit('Debes indicar un comentario para rechazar el día.');
+        }
+
+        $repo->rejectDay($userId, $date, $comment);
+        header('Location: /approvals');
+    }
 
     public function adminAction(): void
     {

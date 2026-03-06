@@ -7,6 +7,7 @@ $weekValue = $weekValue ?? $weekStart->format('o-\\WW');
 $weeklyGrid = is_array($weeklyGrid ?? null) ? $weeklyGrid : [];
 $gridDays = is_array($weeklyGrid['days'] ?? null) ? $weeklyGrid['days'] : [];
 $dayTotals = is_array($weeklyGrid['day_totals'] ?? null) ? $weeklyGrid['day_totals'] : [];
+$dayStatuses = is_array($weeklyGrid['day_statuses'] ?? null) ? $weeklyGrid['day_statuses'] : [];
 $activitiesByDay = is_array($weeklyGrid['activities_by_day'] ?? null) ? $weeklyGrid['activities_by_day'] : [];
 $projectsForTimesheet = is_array($projectsForTimesheet ?? null) ? $projectsForTimesheet : [];
 $tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet : [];
@@ -25,7 +26,14 @@ $statusMeta = [
     'rejected' => ['label' => 'Rechazada', 'class' => 'rejected'],
 ];
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
-$weekLocked = in_array($weekStatus, ['submitted', 'approved'], true);
+$hasDraftDays = false;
+foreach ($dayStatuses as $ds) {
+    if ($ds === 'draft') {
+        $hasDraftDays = true;
+        break;
+    }
+}
+$weekLocked = false;
 $activityTypeMeta = [
     'desarrollo' => ['label' => 'Desarrollo', 'class' => 'type-dev'],
     'development' => ['label' => 'Desarrollo', 'class' => 'type-dev'],
@@ -101,7 +109,7 @@ foreach ($gridDays as $day) {
                 <button type="button" class="btn" id="duplicate-day-trigger" <?= $weekLocked ? 'disabled' : '' ?>>Duplicar día</button>
                 <form method="POST" action="<?= $basePath ?>/timesheets/submit-week">
                     <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
-                    <button type="submit" class="btn success" <?= $weekLocked ? 'disabled' : '' ?>>Enviar semana</button>
+                    <button type="submit" class="btn success" <?= !$hasDraftDays ? 'disabled' : '' ?> title="<?= $hasDraftDays ? 'Envía solo los días en borrador' : 'No hay días en borrador para enviar' ?>">Enviar semana</button>
                 </form>
                 <?php if (in_array($weekStatus, ['submitted', 'partial'], true)): ?>
                     <form method="POST" action="<?= $basePath ?>/timesheets/cancel-week">
@@ -122,8 +130,8 @@ foreach ($gridDays as $day) {
             <span class="section-muted">Estado semana:</span>
             <span class="pill status <?= htmlspecialchars($status['class']) ?>"> <?= htmlspecialchars(strtoupper($status['label'])) ?> </span>
         </section>
-        <?php if ($weekLocked): ?>
-            <section class="card week-locked-banner">Semana enviada – registros bloqueados.</section>
+        <?php if ($hasDraftDays && in_array($weekStatus, ['submitted', 'partial'], true)): ?>
+            <section class="card week-locked-banner">Días enviados o aprobados no son editables. Puedes seguir registrando en días en borrador.</section>
         <?php endif; ?>
 
         <section class="indicators-grid">
@@ -165,27 +173,39 @@ foreach ($gridDays as $day) {
                         $isBlockedDay = !$isWorkingDay;
                         $isHoliday = $dayType === 'holiday';
                         $daySpecialName = trim((string) ($day['day_name'] ?? ''));
+                        $dayStatus = (string) ($dayStatuses[$dayDate] ?? 'draft');
+                        $dayStatusInfo = $statusMeta[$dayStatus] ?? $statusMeta['draft'];
+                        $dayLocked = in_array($dayStatus, ['submitted', 'approved', 'rejected'], true);
+                        $canSendDay = $isWorkingDay && !$isHoliday && $dayStatus === 'draft' && count($items) > 0;
                         ?>
-                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $isBlockedDay ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedDay ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>">
+                        <article class="day-card day-status-<?= htmlspecialchars($dayStatus) ?><?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $isBlockedDay ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedDay ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>" data-day-locked="<?= $dayLocked ? '1' : '0' ?>">
                             <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
                                 <?php if ($dayType === 'holiday'): ?>
                                     <span class="day-state">🎉 Festivo</span>
                                 <?php elseif ($isBlockedDay): ?>
                                     <span class="day-state">No laboral</span>
+                                <?php else: ?>
+                                    <span class="day-state pill status <?= htmlspecialchars($dayStatusInfo['class']) ?>"><?= htmlspecialchars(strtoupper($dayStatusInfo['label'])) ?></span>
                                 <?php endif; ?>
                             </header>
                             <?php if ($daySpecialName !== ''): ?>
                                 <div class="day-special-name"><?= htmlspecialchars($daySpecialName) ?></div>
                             <?php endif; ?>
                             <div class="day-total">Total: <strong><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</strong></div>
-                            <?php if (!$weekLocked && !$isBlockedDay): ?>
+                            <?php if ($canSendDay): ?>
+                                <form method="POST" action="<?= $basePath ?>/timesheets/submit-day" class="day-send-form">
+                                    <input type="hidden" name="date" value="<?= htmlspecialchars($dayDate) ?>">
+                                    <button type="submit" class="btn-xs btn-send-day">Enviar día</button>
+                                </form>
+                            <?php endif; ?>
+                            <?php if (!$dayLocked && !$isBlockedDay): ?>
                                 <div class="day-drop-hint">Arrastra una actividad y sueltala aqui</div>
                             <?php endif; ?>
                             <?php if ($items === []): ?>
                                 <div class="day-empty-state">
                                     <small>No hay actividades para este dia.</small>
-                                    <?php if (!$weekLocked && !$isBlockedDay): ?>
+                                    <?php if (!$dayLocked && !$isBlockedDay): ?>
                                         <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
                                     <?php elseif ($isHoliday): ?>
                                         <small>Este dia es festivo. Registro bloqueado.</small>
@@ -211,10 +231,10 @@ foreach ($gridDays as $day) {
                                             . "\nTipo: " . $typeMeta['label']
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
-                                        <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $weekLocked ? ' is-locked' : ' is-draggable' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
+                                        <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $dayLocked ? ' is-locked' : ' is-draggable' ?>" <?= $dayLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
                                             <div class="chip-main">
                                                 <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
-                                                <?php if (!$weekLocked): ?>
+                                                <?php if (!$dayLocked): ?>
                                                     <span class="chip-drag-hint" aria-hidden="true">⋮⋮ Arrastrar</span>
                                                 <?php endif; ?>
                                                 <strong><?= htmlspecialchars($itemDesc) ?></strong>
@@ -226,7 +246,7 @@ foreach ($gridDays as $day) {
                                                 <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
                                                 <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
                                             </div>
-                                            <?php if (!$weekLocked): ?>
+                                            <?php if (!$dayLocked): ?>
                                                 <div class="chip-actions">
                                                     <button type="button" class="chip-action edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏ Editar</button>
                                                     <button type="button" class="chip-action duplicate-activity" data-activity-id="<?= $itemId ?>">⧉ Duplicar</button>
@@ -427,6 +447,13 @@ foreach ($gridDays as $day) {
 .day-card.holiday-day{background:#ffe5e5;border-color:#f2b8b8}
 .day-card.non-working-day{background:#f8fafc;border-color:#cbd5e1}
 .day-card.non-working{border-style:dashed;cursor:not-allowed}
+.day-card.day-status-draft{border-left:4px solid #6b7280;background:#f9fafb}
+.day-card.day-status-submitted{border-left:4px solid #2563eb;background:#eff6ff}
+.day-card.day-status-approved{border-left:4px solid #16a34a;background:#f0fdf4}
+.day-card.day-status-rejected{border-left:4px solid #dc2626;background:#fef2f2}
+.day-send-form{margin:6px 0 8px}
+.btn-send-day{font-size:12px;padding:4px 10px;background:#2563eb;color:#fff;border:1px solid #1d4ed8;border-radius:8px;cursor:pointer}
+.btn-send-day:hover{background:#1d4ed8}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
 .day-special-name{font-size:12px;color:#991b1b;font-weight:600;margin:2px 0 6px}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
@@ -512,16 +539,18 @@ foreach ($gridDays as $day) {
   };
 
   const dayMeta = (dateStr) => {
-    if (!dateStr) return { blocked: false, type: '', name: '' };
+    if (!dateStr) return { blocked: false, locked: false, type: '', name: '' };
     const card = document.querySelector(`[data-drop-day="${dateStr}"]`);
     return {
       blocked: card?.dataset.nonWorking === '1',
+      locked: card?.dataset.dayLocked === '1',
       type: card?.dataset.dayType || '',
       name: card?.dataset.dayName || '',
     };
   };
 
-  const blockedDayMessage = (type, name = '') => {
+  const blockedDayMessage = (type, name = '', locked = false) => {
+    if (locked) return 'Este día está enviado o aprobado. No se puede editar.';
     if (type === 'holiday') {
       return name
         ? `Este día es festivo (${name}). No se pueden registrar horas.`
@@ -621,7 +650,10 @@ foreach ($gridDays as $day) {
   form?.querySelector('[name="date"]')?.addEventListener('change', (event) => {
     const value = String(event.target?.value || '');
     const meta = dayMeta(value);
-    if (meta.blocked) {
+    if (meta.locked) {
+      alert(blockedDayMessage(meta.type, meta.name, true));
+      event.target.value = '';
+    } else if (meta.blocked) {
       alert(blockedDayMessage(meta.type, meta.name));
       event.target.value = '';
     }
@@ -672,13 +704,13 @@ foreach ($gridDays as $day) {
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (weekLocked) {
-      alert('Semana enviada – registros bloqueados.');
-      return;
-    }
     const formData = new FormData(form);
     const raw = Object.fromEntries(formData.entries());
     const selectedMeta = dayMeta(String(raw.date || ''));
+    if (selectedMeta.locked) {
+      alert(blockedDayMessage(selectedMeta.type, selectedMeta.name, true));
+      return;
+    }
     if (selectedMeta.blocked) {
       alert(blockedDayMessage(selectedMeta.type, selectedMeta.name));
       return;
@@ -699,6 +731,10 @@ foreach ($gridDays as $day) {
       if (lastSubmitMode === 'save_duplicate' && finalActivityId > 0) {
         const targetDate = nextDate(String(raw.date || ''));
         const duplicateMeta = dayMeta(targetDate);
+        if (duplicateMeta.locked) {
+          alert(blockedDayMessage(duplicateMeta.type, duplicateMeta.name, true));
+          return;
+        }
         if (duplicateMeta.blocked) {
           alert(blockedDayMessage(duplicateMeta.type, duplicateMeta.name));
           return;
@@ -722,7 +758,9 @@ foreach ($gridDays as $day) {
 
   document.querySelectorAll('.edit-activity').forEach((button) => {
     button.addEventListener('click', () => {
-      if (weekLocked) return;
+      const chip = button.closest('.activity-chip');
+      const dayCard = chip?.closest('[data-drop-day]');
+      if (dayCard?.dataset.dayLocked === '1') return;
       try {
         const payload = JSON.parse(button.dataset.payload || '{}');
         fillForm(payload);
@@ -734,11 +772,16 @@ foreach ($gridDays as $day) {
 
   document.querySelectorAll('.duplicate-activity').forEach((button) => {
     button.addEventListener('click', async () => {
-      if (weekLocked) return;
+      const dayCard = button.closest('[data-drop-day]');
+      if (dayCard?.dataset.dayLocked === '1') return;
       const activityId = Number(button.dataset.activityId || 0);
       const target = prompt('Fecha destino (YYYY-MM-DD):');
       if (!target) return;
       const duplicateMeta = dayMeta(target);
+      if (duplicateMeta.locked) {
+        alert(blockedDayMessage(duplicateMeta.type, duplicateMeta.name, true));
+        return;
+      }
       if (duplicateMeta.blocked) {
         alert(blockedDayMessage(duplicateMeta.type, duplicateMeta.name));
         return;
@@ -754,11 +797,16 @@ foreach ($gridDays as $day) {
 
   document.querySelectorAll('.move-activity').forEach((button) => {
     button.addEventListener('click', async () => {
-      if (weekLocked) return;
+      const dayCard = button.closest('[data-drop-day]');
+      if (dayCard?.dataset.dayLocked === '1') return;
       const activityId = Number(button.dataset.activityId || 0);
       const target = prompt('Fecha destino (YYYY-MM-DD):');
       if (!target) return;
       const moveMeta = dayMeta(target);
+      if (moveMeta.locked) {
+        alert(blockedDayMessage(moveMeta.type, moveMeta.name, true));
+        return;
+      }
       if (moveMeta.blocked) {
         alert(blockedDayMessage(moveMeta.type, moveMeta.name));
         return;
@@ -774,7 +822,8 @@ foreach ($gridDays as $day) {
 
   document.querySelectorAll('.delete-activity').forEach((button) => {
     button.addEventListener('click', async () => {
-      if (weekLocked) return;
+      const dayCard = button.closest('[data-drop-day]');
+      if (dayCard?.dataset.dayLocked === '1') return;
       const activityId = Number(button.dataset.activityId || 0);
       if (!confirm('¿Eliminar actividad?')) return;
       try {
@@ -792,12 +841,20 @@ foreach ($gridDays as $day) {
   };
 
   document.getElementById('duplicate-day-trigger')?.addEventListener('click', async () => {
-    if (weekLocked) return;
     const source = getDateByLabel('Selecciona día origen');
     if (!source) return;
     const target = getDateByLabel('Selecciona día destino');
     if (!target) return;
+    const sourceMeta = dayMeta(source);
     const duplicateDayMeta = dayMeta(target);
+    if (sourceMeta.locked) {
+      alert(blockedDayMessage(sourceMeta.type, sourceMeta.name, true));
+      return;
+    }
+    if (duplicateDayMeta.locked) {
+      alert(blockedDayMessage(duplicateDayMeta.type, duplicateDayMeta.name, true));
+      return;
+    }
     if (duplicateDayMeta.blocked) {
       alert(blockedDayMessage(duplicateDayMeta.type, duplicateDayMeta.name));
       return;
@@ -811,13 +868,20 @@ foreach ($gridDays as $day) {
   });
 
   document.getElementById('focus-quick-add')?.addEventListener('click', () => {
-    if (weekLocked) return;
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   document.querySelectorAll('.register-activity-btn').forEach((button) => {
     button.addEventListener('click', () => {
-      if (weekLocked || !form) return;
+      if (!form) return;
+      const targetDate = button.dataset.prefillDate || '';
+      if (targetDate) {
+        const meta = dayMeta(targetDate);
+        if (meta.locked) {
+          alert(blockedDayMessage(meta.type, meta.name, true));
+          return;
+        }
+      }
       const targetDate = button.dataset.prefillDate || '';
       if (targetDate) {
         const dateInput = form.querySelector('[name="date"]');
@@ -895,7 +959,6 @@ foreach ($gridDays as $day) {
   };
 
   document.getElementById('save-template')?.addEventListener('click', () => {
-    if (weekLocked) return;
     const projectId = Number(form.querySelector('[name="project_id"]').value || 0);
     const projectLabel = projectInput?.selectedOptions?.[0]?.textContent || 'Proyecto';
     const template = {
@@ -917,7 +980,8 @@ foreach ($gridDays as $day) {
   let draggingActivityId = null;
   document.querySelectorAll('.activity-chip').forEach((chip) => {
     chip.addEventListener('dragstart', () => {
-      if (weekLocked) return;
+      const dayCard = chip.closest('[data-drop-day]');
+      if (dayCard?.dataset.dayLocked === '1') return;
       draggingActivityId = Number(chip.dataset.activityId || 0);
       chip.classList.add('dragging');
     });
@@ -929,7 +993,7 @@ foreach ($gridDays as $day) {
 
   document.querySelectorAll('[data-drop-day]').forEach((dayCard) => {
     dayCard.addEventListener('dragover', (event) => {
-      if (weekLocked) return;
+      if (dayCard.dataset.dayLocked === '1') return;
       if (dayCard.dataset.nonWorking === '1') return;
       event.preventDefault();
       dayCard.classList.add('is-drop-target');
@@ -938,7 +1002,10 @@ foreach ($gridDays as $day) {
     dayCard.addEventListener('drop', async (event) => {
       event.preventDefault();
       dayCard.classList.remove('is-drop-target');
-      if (weekLocked) return;
+      if (dayCard.dataset.dayLocked === '1') {
+        alert(blockedDayMessage(dayCard.dataset.dayType || '', dayCard.dataset.dayName || '', true));
+        return;
+      }
       if (dayCard.dataset.nonWorking === '1') {
         alert(blockedDayMessage(dayCard.dataset.dayType || '', dayCard.dataset.dayName || ''));
         return;

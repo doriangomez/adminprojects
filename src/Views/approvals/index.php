@@ -222,8 +222,36 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                     </form>
                                 </div>
 
+                                <?php
+                                $rowsByDate = [];
+                                foreach (($week['rows'] ?? []) as $row) {
+                                    $d = (string) ($row['date'] ?? '');
+                                    if ($d !== '') {
+                                        $rowsByDate[$d] = ($rowsByDate[$d] ?? 0) + (float) ($row['hours'] ?? 0);
+                                    }
+                                }
+                                ksort($rowsByDate);
+                                ?>
+                                <div class="timesheet-days-breakdown" style="margin-top:12px;padding:0 18px 12px;border-top:1px solid var(--border, #e5e7eb);">
+                                    <span class="meta-label">Aprobar por día</span>
+                                    <?php foreach ($rowsByDate as $dayDate => $dayHours): ?>
+                                        <div class="day-approval-row" style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                                            <span><?= htmlspecialchars($dayDate) ?> · <?= htmlspecialchars((string) round($dayHours, 2)) ?>h</span>
+                                            <form method="POST" action="<?= $basePath ?>/timesheets/approve-day" class="inline-form" style="margin:0;">
+                                                <input type="hidden" name="date" value="<?= htmlspecialchars($dayDate) ?>">
+                                                <button type="submit" class="action-btn small primary">Aprobar día</button>
+                                            </form>
+                                            <form method="POST" action="<?= $basePath ?>/timesheets/reject-day" class="inline-form" style="margin:0;">
+                                                <input type="hidden" name="date" value="<?= htmlspecialchars($dayDate) ?>">
+                                                <input type="text" name="comment" placeholder="Motivo rechazo" required style="min-width:120px;">
+                                                <button type="submit" class="action-btn small danger">Rechazar día</button>
+                                            </form>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="meta-label" style="padding:0 18px 6px;">Detalle de registros</div>
                                 <?php foreach (($week['rows'] ?? []) as $row): ?>
-                                    <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['hours'] ?? 0)) ?>h</div>
+                                    <div class="meta-line" style="padding:0 18px 10px;">• <?= htmlspecialchars((string) ($row['date'] ?? '')) ?> · <?= htmlspecialchars((string) ($row['project'] ?? '')) ?> · <?= htmlspecialchars((string) round((float) ($row['hours'] ?? 0), 2)) ?>h</div>
                                 <?php endforeach; ?>
                             </article>
                         <?php endforeach; ?>
