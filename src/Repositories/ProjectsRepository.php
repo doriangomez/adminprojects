@@ -559,11 +559,22 @@ class ProjectsRepository
             $tasks = (int) ($this->db->fetchOne('SELECT COUNT(*) AS total FROM tasks WHERE project_id = :id', [':id' => $projectId])['total'] ?? 0);
         }
 
-        if ($this->db->tableExists('timesheets') && $this->db->tableExists('tasks')) {
-            $timesheets = (int) ($this->db->fetchOne(
-                'SELECT COUNT(*) AS total FROM timesheets t JOIN tasks tk ON tk.id = t.task_id WHERE tk.project_id = :id',
-                [':id' => $projectId]
-            )['total'] ?? 0);
+        if ($this->db->tableExists('timesheets')) {
+            $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+            $canResolveFromTasks = $this->db->tableExists('tasks')
+                && $this->db->columnExists('timesheets', 'task_id')
+                && $this->db->columnExists('tasks', 'project_id');
+            if ($usesProjectColumn) {
+                $timesheets = (int) ($this->db->fetchOne(
+                    'SELECT COUNT(*) AS total FROM timesheets ts WHERE ts.project_id = :id',
+                    [':id' => $projectId]
+                )['total'] ?? 0);
+            } elseif ($canResolveFromTasks) {
+                $timesheets = (int) ($this->db->fetchOne(
+                    'SELECT COUNT(*) AS total FROM timesheets ts JOIN tasks tk ON tk.id = ts.task_id WHERE tk.project_id = :id',
+                    [':id' => $projectId]
+                )['total'] ?? 0);
+            }
         }
 
         if ($this->db->tableExists('project_talent_assignments')) {
@@ -610,15 +621,25 @@ class ProjectsRepository
 
     public function timesheetHoursForProject(int $projectId): ?float
     {
-        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('tasks')) {
+        if (!$this->db->tableExists('timesheets')) {
             return null;
         }
 
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return null;
+        }
+
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project_id' : 't.project_id = :project_id';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
         $row = $this->db->fetchOne(
             'SELECT SUM(ts.hours) AS total
              FROM timesheets ts
-             JOIN tasks t ON t.id = ts.task_id
-             WHERE t.project_id = :project_id
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter . '
              AND ts.status = \'approved\'',
             [':project_id' => $projectId]
         );

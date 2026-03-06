@@ -1903,11 +1903,25 @@ class ProjectsController extends Controller
             : [];
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
-        $pmoAutomation = new PmoAutomationService($this->db);
-        $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
-        $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
-        $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
-        $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        $pmoSnapshot = [];
+        $pmoAlerts = [];
+        $pmoHoursTrend = [];
+        $pmoActiveBlockers = [];
+        $detailWarnings = [];
+        try {
+            $pmoAutomation = new PmoAutomationService($this->db);
+            $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
+            $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
+            $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
+            $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.detail.pmo] Error al cargar PMO automático para proyecto %d: %s',
+                $id,
+                $e->getMessage()
+            ));
+            $detailWarnings[] = 'No se pudo cargar la automatización PMO en este momento.';
+        }
 
         return array_merge([
             'title' => 'Detalle de proyecto',
@@ -1956,6 +1970,7 @@ class ProjectsController extends Controller
             'pmoAlerts' => $pmoAlerts,
             'pmoHoursTrend' => $pmoHoursTrend,
             'pmoActiveBlockers' => $pmoActiveBlockers,
+            'detailWarnings' => $detailWarnings,
         ], $deleteContext);
     }
 

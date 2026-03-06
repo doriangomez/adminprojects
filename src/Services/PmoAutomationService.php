@@ -134,7 +134,10 @@ class PmoAutomationService
         }
 
         $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
-        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        $canResolveFromTasks = !$usesProjectColumn
+            && $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
         if (!$usesProjectColumn && !$canResolveFromTasks) {
             return [];
         }
@@ -251,7 +254,10 @@ class PmoAutomationService
         }
 
         $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
-        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        $canResolveFromTasks = !$usesProjectColumn
+            && $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
         if (!$usesProjectColumn && !$canResolveFromTasks) {
             return 0.0;
         }
@@ -336,7 +342,10 @@ class PmoAutomationService
         }
 
         $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
-        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        $canResolveFromTasks = !$usesProjectColumn
+            && $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
         if (!$usesProjectColumn && !$canResolveFromTasks) {
             return 0;
         }
@@ -366,7 +375,10 @@ class PmoAutomationService
         }
 
         $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
-        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        $canResolveFromTasks = !$usesProjectColumn
+            && $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
         if (!$usesProjectColumn && !$canResolveFromTasks) {
             return 999;
         }
