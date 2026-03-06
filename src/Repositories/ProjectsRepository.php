@@ -38,6 +38,7 @@ class ProjectsRepository
         $hasBillableColumn = $this->db->columnExists('projects', 'is_billable');
         $hasAuditLogTable = $this->db->tableExists('audit_log');
         $hasProjectStoppersTable = $this->db->tableExists('project_stoppers');
+        $hasProjectPmoSnapshots = $this->db->tableExists('project_pmo_snapshots');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -106,6 +107,9 @@ class ProjectsRepository
             $hasProjectStoppersTable ? 'COALESCE(pstop.total_count, 0) AS blockers_count' : '0 AS blockers_count',
             $hasProjectStoppersTable ? 'COALESCE(pstop.critical_count, 0) AS blocker_critical_count' : '0 AS blocker_critical_count',
             $hasProjectStoppersTable ? 'COALESCE(pstop.high_count, 0) AS blocker_high_count' : '0 AS blocker_high_count',
+            $hasProjectPmoSnapshots ? 'ppmo.progress_hours AS progress_hours_auto' : 'NULL AS progress_hours_auto',
+            $hasProjectPmoSnapshots ? 'ppmo.progress_tasks AS progress_tasks_auto' : 'NULL AS progress_tasks_auto',
+            $hasProjectPmoSnapshots ? 'ppmo.risk_score AS pmo_risk_score' : 'NULL AS pmo_risk_score',
         ];
 
         $joins = [
@@ -132,6 +136,18 @@ class ProjectsRepository
                 WHERE status <> 'cerrado'
                 GROUP BY project_id
             ) pstop ON pstop.project_id = p.id";
+        }
+
+        if ($hasProjectPmoSnapshots) {
+            $joins[] = "LEFT JOIN (
+                SELECT ps.project_id, ps.progress_hours, ps.progress_tasks, ps.risk_score
+                FROM project_pmo_snapshots ps
+                JOIN (
+                    SELECT project_id, MAX(snapshot_date) AS latest_date
+                    FROM project_pmo_snapshots
+                    GROUP BY project_id
+                ) latest ON latest.project_id = ps.project_id AND latest.latest_date = ps.snapshot_date
+            ) ppmo ON ppmo.project_id = p.id";
         }
 
         if ($hasRiskScoreColumn) {

@@ -38,6 +38,32 @@ php -S 0.0.0.0:8000 -t public
 
 Luego visita `http://localhost:8000`. El login usa las cuentas semilla definidas en `data/schema.sql` (por ejemplo `admin@example.com` / `password`).
 
+## Motor PMO automático (diario)
+El motor PMO calcula y persiste snapshots/alertas por proyecto (avance por horas, avance por tareas, riesgo por bloqueos, inactividad y vencimientos).
+
+Ejecución manual:
+
+```bash
+php pmo_engine.php
+```
+
+Pulse opcional para bloqueos críticos:
+
+```bash
+php pmo_engine.php --critical-only
+```
+
+Programación sugerida (cron):
+
+```bash
+# Diario 7:00 a. m. hora Colombia
+TZ=America/Bogota
+0 7 * * * /usr/bin/php /ruta/al/repo/pmo_engine.php
+
+# Opcional: cada 4 horas para bloqueos críticos
+0 */4 * * * /usr/bin/php /ruta/al/repo/pmo_engine.php --critical-only
+```
+
 ## Estructura relevante
 - `public/index.php`: front controller y router.
 - `src/Core`: núcleo (App, Router, Controller base, Auth, Database).

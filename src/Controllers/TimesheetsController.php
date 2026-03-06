@@ -304,8 +304,10 @@ class TimesheetsController extends Controller
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
             'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? 'existing')),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
-            'subphase_name' => trim((string) ($_POST['subphase_name'] ?? '')),
+            'new_task_title' => trim((string) ($_POST['new_task_title'] ?? '')),
+            'new_task_priority' => trim((string) ($_POST['new_task_priority'] ?? '')),
+            'new_task_due_date' => trim((string) ($_POST['new_task_due_date'] ?? '')),
+            'new_task_status' => trim((string) ($_POST['new_task_status'] ?? 'pending')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -315,9 +317,9 @@ class TimesheetsController extends Controller
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
         ];
 
-        if ($projectId <= 0 || $date === '' || $hours <= 0) {
+        if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_type'] === '') {
             http_response_code(400);
-            exit('Proyecto, fecha y horas son requeridos para registrar actividad.');
+            exit('Proyecto, fecha, horas y tipo de actividad son requeridos para registrar actividad.');
         }
 
         try {
@@ -353,7 +355,10 @@ class TimesheetsController extends Controller
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
             'task_management_mode' => trim((string) ($_POST['task_management_mode'] ?? 'existing')),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
+            'new_task_title' => trim((string) ($_POST['new_task_title'] ?? '')),
+            'new_task_priority' => trim((string) ($_POST['new_task_priority'] ?? '')),
+            'new_task_due_date' => trim((string) ($_POST['new_task_due_date'] ?? '')),
+            'new_task_status' => trim((string) ($_POST['new_task_status'] ?? 'pending')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -363,8 +368,8 @@ class TimesheetsController extends Controller
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
         ];
 
-        if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '') {
-            $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción y comentario son obligatorios.']);
+        if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '' || $metadata['activity_type'] === '') {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción, tipo de actividad y comentario son obligatorios.']);
             return;
         }
 
@@ -396,7 +401,6 @@ class TimesheetsController extends Controller
         $comment = trim((string) ($_POST['comment'] ?? ''));
         $metadata = [
             'task_id' => (int) ($_POST['task_id'] ?? 0),
-            'phase_name' => trim((string) ($_POST['phase_name'] ?? '')),
             'activity_type' => trim((string) ($_POST['activity_type'] ?? '')),
             'activity_description' => trim((string) ($_POST['activity_description'] ?? '')),
             'had_blocker' => filter_var($_POST['had_blocker'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -407,6 +411,9 @@ class TimesheetsController extends Controller
         ];
 
         try {
+            if ($metadata['activity_type'] === '') {
+                throw new \InvalidArgumentException('Debes seleccionar un tipo de actividad.');
+            }
             $updated = $repo->updateDraftActivity($activityId, $userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
             $this->jsonResponse(200, ['ok' => $updated]);
