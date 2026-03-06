@@ -240,6 +240,12 @@ class ConfigService
                 ],
             ],
         ],
+        'work_calendar' => [
+            'working_days' => [1, 2, 3, 4, 5],
+            'hours_per_day' => 8,
+            'allow_admin_on_holidays' => true,
+            'allow_admin_on_weekends' => true,
+        ],
         'notifications' => [
             'enabled' => false,
             'channels' => [
@@ -349,6 +355,12 @@ class ConfigService
             'notifications' => $this->mergeNotifications(
                 $stored['notifications'] ?? []
             ),
+            'work_calendar' => [
+                'working_days' => $stored['work_calendar']['working_days'] ?? $this->defaults['work_calendar']['working_days'],
+                'hours_per_day' => (int) ($stored['work_calendar']['hours_per_day'] ?? $this->defaults['work_calendar']['hours_per_day']),
+                'allow_admin_on_holidays' => (bool) ($stored['work_calendar']['allow_admin_on_holidays'] ?? $this->defaults['work_calendar']['allow_admin_on_holidays']),
+                'allow_admin_on_weekends' => (bool) ($stored['work_calendar']['allow_admin_on_weekends'] ?? $this->defaults['work_calendar']['allow_admin_on_weekends']),
+            ],
         ];
     }
 
@@ -437,6 +449,12 @@ class ConfigService
                     $payload['notifications'] ?? []
                 )
             ),
+            'work_calendar' => [
+                'working_days' => $payload['work_calendar']['working_days'] ?? ($current['work_calendar']['working_days'] ?? $this->defaults['work_calendar']['working_days']),
+                'hours_per_day' => (int) ($payload['work_calendar']['hours_per_day'] ?? ($current['work_calendar']['hours_per_day'] ?? $this->defaults['work_calendar']['hours_per_day'])),
+                'allow_admin_on_holidays' => array_key_exists('allow_admin_on_holidays', $payload['work_calendar'] ?? []) ? (bool) $payload['work_calendar']['allow_admin_on_holidays'] : (bool) ($current['work_calendar']['allow_admin_on_holidays'] ?? $this->defaults['work_calendar']['allow_admin_on_holidays']),
+                'allow_admin_on_weekends' => array_key_exists('allow_admin_on_weekends', $payload['work_calendar'] ?? []) ? (bool) $payload['work_calendar']['allow_admin_on_weekends'] : (bool) ($current['work_calendar']['allow_admin_on_weekends'] ?? $this->defaults['work_calendar']['allow_admin_on_weekends']),
+            ],
         ];
 
         $this->writeConfigStorage($updated);

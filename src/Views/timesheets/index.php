@@ -17,6 +17,7 @@ $selectedWeekSummary = is_array($selectedWeekSummary ?? null) ? $selectedWeekSum
 $weekIndicators = is_array($weekIndicators ?? null) ? $weekIndicators : [];
 $weekStatus = (string) ($selectedWeekSummary['status'] ?? 'draft');
 $canRegisterWeekend = !empty($canRegisterWeekend);
+$canRegisterHoliday = !empty($canRegisterHoliday ?? false);
 $currentUserName = trim((string) ($currentUserName ?? 'Usuario')) ?: 'Usuario';
 $statusMeta = [
     'draft' => ['label' => 'Borrador', 'class' => 'draft'],
@@ -162,26 +163,44 @@ foreach ($gridDays as $day) {
                         $weekDayShort = $weekDayShortNames[$dayWeekNumber] ?? (string) ($day['label'] ?? '');
                         $dayLabel = trim($weekDayShort . ' ' . $dayNumber . ' ' . $monthShort);
                         $isWeekend = $dayWeekNumber >= 6;
-                        $isBlockedWeekend = $isWeekend && !$canRegisterWeekend;
+                        $isWorkingDay = (bool) ($day['is_working_day'] ?? !$isWeekend);
+                        $isHoliday = (bool) ($day['is_holiday'] ?? false);
+                        $holidayName = (string) ($day['holiday_name'] ?? '');
+                        $isBlockedDay = !$isWorkingDay && !$canRegisterWeekend;
+                        $isBlocked = $isBlockedDay || ($isHoliday && !$canRegisterHoliday);
+                        $dayClasses = 'day-card';
+                        if (!$isWorkingDay) $dayClasses .= ' weekend-day';
+                        if ($isHoliday) $dayClasses .= ' holiday-day';
+                        if ($isBlocked) $dayClasses .= ' non-working';
                         ?>
-                        <article class="day-card<?= $isWeekend ? ' weekend-day' : '' ?><?= $isBlockedWeekend ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedWeekend ? '1' : '0' ?>">
+                        <article class="<?= $dayClasses ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlocked ? '1' : '0' ?>"<?= $isHoliday ? ' data-holiday="1" data-holiday-name="' . htmlspecialchars($holidayName, ENT_QUOTES) . '"' : '' ?>>
                             <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
-                                <?php if ($isWeekend): ?>
+                                <?php if ($isHoliday): ?>
+                                    <span class="day-state holiday-state">🎉 Festivo</span>
+                                <?php elseif (!$isWorkingDay): ?>
                                     <span class="day-state">No laboral</span>
                                 <?php endif; ?>
                             </header>
+                            <?php if ($isHoliday && $holidayName !== ''): ?>
+                                <div class="holiday-label">
+                                    <span class="holiday-label-icon">🎉</span>
+                                    <span class="holiday-label-name"><?= htmlspecialchars($holidayName) ?></span>
+                                </div>
+                            <?php endif; ?>
                             <div class="day-total">Total: <strong><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</strong></div>
-                            <?php if (!$weekLocked && !$isBlockedWeekend): ?>
+                            <?php if (!$weekLocked && !$isBlocked): ?>
                                 <div class="day-drop-hint">Arrastra una actividad y sueltala aqui</div>
                             <?php endif; ?>
                             <?php if ($items === []): ?>
                                 <div class="day-empty-state">
                                     <small>No hay actividades para este dia.</small>
-                                    <?php if (!$weekLocked && !$isBlockedWeekend): ?>
+                                    <?php if (!$weekLocked && !$isBlocked): ?>
                                         <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
-                                    <?php elseif ($isBlockedWeekend): ?>
-                                        <small>Registro no habilitado para fin de semana.</small>
+                                    <?php elseif ($isHoliday): ?>
+                                        <small class="holiday-block-msg">Día festivo: <?= htmlspecialchars($holidayName) ?>.</small>
+                                    <?php elseif ($isBlockedDay): ?>
+                                        <small>Registro no habilitado para día no laboral.</small>
                                     <?php endif; ?>
                                 </div>
                             <?php else: ?>
@@ -416,8 +435,14 @@ foreach ($gridDays as $day) {
 .day-total{font-size:12px;color:var(--text-secondary);margin:4px 0 8px}
 .day-drop-hint{font-size:11px;color:var(--text-secondary);border:1px dashed var(--border);border-radius:8px;padding:4px 6px;margin-bottom:8px}
 .day-card.weekend-day{background:#ffe8e8;border-color:#f2b8b8}
+.day-card.holiday-day{background:#ffe5e5;border-color:#fca5a5;border-width:2px}
 .day-card.non-working{border-style:dashed;cursor:not-allowed}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
+.day-state.holiday-state{color:#dc2626}
+.holiday-label{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;margin:4px 0;font-size:12px}
+.holiday-label-icon{flex:0 0 auto;font-size:14px}
+.holiday-label-name{font-weight:700;color:#b91c1c;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.holiday-block-msg{color:#b91c1c;font-weight:600}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
 .day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
@@ -477,6 +502,9 @@ foreach ($gridDays as $day) {
   const weekLocked = <?= $weekLocked ? 'true' : 'false' ?>;
   const canRegisterWeekend = <?= $canRegisterWeekend ? 'true' : 'false' ?>;
   const dayLabels = <?= json_encode($daysJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  const weekHolidays = <?= json_encode(array_map(fn($h) => ['name' => $h['name'], 'type' => $h['type']], $weeklyGrid['week_holidays'] ?? []), JSON_UNESCAPED_UNICODE) ?>;
+  const workingDaysConfig = <?= json_encode(array_values($weeklyGrid['working_days_config'] ?? [1,2,3,4,5])) ?>;
+  const canRegisterHoliday = <?= $canRegisterHoliday ? 'true' : 'false' ?>;
   const form = document.getElementById('quick-add-form');
   const projectInput = document.getElementById('qa-project');
   const taskInput = document.getElementById('qa-task');
@@ -506,6 +534,18 @@ foreach ($gridDays as $day) {
     const date = new Date(`${dateStr}T00:00:00`);
     const day = date.getDay();
     return day === 0 || day === 6;
+  };
+
+  const isNonWorkingDate = (dateStr) => {
+    if (!dateStr) return false;
+    const date = new Date(`${dateStr}T00:00:00`);
+    let isoDay = date.getDay();
+    if (isoDay === 0) isoDay = 7;
+    return !workingDaysConfig.includes(isoDay);
+  };
+
+  const getHolidayInfo = (dateStr) => {
+    return weekHolidays[dateStr] || null;
   };
 
   const post = async (path, payloadObj) => {
@@ -596,8 +636,14 @@ foreach ($gridDays as $day) {
   });
   form?.querySelector('[name="date"]')?.addEventListener('change', (event) => {
     const value = String(event.target?.value || '');
-    if (!canRegisterWeekend && isWeekendDate(value)) {
-      alert('Registro no permitido en fines de semana.');
+    const holiday = getHolidayInfo(value);
+    if (holiday && !canRegisterHoliday) {
+      alert(`Este día es festivo (${holiday.name}). No se pueden registrar horas.`);
+      event.target.value = '';
+      return;
+    }
+    if (!canRegisterWeekend && isNonWorkingDate(value)) {
+      alert('Registro no permitido en días no laborales.');
       event.target.value = '';
     }
   });
@@ -653,8 +699,14 @@ foreach ($gridDays as $day) {
     }
     const formData = new FormData(form);
     const raw = Object.fromEntries(formData.entries());
-    if (!canRegisterWeekend && isWeekendDate(String(raw.date || ''))) {
-      alert('Registro no permitido en fines de semana.');
+    const rawDate = String(raw.date || '');
+    const holiday = getHolidayInfo(rawDate);
+    if (holiday && !canRegisterHoliday) {
+      alert(`Este día es festivo (${holiday.name}). No se pueden registrar horas.`);
+      return;
+    }
+    if (!canRegisterWeekend && isNonWorkingDate(rawDate)) {
+      alert('Registro no permitido en días no laborales.');
       return;
     }
     raw.had_blocker = blockerToggle?.checked ? '1' : '0';
@@ -672,8 +724,13 @@ foreach ($gridDays as $day) {
       const finalActivityId = activityId > 0 ? activityId : Number(response.id || 0);
       if (lastSubmitMode === 'save_duplicate' && finalActivityId > 0) {
         const targetDate = nextDate(String(raw.date || ''));
-        if (!canRegisterWeekend && isWeekendDate(targetDate)) {
-          alert('Registro no permitido en fines de semana.');
+        const targetHoliday = getHolidayInfo(targetDate);
+        if (targetHoliday && !canRegisterHoliday) {
+          alert(`El día siguiente es festivo (${targetHoliday.name}). No se pudo duplicar.`);
+          return;
+        }
+        if (!canRegisterWeekend && isNonWorkingDate(targetDate)) {
+          alert('Registro no permitido en días no laborales.');
           return;
         }
         await post('/timesheets/activities/duplicate', {
@@ -711,8 +768,10 @@ foreach ($gridDays as $day) {
       const activityId = Number(button.dataset.activityId || 0);
       const target = prompt('Fecha destino (YYYY-MM-DD):');
       if (!target) return;
-      if (!canRegisterWeekend && isWeekendDate(target)) {
-        alert('Registro no permitido en fines de semana.');
+      const dupHoliday = getHolidayInfo(target);
+      if (dupHoliday && !canRegisterHoliday) { alert(`Ese día es festivo (${dupHoliday.name}).`); return; }
+      if (!canRegisterWeekend && isNonWorkingDate(target)) {
+        alert('Registro no permitido en días no laborales.');
         return;
       }
       try {
@@ -730,8 +789,10 @@ foreach ($gridDays as $day) {
       const activityId = Number(button.dataset.activityId || 0);
       const target = prompt('Fecha destino (YYYY-MM-DD):');
       if (!target) return;
-      if (!canRegisterWeekend && isWeekendDate(target)) {
-        alert('Registro no permitido en fines de semana.');
+      const moveHoliday = getHolidayInfo(target);
+      if (moveHoliday && !canRegisterHoliday) { alert(`Ese día es festivo (${moveHoliday.name}).`); return; }
+      if (!canRegisterWeekend && isNonWorkingDate(target)) {
+        alert('Registro no permitido en días no laborales.');
         return;
       }
       try {
@@ -768,8 +829,10 @@ foreach ($gridDays as $day) {
     if (!source) return;
     const target = getDateByLabel('Selecciona día destino');
     if (!target) return;
-    if (!canRegisterWeekend && isWeekendDate(target)) {
-      alert('Registro no permitido en fines de semana.');
+    const dupDayHoliday = getHolidayInfo(target);
+    if (dupDayHoliday && !canRegisterHoliday) { alert(`Ese día es festivo (${dupDayHoliday.name}).`); return; }
+    if (!canRegisterWeekend && isNonWorkingDate(target)) {
+      alert('Registro no permitido en días no laborales.');
       return;
     }
     try {
@@ -910,7 +973,11 @@ foreach ($gridDays as $day) {
       dayCard.classList.remove('is-drop-target');
       if (weekLocked) return;
       if (dayCard.dataset.nonWorking === '1') {
-        alert('Registro no permitido en fines de semana.');
+        if (dayCard.dataset.holiday === '1') {
+          alert(`Registro no permitido: día festivo (${dayCard.dataset.holidayName || 'Festivo'}).`);
+        } else {
+          alert('Registro no permitido en días no laborales.');
+        }
         return;
       }
       if (!draggingActivityId) return;

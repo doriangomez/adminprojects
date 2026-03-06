@@ -40,6 +40,7 @@ class App
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureWorkCalendarTable();
         $this->auth = new Auth($this->db);
     }
 
@@ -670,6 +671,26 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                     $controller->deleteRisk();
                     return;
                 }
+            }
+
+            if ($path === '/config/calendario' && $method === 'POST') {
+                $controller->updateWorkCalendar();
+                return;
+            }
+
+            if ($path === '/config/calendario/holidays/create' && $method === 'POST') {
+                $controller->storeHoliday();
+                return;
+            }
+
+            if ($path === '/config/calendario/holidays/update' && $method === 'POST') {
+                $controller->updateHoliday();
+                return;
+            }
+
+            if ($path === '/config/calendario/holidays/delete' && $method === 'POST') {
+                $controller->deleteHoliday();
+                return;
             }
 
             $controller->index();

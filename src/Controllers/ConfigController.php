@@ -45,6 +45,8 @@ class ConfigController extends Controller
             $risksByCategory[$category][] = $risk;
         }
 
+        $calendarRepo = new \App\Repositories\CalendarRepository($this->db);
+
         $this->render('config/index', [
             'title' => 'Configuración',
             'configData' => $config,
@@ -60,6 +62,7 @@ class ConfigController extends Controller
             'notificationCatalog' => NotificationCatalog::events(),
             'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
             'notificationMessage' => $_GET['notifications'] ?? null,
+            'calendarHolidays' => $calendarRepo->listAll(),
         ]);
     }
 
@@ -750,6 +753,127 @@ class ConfigController extends Controller
         }
 
         return false;
+    }
+
+    public function updateWorkCalendar(): void
+    {
+        $this->ensureConfigAccess();
+
+        $configService = new ConfigService($this->db);
+        $current = $configService->getConfig();
+
+        $workingDaysRaw = $_POST['working_days'] ?? [];
+        $workingDays = array_values(array_filter(array_map('intval', (array) $workingDaysRaw), static fn(int $d): bool => $d >= 1 && $d <= 7));
+        if (empty($workingDays)) {
+            $workingDays = $current['work_calendar']['working_days'] ?? [1, 2, 3, 4, 5];
+        }
+        sort($workingDays);
+
+        $payload = [
+            'work_calendar' => [
+                'working_days' => $workingDays,
+                'hours_per_day' => max(1, min(24, (int) ($_POST['hours_per_day'] ?? 8))),
+                'allow_admin_on_holidays' => isset($_POST['allow_admin_on_holidays']),
+                'allow_admin_on_weekends' => isset($_POST['allow_admin_on_weekends']),
+            ],
+        ];
+
+        $configService->updateConfig($payload);
+
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => true]);
+    }
+
+    public function storeHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $repo = new \App\Repositories\CalendarRepository($this->db);
+        $date = trim($_POST['holiday_date'] ?? '');
+        $name = trim($_POST['name'] ?? '');
+        $type = trim($_POST['type'] ?? 'holiday');
+        $recurring = isset($_POST['recurring']);
+
+        if ($date === '' || $name === '') {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'Fecha y nombre son obligatorios.']);
+            return;
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'Formato de fecha inválido. Use AAAA-MM-DD.']);
+            return;
+        }
+
+        try {
+            $id = $repo->create($date, $name, $type, $recurring);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'id' => $id]);
+        } catch (\Throwable $e) {
+            error_log('Error creando festivo: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo crear el festivo.']);
+        }
+    }
+
+    public function updateHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $repo = new \App\Repositories\CalendarRepository($this->db);
+        $id = (int) ($_POST['id'] ?? 0);
+        $date = trim($_POST['holiday_date'] ?? '');
+        $name = trim($_POST['name'] ?? '');
+        $type = trim($_POST['type'] ?? 'holiday');
+        $recurring = isset($_POST['recurring']);
+
+        if ($id <= 0 || $date === '' || $name === '') {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'ID, fecha y nombre son obligatorios.']);
+            return;
+        }
+
+        try {
+            $updated = $repo->update($id, $date, $name, $type, $recurring);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => $updated]);
+        } catch (\Throwable $e) {
+            error_log('Error actualizando festivo: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo actualizar el festivo.']);
+        }
+    }
+
+    public function deleteHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $repo = new \App\Repositories\CalendarRepository($this->db);
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id <= 0) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'ID inválido.']);
+            return;
+        }
+
+        try {
+            $deleted = $repo->delete($id);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => $deleted]);
+        } catch (\Throwable $e) {
+            error_log('Error eliminando festivo: ' . $e->getMessage());
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'message' => 'No se pudo eliminar el festivo.']);
+        }
     }
 
     private function ensureConfigAccess(): void

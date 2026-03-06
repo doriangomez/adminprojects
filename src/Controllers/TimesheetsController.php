@@ -17,7 +17,8 @@ class TimesheetsController extends Controller
         $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
         $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
         $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
-        $canRegisterWeekend = $this->auth->hasRole('Administrador');
+        $isAdminRole = $this->auth->hasRole('Administrador');
+        $canRegisterWeekend = $isAdminRole;
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
@@ -28,9 +29,15 @@ class TimesheetsController extends Controller
             http_response_code(404);
             exit('El módulo de timesheets no está habilitado.');
         }
+        $config = (new ConfigService($this->db))->getConfig();
+        $workCalendarConfig = $config['work_calendar'] ?? [];
+        $allowAdminOnHolidays = (bool) ($workCalendarConfig['allow_admin_on_holidays'] ?? true);
+        $allowAdminOnWeekends = (bool) ($workCalendarConfig['allow_admin_on_weekends'] ?? true);
+        $canRegisterWeekend = $isAdminRole && $allowAdminOnWeekends;
+        $canRegisterHoliday = $isAdminRole && $allowAdminOnHolidays;
         $weeklyGrid = $canReport
-            ? $repo->weeklyGridForUser($userId, $weekStart)
-            : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0, 'activities_by_day' => []];
+            ? $repo->weeklyGridForUser($userId, $weekStart, $workCalendarConfig)
+            : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0, 'activities_by_day' => [], 'week_holidays' => [], 'working_days_config' => $workCalendarConfig['working_days'] ?? [1,2,3,4,5], 'hours_per_day_config' => $workCalendarConfig['hours_per_day'] ?? 8];
         $selectedWeekSummary = $repo->weekSummaryForUser($userId, $weekStart);
         $weekIndicators = $this->buildWeekIndicators($weeklyGrid);
 
@@ -46,6 +53,7 @@ class TimesheetsController extends Controller
             'canManageWorkflow' => $canManageWorkflow,
             'timesheetsEnabled' => $timesheetsEnabled,
             'canRegisterWeekend' => $canRegisterWeekend,
+            'canRegisterHoliday' => $canRegisterHoliday,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'weekValue' => $weekValue,
@@ -163,6 +171,47 @@ class TimesheetsController extends Controller
         if ($projectId <= 0 || $date === '') {
             http_response_code(400);
             exit('Proyecto y fecha son requeridos.');
+        }
+
+        $isAdmin = $this->auth->hasRole('Administrador');
+        $calendarConfig = (new ConfigService($this->db))->getConfig()['work_calendar'] ?? [];
+        $workingDays = $calendarConfig['working_days'] ?? [1, 2, 3, 4, 5];
+        $allowAdminOnHolidays = (bool) ($calendarConfig['allow_admin_on_holidays'] ?? true);
+        $allowAdminOnWeekends = (bool) ($calendarConfig['allow_admin_on_weekends'] ?? true);
+
+        try {
+            $dateObj = new \DateTimeImmutable($date);
+        } catch (\Throwable $e) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'message' => 'Fecha inválida.']);
+            return;
+        }
+
+        $isoDay = (int) $dateObj->format('N');
+        $isWorkingDay = in_array($isoDay, $workingDays, true);
+
+        if (!$isWorkingDay) {
+            if (!$isAdmin || !$allowAdminOnWeekends) {
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => false, 'message' => 'Este día no es laboral. No se pueden registrar horas.', 'blocked' => true]);
+                return;
+            }
+        }
+
+        $calendarRepo = new \App\Repositories\CalendarRepository($this->db);
+        $holiday = $calendarRepo->findByDate($date);
+        if ($holiday !== null) {
+            if (!$isAdmin || !$allowAdminOnHolidays) {
+                $holidayName = (string) ($holiday['name'] ?? 'Festivo');
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'ok' => false,
+                    'message' => "Este día es festivo ({$holidayName}). No se pueden registrar horas.",
+                    'blocked' => true,
+                    'holiday_name' => $holidayName,
+                ]);
+                return;
+            }
         }
 
         try {
@@ -373,6 +422,39 @@ class TimesheetsController extends Controller
 
         if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '' || $metadata['activity_type'] === '') {
             $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción, tipo de actividad y comentario son obligatorios.']);
+            return;
+        }
+
+        $isAdmin = $this->auth->hasRole('Administrador');
+        $calendarConfig = (new ConfigService($this->db))->getConfig()['work_calendar'] ?? [];
+        $workingDays = $calendarConfig['working_days'] ?? [1, 2, 3, 4, 5];
+        $allowAdminOnHolidays = (bool) ($calendarConfig['allow_admin_on_holidays'] ?? true);
+        $allowAdminOnWeekends = (bool) ($calendarConfig['allow_admin_on_weekends'] ?? true);
+
+        try {
+            $dateObj = new \DateTimeImmutable($date);
+            $isoDay = (int) $dateObj->format('N');
+            $isWorkingDay = in_array($isoDay, $workingDays, true);
+
+            if (!$isWorkingDay && (!$isAdmin || !$allowAdminOnWeekends)) {
+                $this->jsonResponse(403, ['ok' => false, 'message' => 'Este día no es laboral. No se pueden registrar horas.', 'blocked' => true]);
+                return;
+            }
+
+            $calendarRepo = new \App\Repositories\CalendarRepository($this->db);
+            $holiday = $calendarRepo->findByDate($date);
+            if ($holiday !== null && (!$isAdmin || !$allowAdminOnHolidays)) {
+                $holidayName = (string) ($holiday['name'] ?? 'Festivo');
+                $this->jsonResponse(403, [
+                    'ok' => false,
+                    'message' => "Este día es festivo ({$holidayName}). No se pueden registrar horas.",
+                    'blocked' => true,
+                    'holiday_name' => $holidayName,
+                ]);
+                return;
+            }
+        } catch (\Throwable $e) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'Fecha inválida.']);
             return;
         }
 

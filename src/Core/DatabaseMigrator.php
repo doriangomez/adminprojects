@@ -2602,6 +2602,24 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureWorkCalendarTable(): void
+    {
+        if (!$this->db->tableExists('calendar_holidays')) {
+            $this->db->execute(
+                'CREATE TABLE calendar_holidays (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    holiday_date DATE NOT NULL,
+                    name VARCHAR(200) NOT NULL,
+                    type ENUM(\'holiday\', \'exception\') NOT NULL DEFAULT \'holiday\',
+                    recurring TINYINT(1) NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_calendar_holiday_date_type (holiday_date, type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+            );
+        }
+    }
+
     private function ensureProjectPmoSnapshotsTable(): void
     {
         if ($this->db->tableExists('project_pmo_snapshots')) {

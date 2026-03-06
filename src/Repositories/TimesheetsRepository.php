@@ -103,7 +103,7 @@ class TimesheetsRepository
 
 
 
-    public function weeklyGridForUser(int $userId, \DateTimeImmutable $weekStart): array
+    public function weeklyGridForUser(int $userId, \DateTimeImmutable $weekStart, array $workCalendarConfig = []): array
     {
         $weekEnd = $weekStart->modify('+6 days');
         $projects = $this->projectsForTimesheetEntry($userId);
@@ -139,13 +139,30 @@ class TimesheetsRepository
             );
         }
 
+        $workingDays = $workCalendarConfig['working_days'] ?? [1, 2, 3, 4, 5];
+        $hoursPerDay = (int) ($workCalendarConfig['hours_per_day'] ?? 8);
+
+        $calendarRepo = new \App\Repositories\CalendarRepository($this->db);
+        $weekHolidays = $calendarRepo->holidaysForRange(
+            $weekStart->format('Y-m-d'),
+            $weekEnd->format('Y-m-d')
+        );
+
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
+            $dateKey = $day->format('Y-m-d');
+            $isoDay = (int) $day->format('N');
+            $isWorkingDay = in_array($isoDay, $workingDays, true);
+            $holidayInfo = $weekHolidays[$dateKey] ?? null;
             $days[] = [
-                'key' => $day->format('Y-m-d'),
+                'key' => $dateKey,
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
                 'number' => $day->format('d'),
+                'is_working_day' => $isWorkingDay,
+                'is_holiday' => $holidayInfo !== null,
+                'holiday_name' => $holidayInfo !== null ? (string) ($holidayInfo['name'] ?? '') : null,
+                'holiday_type' => $holidayInfo !== null ? (string) ($holidayInfo['type'] ?? 'holiday') : null,
             ];
         }
 
@@ -234,6 +251,21 @@ class TimesheetsRepository
             $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
         }
 
+        if ($hoursPerDay > 0 && !empty($workingDays)) {
+            $effectiveWorkingDays = 0;
+            foreach ($days as $dayInfo) {
+                if ($dayInfo['is_working_day'] && !$dayInfo['is_holiday']) {
+                    $effectiveWorkingDays++;
+                }
+            }
+            $fullWeekCapacity = count($workingDays) * $hoursPerDay;
+            if ($fullWeekCapacity > 0 && $weeklyCapacity > 0) {
+                $weeklyCapacity = round($weeklyCapacity * ($effectiveWorkingDays / count($workingDays)), 2);
+            } elseif ($weeklyCapacity <= 0) {
+                $weeklyCapacity = $effectiveWorkingDays * $hoursPerDay;
+            }
+        }
+
         foreach ($activitiesByDay as &$dayItems) {
             usort($dayItems, static function (array $a, array $b): int {
                 return strcmp((string) ($a['project'] ?? ''), (string) ($b['project'] ?? ''));
@@ -250,6 +282,9 @@ class TimesheetsRepository
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
+            'week_holidays' => $weekHolidays,
+            'working_days_config' => $workingDays,
+            'hours_per_day_config' => $hoursPerDay,
         ];
     }
 
