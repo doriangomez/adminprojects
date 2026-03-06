@@ -140,12 +140,14 @@ class TimesheetsRepository
         }
 
         $days = [];
+        $monthAbbr = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
             $days[] = [
                 'key' => $day->format('Y-m-d'),
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
                 'number' => $day->format('d'),
+                'month' => $monthAbbr[(int) $day->format('n') - 1],
             ];
         }
 

@@ -44,7 +44,7 @@ $activityTypeMeta = [
 ];
 $daysJson = [];
 foreach ($gridDays as $day) {
-    $daysJson[(string) ($day['key'] ?? '')] = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
+    $daysJson[(string) ($day['key'] ?? '')] = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? '') . ' ' . ($day['month'] ?? ''));
 }
 ?>
 
@@ -119,34 +119,41 @@ foreach ($gridDays as $day) {
                 </div>
                 <?php if (round((float) ($weekIndicators['week_total'] ?? 0), 2) <= 0): ?>
                     <div class="calendar-empty-banner">
-                        <strong>Sin actividades registradas</strong>
-                        <small>Registra tu primera actividad</small>
+                        <strong>Aún no hay actividades esta semana</strong>
+                        <button type="button" class="btn primary" id="banner-quick-add" <?= $weekLocked ? 'disabled' : '' ?>>+ Registrar primera actividad</button>
                     </div>
                 <?php endif; ?>
                 <div class="week-calendar-grid">
                     <?php foreach ($gridDays as $day): ?>
                         <?php
                         $dayDate = (string) ($day['key'] ?? '');
-                        $dayLabel = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
+                        $dayLabel = ($day['label'] ?? '') . ' ' . ($day['number'] ?? '') . ' ' . ($day['month'] ?? '');
                         $items = is_array($activitiesByDay[$dayDate] ?? null) ? $activitiesByDay[$dayDate] : [];
                         $dayWeekNumber = (int) ((new DateTimeImmutable($dayDate))->format('N'));
                         $isWeekend = $dayWeekNumber >= 6;
                         $isBlockedWeekend = $isWeekend && !$canRegisterWeekend;
+                        $dayHoursTotal = round((float) ($dayTotals[$dayDate] ?? 0), 2);
                         ?>
                         <article class="day-card<?= $isBlockedWeekend ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedWeekend ? '1' : '0' ?>">
                             <header>
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
                                 <?php if ($isBlockedWeekend): ?>
                                     <span class="day-state">No laboral</span>
-                                <?php else: ?>
-                                    <span><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</span>
                                 <?php endif; ?>
                             </header>
-                            <?php if ($items === []): ?>
-                                <div class="day-empty-state">
-                                    <strong>Sin actividades registradas</strong>
-                                    <small>Registra tu primera actividad</small>
+                            <?php if (!$isBlockedWeekend): ?>
+                                <div class="day-hours-total"><?= $dayHoursTotal ?>h registradas</div>
+                            <?php endif; ?>
+                            <?php if ($isBlockedWeekend): ?>
+                                <div class="day-weekend-banner">
+                                    <span class="weekend-icon">🚫</span>
+                                    <span>Día no laboral</span>
                                 </div>
+                            <?php elseif ($items === []): ?>
+                                <button type="button" class="day-add-activity-btn" data-day-date="<?= htmlspecialchars($dayDate) ?>">
+                                    <span class="add-icon">+</span>
+                                    <span>Registrar actividad</span>
+                                </button>
                             <?php else: ?>
                                 <ul class="activity-list">
                                     <?php foreach ($items as $item): ?>
@@ -166,25 +173,31 @@ foreach ($gridDays as $day) {
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
                                         <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $weekLocked ? ' is-locked' : '' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
-                                            <div class="chip-main">
-                                                <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
-                                                <strong><?= htmlspecialchars($itemDesc) ?></strong>
-                                            </div>
-                                            <small class="chip-project">Proyecto: <?= htmlspecialchars($itemProject) ?></small>
-                                            <div class="chip-meta">
-                                                <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
-                                                <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
-                                                <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
-                                                <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
-                                            </div>
                                             <?php if (!$weekLocked): ?>
-                                                <div class="chip-actions">
-                                                    <button type="button" class="chip-action edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏ Editar</button>
-                                                    <button type="button" class="chip-action duplicate-activity" data-activity-id="<?= $itemId ?>">⧉ Duplicar</button>
-                                                    <button type="button" class="chip-action move-activity" data-activity-id="<?= $itemId ?>">↔ Mover</button>
-                                                    <button type="button" class="chip-action danger delete-activity" data-activity-id="<?= $itemId ?>" title="Eliminar actividad">🗑 Eliminar</button>
-                                                </div>
+                                                <span class="chip-drag-handle" aria-label="Arrastrar">⠿</span>
                                             <?php endif; ?>
+                                            <div class="chip-body">
+                                                <div class="chip-main">
+                                                    <span class="chip-type-badge"><?= htmlspecialchars($typeMeta['label']) ?></span>
+                                                    <span class="chip-hours"><?= round($itemHours, 2) ?>h</span>
+                                                </div>
+                                                <strong class="chip-desc"><?= htmlspecialchars($itemDesc) ?></strong>
+                                                <small class="chip-project"><?= htmlspecialchars($itemProject) ?></small>
+                                                <div class="chip-meta">
+                                                    <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
+                                                    <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
+                                                    <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
+                                                    <?php if ($itemComment !== ''): ?><small><?= htmlspecialchars($itemComment) ?></small><?php endif; ?>
+                                                </div>
+                                                <?php if (!$weekLocked): ?>
+                                                    <div class="chip-actions">
+                                                        <button type="button" class="chip-action edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏ Editar</button>
+                                                        <button type="button" class="chip-action duplicate-activity" data-activity-id="<?= $itemId ?>">⧉ Duplicar</button>
+                                                        <button type="button" class="chip-action move-activity" data-activity-id="<?= $itemId ?>">↔ Mover</button>
+                                                        <button type="button" class="chip-action danger delete-activity" data-activity-id="<?= $itemId ?>" title="Eliminar actividad">🗑</button>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
                                         </li>
                                     <?php endforeach; ?>
                                 </ul>
@@ -368,33 +381,82 @@ foreach ($gridDays as $day) {
 .timesheet-main-layout{display:grid;grid-template-columns:3fr 7fr;gap:14px}
 .calendar-column{display:flex;flex-direction:column;gap:10px;order:2}
 .calendar-heading h3{margin:0 0 4px}
-.calendar-empty-banner{border:1px dashed var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;background:color-mix(in srgb,var(--surface) 90%,var(--background))}
-.calendar-empty-banner small{color:var(--text-secondary)}
+.calendar-empty-banner{border:1px dashed var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px;background:color-mix(in srgb,var(--surface) 90%,var(--background));text-align:center}
+.calendar-empty-banner strong{color:var(--text-secondary);font-size:14px}
 .week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px}
-.day-card{border:1px solid var(--border);border-radius:12px;padding:10px;min-height:190px;background:color-mix(in srgb,var(--surface) 94%,var(--background))}
-.day-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.day-card.non-working{background:#ffe5e5;border-style:dashed;cursor:not-allowed}
-.day-state{font-size:11px;font-weight:700;color:#b91c1c}
-.day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
-.day-empty-state strong{font-size:12px;color:var(--text-primary)}
+
+/* Day cards – dynamic height */
+.day-card{border:1px solid var(--border);border-radius:12px;padding:10px;background:color-mix(in srgb,var(--surface) 94%,var(--background));display:flex;flex-direction:column;gap:6px}
+.day-card header{display:flex;justify-content:space-between;align-items:center}
+.day-card header strong{font-size:13px}
+
+/* Hours total below header */
+.day-hours-total{font-size:11px;font-weight:600;color:var(--text-secondary);background:color-mix(in srgb,var(--primary) 8%,var(--surface));border-radius:6px;padding:3px 8px;text-align:center}
+
+/* Weekend non-working styling */
+.day-card.non-working{background:#fff0f0;border:2px dashed #e8aaaa;cursor:not-allowed}
+.day-state{font-size:11px;font-weight:700;color:#b91c1c;background:#fecaca;padding:2px 8px;border-radius:999px}
+.day-weekend-banner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px 8px;color:#991b1b;font-size:12px;font-weight:600;flex:1}
+.weekend-icon{font-size:22px}
+
+/* Empty day – register button */
+.day-add-activity-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed color-mix(in srgb,var(--primary) 35%,var(--border));border-radius:10px;padding:16px 8px;background:color-mix(in srgb,var(--primary) 4%,var(--surface));color:color-mix(in srgb,var(--primary) 80%,var(--text-primary));cursor:pointer;transition:all .15s ease;font-size:12px;font-weight:600;flex:1}
+.day-add-activity-btn:hover{background:color-mix(in srgb,var(--primary) 12%,var(--surface));border-color:var(--primary)}
+.day-add-activity-btn .add-icon{width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--primary) 15%,var(--surface));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;line-height:1}
+
+/* Activity list */
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-.activity-chip{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:6px;cursor:grab}
-.activity-chip:active{cursor:grabbing}
-.activity-chip.is-locked{opacity:.9}
-.activity-chip.dragging{opacity:.65;box-shadow:0 8px 18px rgba(15,23,42,.25)}
-.activity-chip.type-dev{border-left:4px solid #2563eb}
-.activity-chip.type-meeting{border-left:4px solid #9333ea}
-.activity-chip.type-support{border-left:4px solid #ea580c}
-.activity-chip.type-pm{border-left:4px solid #16a34a}
-.activity-chip.type-research{border-left:4px solid #6b7280}
-.chip-main{display:flex;align-items:center;gap:8px}
-.chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
-.chip-project{color:var(--text-secondary)}
-.chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
-.chip-actions{display:flex;gap:6px;flex-wrap:wrap}
-.chip-action{font-size:12px;padding:5px 8px;border-radius:8px}
+
+/* Activity chips – colored blocks */
+.activity-chip{border-radius:10px;padding:0;background:var(--surface);display:flex;align-items:stretch;gap:0;cursor:grab;overflow:hidden;border:1px solid var(--border);transition:box-shadow .15s ease,transform .1s ease}
+.activity-chip:hover{box-shadow:0 2px 8px rgba(15,23,42,.1)}
+.activity-chip:active{cursor:grabbing;transform:scale(0.98)}
+.activity-chip.is-locked{opacity:.9;cursor:default}
+.activity-chip.dragging{opacity:.5;box-shadow:0 12px 24px rgba(15,23,42,.25);transform:rotate(2deg)}
+
+/* Drag handle */
+.chip-drag-handle{display:flex;align-items:center;justify-content:center;width:22px;min-height:100%;background:color-mix(in srgb,var(--text-secondary) 8%,var(--surface));color:var(--text-secondary);font-size:14px;cursor:grab;flex-shrink:0;user-select:none;letter-spacing:-1px;transition:background .15s}
+.chip-drag-handle:hover{background:color-mix(in srgb,var(--text-secondary) 16%,var(--surface))}
+.activity-chip:active .chip-drag-handle{cursor:grabbing;background:color-mix(in srgb,var(--primary) 18%,var(--surface))}
+
+.chip-body{display:flex;flex-direction:column;gap:4px;padding:8px;flex:1;min-width:0}
+.chip-main{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.chip-type-badge{font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;margin-left:auto}
+.chip-desc{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.chip-project{color:var(--text-secondary);font-size:11px}
+.chip-meta{display:flex;gap:4px;align-items:center;color:var(--text-secondary);flex-wrap:wrap}
+.chip-meta small{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.chip-actions{display:flex;gap:4px;flex-wrap:wrap;padding-top:4px;border-top:1px solid color-mix(in srgb,var(--border) 50%,transparent)}
+.chip-action{font-size:11px;padding:3px 6px;border-radius:6px}
 .chip-action.danger{border-color:#dc3545;color:#dc3545;background:#fff}
 .chip-action.danger:hover{background:#ffe5e5}
+
+/* Type-based chip colors */
+.activity-chip.type-dev{background:#eff6ff;border-color:#bfdbfe}
+.activity-chip.type-dev .chip-type-badge{background:#2563eb;color:#fff}
+.activity-chip.type-dev .chip-drag-handle{background:#dbeafe}
+
+.activity-chip.type-meeting{background:#faf5ff;border-color:#e9d5ff}
+.activity-chip.type-meeting .chip-type-badge{background:#9333ea;color:#fff}
+.activity-chip.type-meeting .chip-drag-handle{background:#f3e8ff}
+
+.activity-chip.type-support{background:#fff7ed;border-color:#fed7aa}
+.activity-chip.type-support .chip-type-badge{background:#ea580c;color:#fff}
+.activity-chip.type-support .chip-drag-handle{background:#ffedd5}
+
+.activity-chip.type-pm{background:#f0fdf4;border-color:#bbf7d0}
+.activity-chip.type-pm .chip-type-badge{background:#16a34a;color:#fff}
+.activity-chip.type-pm .chip-drag-handle{background:#dcfce7}
+
+.activity-chip.type-research{background:#f9fafb;border-color:#d1d5db}
+.activity-chip.type-research .chip-type-badge{background:#6b7280;color:#fff}
+.activity-chip.type-research .chip-drag-handle{background:#e5e7eb}
+
+/* Drop target */
+.day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border));box-shadow:0 8px 20px rgba(37,99,235,.18);background:color-mix(in srgb,var(--primary) 6%,var(--surface))}
+
+/* Quick add sidebar */
 .quick-add-column{display:flex;flex-direction:column;order:1}
 .quick-add-box{position:sticky;top:150px;display:flex;flex-direction:column;gap:10px}
 #quick-add-form{display:flex;flex-direction:column;gap:8px}
@@ -421,7 +483,6 @@ foreach ($gridDays as $day) {
 .quick-lists{display:flex;flex-direction:column;gap:10px}
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
 .chip-btn{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:5px 10px;cursor:pointer;font-size:12px}
-.day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border));box-shadow:0 8px 20px rgba(37,99,235,.18)}
 @media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.week-calendar-grid{grid-template-columns:1fr}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
 </style>
 
@@ -738,6 +799,23 @@ foreach ($gridDays as $day) {
   document.getElementById('focus-quick-add')?.addEventListener('click', () => {
     if (weekLocked) return;
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  document.getElementById('banner-quick-add')?.addEventListener('click', () => {
+    if (weekLocked) return;
+    document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  document.querySelectorAll('.day-add-activity-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (weekLocked) return;
+      const dayDate = btn.dataset.dayDate || '';
+      const dateInput = form?.querySelector('[name="date"]');
+      if (dateInput) dateInput.value = dayDate;
+      form?.querySelector('[name="activity_id"]')?.setAttribute('value', '');
+      document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      form?.querySelector('[name="project_id"]')?.focus();
+    });
   });
 
   document.querySelectorAll('.recent-fill').forEach((button) => {
