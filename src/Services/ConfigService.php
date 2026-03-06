@@ -217,6 +217,12 @@ class ConfigService
                     'allow_admin_non_working_logging' => false,
                 ],
             ],
+            'absences' => [
+                'enabled' => false,
+                'enable_vacations' => true,
+                'block_timesheet_logging' => true,
+                'allow_admin_exceptions' => false,
+            ],
             'billing' => [
                 'enabled' => true,
             ],
@@ -331,6 +337,7 @@ class ConfigService
                     $stored['operational_rules']['approvals'] ?? []
                 ),
                 'timesheets' => $this->mergeTimesheetRules($stored['operational_rules']['timesheets'] ?? []),
+                'absences' => $this->mergeAbsenceRules($stored['operational_rules']['absences'] ?? []),
                 'billing' => array_merge(
                     $this->defaults['operational_rules']['billing'],
                     $stored['operational_rules']['billing'] ?? []
@@ -415,6 +422,10 @@ class ConfigService
                 'timesheets' => $this->mergeTimesheetRules(array_merge(
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
+                )),
+                'absences' => $this->mergeAbsenceRules(array_merge(
+                    $current['operational_rules']['absences'] ?? [],
+                    $payload['operational_rules']['absences'] ?? []
                 )),
                 'billing' => array_merge(
                     $current['operational_rules']['billing'] ?? [],
@@ -586,6 +597,19 @@ class ConfigService
         );
 
         return $rules;
+    }
+
+    private function mergeAbsenceRules(array $stored): array
+    {
+        $defaults = $this->defaults['operational_rules']['absences'] ?? [];
+        $rules = array_merge($defaults, $stored);
+
+        return [
+            'enabled' => (bool) ($rules['enabled'] ?? false),
+            'enable_vacations' => (bool) ($rules['enable_vacations'] ?? true),
+            'block_timesheet_logging' => (bool) ($rules['block_timesheet_logging'] ?? true),
+            'allow_admin_exceptions' => (bool) ($rules['allow_admin_exceptions'] ?? false),
+        ];
     }
 
     private function readConfigStorage(): array

@@ -24,6 +24,7 @@ class TimesheetsRepository
     ];
     private ?WorkCalendarService $workCalendarService = null;
     private ?TalentAvailabilityService $talentAvailabilityService = null;
+    private ?array $absenceRules = null;
 
     public function __construct(private Database $db)
     {
@@ -184,13 +185,16 @@ class TimesheetsRepository
             $availableHours = (float) ($dayCapacity['available_hours'] ?? $defaultAvailableHours);
             $absenceHours = (float) ($dayCapacity['absence_hours'] ?? 0.0);
             $isFullDayAbsence = !empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001;
+            $fullDayAbsenceBlocks = $isFullDayAbsence
+                && $this->absenceBlocksTimesheetLogging()
+                && !$this->canOverrideAbsenceRestriction($userId);
 
             $dayType = (string) ($dayMeta['type'] ?? 'working');
             if ($dayType !== 'holiday' && $absenceType !== '') {
                 $dayType = 'absence_' . $absenceType;
             }
             $isWorking = (bool) ($dayMeta['is_working'] ?? true);
-            if ($isFullDayAbsence) {
+            if ($fullDayAbsenceBlocks) {
                 $isWorking = false;
             }
             $dayName = (string) ($dayMeta['name'] ?? '');
@@ -211,7 +215,7 @@ class TimesheetsRepository
                 'absence_hours' => round($absenceHours, 2),
                 'absence_type' => $absenceType,
                 'absence_label' => $absenceLabel,
-                'is_full_day_absence' => $isFullDayAbsence,
+                'is_full_day_absence' => $fullDayAbsenceBlocks,
                 'has_vacation' => !empty($dayCapacity['has_vacation']),
             ];
         }
@@ -2523,12 +2527,14 @@ class TimesheetsRepository
         }
 
         $dayCapacity = $this->dayCapacityContextForUser($userId, $day);
-        if (!empty($dayCapacity['has_vacation'])) {
-            throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
-        }
-        if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
-            $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
-            throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+        if ($this->absenceBlocksTimesheetLogging() && !$this->canOverrideAbsenceRestriction($userId)) {
+            if (!empty($dayCapacity['has_vacation'])) {
+                throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+            }
+            if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
+                $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+                throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+            }
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);
@@ -2570,14 +2576,22 @@ class TimesheetsRepository
             return;
         }
 
-        if (!empty($dayCapacity['has_vacation'])) {
-            throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+        $blockAbsence = $this->absenceBlocksTimesheetLogging() && !$this->canOverrideAbsenceRestriction($userId);
+        if ($blockAbsence) {
+            if (!empty($dayCapacity['has_vacation'])) {
+                throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+            }
+
+            $availableHours = max(0.0, (float) ($dayCapacity['available_hours'] ?? 0.0));
+            if (!empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001) {
+                $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+                throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+            }
         }
 
         $availableHours = max(0.0, (float) ($dayCapacity['available_hours'] ?? 0.0));
-        if (!empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001) {
-            $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
-            throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+        if (!$blockAbsence) {
+            $availableHours = max($availableHours, (float) ($dayCapacity['base_hours'] ?? $availableHours));
         }
 
         if ($currentDayTotal + $incomingHours > $availableHours + 0.001) {
@@ -3164,6 +3178,22 @@ class TimesheetsRepository
         return $this->workCalendarService()->allowAdminNonWorkingLogging();
     }
 
+    private function absenceBlocksTimesheetLogging(): bool
+    {
+        $rules = $this->absenceRules();
+        return (bool) ($rules['enabled'] ?? false) && (bool) ($rules['block_timesheet_logging'] ?? true);
+    }
+
+    private function canOverrideAbsenceRestriction(int $userId): bool
+    {
+        $rules = $this->absenceRules();
+        if (empty($rules['allow_admin_exceptions'])) {
+            return false;
+        }
+
+        return $this->isAdministratorUser($userId);
+    }
+
     private function nonWorkingDayMessage(array $dayMeta): string
     {
         $type = (string) ($dayMeta['type'] ?? 'non_working');
@@ -3204,6 +3234,27 @@ class TimesheetsRepository
     private function isPrivileged(array $user): bool
     {
         return in_array($user['role'] ?? '', self::ADMIN_ROLES, true);
+    }
+
+    private function absenceRules(): array
+    {
+        if (is_array($this->absenceRules)) {
+            return $this->absenceRules;
+        }
+
+        $config = (new ConfigService($this->db))->getConfig();
+        $stored = is_array($config['operational_rules']['absences'] ?? null)
+            ? $config['operational_rules']['absences']
+            : [];
+
+        $this->absenceRules = [
+            'enabled' => (bool) ($stored['enabled'] ?? false),
+            'enable_vacations' => (bool) ($stored['enable_vacations'] ?? true),
+            'block_timesheet_logging' => (bool) ($stored['block_timesheet_logging'] ?? true),
+            'allow_admin_exceptions' => (bool) ($stored['allow_admin_exceptions'] ?? false),
+        ];
+
+        return $this->absenceRules;
     }
 
     private function activeProjectCondition(string $alias): string

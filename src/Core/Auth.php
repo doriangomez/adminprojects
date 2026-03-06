@@ -379,6 +379,76 @@ class Auth
         return $this->timesheetsEnabled();
     }
 
+    public function isAbsencesEnabled(): bool
+    {
+        return $this->absencesEnabled();
+    }
+
+    public function canViewTalentAbsences(): bool
+    {
+        if (!$this->absencesEnabled()) {
+            return false;
+        }
+
+        if ($this->can('talent.absences.view')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador') || $this->hasRole('PMO') || $this->hasRole('Talento') || $this->hasRole('Usuario');
+    }
+
+    public function canCreateTalentAbsences(): bool
+    {
+        if (!$this->absencesEnabled()) {
+            return false;
+        }
+
+        if ($this->can('talent.absences.create')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador') || $this->hasRole('PMO');
+    }
+
+    public function canEditTalentAbsences(): bool
+    {
+        if (!$this->absencesEnabled()) {
+            return false;
+        }
+
+        if ($this->can('talent.absences.edit')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador') || $this->hasRole('PMO');
+    }
+
+    public function canDeleteTalentAbsences(): bool
+    {
+        if (!$this->absencesEnabled()) {
+            return false;
+        }
+
+        if ($this->can('talent.absences.delete')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador');
+    }
+
+    public function canApproveTalentAbsences(): bool
+    {
+        if (!$this->absencesEnabled()) {
+            return false;
+        }
+
+        if ($this->can('talent.absences.approve')) {
+            return true;
+        }
+
+        return $this->hasRole('Administrador');
+    }
+
     private function hydrateSession(array $user): void
     {
         $_SESSION['user'] = [
@@ -402,6 +472,12 @@ class Auth
     {
         $config = $this->loadConfig();
         return (bool) ($config['operational_rules']['timesheets']['enabled'] ?? false);
+    }
+
+    private function absencesEnabled(): bool
+    {
+        $config = $this->loadConfig();
+        return (bool) ($config['operational_rules']['absences']['enabled'] ?? false);
     }
 
     private function loadConfig(): array

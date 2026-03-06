@@ -25,6 +25,7 @@ class App
         $migrator->ensureClientDeletionCascades();
         $migrator->ensureAssignmentsTable();
         $migrator->ensureTalentSchema();
+        $migrator->ensureTalentAbsencePermissions();
         $migrator->ensureSystemSettings();
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
@@ -511,6 +512,28 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             $controller = new TalentCapacityController($this->db, $this->auth);
             if ($path === '/talent-capacity/simulation') {
                 $controller->simulation();
+                return;
+            }
+            $controller->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/talent-absences')) {
+            $controller = new TalentAbsencesController($this->db, $this->auth);
+            if ($path === '/talent-absences/create' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
+            if ($path === '/talent-absences/update' && $method === 'POST') {
+                $controller->update();
+                return;
+            }
+            if ($path === '/talent-absences/delete' && $method === 'POST') {
+                $controller->destroy();
+                return;
+            }
+            if ($path === '/talent-absences/approve' && $method === 'POST') {
+                $controller->approve();
                 return;
             }
             $controller->index();

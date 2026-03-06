@@ -454,6 +454,83 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTalentAbsencePermissions(): void
+    {
+        if (
+            !$this->db->tableExists('permissions')
+            || !$this->db->tableExists('role_permissions')
+            || !$this->db->tableExists('roles')
+        ) {
+            return;
+        }
+
+        try {
+            $permissions = [
+                'talent.absences.view' => 'Ver ausencias del talento',
+                'talent.absences.create' => 'Registrar ausencias del talento',
+                'talent.absences.edit' => 'Editar ausencias del talento',
+                'talent.absences.delete' => 'Eliminar ausencias del talento',
+                'talent.absences.approve' => 'Aprobar ausencias del talento',
+            ];
+
+            foreach ($permissions as $code => $name) {
+                $this->db->execute(
+                    'INSERT INTO permissions (code, name)
+                     SELECT :code_value, :name
+                     WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                    [
+                        ':code_value' => $code,
+                        ':code_check' => $code,
+                        ':name' => $name,
+                    ]
+                );
+            }
+
+            $roleMatrix = [
+                'Administrador' => array_keys($permissions),
+                'PMO' => [
+                    'talent.absences.view',
+                    'talent.absences.create',
+                    'talent.absences.edit',
+                ],
+                'Talento' => [
+                    'talent.absences.view',
+                ],
+                'Usuario' => [
+                    'talent.absences.view',
+                ],
+            ];
+
+            foreach ($roleMatrix as $roleName => $codes) {
+                $roles = $this->db->fetchAll(
+                    'SELECT id FROM roles WHERE nombre = :role_name',
+                    [':role_name' => $roleName]
+                );
+                foreach ($roles as $role) {
+                    foreach ($codes as $code) {
+                        $this->db->execute(
+                            'INSERT INTO role_permissions (role_id, permission_id)
+                             SELECT :role_id_value, p.id
+                             FROM permissions p
+                             WHERE p.code = :code_value
+                             AND NOT EXISTS (
+                                SELECT 1 FROM role_permissions rp
+                                WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                            )',
+                            [
+                                ':role_id_value' => (int) ($role['id'] ?? 0),
+                                ':role_id_check' => (int) ($role['id'] ?? 0),
+                                ':code_value' => $code,
+                            ]
+                        );
+                    }
+                }
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos de ausencias del talento: ' . $e->getMessage());
+        }
+    }
+
 
     public function ensureTimesheetWorkflowSchema(): void
     {
