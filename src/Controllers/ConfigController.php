@@ -151,6 +151,9 @@ class ConfigController extends Controller
         $themeDefaults = $configService->getDefaults()['theme'] ?? [];
         $currentTheme = $current['theme'] ?? [];
         $currentTimesheetRules = $current['operational_rules']['timesheets'] ?? [];
+        $currentAbsenceRules = is_array($current['operational_rules']['absences'] ?? null)
+            ? $current['operational_rules']['absences']
+            : [];
         $currentWorkCalendar = is_array($currentTimesheetRules['work_calendar'] ?? null) ? $currentTimesheetRules['work_calendar'] : [];
         $workingDaysFallback = is_array($currentWorkCalendar['working_days'] ?? null) ? $currentWorkCalendar['working_days'] : [1, 2, 3, 4, 5];
         $workingDays = $this->normalizeWeekdaySelection($_POST['timesheets_working_days'] ?? null, $workingDaysFallback);
@@ -261,6 +264,20 @@ class ConfigController extends Controller
                         'allow_admin_holiday_logging' => $allowAdminHolidayLogging,
                         'allow_admin_non_working_logging' => $allowAdminNonWorkingLogging,
                     ],
+                ],
+                'absences' => [
+                    'enabled' => array_key_exists('absences_enabled_present', $_POST)
+                        ? isset($_POST['absences_enabled'])
+                        : (bool) ($currentAbsenceRules['enabled'] ?? false),
+                    'enable_vacations' => array_key_exists('absences_enable_vacations_present', $_POST)
+                        ? isset($_POST['absences_enable_vacations'])
+                        : (bool) ($currentAbsenceRules['enable_vacations'] ?? true),
+                    'block_timesheet_logging' => array_key_exists('absences_block_timesheet_logging_present', $_POST)
+                        ? isset($_POST['absences_block_timesheet_logging'])
+                        : (bool) ($currentAbsenceRules['block_timesheet_logging'] ?? true),
+                    'allow_admin_exceptions' => array_key_exists('absences_allow_admin_exceptions_present', $_POST)
+                        ? isset($_POST['absences_allow_admin_exceptions'])
+                        : (bool) ($currentAbsenceRules['allow_admin_exceptions'] ?? false),
                 ],
                 'billing' => [
                     'enabled' => array_key_exists('billing_enabled', $_POST)

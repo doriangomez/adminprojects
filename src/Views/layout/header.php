@@ -16,6 +16,9 @@ $isTalentCapacityRoute = str_starts_with($normalizedPath, '/talent-capacity');
 $isCapacitySimulationRoute = str_starts_with($normalizedPath, '/talent-capacity/simulation')
     || ($isTalentCapacityRoute && (($queryParams['tab'] ?? '') === 'simulation'));
 $isCapacityOverviewRoute = $isTalentCapacityRoute && !$isCapacitySimulationRoute;
+$isTalentAbsencesRoute = str_starts_with($normalizedPath, '/talent-absences');
+$absencesEnabled = $auth->isAbsencesEnabled();
+$canViewAbsences = $auth->canViewTalentAbsences();
 $themeVariables = [
     'background' => (string) ($theme['background'] ?? ''),
     'surface' => (string) ($theme['surface'] ?? ''),
@@ -712,6 +715,9 @@ error_log(sprintf(
                 <div class="nav-submenu">
                     <a href="<?= $basePath ?>/talent-capacity" class="nav-sublink <?= $isCapacityOverviewRoute ? 'active' : '' ?>">Vista de capacidad</a>
                     <a href="<?= $basePath ?>/talent-capacity/simulation" class="nav-sublink <?= $isCapacitySimulationRoute ? 'active' : '' ?>">Simulación de capacidad</a>
+                    <?php if ($absencesEnabled && $canViewAbsences): ?>
+                        <a href="<?= $basePath ?>/talent-absences" class="nav-sublink <?= $isTalentAbsencesRoute ? 'active' : '' ?>">Ausencias</a>
+                    <?php endif; ?>
                 </div>
             </div>
 

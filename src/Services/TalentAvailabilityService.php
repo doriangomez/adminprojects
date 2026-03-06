@@ -5,6 +5,7 @@ declare(strict_types=1);
 class TalentAvailabilityService
 {
     private ?WorkCalendarService $workCalendarService = null;
+    private ?array $absenceRules = null;
 
     public function __construct(private Database $db)
     {
@@ -226,6 +227,10 @@ class TalentAvailabilityService
 
     private function approvedAbsencesForTalent(int $talentId, string $start, string $end): array
     {
+        if (!$this->absencesEnabled()) {
+            return [];
+        }
+
         if ($talentId <= 0 || !$this->db->tableExists('talent_absences')) {
             return [];
         }
@@ -242,7 +247,7 @@ class TalentAvailabilityService
             $statusWhere = 'LOWER(status) IN ("aprobado", "approved")';
         }
 
-        return $this->db->fetchAll(
+        $rows = $this->db->fetchAll(
             'SELECT absence_type, start_date, end_date, ' . $hoursColumn . ', ' . $isFullDayColumn . '
              FROM talent_absences
              WHERE talent_id = :talent
@@ -251,6 +256,21 @@ class TalentAvailabilityService
                AND end_date >= :start',
             $params
         );
+
+        if ($this->vacationsEnabled()) {
+            return $rows;
+        }
+
+        $filtered = [];
+        foreach ($rows as $row) {
+            $type = $this->normalizeAbsenceType((string) ($row['absence_type'] ?? ''));
+            if ($type === 'vacaciones') {
+                continue;
+            }
+            $filtered[] = $row;
+        }
+
+        return $filtered;
     }
 
     private function normalizeAbsenceType(string $rawType): string
@@ -317,5 +337,36 @@ class TalentAvailabilityService
 
         $this->workCalendarService = new WorkCalendarService($this->db);
         return $this->workCalendarService;
+    }
+
+    private function absencesEnabled(): bool
+    {
+        return (bool) ($this->absenceRules()['enabled'] ?? false);
+    }
+
+    private function vacationsEnabled(): bool
+    {
+        return (bool) ($this->absenceRules()['enable_vacations'] ?? true);
+    }
+
+    private function absenceRules(): array
+    {
+        if (is_array($this->absenceRules)) {
+            return $this->absenceRules;
+        }
+
+        $config = (new ConfigService($this->db))->getConfig();
+        $rules = is_array($config['operational_rules']['absences'] ?? null)
+            ? $config['operational_rules']['absences']
+            : [];
+
+        $this->absenceRules = [
+            'enabled' => (bool) ($rules['enabled'] ?? false),
+            'enable_vacations' => (bool) ($rules['enable_vacations'] ?? true),
+            'block_timesheet_logging' => (bool) ($rules['block_timesheet_logging'] ?? true),
+            'allow_admin_exceptions' => (bool) ($rules['allow_admin_exceptions'] ?? false),
+        ];
+
+        return $this->absenceRules;
     }
 }
