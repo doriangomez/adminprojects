@@ -237,6 +237,9 @@ foreach ($selectedRisks as $riskCode) {
     .status-danger { background: color-mix(in srgb, var(--danger) 22%, var(--surface) 78%); color: var(--text-primary); border-color: color-mix(in srgb, var(--danger) 35%, var(--border) 65%); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
+    .action-btn.danger { background:#b42318; color:#ffffff; border-color:#7a271a; }
+    .action-btn.danger:hover { background:#8f1f13; border-color:#60170f; }
+    .action-btn.danger:focus-visible { outline:2px solid #fda29b; outline-offset:2px; }
     .task-create-form { border:1px dashed var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:12px; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); }
     .task-create-form__header { display:flex; flex-direction:column; gap:4px; }
     .task-create-form__grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }

@@ -251,6 +251,9 @@ ksort($priorityOptions);
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:12px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .action-btn.ghost { background: color-mix(in srgb, var(--surface) 86%, var(--background) 14%); }
+    .action-btn.danger { background:#b42318; color:#ffffff; border-color:#7a271a; }
+    .action-btn.danger:hover { background:#8f1f13; border-color:#60170f; }
+    .action-btn.danger:focus-visible { outline:2px solid #fda29b; outline-offset:2px; }
     .status-form { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
     .status-form select { padding:6px 8px; border-radius:8px; border:1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size:12px; }
     @media (max-width: 1100px) {
