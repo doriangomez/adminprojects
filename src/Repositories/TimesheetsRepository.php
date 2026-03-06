@@ -1925,10 +1925,14 @@ class TimesheetsRepository
         $projectStatusCondition = $this->activeProjectCondition('p');
         $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
 
+        $hasClients = $this->db->tableExists('clients');
+        $clientSelect = $hasClients ? ', c.id AS client_id, c.name AS client_name' : ', NULL AS client_id, NULL AS client_name';
+        $clientJoin = $hasClients ? ' LEFT JOIN clients c ON c.id = p.client_id' : '';
+
         return $this->db->fetchAll(
-            'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval, p.name AS project
+            'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval, p.name AS project' . $clientSelect . '
              FROM project_talent_assignments a
-             JOIN projects p ON p.id = a.project_id
+             JOIN projects p ON p.id = a.project_id' . $clientJoin . '
              JOIN talents t ON t.user_id = a.user_id
              WHERE a.user_id = :user
                AND COALESCE(t.requiere_reporte_horas, 0) = 1
@@ -3457,7 +3461,7 @@ class TimesheetsRepository
             return $this->absenceRules;
         }
 
-        $config = (new ConfigService($this->db))->getConfig();
+        $config = (new \ConfigService($this->db))->getConfig();
         $stored = is_array($config['operational_rules']['absences'] ?? null)
             ? $config['operational_rules']['absences']
             : [];
