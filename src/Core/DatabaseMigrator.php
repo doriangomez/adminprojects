@@ -2661,6 +2661,71 @@ class DatabaseMigrator
         );
     }
 
+    public function ensureWorkCalendarModule(): void
+    {
+        $this->ensureCalendarHolidaysTable();
+        $this->ensureCalendarWorkingDaysConfig();
+    }
+
+    private function ensureCalendarHolidaysTable(): void
+    {
+        if ($this->db->tableExists('calendar_holidays')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE calendar_holidays (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                holiday_date DATE NOT NULL,
+                name VARCHAR(180) NOT NULL,
+                description VARCHAR(255) NULL,
+                recurring TINYINT(1) NOT NULL DEFAULT 0,
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                created_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_calendar_holidays_date (holiday_date),
+                INDEX idx_calendar_holidays_active (active, holiday_date),
+                CONSTRAINT fk_calendar_holidays_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    }
+
+    private function ensureCalendarWorkingDaysConfig(): void
+    {
+        if (!$this->db->tableExists('config_settings')) {
+            return;
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT config_key FROM config_settings WHERE config_key = :key LIMIT 1',
+            [':key' => 'work_calendar']
+        );
+
+        if ($existing) {
+            return;
+        }
+
+        $defaultConfig = json_encode([
+            'working_days' => [
+                1 => true,
+                2 => true,
+                3 => true,
+                4 => true,
+                5 => true,
+                6 => false,
+                7 => false,
+            ],
+            'default_daily_hours' => 8,
+            'admin_can_override_holidays' => true,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        $this->db->execute(
+            'INSERT INTO config_settings (config_key, config_value) VALUES (:key, :value)',
+            [':key' => 'work_calendar', ':value' => $defaultConfig]
+        );
+    }
+
     private function ensureProjectStoppersPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {

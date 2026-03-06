@@ -17,6 +17,9 @@ $selectedWeekSummary = is_array($selectedWeekSummary ?? null) ? $selectedWeekSum
 $weekIndicators = is_array($weekIndicators ?? null) ? $weekIndicators : [];
 $weekStatus = (string) ($selectedWeekSummary['status'] ?? 'draft');
 $canRegisterWeekend = !empty($canRegisterWeekend);
+$isAdmin = !empty($isAdmin);
+$weekDaysInfo = is_array($weekDaysInfo ?? null) ? $weekDaysInfo : [];
+$calendarConfig = is_array($calendarConfig ?? null) ? $calendarConfig : [];
 $currentUserName = trim((string) ($currentUserName ?? 'Usuario')) ?: 'Usuario';
 $statusMeta = [
     'draft' => ['label' => 'Borrador', 'class' => 'draft'],
@@ -162,26 +165,45 @@ foreach ($gridDays as $day) {
                         $weekDayShort = $weekDayShortNames[$dayWeekNumber] ?? (string) ($day['label'] ?? '');
                         $dayLabel = trim($weekDayShort . ' ' . $dayNumber . ' ' . $monthShort);
                         $isWeekend = $dayWeekNumber >= 6;
-                        $isBlockedWeekend = $isWeekend && !$canRegisterWeekend;
+                        $dayInfo = $weekDaysInfo[$dayDate] ?? null;
+                        $isHoliday = $dayInfo !== null && ($dayInfo['type'] ?? '') === 'holiday';
+                        $isNonWorking = $dayInfo !== null && ($dayInfo['type'] ?? '') === 'non_working';
+                        $holidayName = $isHoliday ? ($dayInfo['holiday_name'] ?? '') : '';
+                        $adminCanOverride = $isAdmin && !empty($calendarConfig['admin_can_override_holidays']);
+                        $isBlockedWeekend = ($isWeekend || $isNonWorking) && !$canRegisterWeekend;
+                        $isBlockedHoliday = $isHoliday && !$adminCanOverride;
+                        $isDayBlocked = $isBlockedWeekend || $isBlockedHoliday;
                         ?>
-                        <article class="day-card<?= $isWeekend ? ' weekend-day' : '' ?><?= $isBlockedWeekend ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedWeekend ? '1' : '0' ?>">
+                        <article class="day-card<?= $isWeekend ? ' weekend-day' : '' ?><?= $isDayBlocked ? ' non-working' : '' ?><?= $isHoliday ? ' holiday-day' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isDayBlocked ? '1' : '0' ?>">
                             <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
-                                <?php if ($isWeekend): ?>
+                                <?php if ($isHoliday): ?>
+                                    <span class="day-state day-state-holiday">Festivo</span>
+                                <?php elseif ($isWeekend || $isNonWorking): ?>
                                     <span class="day-state">No laboral</span>
                                 <?php endif; ?>
                             </header>
+                            <?php if ($isHoliday): ?>
+                                <div class="holiday-banner">
+                                    <span class="holiday-banner-icon">🎉</span>
+                                    <span class="holiday-banner-name"><?= htmlspecialchars($holidayName) ?></span>
+                                </div>
+                            <?php endif; ?>
                             <div class="day-total">Total: <strong><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</strong></div>
-                            <?php if (!$weekLocked && !$isBlockedWeekend): ?>
+                            <?php if (!$weekLocked && !$isDayBlocked): ?>
                                 <div class="day-drop-hint">Arrastra una actividad y sueltala aqui</div>
                             <?php endif; ?>
                             <?php if ($items === []): ?>
                                 <div class="day-empty-state">
-                                    <small>No hay actividades para este dia.</small>
-                                    <?php if (!$weekLocked && !$isBlockedWeekend): ?>
+                                    <?php if ($isBlockedHoliday): ?>
+                                        <small>Festivo: <?= htmlspecialchars($holidayName) ?>. No se pueden registrar horas.</small>
+                                    <?php elseif ($isDayBlocked): ?>
+                                        <small>Registro no habilitado para este día.</small>
+                                    <?php else: ?>
+                                        <small>No hay actividades para este dia.</small>
+                                    <?php endif; ?>
+                                    <?php if (!$weekLocked && !$isDayBlocked): ?>
                                         <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
-                                    <?php elseif ($isBlockedWeekend): ?>
-                                        <small>Registro no habilitado para fin de semana.</small>
                                     <?php endif; ?>
                                 </div>
                             <?php else: ?>
@@ -416,8 +438,14 @@ foreach ($gridDays as $day) {
 .day-total{font-size:12px;color:var(--text-secondary);margin:4px 0 8px}
 .day-drop-hint{font-size:11px;color:var(--text-secondary);border:1px dashed var(--border);border-radius:8px;padding:4px 6px;margin-bottom:8px}
 .day-card.weekend-day{background:#ffe8e8;border-color:#f2b8b8}
+.day-card.holiday-day{background:#ffe5e5;border-color:#f5a3a3;position:relative}
+.day-card.holiday-day .day-card-header{border-bottom:2px solid #fca5a5}
 .day-card.non-working{border-style:dashed;cursor:not-allowed}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
+.day-state-holiday{color:#dc2626;background:#fef2f2;padding:2px 8px;border-radius:999px;border:1px solid #fca5a5}
+.holiday-banner{display:flex;align-items:center;gap:6px;padding:6px 10px;margin:4px 0 2px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;font-size:13px;font-weight:600;color:#991b1b}
+.holiday-banner-icon{font-size:16px}
+.holiday-banner-name{flex:1}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
 .day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}

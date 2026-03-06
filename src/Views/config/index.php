@@ -5,6 +5,7 @@ $tabs = [
     'operacion' => 'Operación',
     'gobierno' => 'Gobierno',
     'catalogos' => 'Catálogos',
+    'calendario' => 'Calendario laboral',
     'notificaciones' => 'Notificaciones',
     'autenticacion' => 'Autenticación',
 ];
@@ -928,6 +929,9 @@ if (!array_key_exists($activeTab, $tabs)) {
                     break;
                 case 'catalogos':
                     include __DIR__ . '/tabs/catalogos.php';
+                    break;
+                case 'calendario':
+                    include __DIR__ . '/tabs/calendario.php';
                     break;
                 case 'notificaciones':
                     include __DIR__ . '/tabs/notificaciones.php';

@@ -367,16 +367,23 @@ class PmoAutomationService
             return 0;
         }
 
-        $days = 0;
-        $cursor = $from->modify('+1 day');
-        while ($cursor <= $to) {
-            if ((int) $cursor->format('N') <= 5) {
-                $days++;
+        try {
+            $calendarRepo = new \App\Repositories\WorkCalendarRepository($this->db);
+            return $calendarRepo->countBusinessDays(
+                $from->modify('+1 day')->format('Y-m-d'),
+                $to->format('Y-m-d')
+            );
+        } catch (\Throwable $e) {
+            $days = 0;
+            $cursor = $from->modify('+1 day');
+            while ($cursor <= $to) {
+                if ((int) $cursor->format('N') <= 5) {
+                    $days++;
+                }
+                $cursor = $cursor->modify('+1 day');
             }
-            $cursor = $cursor->modify('+1 day');
+            return $days;
         }
-
-        return $days;
     }
 
     private function riskScore(array $metrics): int

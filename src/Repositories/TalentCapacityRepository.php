@@ -282,17 +282,21 @@ class TalentCapacityRepository
 
     private function businessDays(string $start, string $end): int
     {
-        $count = 0;
-        $cursor = new DateTimeImmutable($start);
-        $limit = new DateTimeImmutable($end);
-        while ($cursor <= $limit) {
-            if ((int) $cursor->format('N') <= 5) {
-                $count++;
+        try {
+            $calendarRepo = new WorkCalendarRepository($this->db);
+            return $calendarRepo->countBusinessDays($start, $end);
+        } catch (\Throwable $e) {
+            $count = 0;
+            $cursor = new DateTimeImmutable($start);
+            $limit = new DateTimeImmutable($end);
+            while ($cursor <= $limit) {
+                if ((int) $cursor->format('N') <= 5) {
+                    $count++;
+                }
+                $cursor = $cursor->modify('+1 day');
             }
-            $cursor = $cursor->modify('+1 day');
+            return $count;
         }
-
-        return $count;
     }
 
     private function weeklyCapacity(array $talent): float

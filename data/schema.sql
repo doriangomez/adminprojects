@@ -678,6 +678,21 @@ CREATE TABLE audit_log (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE calendar_holidays (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    holiday_date DATE NOT NULL,
+    name VARCHAR(180) NOT NULL,
+    description VARCHAR(255) NULL,
+    recurring TINYINT(1) NOT NULL DEFAULT 0,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_calendar_holidays_date (holiday_date),
+    INDEX idx_calendar_holidays_active (active, holiday_date),
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- Seeds básicos
 INSERT INTO roles (nombre) VALUES ('Administrador'), ('PMO'), ('Líder de Proyecto'), ('Talento'), ('Visualizador');
 

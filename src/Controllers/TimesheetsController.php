@@ -17,7 +17,8 @@ class TimesheetsController extends Controller
         $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
         $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
         $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
-        $canRegisterWeekend = $this->auth->hasRole('Administrador');
+        $isAdmin = $this->auth->hasRole('Administrador');
+        $canRegisterWeekend = $isAdmin;
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
@@ -33,6 +34,10 @@ class TimesheetsController extends Controller
             : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0, 'activities_by_day' => []];
         $selectedWeekSummary = $repo->weekSummaryForUser($userId, $weekStart);
         $weekIndicators = $this->buildWeekIndicators($weeklyGrid);
+
+        $calendarService = new WorkCalendarService($this->db);
+        $weekDaysInfo = $calendarService->getWeekDaysInfo($weekStart->format('Y-m-d'));
+        $calendarConfig = $calendarService->getCalendarConfig();
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets · Registro',
@@ -55,6 +60,9 @@ class TimesheetsController extends Controller
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
             'currentUserName' => (string) ($user['name'] ?? 'Usuario'),
+            'weekDaysInfo' => $weekDaysInfo,
+            'calendarConfig' => $calendarConfig,
+            'isAdmin' => $isAdmin,
         ]);
     }
 
@@ -163,6 +171,13 @@ class TimesheetsController extends Controller
         if ($projectId <= 0 || $date === '') {
             http_response_code(400);
             exit('Proyecto y fecha son requeridos.');
+        }
+
+        $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($date, $this->auth->hasRole('Administrador'));
+        if (!$calendarCheck['allowed']) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'message' => $calendarCheck['message'], 'day_type' => $calendarCheck['day_type']]);
+            return;
         }
 
         try {
@@ -325,6 +340,12 @@ class TimesheetsController extends Controller
             exit('Proyecto, fecha, horas y tipo de actividad son requeridos para registrar actividad.');
         }
 
+        $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($date, $this->auth->hasRole('Administrador'));
+        if (!$calendarCheck['allowed']) {
+            http_response_code(403);
+            exit($calendarCheck['message']);
+        }
+
         try {
             $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -376,6 +397,12 @@ class TimesheetsController extends Controller
             return;
         }
 
+        $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($date, $this->auth->hasRole('Administrador'));
+        if (!$calendarCheck['allowed']) {
+            $this->jsonResponse(403, ['ok' => false, 'message' => $calendarCheck['message'], 'day_type' => $calendarCheck['day_type']]);
+            return;
+        }
+
         try {
             $activityId = $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -412,6 +439,14 @@ class TimesheetsController extends Controller
             'generated_deliverable' => filter_var($_POST['generated_deliverable'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'operational_comment' => trim((string) ($_POST['operational_comment'] ?? '')),
         ];
+
+        if ($date !== '') {
+            $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($date, $this->auth->hasRole('Administrador'));
+            if (!$calendarCheck['allowed']) {
+                $this->jsonResponse(403, ['ok' => false, 'message' => $calendarCheck['message'], 'day_type' => $calendarCheck['day_type']]);
+                return;
+            }
+        }
 
         try {
             if ($metadata['activity_type'] === '') {
@@ -462,6 +497,14 @@ class TimesheetsController extends Controller
         $activityId = (int) ($_POST['activity_id'] ?? 0);
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
 
+        if ($targetDate !== '') {
+            $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($targetDate, $this->auth->hasRole('Administrador'));
+            if (!$calendarCheck['allowed']) {
+                $this->jsonResponse(403, ['ok' => false, 'message' => $calendarCheck['message'], 'day_type' => $calendarCheck['day_type']]);
+                return;
+            }
+        }
+
         try {
             $newId = $repo->duplicateDraftActivity($activityId, $userId, $targetDate);
             $this->jsonResponse(200, ['ok' => true, 'id' => $newId]);
@@ -485,6 +528,14 @@ class TimesheetsController extends Controller
         $activityId = (int) ($_POST['activity_id'] ?? 0);
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
 
+        if ($targetDate !== '') {
+            $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($targetDate, $this->auth->hasRole('Administrador'));
+            if (!$calendarCheck['allowed']) {
+                $this->jsonResponse(403, ['ok' => false, 'message' => $calendarCheck['message'], 'day_type' => $calendarCheck['day_type']]);
+                return;
+            }
+        }
+
         try {
             $moved = $repo->moveDraftActivity($activityId, $userId, $targetDate);
             $this->jsonResponse(200, ['ok' => $moved]);
@@ -507,6 +558,14 @@ class TimesheetsController extends Controller
         $userId = (int) (($this->auth->user() ?? [])['id'] ?? 0);
         $sourceDate = trim((string) ($_POST['source_date'] ?? ''));
         $targetDate = trim((string) ($_POST['target_date'] ?? ''));
+
+        if ($targetDate !== '') {
+            $calendarCheck = (new WorkCalendarService($this->db))->canRegisterHours($targetDate, $this->auth->hasRole('Administrador'));
+            if (!$calendarCheck['allowed']) {
+                $this->jsonResponse(403, ['ok' => false, 'message' => $calendarCheck['message'], 'day_type' => $calendarCheck['day_type']]);
+                return;
+            }
+        }
 
         try {
             $created = $repo->duplicateDayActivities($userId, $sourceDate, $targetDate);

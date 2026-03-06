@@ -45,6 +45,10 @@ class ConfigController extends Controller
             $risksByCategory[$category][] = $risk;
         }
 
+        $calendarService = new WorkCalendarService($this->db);
+        $calendarConfig = $calendarService->getCalendarConfig();
+        $calendarHolidays = $calendarService->listAllHolidays();
+
         $this->render('config/index', [
             'title' => 'Configuración',
             'configData' => $config,
@@ -60,6 +64,8 @@ class ConfigController extends Controller
             'notificationCatalog' => NotificationCatalog::events(),
             'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
             'notificationMessage' => $_GET['notifications'] ?? null,
+            'calendarConfig' => $calendarConfig,
+            'calendarHolidays' => $calendarHolidays,
         ]);
     }
 
@@ -601,6 +607,100 @@ class ConfigController extends Controller
         header('Location: /config?saved=1');
     }
 
+
+    public function saveWorkCalendar(): void
+    {
+        $this->ensureConfigAccess();
+
+        $service = new WorkCalendarService($this->db);
+
+        $workingDays = [];
+        for ($i = 1; $i <= 7; $i++) {
+            $workingDays[$i] = isset($_POST["working_day_{$i}"]);
+        }
+
+        $config = [
+            'working_days' => $workingDays,
+            'default_daily_hours' => max(1, min(24, (float) ($_POST['default_daily_hours'] ?? 8))),
+            'admin_can_override_holidays' => isset($_POST['admin_can_override_holidays']),
+        ];
+
+        $service->saveCalendarConfig($config);
+
+        header('Location: /config?tab=calendario&saved=1');
+    }
+
+    public function createHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $user = $this->auth->user() ?? [];
+        $service = new WorkCalendarService($this->db);
+
+        $holidayDate = trim((string) ($_POST['holiday_date'] ?? ''));
+        $name = trim((string) ($_POST['name'] ?? ''));
+
+        if ($holidayDate === '' || $name === '') {
+            http_response_code(400);
+            exit('Fecha y nombre del festivo son obligatorios.');
+        }
+
+        $service->createHoliday([
+            'holiday_date' => $holidayDate,
+            'name' => $name,
+            'description' => trim((string) ($_POST['description'] ?? '')),
+            'recurring' => isset($_POST['recurring']) ? 1 : 0,
+            'active' => isset($_POST['active']) ? 1 : 1,
+            'created_by' => (int) ($user['id'] ?? 0) ?: null,
+        ]);
+
+        header('Location: /config?tab=calendario&saved=1');
+    }
+
+    public function updateHoliday(): void
+    {
+        $this->ensureConfigAccess();
+
+        $service = new WorkCalendarService($this->db);
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id <= 0) {
+            http_response_code(400);
+            exit('ID de festivo inválido.');
+        }
+
+        $holidayDate = trim((string) ($_POST['holiday_date'] ?? ''));
+        $name = trim((string) ($_POST['name'] ?? ''));
+
+        if ($holidayDate === '' || $name === '') {
+            http_response_code(400);
+            exit('Fecha y nombre del festivo son obligatorios.');
+        }
+
+        $service->updateHoliday($id, [
+            'holiday_date' => $holidayDate,
+            'name' => $name,
+            'description' => trim((string) ($_POST['description'] ?? '')),
+            'recurring' => isset($_POST['recurring']) ? 1 : 0,
+            'active' => isset($_POST['active']) ? 1 : 0,
+        ]);
+
+        header('Location: /config?tab=calendario&saved=1');
+    }
+
+    public function deleteHolidayAction(): void
+    {
+        $this->ensureConfigAccess();
+
+        $service = new WorkCalendarService($this->db);
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id > 0) {
+            $service->deleteHoliday($id);
+        }
+
+        header('Location: /config?tab=calendario&saved=1');
+    }
 
     public function updateGoogleWorkspace(): void
     {
