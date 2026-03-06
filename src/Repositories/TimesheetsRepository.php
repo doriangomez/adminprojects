@@ -249,7 +249,25 @@ class TimesheetsRepository
         if ($weeklyCapacity <= 0) {
             $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
         }
-        $weeklyCapacity = $this->workCalendarService()->weeklyCapacityForWeek($weeklyCapacity, $weekStart);
+        $calendarCapacity = $this->workCalendarService()->weeklyCapacityForWeek($weeklyCapacity, $weekStart);
+
+        $absenceService = new \TalentAbsenceService($this->db);
+        $capacityBreakdown = $absenceService->weeklyCapacityBreakdown($userId, $calendarCapacity, $weekStart, $weekCalendar);
+        $realCapacity = (float) $capacityBreakdown['real_capacity'];
+
+        $absencesByDay = $capacityBreakdown['absences_by_day'];
+        foreach ($days as &$dayRef) {
+            $dayKey = (string) $dayRef['key'];
+            $dayRef['absences'] = $absencesByDay[$dayKey] ?? [];
+            $dayRef['has_full_day_absence'] = false;
+            foreach ($dayRef['absences'] as $abs) {
+                if (!empty($abs['is_full_day'])) {
+                    $dayRef['has_full_day_absence'] = true;
+                    break;
+                }
+            }
+        }
+        unset($dayRef);
 
         foreach ($activitiesByDay as &$dayItems) {
             usort($dayItems, static function (array $a, array $b): int {
@@ -263,7 +281,9 @@ class TimesheetsRepository
             'rows' => $rows,
             'day_totals' => $dayTotals,
             'week_total' => array_sum($dayTotals),
-            'weekly_capacity' => $weeklyCapacity,
+            'weekly_capacity' => $realCapacity,
+            'base_weekly_capacity' => $calendarCapacity,
+            'capacity_breakdown' => $capacityBreakdown,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
@@ -2470,6 +2490,16 @@ class TimesheetsRepository
         $dayMeta = $this->workCalendarService()->classifyDate($day);
         if (empty($dayMeta['is_working']) && !$this->canOverrideNonWorkingRestriction($userId, $dayMeta)) {
             throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
+        }
+
+        $absenceService = new \TalentAbsenceService($this->db);
+        $blockingAbsence = $absenceService->getBlockingAbsence($userId, $date);
+        if ($blockingAbsence !== null) {
+            $absenceType = (string) ($blockingAbsence['absence_type'] ?? 'ausencia');
+            $absenceLabel = \TalentAbsenceService::ABSENCE_TYPES[$absenceType]['label'] ?? $absenceType;
+            throw new InvalidArgumentException(
+                "No puedes registrar horas. Estás en {$absenceLabel} este día."
+            );
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);

@@ -92,9 +92,34 @@ foreach ($gridDays as $day) {
                 </label>
                 <button type="submit" class="btn-link">Cambiar</button>
             </form>
+            <?php
+            $capacityBreakdown = is_array($weeklyGrid['capacity_breakdown'] ?? null) ? $weeklyGrid['capacity_breakdown'] : [];
+            $baseCapacity = (float) ($weeklyGrid['base_weekly_capacity'] ?? $weekIndicators['weekly_capacity'] ?? 40);
+            $realCapacity = (float) ($weekIndicators['weekly_capacity'] ?? $baseCapacity);
+            $absDeductions = is_array($capacityBreakdown['absence_deductions'] ?? null) ? $capacityBreakdown['absence_deductions'] : [];
+            $hldBreakdown = is_array($capacityBreakdown['holidays'] ?? null) ? $capacityBreakdown['holidays'] : [];
+            $hasDeductions = !empty($absDeductions) || !empty($hldBreakdown);
+            ?>
             <div class="header-badges">
                 <span class="pill neutral">Semana: <strong><?= htmlspecialchars($weekStart->format('d/m')) ?> - <?= htmlspecialchars($weekEnd->format('d/m')) ?></strong></span>
-                <span class="pill neutral">Meta: <strong><?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</strong></span>
+                <span class="pill neutral capacity-tooltip-trigger" style="position:relative; cursor:pointer;">
+                    Capacidad semanal: <strong><?= round($realCapacity, 2) ?>h</strong>
+                    <?php if ($hasDeductions): ?>
+                        <span style="font-size:11px; opacity:0.7;">(base: <?= round($baseCapacity, 2) ?>h)</span>
+                    <?php endif; ?>
+                    <?php if ($hasDeductions): ?>
+                        <span class="capacity-tooltip-box" style="display:none; position:absolute; top:100%; left:0; background:var(--text-primary,#1e293b); color:var(--background,#fff); padding:12px 16px; border-radius:10px; font-size:12px; white-space:nowrap; z-index:200; box-shadow:0 6px 20px rgba(0,0,0,0.25); margin-top:6px; min-width:220px;">
+                            <div style="display:flex; justify-content:space-between; gap:14px; margin-bottom:4px;"><span>Capacidad base</span><strong><?= round($baseCapacity, 2) ?>h</strong></div>
+                            <?php foreach ($hldBreakdown as $hld): ?>
+                                <div style="display:flex; justify-content:space-between; gap:14px;"><span>Festivo: <?= htmlspecialchars((string) ($hld['name'] ?? '')) ?></span><strong style="color:#f87171;">-<?= round((float) ($hld['hours'] ?? 0), 1) ?>h</strong></div>
+                            <?php endforeach; ?>
+                            <?php foreach ($absDeductions as $ded): ?>
+                                <div style="display:flex; justify-content:space-between; gap:14px;"><span><?= $ded['icon'] ?? '' ?> <?= htmlspecialchars((string) ($ded['label'] ?? '')) ?> (<?= (int) ($ded['days'] ?? 0) ?> d)</span><strong style="color:#f87171;">-<?= round((float) ($ded['total_hours'] ?? 0), 1) ?>h</strong></div>
+                            <?php endforeach; ?>
+                            <div style="display:flex; justify-content:space-between; gap:14px; border-top:1px solid rgba(255,255,255,0.2); padding-top:6px; margin-top:6px;"><strong>Capacidad real</strong><strong style="color:#34d399;"><?= round($realCapacity, 2) ?>h</strong></div>
+                        </span>
+                    <?php endif; ?>
+                </span>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn primary" id="focus-quick-add" <?= $weekLocked ? 'disabled' : '' ?>>+ Registrar actividad</button>
@@ -127,7 +152,7 @@ foreach ($gridDays as $day) {
         <?php endif; ?>
 
         <section class="indicators-grid">
-            <article class="card indicator"><span>Horas registradas / <?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
+            <article class="card indicator"><span>Horas registradas / <?= round($realCapacity, 2) ?>h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
             <article class="card indicator"><span>Capacidad restante</span><strong><?= round((float) ($weekIndicators['remaining_capacity'] ?? 0), 2) ?>h</strong></article>
             <article class="card indicator"><span>Progreso semanal</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
             <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
@@ -165,16 +190,35 @@ foreach ($gridDays as $day) {
                         $isBlockedDay = !$isWorkingDay;
                         $isHoliday = $dayType === 'holiday';
                         $daySpecialName = trim((string) ($day['day_name'] ?? ''));
+                        $dayAbsences = is_array($day['absences'] ?? null) ? $day['absences'] : [];
+                        $hasFullDayAbsence = !empty($day['has_full_day_absence']);
+                        $isAbsenceBlocked = $hasFullDayAbsence;
+                        $effectiveBlocked = $isBlockedDay || $isAbsenceBlocked;
                         ?>
-                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $isBlockedDay ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedDay ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>">
+                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $effectiveBlocked ? ' non-working' : '' ?><?= $isAbsenceBlocked && !$isHoliday ? ' absence-day' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $effectiveBlocked ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>">
                             <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
                                 <?php if ($dayType === 'holiday'): ?>
                                     <span class="day-state">🎉 Festivo</span>
+                                <?php elseif ($isAbsenceBlocked): ?>
+                                    <?php foreach ($dayAbsences as $abs): ?>
+                                        <span class="day-state" style="background: <?= htmlspecialchars((string) ($abs['color'] ?? '#3B82F6')) ?>20; color: <?= htmlspecialchars((string) ($abs['color'] ?? '#3B82F6')) ?>; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700;">
+                                            <?= $abs['icon'] ?? '' ?> <?= htmlspecialchars((string) ($abs['label'] ?? 'Ausencia')) ?>
+                                        </span>
+                                    <?php endforeach; ?>
                                 <?php elseif ($isBlockedDay): ?>
                                     <span class="day-state">No laboral</span>
                                 <?php endif; ?>
                             </header>
+                            <?php if (!empty($dayAbsences) && !$hasFullDayAbsence): ?>
+                                <div class="day-partial-absence">
+                                    <?php foreach ($dayAbsences as $abs): ?>
+                                        <span style="display:inline-flex;align-items:center;gap:3px;background:<?= htmlspecialchars((string) ($abs['color'] ?? '#F59E0B')) ?>18;color:<?= htmlspecialchars((string) ($abs['color'] ?? '#F59E0B')) ?>;padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;">
+                                            <?= $abs['icon'] ?? '' ?> <?= htmlspecialchars((string) ($abs['label'] ?? '')) ?> (<?= round((float) ($abs['hours'] ?? 0), 1) ?>h)
+                                        </span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                             <?php if ($daySpecialName !== ''): ?>
                                 <div class="day-special-name"><?= htmlspecialchars($daySpecialName) ?></div>
                             <?php endif; ?>
@@ -185,8 +229,11 @@ foreach ($gridDays as $day) {
                             <?php if ($items === []): ?>
                                 <div class="day-empty-state">
                                     <small>No hay actividades para este dia.</small>
-                                    <?php if (!$weekLocked && !$isBlockedDay): ?>
+                                    <?php if (!$weekLocked && !$effectiveBlocked): ?>
                                         <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
+                                    <?php elseif ($isAbsenceBlocked && !$isHoliday): ?>
+                                        <?php $blockAbs = $dayAbsences[0] ?? []; ?>
+                                        <small style="color: <?= htmlspecialchars((string) ($blockAbs['color'] ?? '#3B82F6')) ?>;">No puedes registrar horas. Estás en <?= htmlspecialchars((string) ($blockAbs['label'] ?? 'ausencia')) ?> este día.</small>
                                     <?php elseif ($isHoliday): ?>
                                         <small>Este dia es festivo. Registro bloqueado.</small>
                                     <?php elseif ($isBlockedDay): ?>
@@ -427,8 +474,11 @@ foreach ($gridDays as $day) {
 .day-card.holiday-day{background:#ffe5e5;border-color:#f2b8b8}
 .day-card.non-working-day{background:#f8fafc;border-color:#cbd5e1}
 .day-card.non-working{border-style:dashed;cursor:not-allowed}
+.day-card.absence-day{background:color-mix(in srgb, #3B82F6 8%, var(--surface));border-color:color-mix(in srgb, #3B82F6 30%, var(--border));border-style:dashed}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
 .day-special-name{font-size:12px;color:#991b1b;font-weight:600;margin:2px 0 6px}
+.day-partial-absence{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 6px}
+.capacity-tooltip-trigger:hover .capacity-tooltip-box{display:block!important}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
 .day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}

@@ -24,6 +24,7 @@ class WorkCalendarService
         }
 
         $holidays = $this->normalizeHolidayRows($rawCalendar['holidays'] ?? []);
+        $holidays = $this->mergeTableHolidays($holidays);
         $exceptions = $this->normalizeExceptionRows($rawCalendar['exceptions'] ?? []);
 
         $holidaysByDate = [];
@@ -159,6 +160,37 @@ class WorkCalendarService
     public function allowAdminNonWorkingLogging(): bool
     {
         return (bool) ($this->getCalendarConfig()['allow_admin_non_working_logging'] ?? false);
+    }
+
+    private function mergeTableHolidays(array $holidays): array
+    {
+        if ($this->db === null || !$this->db->tableExists('calendar_holidays')) {
+            return $holidays;
+        }
+
+        $existingDates = [];
+        foreach ($holidays as $h) {
+            $existingDates[(string) $h['date']] = true;
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT date, name FROM calendar_holidays WHERE active = 1 ORDER BY date ASC'
+        );
+
+        foreach ($rows as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date === '' || isset($existingDates[$date])) {
+                continue;
+            }
+            $holidays[] = [
+                'date' => $date,
+                'name' => trim((string) ($row['name'] ?? 'Festivo')),
+            ];
+        }
+
+        usort($holidays, fn(array $a, array $b) => strcmp((string) $a['date'], (string) $b['date']));
+
+        return $holidays;
     }
 
     private function normalizeWeekdayList(mixed $value): array

@@ -521,6 +521,46 @@ CREATE TABLE timesheets (
 );
 
 
+CREATE TABLE calendar_holidays (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    date DATE NOT NULL,
+    name VARCHAR(180) NOT NULL,
+    country VARCHAR(5) NOT NULL DEFAULT 'CO',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_calendar_holidays_date (date, country),
+    INDEX idx_calendar_holidays_date (date),
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE talent_absences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    talent_id INT NOT NULL,
+    user_id INT NOT NULL,
+    absence_type ENUM('vacaciones','incapacidad','permiso_personal','permiso_medico','capacitacion','licencia','festivo') NOT NULL,
+    date_start DATE NOT NULL,
+    date_end DATE NOT NULL,
+    hours_per_day DECIMAL(4,2) NOT NULL DEFAULT 8.00,
+    total_hours DECIMAL(8,2) NOT NULL DEFAULT 0,
+    status ENUM('pendiente','aprobado','rechazado','cancelado') NOT NULL DEFAULT 'pendiente',
+    approved_by INT NULL,
+    approved_at DATETIME NULL,
+    notes TEXT NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_talent_absences_talent_dates (talent_id, date_start, date_end),
+    INDEX idx_talent_absences_user_dates (user_id, date_start, date_end),
+    INDEX idx_talent_absences_status (status),
+    INDEX idx_talent_absences_type (absence_type),
+    FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE project_invoices (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,

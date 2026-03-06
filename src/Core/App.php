@@ -40,6 +40,7 @@ class App
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureTalentAbsencesModule();
         $this->auth = new Auth($this->db);
     }
 
@@ -503,6 +504,36 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 return;
             }
 
+            $controller->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/absences')) {
+            $controller = new AbsencesController($this->db, $this->auth);
+            if ($path === '/absences/create' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
+            if ($path === '/absences/approve' && $method === 'POST') {
+                $controller->approve();
+                return;
+            }
+            if ($path === '/absences/reject' && $method === 'POST') {
+                $controller->reject();
+                return;
+            }
+            if ($path === '/absences/cancel' && $method === 'POST') {
+                $controller->cancel();
+                return;
+            }
+            if ($path === '/absences/delete' && $method === 'POST') {
+                $controller->delete();
+                return;
+            }
+            if ($path === '/absences/api/capacity' && $method === 'GET') {
+                $controller->capacityApi();
+                return;
+            }
             $controller->index();
             return;
         }

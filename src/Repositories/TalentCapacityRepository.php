@@ -130,10 +130,33 @@ class TalentCapacityRepository
         $monthlyUtilization = [];
         $heatmap = [];
 
+        $absenceService = new \TalentAbsenceService($this->db);
+        $workCalendar = new \WorkCalendarService($this->db);
+
         foreach ($talents as &$talent) {
             $talentId = (int) $talent['id'];
+            $talentUserId = (int) ($talent['user_id'] ?? 0);
             $weeklyCapacity = $this->weeklyCapacity($talent);
             $dailyCapacity = $weeklyCapacity / 5;
+
+            $talentAbsences = $talentUserId > 0
+                ? $absenceService->getAbsencesForTalent($talentUserId, $range['start'], $range['end'])
+                : [];
+
+            $absenceDayMap = [];
+            foreach ($talentAbsences as $abs) {
+                $absStart = new DateTimeImmutable((string) $abs['date_start']);
+                $absEnd = new DateTimeImmutable((string) $abs['date_end']);
+                $hpd = (float) ($abs['hours_per_day'] ?? 8);
+                $absCursor = $absStart;
+                while ($absCursor <= $absEnd) {
+                    $dk = $absCursor->format('Y-m-d');
+                    if ((int) $absCursor->format('N') <= 5) {
+                        $absenceDayMap[$dk] = ($absenceDayMap[$dk] ?? 0) + $hpd;
+                    }
+                    $absCursor = $absCursor->modify('+1 day');
+                }
+            }
 
             $dailyUtilization[$talentId] = [];
             $weeklyBuckets = [];
@@ -147,22 +170,25 @@ class TalentCapacityRepository
                     continue;
                 }
                 $day = $cursor->format('Y-m-d');
+                $absenceHoursToday = $absenceDayMap[$day] ?? 0;
+                $effectiveDailyCapacity = max(0, $dailyCapacity - $absenceHoursToday);
                 $hours = $dailyLogged[$talentId][$day] ?? ($dailyPlanned[$talentId][$day] ?? 0.0);
-                $percentage = $dailyCapacity > 0 ? ($hours / $dailyCapacity) * 100 : 0;
+                $percentage = $effectiveDailyCapacity > 0 ? ($hours / $effectiveDailyCapacity) * 100 : ($hours > 0 ? 100 : 0);
                 $dailyUtilization[$talentId][$day] = [
                     'hours' => round($hours, 2),
-                    'capacity' => round($dailyCapacity, 2),
+                    'capacity' => round($effectiveDailyCapacity, 2),
                     'utilization' => round($percentage, 1),
                     'status' => $this->statusForUtilization($percentage),
+                    'absence_hours' => round($absenceHoursToday, 2),
                 ];
 
                 $weekKey = $cursor->format('o-\\WW');
                 $monthlyKey = $cursor->format('Y-m');
                 $weeklyBuckets[$weekKey]['hours'] = ($weeklyBuckets[$weekKey]['hours'] ?? 0) + $hours;
-                $weeklyBuckets[$weekKey]['capacity'] = ($weeklyBuckets[$weekKey]['capacity'] ?? 0) + $dailyCapacity;
+                $weeklyBuckets[$weekKey]['capacity'] = ($weeklyBuckets[$weekKey]['capacity'] ?? 0) + $effectiveDailyCapacity;
 
                 $monthlyBuckets[$monthlyKey]['hours'] = ($monthlyBuckets[$monthlyKey]['hours'] ?? 0) + $hours;
-                $monthlyBuckets[$monthlyKey]['capacity'] = ($monthlyBuckets[$monthlyKey]['capacity'] ?? 0) + $dailyCapacity;
+                $monthlyBuckets[$monthlyKey]['capacity'] = ($monthlyBuckets[$monthlyKey]['capacity'] ?? 0) + $effectiveDailyCapacity;
 
                 $cursor = $cursor->modify('+1 day');
             }
