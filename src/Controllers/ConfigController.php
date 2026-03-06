@@ -241,6 +241,20 @@ class ConfigController extends Controller
                     'external_talent_requires_approval' => isset($_POST['external_talent_requires_approval']),
                     'budget_change_requires_approval' => isset($_POST['budget_change_requires_approval']),
                 ],
+                'absences' => [
+                    'enabled' => array_key_exists('absences_enabled', $_POST)
+                        ? isset($_POST['absences_enabled'])
+                        : (bool) ($current['operational_rules']['absences']['enabled'] ?? true),
+                    'vacations_enabled' => array_key_exists('absences_vacations_enabled', $_POST)
+                        ? isset($_POST['absences_vacations_enabled'])
+                        : (bool) ($current['operational_rules']['absences']['vacations_enabled'] ?? true),
+                    'block_timesheet_on_absence' => array_key_exists('absences_block_timesheet', $_POST)
+                        ? isset($_POST['absences_block_timesheet'])
+                        : (bool) ($current['operational_rules']['absences']['block_timesheet_on_absence'] ?? true),
+                    'allow_admin_exceptions' => array_key_exists('absences_allow_admin_exceptions', $_POST)
+                        ? isset($_POST['absences_allow_admin_exceptions'])
+                        : (bool) ($current['operational_rules']['absences']['allow_admin_exceptions'] ?? true),
+                ],
                 'timesheets' => [
                     'enabled' => array_key_exists('timesheets_enabled', $_POST)
                         ? isset($_POST['timesheets_enabled'])
@@ -318,7 +332,12 @@ class ConfigController extends Controller
             return;
         }
 
-        header('Location: /config?saved=1');
+        $tab = trim((string) ($_POST['config_tab'] ?? ''));
+        $redirect = '/config?saved=1';
+        if ($tab !== '' && in_array($tab, ['identidad', 'apariencia', 'operacion', 'talento', 'gobierno', 'catalogos', 'notificaciones', 'autenticacion'], true)) {
+            $redirect .= '&tab=' . $tab;
+        }
+        header('Location: ' . $redirect);
     }
 
     public function updateNotifications(): void

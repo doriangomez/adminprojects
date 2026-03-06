@@ -193,6 +193,12 @@ class ConfigService
                 'external_talent_requires_approval' => true,
                 'budget_change_requires_approval' => true,
             ],
+            'absences' => [
+                'enabled' => true,
+                'vacations_enabled' => true,
+                'block_timesheet_on_absence' => true,
+                'allow_admin_exceptions' => true,
+            ],
             'timesheets' => [
                 'enabled' => false,
                 'minimum_weekly_hours' => 0,
@@ -312,6 +318,7 @@ class ConfigService
                 ),
             ],
             'operational_rules' => [
+                'absences' => $this->mergeAbsenceRules($stored['operational_rules']['absences'] ?? []),
                 'semaforization' => [
                     'progress' => array_merge(
                         $this->defaults['operational_rules']['semaforization']['progress'],
@@ -412,6 +419,10 @@ class ConfigService
                     $current['operational_rules']['approvals'],
                     $payload['operational_rules']['approvals'] ?? []
                 ),
+                'absences' => $this->mergeAbsenceRules(array_merge(
+                    $current['operational_rules']['absences'] ?? [],
+                    $payload['operational_rules']['absences'] ?? []
+                )),
                 'timesheets' => $this->mergeTimesheetRules(array_merge(
                     $current['operational_rules']['timesheets'] ?? [],
                     $payload['operational_rules']['timesheets'] ?? []
@@ -570,6 +581,18 @@ class ConfigService
         $notifications['events'] = $events;
 
         return $notifications;
+    }
+
+    private function mergeAbsenceRules(array $stored): array
+    {
+        $defaults = $this->defaults['operational_rules']['absences'] ?? [
+            'enabled' => true,
+            'vacations_enabled' => true,
+            'block_timesheet_on_absence' => true,
+            'allow_admin_exceptions' => true,
+        ];
+
+        return array_merge($defaults, $stored);
     }
 
     private function mergeTimesheetRules(array $stored): array

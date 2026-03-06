@@ -230,6 +230,11 @@ class TalentAvailabilityService
             return [];
         }
 
+        $config = (new ConfigService($this->db))->getConfig();
+        if (!($config['operational_rules']['absences']['enabled'] ?? true)) {
+            return [];
+        }
+
         $hoursColumn = $this->db->columnExists('talent_absences', 'hours') ? 'hours' : 'NULL AS hours';
         $isFullDayColumn = $this->db->columnExists('talent_absences', 'is_full_day') ? 'is_full_day' : '1 AS is_full_day';
         $statusWhere = '1=1';

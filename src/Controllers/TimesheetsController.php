@@ -172,6 +172,15 @@ class TimesheetsController extends Controller
             exit('Proyecto y fecha son requeridos.');
         }
 
+        if ($this->shouldBlockTimesheetOnAbsence($repo, $userId, $date, $hours)) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'ok' => false,
+                'message' => 'No puedes registrar horas en un día con ausencia aprobada. Contacta a tu administrador si necesitas una excepción.',
+            ]);
+            return;
+        }
+
         try {
             $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, $syncOperational);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -332,6 +341,11 @@ class TimesheetsController extends Controller
             exit('Proyecto, fecha, horas y tipo de actividad son requeridos para registrar actividad.');
         }
 
+        if ($this->shouldBlockTimesheetOnAbsence($repo, $userId, $date, $hours)) {
+            http_response_code(400);
+            exit('No puedes registrar horas en un día con ausencia aprobada. Contacta a tu administrador si necesitas una excepción.');
+        }
+
         try {
             $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
@@ -380,6 +394,11 @@ class TimesheetsController extends Controller
 
         if ($projectId <= 0 || $date === '' || $hours <= 0 || $metadata['activity_description'] === '' || $comment === '' || $metadata['activity_type'] === '') {
             $this->jsonResponse(400, ['ok' => false, 'message' => 'Proyecto, fecha, horas, descripción, tipo de actividad y comentario son obligatorios.']);
+            return;
+        }
+
+        if ($this->shouldBlockTimesheetOnAbsence($repo, $userId, $date, $hours)) {
+            $this->jsonResponse(400, ['ok' => false, 'message' => 'No puedes registrar horas en un día con ausencia aprobada. Contacta a tu administrador si necesitas una excepción.']);
             return;
         }
 
@@ -850,5 +869,51 @@ class TimesheetsController extends Controller
             http_response_code(500);
             exit('No se pudo actualizar el estado del timesheet.');
         }
+    }
+
+    private function shouldBlockTimesheetOnAbsence(TimesheetsRepository $repo, int $userId, string $date, float $hours): bool
+    {
+        if ($hours <= 0) {
+            return false;
+        }
+
+        $config = (new ConfigService($this->db))->getConfig();
+        $absenceRules = $config['operational_rules']['absences'] ?? [];
+        $blockOnAbsence = (bool) ($absenceRules['block_timesheet_on_absence'] ?? true);
+        $allowAdminExceptions = (bool) ($absenceRules['allow_admin_exceptions'] ?? true);
+
+        if (!$blockOnAbsence) {
+            return false;
+        }
+
+        $talentId = $repo->talentIdForUser($userId);
+        if ($talentId === null) {
+            return false;
+        }
+
+        if (!$this->hasApprovedFullDayAbsenceOnDate($talentId, $date)) {
+            return false;
+        }
+
+        return !($allowAdminExceptions && $this->auth->hasRole('Administrador'));
+    }
+
+    private function hasApprovedFullDayAbsenceOnDate(int $talentId, string $date): bool
+    {
+        if (!$this->db->tableExists('talent_absences') || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT 1 FROM talent_absences
+             WHERE talent_id = :talent_id
+               AND LOWER(status) IN ("aprobado", "approved")
+               AND start_date <= :date AND end_date >= :date
+               AND (is_full_day = 1 OR hours IS NULL OR hours <= 0)
+             LIMIT 1',
+            [':talent_id' => $talentId, ':date' => $date]
+        );
+
+        return $row !== null;
     }
 }

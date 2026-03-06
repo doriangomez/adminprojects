@@ -1,6 +1,7 @@
 <?php
 $theme = $theme ?? (new ThemeRepository())->getActiveTheme();
 $timesheetsEnabled = $timesheetsEnabled ?? false;
+$absencesEnabled = $absencesEnabled ?? true;
 $basePath = '';
 $appDisplayName = $appName ?? 'PMO';
 $logoUrl = !empty($theme['logo_url']) ? $theme['logo_url'] : '';
@@ -704,6 +705,12 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg></span>
                 <span class="nav-label">Talento</span>
             </a>
+            <?php if ($absencesEnabled): ?>
+            <a href="<?= $basePath ?>/absences" class="nav-link <?= str_starts_with($normalizedPath, '/absences') ? 'active' : '' ?>" data-tone="emerald">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span>
+                <span class="nav-label">Ausencias</span>
+            </a>
+            <?php endif; ?>
             <div class="nav-group">
                 <a href="<?= $basePath ?>/talent-capacity" class="nav-link <?= $isTalentCapacityRoute ? 'active' : '' ?>" data-tone="blue">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="6" y="12" width="3" height="6" rx="1"/><rect x="11" y="8" width="3" height="10" rx="1"/><rect x="16" y="5" width="3" height="13" rx="1"/></svg></span>

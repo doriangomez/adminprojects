@@ -3,6 +3,7 @@ $tabs = [
     'identidad' => 'Identidad',
     'apariencia' => 'Apariencia',
     'operacion' => 'Operación',
+    'talento' => 'Talento',
     'gobierno' => 'Gobierno',
     'catalogos' => 'Catálogos',
     'notificaciones' => 'Notificaciones',
@@ -922,6 +923,9 @@ if (!array_key_exists($activeTab, $tabs)) {
                     break;
                 case 'operacion':
                     include __DIR__ . '/tabs/operacion.php';
+                    break;
+                case 'talento':
+                    include __DIR__ . '/tabs/talento.php';
                     break;
                 case 'gobierno':
                     include __DIR__ . '/tabs/gobierno.php';

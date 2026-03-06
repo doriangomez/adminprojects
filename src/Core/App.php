@@ -40,6 +40,7 @@ class App
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureAbsencePermissions();
         $this->auth = new Auth($this->db);
     }
 
@@ -503,6 +504,40 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 return;
             }
 
+            $controller->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/absences')) {
+            $controller = new AbsencesController($this->db, $this->auth);
+            if ($path === '/absences/create' && $method === 'GET') {
+                $controller->create();
+                return;
+            }
+            if ($path === '/absences/create' && $method === 'POST') {
+                $controller->store();
+                return;
+            }
+            if (preg_match('#^/absences/(\d+)/edit$#', $path, $m) && $method === 'GET') {
+                $controller->edit((int) $m[1]);
+                return;
+            }
+            if (preg_match('#^/absences/(\d+)/update$#', $path, $m) && $method === 'POST') {
+                $controller->update((int) $m[1]);
+                return;
+            }
+            if (preg_match('#^/absences/(\d+)/delete$#', $path, $m) && $method === 'POST') {
+                $controller->destroy((int) $m[1]);
+                return;
+            }
+            if (preg_match('#^/absences/(\d+)/approve$#', $path, $m) && $method === 'POST') {
+                $controller->approve((int) $m[1]);
+                return;
+            }
+            if (preg_match('#^/absences/(\d+)/reject$#', $path, $m) && $method === 'POST') {
+                $controller->reject((int) $m[1]);
+                return;
+            }
             $controller->index();
             return;
         }

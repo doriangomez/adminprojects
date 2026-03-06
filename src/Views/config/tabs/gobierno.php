@@ -2,7 +2,7 @@
     <form id="governance-config-form" method="POST" action="/config/theme" enctype="multipart/form-data"></form>
     <?php
     $permissionGroups = [
-        'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo', 'timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket'],
+        'Gestión' => ['administrar', 'gestionar', 'config', 'cliente', 'proyecto', 'usuario', 'rol', 'catálogo', 'catalogo', 'timesheet', 'outsourcing', 'aprob', 'avance', 'documento', 'flujo', 'tarea', 'ticket', 'ausencia', 'talento'],
         'Visualización' => ['ver', 'visualizar', 'dashboard', 'reporte', 'report'],
     ];
     $normalizeText = static function(string $value): string {

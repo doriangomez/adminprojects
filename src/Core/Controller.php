@@ -26,6 +26,7 @@ abstract class Controller
         $theme = (new ThemeRepository($this->db))->getActiveTheme();
         $configData = (new ConfigService($this->db))->getConfig();
         $timesheetsEnabled = (bool) ($configData['operational_rules']['timesheets']['enabled'] ?? false);
+        $absencesEnabled = (bool) ($configData['operational_rules']['absences']['enabled'] ?? true);
         include __DIR__ . '/../Views/layout/header.php';
         include __DIR__ . '/../Views/' . $view . '.php';
         include __DIR__ . '/../Views/layout/footer.php';
