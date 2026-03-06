@@ -117,6 +117,23 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     };
 };
 
+$clientLookup = [];
+foreach ($clientsList as $cl) {
+    $cName = trim((string) ($cl['name'] ?? ''));
+    if ($cName !== '') {
+        $clientLookup[$cName] = $cl;
+    }
+}
+
+$projectsByClient = [];
+foreach ($projectsList as $project) {
+    $cName = trim((string) ($project['client'] ?? ''));
+    if ($cName === '') {
+        $cName = 'Sin cliente';
+    }
+    $projectsByClient[$cName][] = $project;
+}
+
 ?>
 
 <style>
@@ -605,6 +622,87 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; }
 
+    .client-group-row td {
+        background: color-mix(in srgb, var(--primary) 6%, var(--background));
+        border-bottom: 2px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+        padding: 0 !important;
+    }
+
+    .client-group-header-inline {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+    }
+
+    .client-group-logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        object-fit: contain;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        flex-shrink: 0;
+    }
+
+    .client-group-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, var(--secondary)));
+        flex-shrink: 0;
+        text-transform: uppercase;
+    }
+
+    .client-group-name {
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .client-group-count {
+        font-size: 12px;
+        color: var(--text-secondary);
+        font-weight: 600;
+        margin-left: auto;
+        white-space: nowrap;
+    }
+
+    .client-group-section {
+        margin-bottom: 20px;
+    }
+
+    .client-group-section .client-group-header-standalone {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px 14px 0 0;
+        border-bottom: 2px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+    }
+
+    .client-group-section .client-group-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .client-group-section .project-grid {
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 14px 14px;
+        padding: 14px;
+        background: color-mix(in srgb, var(--text-secondary) 4%, var(--background));
+    }
+
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
         .project-table { font-size: 13px; }
@@ -793,8 +891,28 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                     <th>Acciones</th>
                 </tr>
             </thead>
-            <tbody>
-                <?php foreach ($projectsList as $project): ?>
+            <?php foreach ($projectsByClient as $groupClientName => $groupProjects): ?>
+                <?php
+                    $groupClientData = $clientLookup[$groupClientName] ?? null;
+                    $groupLogoPath = $groupClientData['logo_path'] ?? '';
+                    $groupInitial = mb_strtoupper(mb_substr($groupClientName, 0, 1));
+                    $groupCount = count($groupProjects);
+                ?>
+                <tbody>
+                    <tr class="client-group-row">
+                        <td colspan="7">
+                            <div class="client-group-header-inline">
+                                <?php if (!empty($groupLogoPath)): ?>
+                                    <img class="client-group-logo" src="<?= htmlspecialchars($basePath . $groupLogoPath) ?>" alt="Logo de <?= htmlspecialchars($groupClientName) ?>">
+                                <?php else: ?>
+                                    <span class="client-group-avatar"><?= htmlspecialchars($groupInitial) ?></span>
+                                <?php endif; ?>
+                                <span class="client-group-name"><?= htmlspecialchars($groupClientName) ?></span>
+                                <span class="client-group-count"><?= $groupCount ?> proyecto<?= $groupCount !== 1 ? 's' : '' ?></span>
+                            </div>
+                        </td>
+                    </tr>
+                <?php foreach ($groupProjects as $project): ?>
                     <?php
                         $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
                         $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
@@ -913,11 +1031,31 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         </td>
                     </tr>
                 <?php endforeach; ?>
-            </tbody>
+                </tbody>
+            <?php endforeach; ?>
         </table>
     <?php else: ?>
-        <div class="project-grid">
-            <?php foreach ($projectsList as $project): ?>
+        <?php foreach ($projectsByClient as $groupClientName => $groupProjects): ?>
+            <?php
+                $groupClientData = $clientLookup[$groupClientName] ?? null;
+                $groupLogoPath = $groupClientData['logo_path'] ?? '';
+                $groupInitial = mb_strtoupper(mb_substr($groupClientName, 0, 1));
+                $groupCount = count($groupProjects);
+            ?>
+            <div class="client-group-section">
+                <div class="client-group-header-standalone">
+                    <?php if (!empty($groupLogoPath)): ?>
+                        <img class="client-group-logo" src="<?= htmlspecialchars($basePath . $groupLogoPath) ?>" alt="Logo de <?= htmlspecialchars($groupClientName) ?>">
+                    <?php else: ?>
+                        <span class="client-group-avatar"><?= htmlspecialchars($groupInitial) ?></span>
+                    <?php endif; ?>
+                    <div class="client-group-info">
+                        <span class="client-group-name"><?= htmlspecialchars($groupClientName) ?></span>
+                        <span class="client-group-count"><?= $groupCount ?> proyecto<?= $groupCount !== 1 ? 's' : '' ?></span>
+                    </div>
+                </div>
+                <div class="project-grid">
+            <?php foreach ($groupProjects as $project): ?>
                 <?php
                     $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
                     $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
@@ -997,7 +1135,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                     </div>
                 </article>
             <?php endforeach; ?>
-        </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
     <?php endif; ?>
 <?php endif; ?>
 
