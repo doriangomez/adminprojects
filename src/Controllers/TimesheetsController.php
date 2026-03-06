@@ -32,6 +32,14 @@ class TimesheetsController extends Controller
             : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0, 'activities_by_day' => []];
         $selectedWeekSummary = $repo->weekSummaryForUser($userId, $weekStart);
         $weekIndicators = $this->buildWeekIndicators($weeklyGrid);
+        $noticeCode = trim((string) ($_GET['notice'] ?? ''));
+        $noticeDay = trim((string) ($_GET['day'] ?? ''));
+        $timesheetNotice = null;
+        if ($noticeCode === 'day_submitted') {
+            $timesheetNotice = $noticeDay !== ''
+                ? sprintf('Registro enviado para aprobación (%s).', $noticeDay)
+                : 'Registro enviado para aprobación.';
+        }
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets · Registro',
@@ -53,6 +61,7 @@ class TimesheetsController extends Controller
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
             'currentUserName' => (string) ($user['name'] ?? 'Usuario'),
+            'timesheetNotice' => $timesheetNotice,
         ]);
     }
 
@@ -204,6 +213,40 @@ class TimesheetsController extends Controller
         try {
             $repo->submitWeek($userId, $weekStart, $minimumWeeklyHours, $lockIncompleteWeek);
             header('Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW')));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        }
+    }
+
+    public function submitDay(): void
+    {
+        if (!$this->auth->canAccessTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $day = $this->parseDateValue($date);
+        if (!$day instanceof DateTimeImmutable) {
+            http_response_code(400);
+            exit('Día inválido.');
+        }
+
+        $weekStart = $day->modify('monday this week')->setTime(0, 0);
+        try {
+            $updated = $repo->submitDay($userId, $day->format('Y-m-d'));
+            if ($updated <= 0) {
+                throw new \InvalidArgumentException('No hay registros en borrador para enviar en este día.');
+            }
+            header(
+                'Location: /timesheets?week=' . urlencode($weekStart->format('o-\\WW'))
+                . '&notice=day_submitted&day=' . urlencode($day->format('Y-m-d'))
+            );
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             exit($e->getMessage());
@@ -530,6 +573,7 @@ class TimesheetsController extends Controller
         $status = trim((string) ($_POST['status'] ?? 'approved'));
         $weekStart = trim((string) ($_POST['week_start'] ?? ''));
         $comment = trim((string) ($_POST['comment'] ?? ''));
+        $targetUserId = (int) ($_POST['target_user_id'] ?? 0);
 
         if (!in_array($status, ['approved', 'rejected'], true)) {
             http_response_code(400);
@@ -541,12 +585,62 @@ class TimesheetsController extends Controller
         }
 
         try {
-            $repo->updateWeekApprovalStatus($userId, $weekStart, $status, $comment !== '' ? $comment : null);
+            $repo->updateWeekApprovalStatus(
+                $userId,
+                $weekStart,
+                $status,
+                $comment !== '' ? $comment : null,
+                $targetUserId > 0 ? $targetUserId : null
+            );
             header('Location: /approvals');
         } catch (\Throwable $e) {
             error_log('Error al aprobar semana de timesheets: ' . $e->getMessage());
             http_response_code(500);
             exit('No se pudo actualizar la aprobación semanal.');
+        }
+    }
+
+    public function approveDay(): void
+    {
+        if (!$this->auth->canApproveTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $status = trim((string) ($_POST['status'] ?? 'approved'));
+        $date = trim((string) ($_POST['date'] ?? ''));
+        $comment = trim((string) ($_POST['comment'] ?? ''));
+        $targetUserId = (int) ($_POST['target_user_id'] ?? 0);
+
+        if (!in_array($status, ['approved', 'rejected'], true)) {
+            http_response_code(400);
+            exit('Estado inválido.');
+        }
+        if ($date === '') {
+            http_response_code(400);
+            exit('Día inválido.');
+        }
+        if ($status === 'rejected' && $comment === '') {
+            http_response_code(400);
+            exit('Debes indicar un comentario para rechazar el día.');
+        }
+
+        try {
+            $repo->updateDayApprovalStatus(
+                $userId,
+                $date,
+                $status,
+                $comment !== '' ? $comment : null,
+                $targetUserId > 0 ? $targetUserId : null
+            );
+            header('Location: /approvals');
+        } catch (\Throwable $e) {
+            error_log('Error al aprobar día de timesheets: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo actualizar la aprobación diaria.');
         }
     }
 

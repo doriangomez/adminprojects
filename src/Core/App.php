@@ -531,6 +531,10 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 $controller->submitWeek();
                 return;
             }
+            if ($path === '/timesheets/submit-day' && $method === 'POST') {
+                $controller->submitDay();
+                return;
+            }
             if ($path === '/timesheets/cancel-week' && $method === 'POST') {
                 $controller->cancelWeekSubmission();
                 return;
@@ -545,6 +549,10 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
             if ($path === '/timesheets/approve-week' && $method === 'POST') {
                 $controller->approveWeek();
+                return;
+            }
+            if ($path === '/timesheets/approve-day' && $method === 'POST') {
+                $controller->approveDay();
                 return;
             }
             if ($path === '/timesheets/reopen-week' && $method === 'POST') {
