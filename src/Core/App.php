@@ -29,6 +29,7 @@ class App
         $migrator->ensureSystemSettings();
         $migrator->resetProjectModuleDataOnce();
         $migrator->ensureProjectManagementPermission();
+        $migrator->ensureTaskPermissions();
         $migrator->ensureTimesheetPermissions();
         $migrator->ensureTimesheetWorkflowSchema();
         $migrator->ensureOutsourcingDeletePermission();
@@ -440,6 +441,10 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             }
             if (preg_match('#^/tasks/(\\d+)/status$#', $path, $matches) && $method === 'POST') {
                 $controller->updateStatus((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/tasks/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->destroy((int) $matches[1]);
                 return;
             }
             $controller->index();

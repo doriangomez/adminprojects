@@ -343,8 +343,11 @@ foreach ($gridDays as $day) {
                             </label>
                             <label>Estado inicial
                                 <select name="new_task_status">
-                                    <option value="pending">Pendiente</option>
-                                    <option value="completed">Completada</option>
+                                    <option value="todo">Pendiente</option>
+                                    <option value="in_progress">En proceso</option>
+                                    <option value="blocked">Bloqueada</option>
+                                    <option value="review">En revisión</option>
+                                    <option value="done">Completada</option>
                                 </select>
                             </label>
                         </div>

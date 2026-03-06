@@ -4,8 +4,9 @@ $project = $project ?? [];
 $tasks = is_array($tasks ?? null) ? $tasks : [];
 $talents = is_array($talents ?? null) ? $talents : [];
 $canManage = !empty($canManage);
+$canCreateTask = !empty($canCreateTask) || $canManage;
 $isClosed = !empty($isClosed);
-$canAddTask = $canManage && !$isClosed;
+$canAddTask = $canCreateTask && !$isClosed;
 $selectedRisks = is_array($project['risks'] ?? null) ? $project['risks'] : [];
 $riskLevel = strtolower((string) ($project['risk_level'] ?? ''));
 $riskLabel = $project['health_label'] ?? $project['health'] ?? 'Sin evaluación';
@@ -142,7 +143,11 @@ foreach ($selectedRisks as $riskCode) {
             <form class="task-create-form" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/tasks">
                 <div class="task-create-form__header">
                     <strong>Agregar tarea</strong>
-                    <span class="section-muted">Disponible para proyectos activos con permisos de gestión.</span>
+                    <span class="section-muted">
+                        <?= $canManage
+                            ? 'Disponible para proyectos activos con permisos de gestión.'
+                            : 'Como talento asignado puedes crear tareas que quedarán a tu nombre.' ?>
+                    </span>
                 </div>
                 <div class="task-create-form__grid">
                     <label class="task-field">
@@ -165,15 +170,22 @@ foreach ($selectedRisks as $riskCode) {
                         Fecha límite
                         <input type="date" name="due_date" />
                     </label>
-                    <label class="task-field">
-                        Responsable
-                        <select name="assignee_id">
-                            <option value="0">Sin asignar</option>
-                            <?php foreach ($talents as $talent): ?>
-                                <option value="<?= (int) ($talent['id'] ?? 0) ?>"><?= htmlspecialchars($talent['name'] ?? '') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
+                    <?php if ($canManage): ?>
+                        <label class="task-field">
+                            Responsable
+                            <select name="assignee_id">
+                                <option value="0">Sin asignar</option>
+                                <?php foreach ($talents as $talent): ?>
+                                    <option value="<?= (int) ($talent['id'] ?? 0) ?>"><?= htmlspecialchars($talent['name'] ?? '') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                    <?php else: ?>
+                        <label class="task-field">
+                            Asignación
+                            <input type="text" value="Se asignará automáticamente a tu perfil" disabled />
+                        </label>
+                    <?php endif; ?>
                 </div>
                 <div class="task-create-form__actions">
                     <button type="submit" class="action-btn primary">Agregar tarea</button>

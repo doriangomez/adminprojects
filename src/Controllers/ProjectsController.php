@@ -351,9 +351,12 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $tasks = (new TasksRepository($this->db))->forProject($id, $user);
+        $tasksRepo = new TasksRepository($this->db);
+        $tasks = $tasksRepo->forProject($id, $user);
         $canManage = $this->auth->can('projects.manage');
+        $isTalent = $this->auth->hasRole('Talento');
         $isClosed = $this->normalizeStatus((string) ($project['status'] ?? '')) === 'closed';
+        $canCreateTask = $canManage || ($isTalent && $tasksRepo->userCanCreateTaskInProject($user, $id));
         $talents = [];
         if ($canManage && !$isClosed) {
             $talents = (new TalentsRepository($this->db))->assignmentOptions();
@@ -364,6 +367,7 @@ class ProjectsController extends Controller
             'project' => $project,
             'tasks' => $tasks,
             'canManage' => $canManage,
+            'canCreateTask' => $canCreateTask,
             'isClosed' => $isClosed,
             'talents' => $talents,
         ]);
@@ -382,10 +386,24 @@ class ProjectsController extends Controller
 
     public function storeTask(int $id): void
     {
-        $this->requirePermission('projects.manage');
-        $repo = new ProjectsRepository($this->db);
         $user = $this->auth->user() ?? [];
-        $project = $repo->findForUser($id, $user);
+        $canManage = $this->auth->can('projects.manage');
+        $isTalent = $this->auth->hasRole('Talento');
+        $tasksRepo = new TasksRepository($this->db);
+        if (!$canManage && !$isTalent) {
+            $this->denyAccess();
+        }
+
+        $repo = new ProjectsRepository($this->db);
+        if ($canManage) {
+            $project = $repo->findForUser($id, $user);
+        } else {
+            if (!$tasksRepo->userCanCreateTaskInProject($user, $id)) {
+                http_response_code(403);
+                exit('Solo puedes crear tareas en proyectos donde estás asignado.');
+            }
+            $project = $repo->find($id);
+        }
 
         if (!$project) {
             http_response_code(404);
@@ -414,7 +432,16 @@ class ProjectsController extends Controller
             exit('Prioridad de tarea inválida.');
         }
 
-        (new TasksRepository($this->db))->createForProject($id, [
+        if ($isTalent && !$canManage) {
+            $talentId = $tasksRepo->talentIdForUser((int) ($user['id'] ?? 0));
+            if ($talentId === null) {
+                http_response_code(400);
+                exit('Tu usuario no tiene un talento asociado para asignar la tarea.');
+            }
+            $assigneeId = $talentId;
+        }
+
+        $tasksRepo->createForProject($id, [
             'title' => $title,
             'priority' => $priority,
             'estimated_hours' => $estimatedHours,
