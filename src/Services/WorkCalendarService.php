@@ -24,6 +24,7 @@ class WorkCalendarService
         }
 
         $holidays = $this->normalizeHolidayRows($rawCalendar['holidays'] ?? []);
+        $holidays = $this->mergeHolidayRows($holidays, $this->databaseHolidayRows());
         $exceptions = $this->normalizeExceptionRows($rawCalendar['exceptions'] ?? []);
 
         $holidaysByDate = [];
@@ -204,6 +205,57 @@ class WorkCalendarService
         ksort($rows);
 
         return array_values($rows);
+    }
+
+    private function mergeHolidayRows(array $baseRows, array $extraRows): array
+    {
+        $rows = [];
+        foreach ($baseRows as $row) {
+            $date = trim((string) ($row['date'] ?? ''));
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $name = trim((string) ($row['name'] ?? 'Festivo'));
+            $rows[$date] = ['date' => $date, 'name' => $name !== '' ? $name : 'Festivo'];
+        }
+        foreach ($extraRows as $row) {
+            $date = trim((string) ($row['date'] ?? ''));
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $name = trim((string) ($row['name'] ?? 'Festivo'));
+            $rows[$date] = ['date' => $date, 'name' => $name !== '' ? $name : 'Festivo'];
+        }
+        ksort($rows);
+
+        return array_values($rows);
+    }
+
+    private function databaseHolidayRows(): array
+    {
+        if (!$this->db instanceof Database || !$this->db->tableExists('calendar_holidays')) {
+            return [];
+        }
+
+        $hasHolidayDate = $this->db->columnExists('calendar_holidays', 'holiday_date');
+        $hasDate = $this->db->columnExists('calendar_holidays', 'date');
+        if (!$hasHolidayDate && !$hasDate) {
+            return [];
+        }
+        $dateColumn = $hasHolidayDate ? 'holiday_date' : 'date';
+        $nameColumn = $this->db->columnExists('calendar_holidays', 'name') ? 'name' : 'NULL';
+        $where = '1=1';
+        if ($this->db->columnExists('calendar_holidays', 'is_active')) {
+            $where = 'is_active = 1';
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT ' . $dateColumn . ' AS date, ' . $nameColumn . ' AS name
+             FROM calendar_holidays
+             WHERE ' . $where
+        );
+
+        return $this->normalizeHolidayRows($rows);
     }
 
     private function normalizeExceptionRows(mixed $value): array

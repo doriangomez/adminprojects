@@ -6,10 +6,12 @@ namespace App\Repositories;
 
 use Database;
 use DateTimeImmutable;
+use TalentAvailabilityService;
 
 class TalentCapacityRepository
 {
     private const ADMIN_ROLES = ['Administrador', 'PMO'];
+    private ?TalentAvailabilityService $talentAvailabilityService = null;
 
     public function __construct(private Database $db)
     {
@@ -129,11 +131,21 @@ class TalentCapacityRepository
         $weeklyUtilization = [];
         $monthlyUtilization = [];
         $heatmap = [];
+        $rangeStartDate = new DateTimeImmutable($range['start']);
+        $rangeEndDate = new DateTimeImmutable($range['end']);
 
         foreach ($talents as &$talent) {
             $talentId = (int) $talent['id'];
-            $weeklyCapacity = $this->weeklyCapacity($talent);
-            $dailyCapacity = $weeklyCapacity / 5;
+            $weeklyBaseCapacity = $this->weeklyBaseCapacity($talent);
+            $availabilityPercent = $this->availabilityPercent($talent);
+            $weeklyCapacity = $weeklyBaseCapacity * ($availabilityPercent / 100);
+            $capacityByDay = $this->talentAvailabilityService()->dailyCapacityMapForRange(
+                $talentId,
+                $weeklyBaseCapacity,
+                $rangeStartDate,
+                $rangeEndDate,
+                $availabilityPercent
+            );
 
             $dailyUtilization[$talentId] = [];
             $weeklyBuckets = [];
@@ -147,8 +159,9 @@ class TalentCapacityRepository
                     continue;
                 }
                 $day = $cursor->format('Y-m-d');
+                $dailyCapacity = (float) ($capacityByDay[$day]['available_hours'] ?? 0.0);
                 $hours = $dailyLogged[$talentId][$day] ?? ($dailyPlanned[$talentId][$day] ?? 0.0);
-                $percentage = $dailyCapacity > 0 ? ($hours / $dailyCapacity) * 100 : 0;
+                $percentage = $dailyCapacity > 0 ? (($hours / $dailyCapacity) * 100) : ($hours > 0 ? 999.0 : 0.0);
                 $dailyUtilization[$talentId][$day] = [
                     'hours' => round($hours, 2),
                     'capacity' => round($dailyCapacity, 2),
@@ -295,18 +308,32 @@ class TalentCapacityRepository
         return $count;
     }
 
-    private function weeklyCapacity(array $talent): float
+    private function weeklyBaseCapacity(array $talent): float
     {
         $base = (float) ($talent['capacidad_horaria'] ?? 0);
         if ($base <= 0) {
             $base = (float) ($talent['weekly_capacity'] ?? 0);
         }
         if ($base <= 0) {
-            $base = 40;
+            $base = 40.0;
         }
-        $availability = (float) ($talent['availability'] ?? 100);
 
-        return $base * max(0, min(100, $availability)) / 100;
+        return $base;
+    }
+
+    private function availabilityPercent(array $talent): float
+    {
+        return max(0.0, min(100.0, (float) ($talent['availability'] ?? 100)));
+    }
+
+    private function talentAvailabilityService(): TalentAvailabilityService
+    {
+        if ($this->talentAvailabilityService instanceof TalentAvailabilityService) {
+            return $this->talentAvailabilityService;
+        }
+
+        $this->talentAvailabilityService = new TalentAvailabilityService($this->db);
+        return $this->talentAvailabilityService;
     }
 
     private function statusForUtilization(float $utilization): string

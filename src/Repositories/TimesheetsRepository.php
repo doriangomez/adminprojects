@@ -6,6 +6,7 @@ namespace App\Repositories;
 
 use Database;
 use InvalidArgumentException;
+use TalentAvailabilityService;
 use WorkCalendarService;
 
 class TimesheetsRepository
@@ -22,6 +23,7 @@ class TimesheetsRepository
         'gestion_pm',
     ];
     private ?WorkCalendarService $workCalendarService = null;
+    private ?TalentAvailabilityService $talentAvailabilityService = null;
 
     public function __construct(private Database $db)
     {
@@ -142,6 +144,28 @@ class TimesheetsRepository
             );
         }
 
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $weeklyBaseCapacity = $this->weeklyBaseCapacityFromProfile($profile);
+        $availabilityPercent = (float) ($profile['availability'] ?? 100);
+        $weeklyCapacityBreakdown = [
+            'weekly_base_hours' => $this->workCalendarService()->weeklyCapacityForWeek($weeklyBaseCapacity, $weekStart),
+            'weekly_real_hours' => $this->workCalendarService()->weeklyCapacityForWeek($weeklyBaseCapacity, $weekStart),
+            'holiday_hours' => 0.0,
+            'holiday_days' => 0,
+            'absence_hours' => 0.0,
+            'absence_details' => [],
+            'daily' => [],
+        ];
+        if ($talentId !== null) {
+            $weeklyCapacityBreakdown = $this->talentAvailabilityService()->weeklyCapacityBreakdown(
+                $talentId,
+                $weeklyBaseCapacity,
+                $weekStart,
+                $availabilityPercent
+            );
+        }
+        $dailyCapacityMap = is_array($weeklyCapacityBreakdown['daily'] ?? null) ? $weeklyCapacityBreakdown['daily'] : [];
+
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
@@ -153,15 +177,42 @@ class TimesheetsRepository
                 'is_holiday' => false,
                 'is_exception' => false,
             ];
+            $dayCapacity = is_array($dailyCapacityMap[$dayKey] ?? null) ? $dailyCapacityMap[$dayKey] : [];
+            $absenceType = (string) ($dayCapacity['primary_absence_type'] ?? '');
+            $absenceLabel = (string) ($dayCapacity['primary_absence_label'] ?? '');
+            $defaultAvailableHours = !empty($dayMeta['is_working']) ? 8.0 : 0.0;
+            $availableHours = (float) ($dayCapacity['available_hours'] ?? $defaultAvailableHours);
+            $absenceHours = (float) ($dayCapacity['absence_hours'] ?? 0.0);
+            $isFullDayAbsence = !empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001;
+
+            $dayType = (string) ($dayMeta['type'] ?? 'working');
+            if ($dayType !== 'holiday' && $absenceType !== '') {
+                $dayType = 'absence_' . $absenceType;
+            }
+            $isWorking = (bool) ($dayMeta['is_working'] ?? true);
+            if ($isFullDayAbsence) {
+                $isWorking = false;
+            }
+            $dayName = (string) ($dayMeta['name'] ?? '');
+            if ($dayType !== 'holiday' && $absenceLabel !== '') {
+                $dayName = $absenceLabel;
+            }
+
             $days[] = [
                 'key' => $dayKey,
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
                 'number' => $day->format('d'),
-                'day_type' => (string) ($dayMeta['type'] ?? 'working'),
-                'is_working' => (bool) ($dayMeta['is_working'] ?? true),
-                'day_name' => (string) ($dayMeta['name'] ?? ''),
+                'day_type' => $dayType,
+                'is_working' => $isWorking,
+                'day_name' => $dayName,
                 'is_holiday' => (bool) ($dayMeta['is_holiday'] ?? false),
                 'is_exception' => (bool) ($dayMeta['is_exception'] ?? false),
+                'available_hours' => round($availableHours, 2),
+                'absence_hours' => round($absenceHours, 2),
+                'absence_type' => $absenceType,
+                'absence_label' => $absenceLabel,
+                'is_full_day_absence' => $isFullDayAbsence,
+                'has_vacation' => !empty($dayCapacity['has_vacation']),
             ];
         }
 
@@ -244,12 +295,8 @@ class TimesheetsRepository
             ];
         }
 
-        $profile = $this->talentProfileForUser($userId) ?? [];
-        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
-        if ($weeklyCapacity <= 0) {
-            $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
-        }
-        $weeklyCapacity = $this->workCalendarService()->weeklyCapacityForWeek($weeklyCapacity, $weekStart);
+        $weeklyCapacity = (float) ($weeklyCapacityBreakdown['weekly_real_hours'] ?? 0.0);
+        $weeklyBaseForWeek = (float) ($weeklyCapacityBreakdown['weekly_base_hours'] ?? 0.0);
 
         foreach ($activitiesByDay as &$dayItems) {
             usort($dayItems, static function (array $a, array $b): int {
@@ -264,6 +311,8 @@ class TimesheetsRepository
             'day_totals' => $dayTotals,
             'week_total' => array_sum($dayTotals),
             'weekly_capacity' => $weeklyCapacity,
+            'weekly_capacity_base' => $weeklyBaseForWeek,
+            'weekly_capacity_breakdown' => $weeklyCapacityBreakdown,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
@@ -305,21 +354,7 @@ class TimesheetsRepository
             throw new InvalidArgumentException('La celda no es editable porque la semana ya fue enviada.');
         }
 
-        $dayTotalRow = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(hours), 0) AS total
-             FROM timesheets
-             WHERE user_id = :user AND date = :date AND id <> :id',
-            [
-                ':user' => $userId,
-                ':date' => $date,
-                ':id' => (int) ($existing['id'] ?? 0),
-            ]
-        );
-
-        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
-        if ($currentDayTotal + $hours > 24) {
-            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
-        }
+        $this->assertDailyCapacityLimit($userId, $date, $hours, (int) ($existing['id'] ?? 0));
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $approver = $approverUserId > 0 ? $approverUserId : null;
@@ -432,19 +467,7 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Tu usuario no tiene un talento asociado.');
         }
 
-        $dayTotalRow = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(hours), 0) AS total
-             FROM timesheets
-             WHERE user_id = :user AND date = :date',
-            [
-                ':user' => $userId,
-                ':date' => $date,
-            ]
-        );
-        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
-        if ($currentDayTotal + $hours > 24) {
-            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
-        }
+        $this->assertDailyCapacityLimit($userId, $date, $hours);
 
         $approverUserId = (int) ($assignment['timesheet_approver_user_id'] ?? 0);
         $structured = $this->sanitizeStructuredMetadata($metadata);
@@ -549,20 +572,7 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Proyecto no asignado o inactivo para este talento.');
         }
 
-        $dayTotalRow = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(hours), 0) AS total
-             FROM timesheets
-             WHERE user_id = :user AND date = :date AND id <> :id',
-            [
-                ':user' => $userId,
-                ':date' => $date,
-                ':id' => $activityId,
-            ]
-        );
-        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
-        if ($currentDayTotal + $hours > 24) {
-            throw new InvalidArgumentException('No puedes registrar más de 24 horas en un mismo día.');
-        }
+        $this->assertDailyCapacityLimit($userId, $date, $hours, $activityId);
 
         $structured = $this->sanitizeStructuredMetadata($metadata);
         if ($structured['activity_type'] === '') {
@@ -705,20 +715,7 @@ class TimesheetsRepository
         }
 
         $hours = (float) ($current['hours'] ?? 0);
-        $dayTotalRow = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(hours), 0) AS total
-             FROM timesheets
-             WHERE user_id = :user AND date = :date AND id <> :id',
-            [
-                ':user' => $userId,
-                ':date' => $targetDate,
-                ':id' => $activityId,
-            ]
-        );
-        $currentDayTotal = (float) ($dayTotalRow['total'] ?? 0);
-        if ($currentDayTotal + $hours > 24) {
-            throw new InvalidArgumentException('No puedes mover la actividad: excede 24 horas en el día destino.');
-        }
+        $this->assertDailyCapacityLimit($userId, $targetDate, $hours, $activityId, 'No puedes mover la actividad');
 
         $this->db->execute(
             'UPDATE timesheets
@@ -843,11 +840,25 @@ class TimesheetsRepository
             foreach ($rows as $row) {
                 $totalsByDate[(string) $row['date']] = (float) ($row['hours'] ?? 0);
             }
+
+            $dailyCapacityMap = [];
+            $talentId = (int) ($profile['id'] ?? 0);
+            if ($talentId > 0) {
+                $weeklyCapacityBreakdown = $this->talentAvailabilityService()->weeklyCapacityBreakdown(
+                    $talentId,
+                    $this->weeklyBaseCapacityFromProfile($profile),
+                    $weekStart,
+                    (float) ($profile['availability'] ?? 100)
+                );
+                $dailyCapacityMap = is_array($weeklyCapacityBreakdown['daily'] ?? null) ? $weeklyCapacityBreakdown['daily'] : [];
+            }
+
             for ($i = 0; $i < 7; $i++) {
                 $dayDate = $weekStart->modify('+' . $i . ' days');
                 $day = $dayDate->format('Y-m-d');
                 $dayMeta = $this->workCalendarService()->classifyDate($dayDate);
-                if (empty($dayMeta['is_working'])) {
+                $availableHours = (float) ($dailyCapacityMap[$day]['available_hours'] ?? (empty($dayMeta['is_working']) ? 0.0 : 8.0));
+                if ($availableHours <= 0.001) {
                     continue;
                 }
                 if (($totalsByDate[$day] ?? 0.0) <= 0) {
@@ -1095,9 +1106,20 @@ class TimesheetsRepository
             }
         }
         $profile = $this->talentProfileForUser($userId) ?? [];
-        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
-        $equivalentWeeks = $this->workCalendarService()->equivalentWorkingWeeks($monthStart, $monthEnd);
-        $out['capacity'] = max(0, $weeklyCapacity) * max(0, $equivalentWeeks);
+        $talentId = (int) ($profile['id'] ?? 0);
+        if ($talentId > 0) {
+            $out['capacity'] = $this->talentAvailabilityService()->effectiveCapacityForRange(
+                $talentId,
+                $this->weeklyBaseCapacityFromProfile($profile),
+                $monthStart,
+                $monthEnd,
+                (float) ($profile['availability'] ?? 100)
+            );
+        } else {
+            $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
+            $equivalentWeeks = $this->workCalendarService()->equivalentWorkingWeeks($monthStart, $monthEnd);
+            $out['capacity'] = max(0, $weeklyCapacity) * max(0, $equivalentWeeks);
+        }
         $out['compliance'] = $out['capacity'] > 0 ? min(100, round(($out['month_total'] / $out['capacity']) * 100, 2)) : 0;
         return $out;
     }
@@ -1192,18 +1214,15 @@ class TimesheetsRepository
 
     public function talentBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, string $sort = 'load_desc'): array
     {
-        $periodWeeks = max(0.0001, $this->workCalendarService()->equivalentWorkingWeeks($periodStart, $periodEnd));
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
             ':end' => $periodEnd->format('Y-m-d'),
-            ':period_weeks' => $periodWeeks,
         ];
         $where = $this->timesheetScopeWhere($user, $params);
         if ($projectId !== null && $projectId > 0) {
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
             $params[':project'] = $projectId;
         }
-        $orderBy = $sort === 'compliance_asc' ? 'compliance_percent ASC, total_hours DESC' : 'total_hours DESC, compliance_percent ASC';
 
         $sql = 'SELECT ta.id AS talent_id, ta.name AS talent_name,
                     COALESCE(SUM(ts.hours), 0) AS total_hours,
@@ -1214,19 +1233,50 @@ class TimesheetsRepository
                     MAX(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)) AS last_week_submitted,
                     MAX(CASE WHEN ts.status = "approved" THEN DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) ELSE NULL END) AS last_week_approved,
                     MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) AS weekly_capacity,
-                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * :period_weeks, 0)) * 100, 2) AS compliance_percent
+                    MAX(COALESCE(ta.availability, 100)) AS availability
              FROM timesheets ts
              JOIN talents ta ON ta.id = ts.talent_id
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
              WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
-             GROUP BY ta.id, ta.name
-             ORDER BY ' . $orderBy;
+             GROUP BY ta.id, ta.name';
 
-        return $this->db->fetchAll(
+        $rows = $this->db->fetchAll(
             $sql,
             $params
         );
+
+        foreach ($rows as &$row) {
+            $weeklyCapacity = (float) ($row['weekly_capacity'] ?? 0);
+            if ($weeklyCapacity <= 0) {
+                $weeklyCapacity = 40.0;
+            }
+            $availability = (float) ($row['availability'] ?? 100);
+            $effectiveCapacity = $this->talentAvailabilityService()->effectiveCapacityForRange(
+                (int) ($row['talent_id'] ?? 0),
+                $weeklyCapacity,
+                $periodStart,
+                $periodEnd,
+                $availability
+            );
+            $row['effective_capacity'] = round($effectiveCapacity, 2);
+            $row['compliance_percent'] = $effectiveCapacity > 0
+                ? round(((float) ($row['total_hours'] ?? 0) / $effectiveCapacity) * 100, 2)
+                : 0.0;
+        }
+        unset($row);
+
+        usort($rows, static function (array $a, array $b) use ($sort): int {
+            if ($sort === 'compliance_asc') {
+                return ((float) ($a['compliance_percent'] ?? 0) <=> (float) ($b['compliance_percent'] ?? 0))
+                    ?: ((float) ($b['total_hours'] ?? 0) <=> (float) ($a['total_hours'] ?? 0));
+            }
+
+            return ((float) ($b['total_hours'] ?? 0) <=> (float) ($a['total_hours'] ?? 0))
+                ?: ((float) ($a['compliance_percent'] ?? 0) <=> (float) ($b['compliance_percent'] ?? 0));
+        });
+
+        return $rows;
     }
 
     public function projectBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd): array
@@ -2247,7 +2297,7 @@ class TimesheetsRepository
 
         $row = $this->db->fetchOne(
             'SELECT id, requiere_reporte_horas, requiere_aprobacion_horas, timesheet_approver_user_id, is_outsourcing,
-                    capacidad_horaria, weekly_capacity
+                    capacidad_horaria, weekly_capacity, availability
              FROM talents
              WHERE user_id = :user
              LIMIT 1',
@@ -2472,12 +2522,107 @@ class TimesheetsRepository
             throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
         }
 
+        $dayCapacity = $this->dayCapacityContextForUser($userId, $day);
+        if (!empty($dayCapacity['has_vacation'])) {
+            throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+        }
+        if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
+            $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+            throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+        }
+
         $weekStart = $day->modify('monday this week')->setTime(0, 0);
         $summary = $this->weekSummaryForUser($userId, $weekStart);
         $status = (string) ($summary['status'] ?? 'draft');
         if (in_array($status, ['submitted', 'approved'], true)) {
             throw new InvalidArgumentException('Semana enviada – registros bloqueados.');
         }
+    }
+
+    private function assertDailyCapacityLimit(
+        int $userId,
+        string $date,
+        float $incomingHours,
+        int $excludeTimesheetId = 0,
+        string $contextPrefix = 'No puedes registrar horas'
+    ): void {
+        $this->assertValidDate($date);
+        $existingHoursRow = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE user_id = :user
+               AND date = :date
+               AND id <> :id',
+            [
+                ':user' => $userId,
+                ':date' => $date,
+                ':id' => $excludeTimesheetId,
+            ]
+        );
+        $currentDayTotal = (float) ($existingHoursRow['total'] ?? 0);
+        if ($currentDayTotal + $incomingHours > 24) {
+            throw new InvalidArgumentException($contextPrefix . ': no puedes superar 24 horas en un mismo día.');
+        }
+
+        $dayDate = new \DateTimeImmutable($date);
+        $dayCapacity = $this->dayCapacityContextForUser($userId, $dayDate);
+        if ($dayCapacity === []) {
+            return;
+        }
+
+        if (!empty($dayCapacity['has_vacation'])) {
+            throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+        }
+
+        $availableHours = max(0.0, (float) ($dayCapacity['available_hours'] ?? 0.0));
+        if (!empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001) {
+            $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+            throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+        }
+
+        if ($currentDayTotal + $incomingHours > $availableHours + 0.001) {
+            $remaining = max(0.0, $availableHours - $currentDayTotal);
+            throw new InvalidArgumentException(
+                sprintf(
+                    '%s: superas la capacidad disponible del día (%.2fh). Disponible restante: %.2fh.',
+                    $contextPrefix,
+                    $availableHours,
+                    $remaining
+                )
+            );
+        }
+    }
+
+    private function dayCapacityContextForUser(int $userId, \DateTimeImmutable $day): array
+    {
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $talentId = (int) ($profile['id'] ?? 0);
+        if ($talentId <= 0) {
+            return [];
+        }
+
+        $weeklyBaseCapacity = $this->weeklyBaseCapacityFromProfile($profile);
+        $availability = (float) ($profile['availability'] ?? 100);
+
+        return $this->talentAvailabilityService()->dayCapacity(
+            $talentId,
+            $weeklyBaseCapacity,
+            $day,
+            $availability
+        );
+    }
+
+    private function weeklyBaseCapacityFromProfile(array $profile): float
+    {
+        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
+        if ($weeklyCapacity <= 0) {
+            $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
+        }
+        if ($weeklyCapacity <= 0) {
+            $weeklyCapacity = 40.0;
+        }
+
+        return $weeklyCapacity;
     }
 
     private function structuredColumnMap(): array
@@ -2928,26 +3073,61 @@ class TimesheetsRepository
 
     private function capacityForScope(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): float
     {
-        $multiplier = max(0, $this->workCalendarService()->equivalentWorkingWeeks($periodStart, $periodEnd));
-
         if ($this->isPrivileged($user)) {
+            if (!$this->db->tableExists('talents')) {
+                return 0.0;
+            }
+
             $params = [];
-            $query = 'SELECT COALESCE(SUM(COALESCE(capacidad_horaria, weekly_capacity, 0)), 0) AS total FROM talents';
+            $where = 'WHERE 1=1';
             if ($projectId !== null && $projectId > 0 && $this->db->tableExists('project_talent_assignments')) {
-                $query = 'SELECT COALESCE(SUM(COALESCE(t.capacidad_horaria, t.weekly_capacity, 0)), 0) AS total
-                          FROM project_talent_assignments a
-                          JOIN talents t ON t.user_id = a.user_id
-                          WHERE a.project_id = :project
-                            AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))';
+                $where .= ' AND EXISTS (
+                    SELECT 1
+                    FROM project_talent_assignments a
+                    WHERE a.project_id = :project
+                      AND a.user_id = talents.user_id
+                      AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))
+                )';
                 $params[':project'] = $projectId;
             }
-            $row = $this->db->fetchOne($query, $params);
-            return (float) ($row['total'] ?? 0) * $multiplier;
+            $talents = $this->db->fetchAll(
+                'SELECT id, COALESCE(capacidad_horaria, weekly_capacity, 0) AS weekly_capacity, COALESCE(availability, 100) AS availability
+                 FROM talents
+                 ' . $where,
+                $params
+            );
+
+            $totalCapacity = 0.0;
+            foreach ($talents as $talent) {
+                $weeklyCapacity = (float) ($talent['weekly_capacity'] ?? 0);
+                if ($weeklyCapacity <= 0) {
+                    $weeklyCapacity = 40.0;
+                }
+                $totalCapacity += $this->talentAvailabilityService()->effectiveCapacityForRange(
+                    (int) ($talent['id'] ?? 0),
+                    $weeklyCapacity,
+                    $periodStart,
+                    $periodEnd,
+                    (float) ($talent['availability'] ?? 100)
+                );
+            }
+
+            return round($totalCapacity, 2);
         }
 
         $profile = $this->talentProfileForUser((int) ($user['id'] ?? 0)) ?? [];
-        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
-        return max(0, $weeklyCapacity) * $multiplier;
+        $talentId = (int) ($profile['id'] ?? 0);
+        if ($talentId <= 0) {
+            return 0.0;
+        }
+
+        return $this->talentAvailabilityService()->effectiveCapacityForRange(
+            $talentId,
+            $this->weeklyBaseCapacityFromProfile($profile),
+            $periodStart,
+            $periodEnd,
+            (float) ($profile['availability'] ?? 100)
+        );
     }
 
     private function workCalendarService(): WorkCalendarService
@@ -2959,6 +3139,16 @@ class TimesheetsRepository
         $this->workCalendarService = new WorkCalendarService($this->db);
 
         return $this->workCalendarService;
+    }
+
+    private function talentAvailabilityService(): TalentAvailabilityService
+    {
+        if ($this->talentAvailabilityService instanceof TalentAvailabilityService) {
+            return $this->talentAvailabilityService;
+        }
+
+        $this->talentAvailabilityService = new TalentAvailabilityService($this->db);
+        return $this->talentAvailabilityService;
     }
 
     private function canOverrideNonWorkingRestriction(int $userId, array $dayMeta): bool
