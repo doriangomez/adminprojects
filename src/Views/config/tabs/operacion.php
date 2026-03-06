@@ -165,6 +165,47 @@ $weekdayLabels = [
                     </div>
 
                     <div class="form-block operacion-column">
+                        <?php $absenceRules = is_array($configData['operational_rules']['absences'] ?? null) ? $configData['operational_rules']['absences'] : []; ?>
+                        <span class="section-label">Gestión de ausencias</span>
+                        <div class="operacion-cards">
+                            <div class="operacion-card">
+                                <div class="operacion-card-header">
+                                    <span class="operacion-card-icon">🏖️</span>
+                                    <span class="operacion-card-title">Talento → Gestión de ausencias</span>
+                                </div>
+                                <div class="operacion-card-grid">
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Habilitar gestión de ausencias</span>
+                                        <input type="checkbox" name="absences_enabled" <?= !empty($absenceRules['enabled']) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Habilitar vacaciones</span>
+                                        <input type="checkbox" name="absences_enable_vacations" <?= ($absenceRules['enable_vacations'] ?? true) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Bloquear registro de horas en ausencias</span>
+                                        <input type="checkbox" name="absences_block_timesheet" <?= ($absenceRules['block_timesheet_on_absence'] ?? true) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                    <label class="toggle-switch toggle-switch--state">
+                                        <span class="toggle-label">Permitir excepciones para administradores</span>
+                                        <input type="checkbox" name="absences_allow_admin_exceptions" <?= ($absenceRules['allow_admin_exceptions'] ?? true) ? 'checked' : '' ?>>
+                                        <span class="toggle-track" aria-hidden="true"></span>
+                                        <span class="toggle-state"></span>
+                                    </label>
+                                </div>
+                                <div class="info-callout">
+                                    <span class="info-callout-icon">ℹ️</span>
+                                    <p>Cuando el módulo está habilitado, aparece en Talento → Ausencias. Las ausencias aprobadas reducen la capacidad real y pueden bloquear el timesheet.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <span class="section-label">Metodologias y fases</span>
                         <div class="input-stack">
                             <label>Metodologias habilitadas (separadas por coma)</label>

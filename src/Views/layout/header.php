@@ -714,6 +714,12 @@ error_log(sprintf(
                     <a href="<?= $basePath ?>/talent-capacity/simulation" class="nav-sublink <?= $isCapacitySimulationRoute ? 'active' : '' ?>">Simulación de capacidad</a>
                 </div>
             </div>
+            <?php if ($auth->isAbsencesEnabled() && $auth->canAccessAbsences()): ?>
+            <a href="<?= $basePath ?>/absences" class="nav-link <?= str_starts_with($normalizedPath, '/absences') ? 'active' : '' ?>" data-tone="orange">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/></svg></span>
+                <span class="nav-label">Ausencias</span>
+            </a>
+            <?php endif; ?>
 
             <?php if ($auth->can('pmo_decision_center_view')): ?>
                 <div class="nav-divider" aria-hidden="true"></div>

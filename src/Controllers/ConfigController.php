@@ -267,6 +267,20 @@ class ConfigController extends Controller
                         ? isset($_POST['billing_enabled'])
                         : (bool) ($current['operational_rules']['billing']['enabled'] ?? true),
                 ],
+                'absences' => [
+                    'enabled' => array_key_exists('absences_enabled', $_POST)
+                        ? isset($_POST['absences_enabled'])
+                        : (bool) ($current['operational_rules']['absences']['enabled'] ?? false),
+                    'enable_vacations' => array_key_exists('absences_enable_vacations', $_POST)
+                        ? isset($_POST['absences_enable_vacations'])
+                        : (bool) ($current['operational_rules']['absences']['enable_vacations'] ?? true),
+                    'block_timesheet_on_absence' => array_key_exists('absences_block_timesheet', $_POST)
+                        ? isset($_POST['absences_block_timesheet'])
+                        : (bool) ($current['operational_rules']['absences']['block_timesheet_on_absence'] ?? true),
+                    'allow_admin_exceptions' => array_key_exists('absences_allow_admin_exceptions', $_POST)
+                        ? isset($_POST['absences_allow_admin_exceptions'])
+                        : (bool) ($current['operational_rules']['absences']['allow_admin_exceptions'] ?? true),
+                ],
                 'health_scoring' => [
                     'weights' => [
                         'documental' => $this->toFloat($_POST['health_weight_documental'] ?? '0.25'),

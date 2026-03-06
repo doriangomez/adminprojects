@@ -2523,12 +2523,16 @@ class TimesheetsRepository
         }
 
         $dayCapacity = $this->dayCapacityContextForUser($userId, $day);
-        if (!empty($dayCapacity['has_vacation'])) {
-            throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
-        }
-        if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
-            $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
-            throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+        $absenceBlockingEnabled = $this->isAbsenceTimesheetBlockingEnabled($userId);
+
+        if ($absenceBlockingEnabled) {
+            if (!empty($dayCapacity['has_vacation'])) {
+                throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+            }
+            if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
+                $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+                throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+            }
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);
@@ -2570,14 +2574,19 @@ class TimesheetsRepository
             return;
         }
 
-        if (!empty($dayCapacity['has_vacation'])) {
-            throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
-        }
+        $absenceBlockingEnabled = $this->isAbsenceTimesheetBlockingEnabled($userId);
+        if ($absenceBlockingEnabled) {
+            if (!empty($dayCapacity['has_vacation'])) {
+                throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+            }
 
-        $availableHours = max(0.0, (float) ($dayCapacity['available_hours'] ?? 0.0));
-        if (!empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001) {
-            $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
-            throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+            $availableHours = max(0.0, (float) ($dayCapacity['available_hours'] ?? 0.0));
+            if (!empty($dayCapacity['has_full_day_absence']) && $availableHours <= 0.001) {
+                $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+                throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+            }
+        } else {
+            $availableHours = max(0.0, (float) ($dayCapacity['available_hours'] ?? 0.0));
         }
 
         if ($currentDayTotal + $incomingHours > $availableHours + 0.001) {
@@ -2610,6 +2619,32 @@ class TimesheetsRepository
             $day,
             $availability
         );
+    }
+
+    private function isAbsenceTimesheetBlockingEnabled(int $userId): bool
+    {
+        $config = (new \ConfigService($this->db))->getConfig();
+        $absenceConfig = $config['operational_rules']['absences'] ?? [];
+
+        if (empty($absenceConfig['enabled'])) {
+            return true;
+        }
+
+        if (empty($absenceConfig['block_timesheet_on_absence'])) {
+            return false;
+        }
+
+        if (!empty($absenceConfig['allow_admin_exceptions'])) {
+            $user = $this->db->fetchOne(
+                'SELECT u.role_id, r.nombre AS role_name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = :id LIMIT 1',
+                [':id' => $userId]
+            );
+            if ($user && strcasecmp((string) ($user['role_name'] ?? ''), 'Administrador') === 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function weeklyBaseCapacityFromProfile(array $profile): float

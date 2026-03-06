@@ -733,7 +733,12 @@ INSERT INTO permissions (code, name) VALUES
     ('project.stoppers.view', 'Ver bloqueos de proyectos'),
     ('project.stoppers.manage', 'Crear y actualizar bloqueos de proyectos'),
     ('project.stoppers.close', 'Cerrar bloqueos de proyectos'),
-    ('config.manage', 'Administrar configuración');
+    ('config.manage', 'Administrar configuración'),
+    ('talent.absences.view', 'Ver ausencias de talento'),
+    ('talent.absences.create', 'Crear ausencias de talento'),
+    ('talent.absences.edit', 'Editar ausencias de talento'),
+    ('talent.absences.delete', 'Eliminar ausencias de talento'),
+    ('talent.absences.approve', 'Aprobar ausencias de talento');
 
 INSERT INTO config_settings (config_key, config_value) VALUES
 ('app', '{

@@ -379,6 +379,69 @@ class Auth
         return $this->timesheetsEnabled();
     }
 
+    public function isAbsencesEnabled(): bool
+    {
+        $config = $this->loadConfig();
+        return (bool) ($config['operational_rules']['absences']['enabled'] ?? false);
+    }
+
+    public function canAccessAbsences(): bool
+    {
+        if (!$this->isAbsencesEnabled()) {
+            return false;
+        }
+
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador') || $this->hasRole('PMO')) {
+            return true;
+        }
+
+        return $this->can('talent.absences.view');
+    }
+
+    public function canManageAbsences(): bool
+    {
+        if (!$this->isAbsencesEnabled()) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        return $this->can('talent.absences.create') || $this->can('talent.absences.edit');
+    }
+
+    public function canApproveAbsences(): bool
+    {
+        if (!$this->isAbsencesEnabled()) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        return $this->can('talent.absences.approve');
+    }
+
+    public function canDeleteAbsences(): bool
+    {
+        if (!$this->isAbsencesEnabled()) {
+            return false;
+        }
+
+        if ($this->hasRole('Administrador')) {
+            return true;
+        }
+
+        return $this->can('talent.absences.delete');
+    }
+
     private function hydrateSession(array $user): void
     {
         $_SESSION['user'] = [

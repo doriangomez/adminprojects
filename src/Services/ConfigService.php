@@ -220,6 +220,12 @@ class ConfigService
             'billing' => [
                 'enabled' => true,
             ],
+            'absences' => [
+                'enabled' => false,
+                'enable_vacations' => true,
+                'block_timesheet_on_absence' => true,
+                'allow_admin_exceptions' => true,
+            ],
             'health_scoring' => [
                 'weights' => [
                     'documental' => 0.25,
@@ -335,6 +341,10 @@ class ConfigService
                     $this->defaults['operational_rules']['billing'],
                     $stored['operational_rules']['billing'] ?? []
                 ),
+                'absences' => array_merge(
+                    $this->defaults['operational_rules']['absences'],
+                    $stored['operational_rules']['absences'] ?? []
+                ),
                 'health_scoring' => [
                     'weights' => array_merge(
                         $this->defaults['operational_rules']['health_scoring']['weights'],
@@ -419,6 +429,10 @@ class ConfigService
                 'billing' => array_merge(
                     $current['operational_rules']['billing'] ?? [],
                     $payload['operational_rules']['billing'] ?? []
+                ),
+                'absences' => array_merge(
+                    $current['operational_rules']['absences'] ?? [],
+                    $payload['operational_rules']['absences'] ?? []
                 ),
                 'health_scoring' => [
                     'weights' => array_merge(
