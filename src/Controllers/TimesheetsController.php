@@ -17,7 +17,6 @@ class TimesheetsController extends Controller
         $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
         $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
         $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
-        $canRegisterWeekend = $this->auth->hasRole('Administrador');
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
@@ -45,7 +44,6 @@ class TimesheetsController extends Controller
             'canReport' => $canReport,
             'canManageWorkflow' => $canManageWorkflow,
             'timesheetsEnabled' => $timesheetsEnabled,
-            'canRegisterWeekend' => $canRegisterWeekend,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'weekValue' => $weekValue,

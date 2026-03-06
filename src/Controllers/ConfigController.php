@@ -150,6 +150,23 @@ class ConfigController extends Controller
         $current = $configService->getConfig();
         $themeDefaults = $configService->getDefaults()['theme'] ?? [];
         $currentTheme = $current['theme'] ?? [];
+        $currentTimesheetRules = $current['operational_rules']['timesheets'] ?? [];
+        $currentWorkCalendar = is_array($currentTimesheetRules['work_calendar'] ?? null) ? $currentTimesheetRules['work_calendar'] : [];
+        $workingDaysFallback = is_array($currentWorkCalendar['working_days'] ?? null) ? $currentWorkCalendar['working_days'] : [1, 2, 3, 4, 5];
+        $workingDays = $this->normalizeWeekdaySelection($_POST['timesheets_working_days'] ?? null, $workingDaysFallback);
+        $holidays = array_key_exists('timesheets_holidays', $_POST)
+            ? $this->parseCalendarHolidays((string) ($_POST['timesheets_holidays'] ?? ''))
+            : $this->normalizeCalendarHolidays($currentWorkCalendar['holidays'] ?? []);
+        $exceptions = array_key_exists('timesheets_exceptions', $_POST)
+            ? $this->parseCalendarExceptions((string) ($_POST['timesheets_exceptions'] ?? ''))
+            : $this->normalizeCalendarExceptions($currentWorkCalendar['exceptions'] ?? []);
+        $country = strtoupper(trim((string) ($_POST['timesheets_holiday_country'] ?? ($currentWorkCalendar['country'] ?? ''))));
+        $allowAdminHolidayLogging = array_key_exists('timesheets_allow_admin_holiday_logging', $_POST)
+            ? isset($_POST['timesheets_allow_admin_holiday_logging'])
+            : (bool) ($currentWorkCalendar['allow_admin_holiday_logging'] ?? false);
+        $allowAdminNonWorkingLogging = array_key_exists('timesheets_allow_admin_non_working_logging', $_POST)
+            ? isset($_POST['timesheets_allow_admin_non_working_logging'])
+            : (bool) ($currentWorkCalendar['allow_admin_non_working_logging'] ?? false);
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
         $logoValue = $logoFromUpload ?: ($logoUrl !== '' ? $logoUrl : ($currentTheme['logo'] ?? ''));
@@ -225,15 +242,30 @@ class ConfigController extends Controller
                     'budget_change_requires_approval' => isset($_POST['budget_change_requires_approval']),
                 ],
                 'timesheets' => [
-                    'enabled' => isset($_POST['timesheets_enabled']),
+                    'enabled' => array_key_exists('timesheets_enabled', $_POST)
+                        ? isset($_POST['timesheets_enabled'])
+                        : (bool) ($current['operational_rules']['timesheets']['enabled'] ?? false),
                     'minimum_weekly_hours' => max(0, (int) ($_POST['timesheets_minimum_weekly_hours'] ?? ($current['operational_rules']['timesheets']['minimum_weekly_hours'] ?? 0))),
-                    'lock_incomplete_week' => isset($_POST['timesheets_lock_incomplete_week']),
+                    'lock_incomplete_week' => array_key_exists('timesheets_lock_incomplete_week', $_POST)
+                        ? isset($_POST['timesheets_lock_incomplete_week'])
+                        : (bool) ($current['operational_rules']['timesheets']['lock_incomplete_week'] ?? true),
                     'activity_types' => $this->parseList(
                         $_POST['timesheets_activity_types'] ?? implode(', ', $current['operational_rules']['timesheets']['activity_types'] ?? [])
                     ),
+                    'work_calendar' => [
+                        'country' => $country,
+                        'working_days' => $workingDays,
+                        'weekend_days' => array_values(array_diff(range(1, 7), $workingDays)),
+                        'holidays' => $holidays,
+                        'exceptions' => $exceptions,
+                        'allow_admin_holiday_logging' => $allowAdminHolidayLogging,
+                        'allow_admin_non_working_logging' => $allowAdminNonWorkingLogging,
+                    ],
                 ],
                 'billing' => [
-                    'enabled' => isset($_POST['billing_enabled']),
+                    'enabled' => array_key_exists('billing_enabled', $_POST)
+                        ? isset($_POST['billing_enabled'])
+                        : (bool) ($current['operational_rules']['billing']['enabled'] ?? true),
                 ],
                 'health_scoring' => [
                     'weights' => [
@@ -639,6 +671,142 @@ class ConfigController extends Controller
         $parts = array_filter($parts, fn ($part) => $part !== '');
 
         return array_values($parts);
+    }
+
+    private function normalizeWeekdaySelection(mixed $value, array $fallback): array
+    {
+        $values = is_array($value) ? $value : $fallback;
+        $days = [];
+        foreach ($values as $item) {
+            $day = (int) $item;
+            if ($day < 1 || $day > 7) {
+                continue;
+            }
+            $days[$day] = $day;
+        }
+        ksort($days);
+        $normalized = array_values($days);
+
+        return $normalized !== [] ? $normalized : [1, 2, 3, 4, 5];
+    }
+
+    private function parseCalendarHolidays(string $value): array
+    {
+        $rows = preg_split('/\R/u', $value) ?: [];
+        $holidaysByDate = [];
+        foreach ($rows as $rawLine) {
+            $line = trim((string) $rawLine);
+            if ($line === '') {
+                continue;
+            }
+            $parts = explode('|', $line, 2);
+            $date = trim((string) ($parts[0] ?? ''));
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $name = trim((string) ($parts[1] ?? 'Festivo'));
+            if ($name === '') {
+                $name = 'Festivo';
+            }
+            $holidaysByDate[$date] = ['date' => $date, 'name' => $name];
+        }
+        ksort($holidaysByDate);
+
+        return array_values($holidaysByDate);
+    }
+
+    private function parseCalendarExceptions(string $value): array
+    {
+        $rows = preg_split('/\R/u', $value) ?: [];
+        $exceptionsByDate = [];
+        foreach ($rows as $rawLine) {
+            $line = trim((string) $rawLine);
+            if ($line === '') {
+                continue;
+            }
+            $parts = array_map('trim', explode('|', $line, 3));
+            $date = (string) ($parts[0] ?? '');
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $type = strtolower((string) ($parts[1] ?? 'no_laboral'));
+            $isWorking = in_array($type, ['laboral', 'working', 'si', 'sí', '1', 'true'], true);
+            $name = (string) ($parts[2] ?? '');
+            $exceptionsByDate[$date] = [
+                'date' => $date,
+                'is_working' => $isWorking,
+                'name' => $name,
+            ];
+        }
+        ksort($exceptionsByDate);
+
+        return array_values($exceptionsByDate);
+    }
+
+    private function normalizeCalendarHolidays(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $date = trim((string) ($item['date'] ?? ''));
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? $item['label'] ?? 'Festivo'));
+            if ($name === '') {
+                $name = 'Festivo';
+            }
+            $rows[$date] = ['date' => $date, 'name' => $name];
+        }
+        ksort($rows);
+
+        return array_values($rows);
+    }
+
+    private function normalizeCalendarExceptions(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $date = trim((string) ($item['date'] ?? ''));
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $rows[$date] = [
+                'date' => $date,
+                'is_working' => isset($item['is_working']) ? (bool) $item['is_working'] : false,
+                'name' => trim((string) ($item['name'] ?? $item['label'] ?? $item['reason'] ?? '')),
+            ];
+        }
+        ksort($rows);
+
+        return array_values($rows);
+    }
+
+    private function isIsoDate(string $value): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return false;
+        }
+
+        try {
+            new DateTimeImmutable($value);
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function notificationKey(string $code): string

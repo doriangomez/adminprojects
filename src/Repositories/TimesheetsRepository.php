@@ -6,6 +6,7 @@ namespace App\Repositories;
 
 use Database;
 use InvalidArgumentException;
+use WorkCalendarService;
 
 class TimesheetsRepository
 {
@@ -20,6 +21,7 @@ class TimesheetsRepository
         'pruebas',
         'gestion_pm',
     ];
+    private ?WorkCalendarService $workCalendarService = null;
 
     public function __construct(private Database $db)
     {
@@ -106,6 +108,7 @@ class TimesheetsRepository
     public function weeklyGridForUser(int $userId, \DateTimeImmutable $weekStart): array
     {
         $weekEnd = $weekStart->modify('+6 days');
+        $weekCalendar = $this->workCalendarService()->weekMap($weekStart);
         $projects = $this->projectsForTimesheetEntry($userId);
         $projectMap = [];
         foreach ($projects as $project) {
@@ -142,10 +145,23 @@ class TimesheetsRepository
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
+            $dayKey = $day->format('Y-m-d');
+            $dayMeta = $weekCalendar[$dayKey] ?? [
+                'type' => 'working',
+                'is_working' => true,
+                'name' => '',
+                'is_holiday' => false,
+                'is_exception' => false,
+            ];
             $days[] = [
-                'key' => $day->format('Y-m-d'),
+                'key' => $dayKey,
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
                 'number' => $day->format('d'),
+                'day_type' => (string) ($dayMeta['type'] ?? 'working'),
+                'is_working' => (bool) ($dayMeta['is_working'] ?? true),
+                'day_name' => (string) ($dayMeta['name'] ?? ''),
+                'is_holiday' => (bool) ($dayMeta['is_holiday'] ?? false),
+                'is_exception' => (bool) ($dayMeta['is_exception'] ?? false),
             ];
         }
 
@@ -233,6 +249,7 @@ class TimesheetsRepository
         if ($weeklyCapacity <= 0) {
             $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
         }
+        $weeklyCapacity = $this->workCalendarService()->weeklyCapacityForWeek($weeklyCapacity, $weekStart);
 
         foreach ($activitiesByDay as &$dayItems) {
             usort($dayItems, static function (array $a, array $b): int {
@@ -827,9 +844,16 @@ class TimesheetsRepository
                 $totalsByDate[(string) $row['date']] = (float) ($row['hours'] ?? 0);
             }
             for ($i = 0; $i < 7; $i++) {
-                $day = $weekStart->modify('+' . $i . ' days')->format('Y-m-d');
+                $dayDate = $weekStart->modify('+' . $i . ' days');
+                $day = $dayDate->format('Y-m-d');
+                $dayMeta = $this->workCalendarService()->classifyDate($dayDate);
+                if (empty($dayMeta['is_working'])) {
+                    continue;
+                }
                 if (($totalsByDate[$day] ?? 0.0) <= 0) {
-                    throw new InvalidArgumentException('No se puede enviar la semana: hay días sin horas registradas.');
+                    throw new InvalidArgumentException(
+                        'No se puede enviar la semana: hay días laborales sin horas registradas.'
+                    );
                 }
             }
         }
@@ -1072,8 +1096,8 @@ class TimesheetsRepository
         }
         $profile = $this->talentProfileForUser($userId) ?? [];
         $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
-        $weeksInMonth = (int) ceil(((int) $monthEnd->format('j')) / 7);
-        $out['capacity'] = max(0, $weeklyCapacity) * max(1, $weeksInMonth);
+        $equivalentWeeks = $this->workCalendarService()->equivalentWorkingWeeks($monthStart, $monthEnd);
+        $out['capacity'] = max(0, $weeklyCapacity) * max(0, $equivalentWeeks);
         $out['compliance'] = $out['capacity'] > 0 ? min(100, round(($out['month_total'] / $out['capacity']) * 100, 2)) : 0;
         return $out;
     }
@@ -1168,11 +1192,11 @@ class TimesheetsRepository
 
     public function talentBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, string $sort = 'load_desc'): array
     {
-        $monthWeeks = max(1, (int) ceil(((int) $periodEnd->format('j')) / 7));
+        $periodWeeks = max(0.0001, $this->workCalendarService()->equivalentWorkingWeeks($periodStart, $periodEnd));
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
             ':end' => $periodEnd->format('Y-m-d'),
-            ':month_weeks' => $monthWeeks,
+            ':period_weeks' => $periodWeeks,
         ];
         $where = $this->timesheetScopeWhere($user, $params);
         if ($projectId !== null && $projectId > 0) {
@@ -1190,7 +1214,7 @@ class TimesheetsRepository
                     MAX(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)) AS last_week_submitted,
                     MAX(CASE WHEN ts.status = "approved" THEN DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) ELSE NULL END) AS last_week_approved,
                     MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) AS weekly_capacity,
-                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * :month_weeks, 0)) * 100, 2) AS compliance_percent
+                    ROUND((COALESCE(SUM(ts.hours), 0) / NULLIF(MAX(COALESCE(ta.capacidad_horaria, ta.weekly_capacity, 0)) * :period_weeks, 0)) * 100, 2) AS compliance_percent
              FROM timesheets ts
              JOIN talents ta ON ta.id = ts.talent_id
              LEFT JOIN tasks t ON t.id = ts.task_id
@@ -2443,8 +2467,9 @@ class TimesheetsRepository
             throw new InvalidArgumentException('Fecha inválida.');
         }
 
-        if ((int) $day->format('N') >= 6 && !$this->canRegisterWeekend($userId)) {
-            throw new InvalidArgumentException('No se permite registrar horas en sábado o domingo.');
+        $dayMeta = $this->workCalendarService()->classifyDate($day);
+        if (empty($dayMeta['is_working']) && !$this->canOverrideNonWorkingRestriction($userId, $dayMeta)) {
+            throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
         }
 
         $weekStart = $day->modify('monday this week')->setTime(0, 0);
@@ -2749,20 +2774,7 @@ class TimesheetsRepository
 
     private function canRegisterWeekend(int $userId): bool
     {
-        if ($userId <= 0 || !$this->db->tableExists('users') || !$this->db->tableExists('roles')) {
-            return false;
-        }
-
-        $row = $this->db->fetchOne(
-            'SELECT r.nombre
-             FROM users u
-             LEFT JOIN roles r ON r.id = u.role_id
-             WHERE u.id = :user
-             LIMIT 1',
-            [':user' => $userId]
-        );
-
-        return strtolower(trim((string) ($row['nombre'] ?? ''))) === 'administrador';
+        return $this->isAdministratorUser($userId) && $this->workCalendarService()->allowAdminNonWorkingLogging();
     }
 
     private function createWeeklyOperationalSummaries(int $userId, \DateTimeImmutable $weekStart, \DateTimeImmutable $weekEnd): void
@@ -2916,8 +2928,7 @@ class TimesheetsRepository
 
     private function capacityForScope(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): float
     {
-        $monthWeeks = (int) ceil(((int) $periodEnd->format('j')) / 7);
-        $multiplier = max(1, $monthWeeks);
+        $multiplier = max(0, $this->workCalendarService()->equivalentWorkingWeeks($periodStart, $periodEnd));
 
         if ($this->isPrivileged($user)) {
             $params = [];
@@ -2937,6 +2948,67 @@ class TimesheetsRepository
         $profile = $this->talentProfileForUser((int) ($user['id'] ?? 0)) ?? [];
         $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? $profile['weekly_capacity'] ?? 0);
         return max(0, $weeklyCapacity) * $multiplier;
+    }
+
+    private function workCalendarService(): WorkCalendarService
+    {
+        if ($this->workCalendarService instanceof WorkCalendarService) {
+            return $this->workCalendarService;
+        }
+
+        $this->workCalendarService = new WorkCalendarService($this->db);
+
+        return $this->workCalendarService;
+    }
+
+    private function canOverrideNonWorkingRestriction(int $userId, array $dayMeta): bool
+    {
+        if (!$this->isAdministratorUser($userId)) {
+            return false;
+        }
+
+        if (($dayMeta['type'] ?? '') === 'holiday') {
+            return $this->workCalendarService()->allowAdminHolidayLogging();
+        }
+
+        return $this->workCalendarService()->allowAdminNonWorkingLogging();
+    }
+
+    private function nonWorkingDayMessage(array $dayMeta): string
+    {
+        $type = (string) ($dayMeta['type'] ?? 'non_working');
+        $name = trim((string) ($dayMeta['name'] ?? ''));
+        if ($type === 'holiday') {
+            if ($name !== '') {
+                return 'Este día es festivo (' . $name . '). No se pueden registrar horas.';
+            }
+
+            return 'Este día es festivo. No se pueden registrar horas.';
+        }
+
+        if ($name !== '') {
+            return 'Este día es no laboral (' . $name . '). No se pueden registrar horas.';
+        }
+
+        return 'Este día es no laboral. No se pueden registrar horas.';
+    }
+
+    private function isAdministratorUser(int $userId): bool
+    {
+        if ($userId <= 0 || !$this->db->tableExists('users') || !$this->db->tableExists('roles')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT r.nombre
+             FROM users u
+             LEFT JOIN roles r ON r.id = u.role_id
+             WHERE u.id = :user
+             LIMIT 1',
+            [':user' => $userId]
+        );
+
+        return strtolower(trim((string) ($row['nombre'] ?? ''))) === 'administrador';
     }
 
     private function isPrivileged(array $user): bool
