@@ -18,6 +18,194 @@ class TasksRepository
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, p.name AS project, ta.name AS assignee
              FROM tasks t JOIN projects p ON p.id = t.project_id LEFT JOIN talents ta ON ta.id = t.assignee_id ORDER BY t.due_date ASC'
         );
+        return $this->groupByStatus($tasks);
+    }
+
+    public function kanbanAll(): array
+    {
+        $hasStoppers = $this->db->tableExists('project_stoppers');
+        $stopperJoin = '';
+        $stopperSelect = "NULL AS stopper_title, NULL AS stopper_impact";
+        if ($hasStoppers) {
+            $stopperJoin = "LEFT JOIN project_stoppers ps ON ps.task_id = t.id AND ps.status IN ('abierto','en_gestion','escalado')";
+            $stopperSelect = "ps.title AS stopper_title, ps.impact_level AS stopper_impact";
+        }
+
+        $tasks = $this->db->fetchAll(
+            "SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
+                    p.id AS project_id, p.name AS project,
+                    ta.id AS talent_id, ta.name AS assignee,
+                    {$stopperSelect}
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             LEFT JOIN talents ta ON ta.id = t.assignee_id
+             {$stopperJoin}
+             ORDER BY ta.name ASC, t.due_date ASC"
+        );
+        return $this->groupByStatus($tasks);
+    }
+
+    public function kanbanForUser(int $userId): array
+    {
+        $talentId = $this->talentIdForUser($userId);
+
+        $hasStoppers = $this->db->tableExists('project_stoppers');
+        $stopperJoin = '';
+        $stopperSelect = "NULL AS stopper_title, NULL AS stopper_impact";
+        if ($hasStoppers) {
+            $stopperJoin = "LEFT JOIN project_stoppers ps ON ps.task_id = t.id AND ps.status IN ('abierto','en_gestion','escalado')";
+            $stopperSelect = "ps.title AS stopper_title, ps.impact_level AS stopper_impact";
+        }
+
+        if ($talentId !== null) {
+            $tasks = $this->db->fetchAll(
+                "SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
+                        p.id AS project_id, p.name AS project,
+                        ta.id AS talent_id, ta.name AS assignee,
+                        {$stopperSelect}
+                 FROM tasks t
+                 JOIN projects p ON p.id = t.project_id
+                 LEFT JOIN talents ta ON ta.id = t.assignee_id
+                 {$stopperJoin}
+                 WHERE t.assignee_id = :talentId
+                 ORDER BY t.due_date ASC",
+                [':talentId' => $talentId]
+            );
+        } else {
+            $tasks = $this->db->fetchAll(
+                "SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
+                        p.id AS project_id, p.name AS project,
+                        NULL AS talent_id, NULL AS assignee,
+                        {$stopperSelect}
+                 FROM tasks t
+                 JOIN projects p ON p.id = t.project_id
+                 {$stopperJoin}
+                 WHERE 1=0"
+            );
+        }
+
+        return $this->groupByStatus($tasks);
+    }
+
+    public function talentIdForUser(int $userId): ?int
+    {
+        if (!$this->db->tableExists('talents')) {
+            return null;
+        }
+        $row = $this->db->fetchOne(
+            'SELECT id FROM talents WHERE user_id = :user LIMIT 1',
+            [':user' => $userId]
+        );
+        return $row ? (int) $row['id'] : null;
+    }
+
+    public function talentRecordForUser(int $userId): ?array
+    {
+        if (!$this->db->tableExists('talents')) {
+            return null;
+        }
+        return $this->db->fetchOne(
+            'SELECT id, name, weekly_capacity, capacidad_horaria, availability FROM talents WHERE user_id = :user LIMIT 1',
+            [':user' => $userId]
+        ) ?: null;
+    }
+
+    public function activeBlockersForTalent(int $talentId): array
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return [];
+        }
+        return $this->db->fetchAll(
+            "SELECT ps.id, ps.title, ps.impact_level, ps.stopper_type, ps.status, ps.detected_at,
+                    t.id AS task_id, t.title AS task_title,
+                    p.id AS project_id, p.name AS project_name
+             FROM project_stoppers ps
+             JOIN tasks t ON t.id = ps.task_id
+             JOIN projects p ON p.id = t.project_id
+             WHERE t.assignee_id = :talentId
+               AND ps.status IN ('abierto','en_gestion','escalado')
+             ORDER BY ps.detected_at DESC",
+            [':talentId' => $talentId]
+        );
+    }
+
+    public function weeklyHoursForTalent(int $talentId, \DateTimeImmutable $weekStart): float
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return 0.0;
+        }
+        $weekEnd = $weekStart->modify('+6 days')->format('Y-m-d');
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE talent_id = :talentId AND date >= :start AND date <= :end',
+            [
+                ':talentId' => $talentId,
+                ':start' => $weekStart->format('Y-m-d'),
+                ':end' => $weekEnd,
+            ]
+        );
+        return (float) ($row['total'] ?? 0);
+    }
+
+    public function todayHoursForTalent(int $talentId): float
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return 0.0;
+        }
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM timesheets
+             WHERE talent_id = :talentId AND date = :today',
+            [
+                ':talentId' => $talentId,
+                ':today' => date('Y-m-d'),
+            ]
+        );
+        return (float) ($row['total'] ?? 0);
+    }
+
+    public function findById(int $taskId): ?array
+    {
+        $hasStoppers = $this->db->tableExists('project_stoppers');
+        $stopperJoin = '';
+        $stopperSelect = "NULL AS stopper_title";
+        if ($hasStoppers) {
+            $stopperJoin = "LEFT JOIN project_stoppers ps ON ps.task_id = t.id AND ps.status IN ('abierto','en_gestion','escalado')";
+            $stopperSelect = "ps.title AS stopper_title";
+        }
+
+        $row = $this->db->fetchOne(
+            "SELECT t.id, t.project_id, t.assignee_id, t.status, t.title,
+                    p.name AS project, ta.name AS assignee, {$stopperSelect}
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             LEFT JOIN talents ta ON ta.id = t.assignee_id
+             {$stopperJoin}
+             WHERE t.id = :id
+             LIMIT 1",
+            [':id' => $taskId]
+        );
+        return $row ?: null;
+    }
+
+    public function workloadByTalent(): array
+    {
+        $rows = $this->db->fetchAll(
+            "SELECT ta.id AS talent_id, ta.name AS talent_name,
+                    COUNT(t.id) AS task_count,
+                    SUM(CASE WHEN t.status NOT IN ('done','completed') THEN t.estimated_hours ELSE 0 END) AS pending_hours,
+                    SUM(CASE WHEN t.status IN ('blocked') THEN 1 ELSE 0 END) AS blocked_count
+             FROM talents ta
+             LEFT JOIN tasks t ON t.assignee_id = ta.id AND t.status NOT IN ('done','completed')
+             GROUP BY ta.id, ta.name
+             ORDER BY task_count DESC"
+        );
+        return $rows;
+    }
+
+    private function groupByStatus(array $tasks): array
+    {
         $grouped = [
             'todo' => [],
             'in_progress' => [],

@@ -661,6 +661,12 @@ error_log(sprintf(
         <h3 class="nav-title">Navegación</h3>
         <nav>
             <span class="nav-section-label">Operación</span>
+            <?php if (in_array($user['role'] ?? '', ['Talento'], true)): ?>
+                <a href="<?= $basePath ?>/my-work" class="nav-link <?= $normalizedPath === '/my-work' ? 'active' : '' ?>" data-tone="violet">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 9v12M15 9v12"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg></span>
+                    <span class="nav-label">Mi panel</span>
+                </a>
+            <?php endif; ?>
             <a href="<?= $basePath ?>/dashboard" class="nav-link <?= ($normalizedPath === '/dashboard' || $normalizedPath === '/') ? 'active' : '' ?>" data-tone="indigo">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 13h7v8H3z"/><path d="M14 3h7v18h-7z"/><path d="M3 3h7v6H3z"/></svg></span>
                 <span class="nav-label">Dashboard</span>
@@ -687,10 +693,16 @@ error_log(sprintf(
                     <span class="nav-badge" aria-label="Aprobaciones pendientes"><?= (int) $approvalBadgeCount ?></span>
                 <?php endif; ?>
             </a>
-            <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h7"/><path d="M9 12h7"/><path d="M9 16h5"/><path d="m6.5 8 .5.5 1-1"/><path d="m6.5 12 .5.5 1-1"/><path d="m6.5 16 .5.5 1-1"/></svg></span>
-                <span class="nav-label">Tareas</span>
-            </a>
+            <div class="nav-group">
+                <a href="<?= $basePath ?>/tasks" class="nav-link <?= str_starts_with($normalizedPath, '/tasks') ? 'active' : '' ?>" data-tone="violet">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h7"/><path d="M9 12h7"/><path d="M9 16h5"/><path d="m6.5 8 .5.5 1-1"/><path d="m6.5 12 .5.5 1-1"/><path d="m6.5 16 .5.5 1-1"/></svg></span>
+                    <span class="nav-label">Tareas</span>
+                </a>
+                <div class="nav-submenu">
+                    <a href="<?= $basePath ?>/tasks" class="nav-sublink <?= (str_starts_with($normalizedPath, '/tasks') && ($queryParams['view'] ?? '') !== 'kanban') ? 'active' : '' ?>">Lista</a>
+                    <a href="<?= $basePath ?>/tasks?view=kanban" class="nav-sublink <?= (str_starts_with($normalizedPath, '/tasks') && ($queryParams['view'] ?? '') === 'kanban') ? 'active' : '' ?>">Kanban</a>
+                </div>
+            </div>
             <?php if ($timesheetsEnabled): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>" data-tone="pink">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="m12 13 3 2"/><path d="M9 3h6"/><path d="M12 3v2"/></svg></span>

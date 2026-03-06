@@ -13,9 +13,16 @@ class TasksController extends Controller
 
     public function index(): void
     {
-        $repo = new TasksRepository($this->db);
         $this->requirePermission('tasks.view');
+        $repo = new TasksRepository($this->db);
         $user = $this->auth->user() ?? [];
+        $isPrivileged = in_array($user['role'] ?? '', ['Administrador', 'PMO'], true);
+
+        $view = trim((string) ($_GET['view'] ?? ''));
+        if ($view === 'kanban') {
+            $this->kanban();
+            return;
+        }
 
         $this->render('tasks/index', [
             'title' => 'Tareas',
@@ -23,6 +30,34 @@ class TasksController extends Controller
             'projectOptions' => (new ProjectsRepository($this->db))->summary($user),
             'talents' => (new TalentsRepository($this->db))->assignmentOptions(),
             'canManage' => $this->auth->can('projects.manage'),
+            'isPrivileged' => $isPrivileged,
+        ]);
+    }
+
+    public function kanban(): void
+    {
+        $this->requirePermission('tasks.view');
+        $user = $this->auth->user() ?? [];
+        $repo = new TasksRepository($this->db);
+        $isPrivileged = in_array($user['role'] ?? '', ['Administrador', 'PMO'], true);
+        $canManage = $this->auth->can('projects.manage');
+
+        if ($isPrivileged) {
+            $kanbanColumns = $repo->kanbanAll();
+            $workload = $repo->workloadByTalent();
+        } else {
+            $kanbanColumns = $repo->kanbanForUser((int) ($user['id'] ?? 0));
+            $workload = [];
+        }
+
+        $this->render('tasks/kanban', [
+            'title' => 'Kanban de tareas',
+            'kanbanColumns' => $kanbanColumns,
+            'workload' => $workload,
+            'canManage' => $canManage,
+            'isPrivileged' => $isPrivileged,
+            'talents' => $canManage ? (new TalentsRepository($this->db))->assignmentOptions() : [],
+            'projectOptions' => $canManage ? (new ProjectsRepository($this->db))->summary($user) : [],
         ]);
     }
 
@@ -72,7 +107,8 @@ class TasksController extends Controller
             'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
         ]);
 
-        header('Location: /tasks');
+        $redirect = trim((string) ($_POST['redirect'] ?? ''));
+        header('Location: ' . ($redirect !== '' ? $redirect : '/tasks'));
     }
 
     public function edit(int $taskId): void
@@ -134,7 +170,19 @@ class TasksController extends Controller
 
     public function updateStatus(int $taskId): void
     {
-        $this->requirePermission('projects.manage');
+        $user = $this->auth->user() ?? [];
+        $repo = new TasksRepository($this->db);
+        $canManage = $this->auth->can('projects.manage');
+        $isPrivileged = in_array($user['role'] ?? '', ['Administrador', 'PMO'], true);
+
+        if (!$canManage && !$isPrivileged) {
+            $talentId = $repo->talentIdForUser((int) ($user['id'] ?? 0));
+            $task = $repo->findById($taskId);
+            if (!$task || (int) ($task['assignee_id'] ?? 0) !== (int) $talentId) {
+                http_response_code(403);
+                exit('No tienes permiso para cambiar el estado de esta tarea.');
+            }
+        }
 
         $status = (string) ($_POST['status'] ?? '');
         if (!in_array($status, self::ALLOWED_STATUSES, true)) {
@@ -142,7 +190,17 @@ class TasksController extends Controller
             exit('Estado de tarea inválido.');
         }
 
-        (new TasksRepository($this->db))->updateStatus($taskId, $status);
-        header('Location: /tasks');
+        $repo->updateStatus($taskId, $status);
+
+        $isJson = str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json')
+            || strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+
+        if ($isJson) {
+            $this->json(['ok' => true, 'status' => $status]);
+            return;
+        }
+
+        $redirect = trim((string) ($_POST['redirect'] ?? ''));
+        header('Location: ' . ($redirect !== '' ? $redirect : '/tasks'));
     }
 }

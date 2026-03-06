@@ -40,6 +40,7 @@ class App
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureTasksViewForTalent();
         $this->auth = new Auth($this->db);
     }
 
@@ -91,6 +92,11 @@ class App
 
         if ($path === '/' || $path === '/dashboard') {
             (new DashboardController($this->db, $this->auth))->index();
+            return;
+        }
+
+        if ($path === '/my-work' && $method === 'GET') {
+            (new MyWorkController($this->db, $this->auth))->index();
             return;
         }
 
