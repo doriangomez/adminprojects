@@ -302,11 +302,30 @@ foreach ($gridDays as $day) {
                         <label>Fecha
                             <input type="date" name="date" value="<?= htmlspecialchars($weekStart->format('Y-m-d')) ?>" required>
                         </label>
+                        <?php
+                        $clientsMap = [];
+                        foreach ($projectsForTimesheet as $p) {
+                            $cid = (int) ($p['client_id'] ?? 0);
+                            if ($cid > 0 && !isset($clientsMap[$cid])) {
+                                $clientsMap[$cid] = (string) ($p['client'] ?? '');
+                            }
+                        }
+                        ?>
+                        <?php if ($clientsMap !== []): ?>
+                        <label>Cliente
+                            <select id="qa-client">
+                                <option value="">Todos los clientes</option>
+                                <?php foreach ($clientsMap as $cid => $cname): ?>
+                                    <option value="<?= $cid ?>"><?= htmlspecialchars($cname) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <?php endif; ?>
                         <label>Proyecto*
                             <select name="project_id" id="qa-project" required>
                                 <option value="">Seleccionar...</option>
                                 <?php foreach ($projectsForTimesheet as $project): ?>
-                                    <option value="<?= (int) ($project['project_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($project['project'] ?? '')) ?></option>
+                                    <option value="<?= (int) ($project['project_id'] ?? 0) ?>" data-client-id="<?= (int) ($project['client_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($project['project'] ?? '')) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </label>
@@ -547,6 +566,7 @@ foreach ($gridDays as $day) {
   const weekFullyLocked = <?= $weekFullyLocked ? 'true' : 'false' ?>;
   const dayLabels = <?= json_encode($daysJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
   const form = document.getElementById('quick-add-form');
+  const clientInput = document.getElementById('qa-client');
   const projectInput = document.getElementById('qa-project');
   const taskInput = document.getElementById('qa-task');
   const taskManagementInput = document.getElementById('qa-task-management-mode');
@@ -628,6 +648,21 @@ foreach ($gridDays as $day) {
     return data;
   };
 
+  const filterProjectsByClient = () => {
+    if (!projectInput) return;
+    const clientId = Number(clientInput?.value || 0);
+    let firstVisible = '';
+    projectInput.querySelectorAll('option[data-client-id]').forEach((option) => {
+      const isVisible = clientId <= 0 || Number(option.dataset.clientId || 0) === clientId;
+      option.hidden = !isVisible;
+      if (isVisible && firstVisible === '') firstVisible = option.value;
+    });
+    if (projectInput.selectedOptions[0]?.hidden) {
+      projectInput.value = firstVisible;
+    }
+    filterTasksByProject();
+  };
+
   const filterTasksByProject = () => {
     if (!taskInput) return;
     const projectId = Number(projectInput?.value || 0);
@@ -686,6 +721,7 @@ foreach ($gridDays as $day) {
     syncToggleLabels();
   };
 
+  clientInput?.addEventListener('change', filterProjectsByClient);
   projectInput?.addEventListener('change', filterTasksByProject);
   blockerToggle?.addEventListener('change', syncToggles);
   deliverableToggle?.addEventListener('change', syncToggles);
@@ -710,7 +746,7 @@ foreach ($gridDays as $day) {
       event.target.value = '';
     }
   });
-  filterTasksByProject();
+  filterProjectsByClient();
   syncToggles();
   syncTaskManagementMode();
 
@@ -720,14 +756,16 @@ foreach ($gridDays as $day) {
 
   const resetForAnother = () => {
     const keepDate = form.querySelector('[name="date"]')?.value || '';
+    const keepClient = clientInput?.value || '';
     const keepProject = form.querySelector('[name="project_id"]')?.value || '';
     const keepTask = form.querySelector('[name="task_id"]')?.value || '0';
     const keepTaskMode = form.querySelector('[name="task_management_mode"]')?.value || 'existing';
     form.reset();
     form.querySelector('[name="activity_id"]').value = '';
     form.querySelector('[name="date"]').value = keepDate;
+    if (clientInput) clientInput.value = keepClient;
     form.querySelector('[name="project_id"]').value = keepProject;
-    filterTasksByProject();
+    filterProjectsByClient();
     form.querySelector('[name="task_id"]').value = keepTask;
     form.querySelector('[name="task_management_mode"]').value = keepTaskMode;
     syncToggles();
@@ -737,7 +775,14 @@ foreach ($gridDays as $day) {
   const fillForm = (data) => {
     form.querySelector('[name="activity_id"]').value = String(data.id || '');
     form.querySelector('[name="date"]').value = data.date || '';
-    form.querySelector('[name="project_id"]').value = String(data.project_id || '');
+    const projectId = String(data.project_id || '');
+    if (clientInput) {
+      const projectOption = projectInput?.querySelector(`option[value="${projectId}"]`);
+      const clientId = projectOption?.dataset.clientId || '';
+      clientInput.value = clientId;
+    }
+    filterProjectsByClient();
+    form.querySelector('[name="project_id"]').value = projectId;
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = String(data.task_id || 0);
     form.querySelector('[name="task_management_mode"]').value = 'existing';
@@ -956,7 +1001,13 @@ foreach ($gridDays as $day) {
     button.addEventListener('click', () => {
       form.querySelector('[name="activity_id"]').value = '';
       form.querySelector('[name="task_management_mode"]').value = 'existing';
-      form.querySelector('[name="project_id"]').value = button.dataset.projectId || '';
+      const recentProjectId = button.dataset.projectId || '';
+      if (clientInput) {
+        const projectOpt = projectInput?.querySelector(`option[value="${recentProjectId}"]`);
+        clientInput.value = projectOpt?.dataset.clientId || '';
+        filterProjectsByClient();
+      }
+      form.querySelector('[name="project_id"]').value = recentProjectId;
       filterTasksByProject();
       form.querySelector('[name="task_id"]').value = button.dataset.taskId || '0';
       form.querySelector('[name="activity_type"]').value = button.dataset.activityType || '';

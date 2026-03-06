@@ -66,6 +66,7 @@ class TimesheetsController extends Controller
             'weekValue' => $weekValue,
             'selectedWeekSummary' => $selectedWeekSummary,
             'weekIndicators' => $weekIndicators,
+            'capacityTooltip' => implode(' | ', $weekIndicators['capacity_tooltip_lines'] ?? []),
             'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
