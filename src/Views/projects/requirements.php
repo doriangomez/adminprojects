@@ -5,10 +5,16 @@ $indicator = $requirementsIndicator ?? ['applicable' => false, 'value' => null, 
 $period = $requirementsPeriod ?? ['start_date' => date('Y-m-01'), 'end_date' => date('Y-m-t')];
 $target = (int) ($requirementsTarget ?? 95);
 $audit = $requirementsAudit ?? [];
+$detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $statusMap = ['verde' => '🟢', 'amarillo' => '🟡', 'rojo' => '🔴', 'no_aplica' => '⚪'];
 $activeTab = 'requisitos';
 require __DIR__ . '/_tabs.php';
 ?>
+<?php if (!empty($detailWarnings)): ?>
+    <div class="project-inline-warning" role="alert">
+        <?= htmlspecialchars((string) $detailWarnings[0]) ?>
+    </div>
+<?php endif; ?>
 
 <section class="card" style="padding:16px;margin-bottom:16px;">
     <h3>Indicador: Cumplimiento de requisitos del cliente</h3>

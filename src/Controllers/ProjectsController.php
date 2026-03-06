@@ -408,7 +408,47 @@ class ProjectsController extends Controller
             exit('No tienes permisos para visualizar facturación.');
         }
 
-        $this->render('projects/billing', $this->projectDetailData($id));
+        try {
+            $this->render('projects/billing', $this->projectDetailData($id));
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.billing] Error al cargar facturación del proyecto %d para user %d: %s',
+                $id,
+                (int) ($this->auth->user()['id'] ?? 0),
+                $e->getMessage()
+            ));
+
+            $repo = new ProjectsRepository($this->db);
+            $project = $repo->findForUser($id, $this->auth->user() ?? []);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $this->render('projects/billing', [
+                'title' => 'Facturación del proyecto',
+                'project' => $project,
+                'currentUser' => $this->auth->user() ?? [],
+                'canManage' => $this->auth->can('projects.manage'),
+                'canViewBilling' => $this->canViewBilling(),
+                'canManageBilling' => $this->canRegisterBilling(),
+                'canDeleteInvoice' => $this->auth->hasRole('Administrador'),
+                'canMarkInvoicePaid' => $this->auth->can('project.billing.mark_paid'),
+                'canVoidInvoice' => $this->auth->can('project.billing.void'),
+                'billingConfig' => [],
+                'projectInvoices' => [],
+                'billingTotals' => [],
+                'approvedHoursPendingInvoicing' => 0,
+                'approvedHoursTotal' => 0,
+                'missingMonthlyPeriods' => [],
+                'billingTypes' => self::BILLING_TYPES,
+                'billingPeriodicities' => self::BILLING_PERIODICITIES,
+                'invoiceStatuses' => self::INVOICE_STATUSES,
+                'detailWarnings' => [
+                    'No se pudo cargar toda la información de facturación en este momento. Revisa los logs del servidor.',
+                ],
+            ]);
+        }
     }
 
     public function storeTask(int $id): void
@@ -1903,11 +1943,19 @@ class ProjectsController extends Controller
             : [];
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
-        $pmoAutomation = new PmoAutomationService($this->db);
-        $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
-        $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
-        $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
-        $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        $pmoSnapshot = [];
+        $pmoAlerts = [];
+        $pmoHoursTrend = [];
+        $pmoActiveBlockers = [];
+        try {
+            $pmoAutomation = new PmoAutomationService($this->db);
+            $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
+            $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
+            $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
+            $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        } catch (\Throwable $pmoEx) {
+            error_log(sprintf('[projects.pmo] Error cargando datos PMO para proyecto %d: %s', $id, $pmoEx->getMessage()));
+        }
 
         return array_merge([
             'title' => 'Detalle de proyecto',
@@ -3796,23 +3844,54 @@ POST crudo:
 
     public function requirements(int $id): void
     {
-        $data = $this->projectDetailData($id);
-        $repo = new RequirementsRepository($this->db);
-        $config = (new ConfigService($this->db))->getConfig();
+        try {
+            $data = $this->projectDetailData($id);
+            $repo = new RequirementsRepository($this->db);
+            $config = (new ConfigService($this->db))->getConfig();
 
-        $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
-        $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
+            $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
+            $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
 
-        $indicator = $repo->indicatorForProject($id, $start, $end);
-        $history = $repo->auditByProject($id);
+            $indicator = $repo->indicatorForProject($id, $start, $end);
+            $history = $repo->auditByProject($id);
 
-        $data['requirements'] = $repo->listByProject($id);
-        $data['requirementsIndicator'] = $indicator;
-        $data['requirementsAudit'] = $history;
-        $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
-        $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
+            $data['requirements'] = $repo->listByProject($id);
+            $data['requirementsIndicator'] = $indicator;
+            $data['requirementsAudit'] = $history;
+            $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
+            $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
 
-        $this->render('projects/requirements', $data);
+            $this->render('projects/requirements', $data);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.requirements] Error al cargar requisitos del proyecto %d para user %d: %s',
+                $id,
+                (int) ($this->auth->user()['id'] ?? 0),
+                $e->getMessage()
+            ));
+
+            $repo = new ProjectsRepository($this->db);
+            $project = $repo->findForUser($id, $this->auth->user() ?? []);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $this->render('projects/requirements', [
+                'title' => 'Requisitos del proyecto',
+                'project' => $project,
+                'currentUser' => $this->auth->user() ?? [],
+                'canManage' => $this->auth->can('projects.manage'),
+                'requirements' => [],
+                'requirementsIndicator' => [],
+                'requirementsAudit' => [],
+                'requirementsPeriod' => ['start_date' => date('Y-m-01'), 'end_date' => date('Y-m-t')],
+                'requirementsTarget' => 95,
+                'detailWarnings' => [
+                    'No se pudo cargar toda la información de requisitos en este momento. Revisa los logs del servidor.',
+                ],
+            ]);
+        }
     }
 
     public function storeRequirement(int $projectId): void

@@ -22,8 +22,14 @@ $statusLabels = ['issued' => 'Emitida', 'paid' => 'Pagada', 'draft' => 'Borrador
 $totalInvoiced = (float) ($billingTotals['total_invoiced'] ?? 0);
 $hoursBillableAmount = (($billingConfig['billing_type'] ?? '') === 'hours') ? ($approvedHoursTotal * (float) ($billingConfig['hourly_rate'] ?? 0)) : null;
 $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvoiced) : null;
+$detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 ?>
 <section class="project-shell">
+    <?php if (!empty($detailWarnings)): ?>
+        <div class="project-inline-warning" role="alert">
+            <?= htmlspecialchars((string) $detailWarnings[0]) ?>
+        </div>
+    <?php endif; ?>
     <header class="project-header">
         <div>
             <p class="eyebrow">Facturación</p>
