@@ -42,23 +42,19 @@ class TasksRepository
 
     public function listAll(array $user): array
     {
-        $conditions = [];
-        $params = [];
-
-        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
-        }
-
+        [$conditions, $params] = $this->visibilityConditions($user, 't', 'p');
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
 
         return $this->db->fetchAll(
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
-                    p.id AS project_id, p.name AS project, p.phase AS project_phase, ta.name AS assignee
+                    p.id AS project_id, p.name AS project, p.phase AS project_phase,
+                    t.assignee_id, ta.user_id AS assignee_user_id, ta.name AS assignee,
+                    ' . $stopperSelect . '
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              LEFT JOIN talents ta ON ta.id = t.assignee_id
+             ' . $stopperJoin . '
              ' . $where . '
              ORDER BY p.name ASC, t.due_date ASC',
             $params
@@ -67,22 +63,21 @@ class TasksRepository
 
     public function find(int $taskId, array $user): ?array
     {
-        $conditions = ['t.id = :id'];
-        $params = [':id' => $taskId];
-
-        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
-        }
-
+        [$conditions, $params] = $this->visibilityConditions($user, 't', 'p');
+        $conditions[] = 't.id = :id';
+        $params[':id'] = $taskId;
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
 
         $row = $this->db->fetchOne(
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.assignee_id,
-                    p.id AS project_id, p.name AS project, p.phase AS project_phase
+                    ta.user_id AS assignee_user_id,
+                    p.id AS project_id, p.name AS project, p.phase AS project_phase,
+                    ' . $stopperSelect . '
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
+             LEFT JOIN talents ta ON ta.id = t.assignee_id
+             ' . $stopperJoin . '
              ' . $where . '
              LIMIT 1',
             $params
@@ -163,26 +158,205 @@ class TasksRepository
 
     public function forProject(int $projectId, array $user): array
     {
-        $conditions = [];
-        $params = [':project' => $projectId];
-
-        $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        if ($hasPmColumn && !$this->isPrivileged($user)) {
-            $conditions[] = 'p.pm_id = :pmId';
-            $params[':pmId'] = $user['id'];
-        }
-
+        [$conditions, $params] = $this->visibilityConditions($user, 't', 'p');
+        $params[':project'] = $projectId;
         $where = $conditions ? ' AND ' . implode(' AND ', $conditions) : '';
+        [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
 
         return $this->db->fetchAll(
-            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, ta.name AS assignee
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
+                    t.assignee_id, ta.user_id AS assignee_user_id, ta.name AS assignee,
+                    ' . $stopperSelect . '
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              LEFT JOIN talents ta ON ta.id = t.assignee_id
+             ' . $stopperJoin . '
              WHERE t.project_id = :project' . $where . '
              ORDER BY t.due_date ASC',
             $params
         );
+    }
+
+    public function canTalentUpdateTaskStatus(int $taskId, int $userId): bool
+    {
+        $talentId = $this->talentIdForUser($userId);
+        if (
+            $taskId <= 0
+            || $talentId === null
+            || !$this->db->columnExists('tasks', 'assignee_id')
+        ) {
+            return false;
+        }
+
+        $task = $this->db->fetchOne(
+            'SELECT 1
+             FROM tasks
+             WHERE id = :task
+               AND assignee_id = :talent
+             LIMIT 1',
+            [
+                ':task' => $taskId,
+                ':talent' => $talentId,
+            ]
+        );
+
+        return $task !== null;
+    }
+
+    public function userCanCreateTaskInProject(array $user, int $projectId): bool
+    {
+        $userId = (int) ($user['id'] ?? 0);
+        if ($projectId <= 0 || $userId <= 0) {
+            return false;
+        }
+
+        if ($this->isPrivileged($user)) {
+            return true;
+        }
+
+        if (strcasecmp((string) ($user['role'] ?? ''), 'Talento') !== 0) {
+            return false;
+        }
+
+        if (
+            !$this->db->tableExists('project_talent_assignments')
+            || !$this->db->tableExists('projects')
+        ) {
+            return false;
+        }
+
+        $projectActiveCondition = $this->db->columnExists('projects', 'active')
+            ? ' AND COALESCE(p.active, 1) = 1'
+            : '';
+        $hasAssignmentStatus = $this->db->columnExists('project_talent_assignments', 'assignment_status');
+        $hasAssignmentActive = $this->db->columnExists('project_talent_assignments', 'active');
+        $assignmentStatusCondition = match (true) {
+            $hasAssignmentStatus && $hasAssignmentActive => "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND COALESCE(a.active, 1) = 1))",
+            $hasAssignmentStatus => "a.assignment_status = 'active'",
+            $hasAssignmentActive => "COALESCE(a.active, 1) = 1",
+            default => '1 = 1',
+        };
+
+        $assignment = $this->db->fetchOne(
+            'SELECT 1
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             WHERE a.project_id = :project
+               AND a.user_id = :user
+               AND ' . $assignmentStatusCondition . $projectActiveCondition . '
+             LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':user' => $userId,
+            ]
+        );
+
+        return $assignment !== null;
+    }
+
+    public function assignedProjectsForUser(int $userId): array
+    {
+        if (
+            $userId <= 0
+            || !$this->db->tableExists('project_talent_assignments')
+            || !$this->db->tableExists('projects')
+        ) {
+            return [];
+        }
+
+        $projectActiveCondition = $this->db->columnExists('projects', 'active')
+            ? ' AND COALESCE(p.active, 1) = 1'
+            : '';
+        $hasAssignmentStatus = $this->db->columnExists('project_talent_assignments', 'assignment_status');
+        $hasAssignmentActive = $this->db->columnExists('project_talent_assignments', 'active');
+        $assignmentStatusCondition = match (true) {
+            $hasAssignmentStatus && $hasAssignmentActive => "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND COALESCE(a.active, 1) = 1))",
+            $hasAssignmentStatus => "a.assignment_status = 'active'",
+            $hasAssignmentActive => "COALESCE(a.active, 1) = 1",
+            default => '1 = 1',
+        };
+
+        return $this->db->fetchAll(
+            'SELECT DISTINCT p.id, p.name
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             WHERE a.user_id = :user
+               AND ' . $assignmentStatusCondition . $projectActiveCondition . '
+             ORDER BY p.name ASC',
+            [':user' => $userId]
+        );
+    }
+
+    public function talentIdForUser(int $userId): ?int
+    {
+        if ($userId <= 0 || !$this->db->tableExists('talents') || !$this->db->columnExists('talents', 'user_id')) {
+            return null;
+        }
+
+        $talent = $this->db->fetchOne(
+            'SELECT id FROM talents WHERE user_id = :user LIMIT 1',
+            [':user' => $userId]
+        );
+
+        if (!$talent) {
+            return null;
+        }
+
+        $talentId = (int) ($talent['id'] ?? 0);
+
+        return $talentId > 0 ? $talentId : null;
+    }
+
+    public function deleteTask(int $taskId): void
+    {
+        $this->db->execute('DELETE FROM tasks WHERE id = :id', [':id' => $taskId]);
+    }
+
+    private function visibilityConditions(array $user, string $taskAlias, string $projectAlias): array
+    {
+        $conditions = [];
+        $params = [];
+
+        if ($this->isPrivileged($user)) {
+            return [$conditions, $params];
+        }
+
+        $userId = (int) ($user['id'] ?? 0);
+        $role = (string) ($user['role'] ?? '');
+        if (strcasecmp($role, 'Talento') === 0) {
+            if (!$this->db->columnExists('tasks', 'assignee_id')) {
+                $conditions[] = '1 = 0';
+                return [$conditions, $params];
+            }
+            $talentId = $this->talentIdForUser($userId);
+            $conditions[] = $taskAlias . '.assignee_id = :assigneeId';
+            $params[':assigneeId'] = $talentId ?? -1;
+            return [$conditions, $params];
+        }
+
+        if ($this->db->columnExists('projects', 'pm_id')) {
+            $conditions[] = $projectAlias . '.pm_id = :pmId';
+            $params[':pmId'] = $userId;
+        }
+
+        return [$conditions, $params];
+    }
+
+    private function taskStopperSql(string $taskAlias): array
+    {
+        if (!$this->db->tableExists('project_stoppers') || !$this->db->columnExists('project_stoppers', 'task_id')) {
+            return ['', '0 AS open_stoppers'];
+        }
+
+        $join = 'LEFT JOIN (
+                    SELECT task_id, COUNT(*) AS open_stoppers
+                    FROM project_stoppers
+                    WHERE task_id IS NOT NULL
+                      AND status <> "cerrado"
+                    GROUP BY task_id
+                 ) ps ON ps.task_id = ' . $taskAlias . '.id';
+
+        return [$join, 'COALESCE(ps.open_stoppers, 0) AS open_stoppers'];
     }
 
     private function isPrivileged(array $user): bool

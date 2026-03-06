@@ -331,6 +331,56 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTaskPermissions(): void
+    {
+        if (
+            !$this->db->tableExists('permissions')
+            || !$this->db->tableExists('role_permissions')
+            || !$this->db->tableExists('roles')
+        ) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => 'tasks.view',
+                    ':code_check' => 'tasks.view',
+                    ':name' => 'Ver tareas',
+                ]
+            );
+
+            $roles = $this->db->fetchAll(
+                "SELECT id FROM roles WHERE nombre IN ('Administrador', 'PMO', 'Talento', 'Líder de Proyecto')"
+            );
+
+            foreach ($roles as $role) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :role_id_value, p.id
+                     FROM permissions p
+                     WHERE p.code = :code_value
+                       AND NOT EXISTS (
+                            SELECT 1
+                            FROM role_permissions rp
+                            WHERE rp.role_id = :role_id_check
+                              AND rp.permission_id = p.id
+                        )',
+                    [
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'tasks.view',
+                    ]
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permisos de tareas: ' . $e->getMessage());
+        }
+    }
+
     public function ensureTimesheetPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions')) {

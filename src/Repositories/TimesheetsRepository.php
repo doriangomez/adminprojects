@@ -489,14 +489,11 @@ class TimesheetsRepository
 
         $taskId = $this->resolveTaskForEntry($projectId, (int) ($structured['task_id'] ?? 0));
         if ($taskManagementMode !== 'existing') {
-            $newTaskStatus = strtolower(trim((string) ($metadata['new_task_status'] ?? 'pending')));
+            $newTaskStatus = $this->normalizeTaskWorkflowStatus((string) ($metadata['new_task_status'] ?? 'todo'));
             if ($taskManagementMode === 'completed') {
-                $newTaskStatus = 'completed';
+                $newTaskStatus = 'done';
             } elseif ($taskManagementMode === 'pending') {
-                $newTaskStatus = 'pending';
-            }
-            if (!in_array($newTaskStatus, ['pending', 'completed'], true)) {
-                $newTaskStatus = 'pending';
+                $newTaskStatus = 'todo';
             }
             $newTaskPriority = strtolower(trim((string) ($metadata['new_task_priority'] ?? 'medium')));
             if (!in_array($newTaskPriority, ['low', 'medium', 'high'], true)) {
@@ -1734,6 +1731,9 @@ class TimesheetsRepository
 
         $projectStatusCondition = $this->activeProjectCondition('p');
         $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
+        $taskVisibilityCondition = $this->db->columnExists('tasks', 'assignee_id')
+            ? ' AND (tk.assignee_id IS NULL OR tk.assignee_id = t.id)'
+            : '';
 
         return $this->db->fetchAll(
             'SELECT tk.id AS task_id, tk.title AS task_title, p.id AS project_id, p.name AS project
@@ -1744,7 +1744,8 @@ class TimesheetsRepository
              WHERE a.user_id = :user
                AND COALESCE(t.requiere_reporte_horas, 0) = 1
                AND ' . $assignmentStatusCondition .
-            ($projectStatusCondition !== '' ? ' AND ' . $projectStatusCondition : '') . '
+            ($projectStatusCondition !== '' ? ' AND ' . $projectStatusCondition : '') .
+            $taskVisibilityCondition . '
              ORDER BY p.name ASC, tk.title ASC',
             [':user' => $userId]
         );
@@ -2548,16 +2549,13 @@ class TimesheetsRepository
             $title = 'Actividad registrada desde timesheet';
         }
 
-        $status = strtolower(trim((string) ($taskOptions['status'] ?? 'pending')));
-        if (!in_array($status, ['pending', 'completed'], true)) {
-            $status = 'pending';
-        }
+        $status = $this->normalizeTaskWorkflowStatus((string) ($taskOptions['status'] ?? 'todo'));
         $priority = strtolower(trim((string) ($taskOptions['priority'] ?? 'medium')));
         if (!in_array($priority, ['low', 'medium', 'high'], true)) {
             $priority = 'medium';
         }
         $dueDate = $taskOptions['due_date'] ?? null;
-        $isCompleted = $status === 'completed';
+        $isCompleted = $status === 'done';
         $columns = ['project_id', 'title', 'status', 'priority', 'estimated_hours', 'actual_hours', 'created_at', 'updated_at'];
         $values = [':project', ':title', ':status', ':priority', '0', '0', 'NOW()', 'NOW()'];
         $params = [
@@ -2610,6 +2608,18 @@ class TimesheetsRepository
         );
 
         return $row !== null;
+    }
+
+    private function normalizeTaskWorkflowStatus(string $rawStatus): string
+    {
+        $status = strtolower(trim($rawStatus));
+        return match ($status) {
+            'pending' => 'todo',
+            'completed' => 'done',
+            default => in_array($status, ['todo', 'in_progress', 'blocked', 'review', 'done'], true)
+                ? $status
+                : 'todo',
+        };
     }
 
     private function findUserActivity(int $activityId, int $userId, bool $editableOnly): ?array
