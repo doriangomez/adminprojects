@@ -29,7 +29,16 @@ class TimesheetsController extends Controller
         }
         $weeklyGrid = $canReport
             ? $repo->weeklyGridForUser($userId, $weekStart)
-            : ['days' => [], 'rows' => [], 'day_totals' => [], 'week_total' => 0, 'weekly_capacity' => 0, 'activities_by_day' => []];
+            : [
+                'days' => [],
+                'rows' => [],
+                'day_totals' => [],
+                'week_total' => 0,
+                'weekly_capacity' => 0,
+                'weekly_capacity_base' => 0,
+                'weekly_capacity_breakdown' => [],
+                'activities_by_day' => [],
+            ];
         $selectedWeekSummary = $repo->weekSummaryForUser($userId, $weekStart);
         $weekIndicators = $this->buildWeekIndicators($weeklyGrid);
         $noticeCode = trim((string) ($_GET['notice'] ?? ''));
@@ -767,9 +776,50 @@ class TimesheetsController extends Controller
     {
         $weekTotal = (float) ($weeklyGrid['week_total'] ?? 0);
         $weeklyCapacity = (float) ($weeklyGrid['weekly_capacity'] ?? 0);
+        $weeklyBaseCapacity = (float) ($weeklyGrid['weekly_capacity_base'] ?? $weeklyCapacity);
         $compliance = $weeklyCapacity > 0 ? round(($weekTotal / $weeklyCapacity) * 100, 2) : 0.0;
         $remainingCapacity = max(0.0, $weeklyCapacity - $weekTotal);
         $activityByDay = is_array($weeklyGrid['activities_by_day'] ?? null) ? $weeklyGrid['activities_by_day'] : [];
+        $capacityBreakdown = is_array($weeklyGrid['weekly_capacity_breakdown'] ?? null) ? $weeklyGrid['weekly_capacity_breakdown'] : [];
+        $absenceDetails = [];
+        foreach ((array) ($capacityBreakdown['absence_details'] ?? []) as $detail) {
+            if (!is_array($detail)) {
+                continue;
+            }
+            $type = (string) ($detail['type'] ?? '');
+            if ($type === '') {
+                continue;
+            }
+            $absenceDetails[$type] = $detail;
+        }
+
+        $vacationsDays = (float) ($absenceDetails['vacaciones']['days'] ?? 0.0);
+        $medicalHours = (float) ($absenceDetails['permiso_medico']['hours'] ?? 0.0);
+        $holidayDays = (int) ($capacityBreakdown['holiday_days'] ?? 0);
+        $vacationsDaysText = '0';
+        if ($vacationsDays > 0) {
+            $vacationsFormatted = abs($vacationsDays - floor($vacationsDays)) < 0.001
+                ? number_format($vacationsDays, 0)
+                : number_format($vacationsDays, 1);
+            $vacationsDaysText = $vacationsFormatted . ' día' . ($vacationsDays > 1.001 ? 's' : '');
+        }
+        $capacityTooltipLines = [
+            'Vacaciones: ' . $vacationsDaysText,
+            'Permiso médico: ' . ($medicalHours > 0 ? number_format($medicalHours, 1) . 'h' : '0'),
+            'Festivos: ' . $holidayDays,
+        ];
+
+        foreach ($absenceDetails as $type => $detail) {
+            if (in_array($type, ['vacaciones', 'permiso_medico'], true)) {
+                continue;
+            }
+            $hours = (float) ($detail['hours'] ?? 0);
+            if ($hours <= 0) {
+                continue;
+            }
+            $label = (string) ($detail['label'] ?? ucfirst(str_replace('_', ' ', $type)));
+            $capacityTooltipLines[] = $label . ': ' . number_format($hours, 1) . 'h';
+        }
 
         $byProject = [];
         foreach ($activityByDay as $items) {
@@ -788,10 +838,13 @@ class TimesheetsController extends Controller
         return [
             'week_total' => $weekTotal,
             'weekly_capacity' => $weeklyCapacity,
+            'weekly_capacity_base' => $weeklyBaseCapacity,
             'remaining_capacity' => $remainingCapacity,
             'compliance_percent' => $compliance,
             'top_project' => $topProject,
             'top_project_hours' => $topProjectHours,
+            'capacity_tooltip_lines' => $capacityTooltipLines,
+            'capacity_breakdown' => $capacityBreakdown,
         ];
     }
 

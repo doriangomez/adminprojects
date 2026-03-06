@@ -210,6 +210,7 @@ class DatabaseMigrator
             $this->ensureTalentTimesheetApproverColumn();
             $this->ensureTalentCapacityColumn();
             $this->ensureTalentTypeColumn();
+            $this->ensureTalentAvailabilitySchema();
             $this->ensureTalentDeletionCascades();
             $this->ensureTimesheetApproverColumn();
         } catch (\PDOException $e) {
@@ -2061,6 +2062,90 @@ class DatabaseMigrator
             if ($this->db->columnExists('talents', 'is_outsourcing')) {
                 $this->db->execute("UPDATE talents SET tipo_talento = IF(is_outsourcing = 1, 'externo', 'interno') WHERE tipo_talento = 'interno'");
             }
+        }
+    }
+
+    private function ensureTalentAvailabilitySchema(): void
+    {
+        if (!$this->db->tableExists('calendar_holidays')) {
+            $this->db->execute(
+                'CREATE TABLE calendar_holidays (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    holiday_date DATE NOT NULL,
+                    name VARCHAR(150) NOT NULL DEFAULT "Festivo",
+                    country_code VARCHAR(10) NULL,
+                    is_active TINYINT(1) NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_calendar_holidays_date (holiday_date),
+                    INDEX idx_calendar_holidays_active_date (is_active, holiday_date)
+                ) ENGINE=InnoDB'
+            );
+        }
+
+        if (!$this->db->tableExists('talent_absences')) {
+            $this->db->execute(
+                'CREATE TABLE talent_absences (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    talent_id INT NOT NULL,
+                    user_id INT NULL,
+                    absence_type VARCHAR(60) NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    hours DECIMAL(8,2) NULL,
+                    is_full_day TINYINT(1) NOT NULL DEFAULT 1,
+                    status VARCHAR(30) NOT NULL DEFAULT "pendiente",
+                    reason TEXT NULL,
+                    approved_by INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_talent_absences_talent_range (talent_id, start_date, end_date),
+                    INDEX idx_talent_absences_status (status),
+                    CONSTRAINT fk_talent_absences_talent FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_talent_absences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                    CONSTRAINT fk_talent_absences_approved_by FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB'
+            );
+            return;
+        }
+
+        if (!$this->db->columnExists('talent_absences', 'hours')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD COLUMN hours DECIMAL(8,2) NULL AFTER end_date');
+            $this->db->clearColumnCache();
+        }
+        if (!$this->db->columnExists('talent_absences', 'is_full_day')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD COLUMN is_full_day TINYINT(1) NOT NULL DEFAULT 1 AFTER hours');
+            $this->db->clearColumnCache();
+        }
+        if (!$this->db->columnExists('talent_absences', 'status')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD COLUMN status VARCHAR(30) NOT NULL DEFAULT "pendiente" AFTER is_full_day');
+            $this->db->clearColumnCache();
+        }
+        if (!$this->db->columnExists('talent_absences', 'reason')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD COLUMN reason TEXT NULL AFTER status');
+            $this->db->clearColumnCache();
+        }
+        if (!$this->db->columnExists('talent_absences', 'approved_by')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD COLUMN approved_by INT NULL AFTER reason');
+            $this->db->clearColumnCache();
+        }
+        if (!$this->db->indexExists('talent_absences', 'idx_talent_absences_talent_range')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD INDEX idx_talent_absences_talent_range (talent_id, start_date, end_date)');
+        }
+        if (!$this->db->indexExists('talent_absences', 'idx_talent_absences_status')) {
+            $this->db->execute('ALTER TABLE talent_absences ADD INDEX idx_talent_absences_status (status)');
+        }
+
+        if (
+            $this->db->columnExists('talent_absences', 'approved_by')
+            && !$this->db->foreignKeyExists('talent_absences', 'approved_by', 'users')
+            && $this->db->tableExists('users')
+        ) {
+            $this->db->execute(
+                'ALTER TABLE talent_absences
+                 ADD CONSTRAINT fk_talent_absences_approved_by
+                 FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL'
+            );
         }
     }
 

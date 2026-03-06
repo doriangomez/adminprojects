@@ -438,6 +438,39 @@ CREATE TABLE talents (
     FOREIGN KEY (timesheet_approver_user_id) REFERENCES users(id)
 );
 
+CREATE TABLE calendar_holidays (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    holiday_date DATE NOT NULL,
+    name VARCHAR(150) NOT NULL DEFAULT 'Festivo',
+    country_code VARCHAR(10) NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_calendar_holidays_date (holiday_date),
+    INDEX idx_calendar_holidays_active_date (is_active, holiday_date)
+);
+
+CREATE TABLE talent_absences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    talent_id INT NOT NULL,
+    user_id INT NULL,
+    absence_type VARCHAR(60) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    hours DECIMAL(8,2) NULL,
+    is_full_day TINYINT(1) NOT NULL DEFAULT 1,
+    status VARCHAR(30) NOT NULL DEFAULT 'pendiente',
+    reason TEXT NULL,
+    approved_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_talent_absences_talent_range (talent_id, start_date, end_date),
+    INDEX idx_talent_absences_status (status),
+    FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE skills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(80) NOT NULL UNIQUE

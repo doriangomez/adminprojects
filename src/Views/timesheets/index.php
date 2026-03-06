@@ -113,7 +113,7 @@ foreach ($gridDays as $day) {
             </form>
             <div class="header-badges">
                 <span class="pill neutral">Semana: <strong><?= htmlspecialchars($weekStart->format('d/m')) ?> - <?= htmlspecialchars($weekEnd->format('d/m')) ?></strong></span>
-                <span class="pill neutral">Meta: <strong><?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</strong></span>
+                <span class="pill neutral" title="<?= htmlspecialchars($capacityTooltip) ?>">Capacidad semanal: <strong><?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</strong></span>
             </div>
             <div class="header-actions">
                 <button type="button" class="btn primary" id="focus-quick-add" <?= $weekFullyLocked ? 'disabled' : '' ?>>+ Registrar actividad</button>
@@ -149,7 +149,7 @@ foreach ($gridDays as $day) {
         <?php endif; ?>
 
         <section class="indicators-grid">
-            <article class="card indicator"><span>Horas registradas / <?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
+            <article class="card indicator" title="<?= htmlspecialchars($capacityTooltip) ?>"><span>Horas registradas / <?= round((float) ($weekIndicators['weekly_capacity'] ?? 40), 2) ?>h</span><strong><?= round((float) ($weekIndicators['week_total'] ?? 0), 2) ?>h</strong></article>
             <article class="card indicator"><span>Capacidad restante</span><strong><?= round((float) ($weekIndicators['remaining_capacity'] ?? 0), 2) ?>h</strong></article>
             <article class="card indicator"><span>Progreso semanal</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
             <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
@@ -184,7 +184,12 @@ foreach ($gridDays as $day) {
                         $dayLabel = trim($weekDayShort . ' ' . $dayNumber . ' ' . $monthShort);
                         $dayType = (string) ($day['day_type'] ?? ($dayWeekNumber >= 6 ? 'non_working' : 'working'));
                         $isWorkingDay = !empty($day['is_working']);
-                        $isBlockedDay = !$isWorkingDay;
+                        $availableHours = (float) ($day['available_hours'] ?? 0);
+                        $absenceType = trim((string) ($day['absence_type'] ?? ''));
+                        $absenceLabel = trim((string) ($day['absence_label'] ?? ''));
+                        $isFullDayAbsence = !empty($day['is_full_day_absence']) && $availableHours <= 0.001;
+                        $isAbsenceDay = $absenceType !== '';
+                        $isBlockedDay = !$isWorkingDay || $isFullDayAbsence;
                         $isHoliday = $dayType === 'holiday';
                         $daySpecialName = trim((string) ($day['day_name'] ?? ''));
                         $dayStatus = (string) ($dayStatuses[$dayDate] ?? 'draft');
@@ -198,6 +203,10 @@ foreach ($gridDays as $day) {
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
                                 <?php if ($dayType === 'holiday'): ?>
                                     <span class="day-state">🎉 Festivo</span>
+                                <?php elseif ($isFullDayAbsence): ?>
+                                    <span class="day-state absence"><?= htmlspecialchars($absenceLabel !== '' ? $absenceLabel : 'Ausencia') ?></span>
+                                <?php elseif ($isAbsenceDay): ?>
+                                    <span class="day-state absence partial">Ausencia parcial</span>
                                 <?php elseif ($isBlockedDay): ?>
                                     <span class="day-state">No laboral</span>
                                 <?php endif; ?>
@@ -468,8 +477,13 @@ foreach ($gridDays as $day) {
 .day-drop-hint{font-size:11px;color:var(--text-secondary);border:1px dashed var(--border);border-radius:8px;padding:4px 6px;margin-bottom:8px}
 .day-card.holiday-day{background:#ffe5e5;border-color:#f2b8b8}
 .day-card.non-working-day{background:#f8fafc;border-color:#cbd5e1}
+.day-card.absence-day{background:#eff6ff;border-color:#bfdbfe}
+.day-card.absence-day.absence-vacaciones{background:#dbeafe;border-color:#93c5fd}
+.day-card.absence-day.absence-permiso_medico{background:#fef9c3;border-color:#fde68a}
 .day-card.non-working{border-style:dashed;cursor:not-allowed}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
+.day-state.absence{color:#1e3a8a}
+.day-state.absence.partial{color:#854d0e}
 .day-special-name{font-size:12px;color:#991b1b;font-weight:600;margin:2px 0 6px}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
 .day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
@@ -568,6 +582,15 @@ foreach ($gridDays as $day) {
   };
 
   const blockedDayMessage = (type, name = '') => {
+    if ((type || '').startsWith('absence_')) {
+      const normalized = String(type || '').replace('absence_', '');
+      if (normalized === 'vacaciones' || String(name || '').toLowerCase().includes('vacaciones')) {
+        return 'No puedes registrar horas. Estás en vacaciones este día.';
+      }
+      const fallbackLabel = normalized.replaceAll('_', ' ').trim();
+      const label = String(name || '').trim() || fallbackLabel || 'una ausencia aprobada';
+      return `No puedes registrar horas. Tienes ${label} este día.`;
+    }
     if (type === 'holiday') {
       return name
         ? `Este día es festivo (${name}). No se pueden registrar horas.`
