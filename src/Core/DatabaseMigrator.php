@@ -2628,33 +2628,54 @@ class DatabaseMigrator
 
     private function ensureProjectInvoicesTable(): void
     {
-        if ($this->db->tableExists('project_invoices')) {
+        if (!$this->db->tableExists('project_invoices')) {
+            $this->db->execute(
+                'CREATE TABLE project_invoices (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    project_id INT NOT NULL,
+                    invoice_number VARCHAR(80) NOT NULL,
+                    issued_at DATE NOT NULL,
+                    period_start DATE NULL,
+                    period_end DATE NULL,
+                    amount DECIMAL(14,2) NOT NULL,
+                    status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued",
+                    paid_at DATE NULL,
+                    notes TEXT NULL,
+                    attachment_path VARCHAR(255) NULL,
+                    created_by INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_project_invoice_number (project_id, invoice_number),
+                    INDEX idx_project_invoices_project_date (project_id, issued_at),
+                    INDEX idx_project_invoices_status (status),
+                    CONSTRAINT fk_project_invoices_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_project_invoices_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
             return;
         }
 
-        $this->db->execute(
-            'CREATE TABLE project_invoices (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                project_id INT NOT NULL,
-                invoice_number VARCHAR(80) NOT NULL,
-                issued_at DATE NOT NULL,
-                period_start DATE NULL,
-                period_end DATE NULL,
-                amount DECIMAL(14,2) NOT NULL,
-                status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued",
-                paid_at DATE NULL,
-                notes TEXT NULL,
-                attachment_path VARCHAR(255) NULL,
-                created_by INT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_project_invoice_number (project_id, invoice_number),
-                INDEX idx_project_invoices_project_date (project_id, issued_at),
-                INDEX idx_project_invoices_status (status),
-                CONSTRAINT fk_project_invoices_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-                CONSTRAINT fk_project_invoices_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-        );
+        $expectedColumns = [
+            'invoice_number' => "VARCHAR(80) NOT NULL DEFAULT ''",
+            'issued_at' => 'DATE NOT NULL DEFAULT (CURRENT_DATE)',
+            'period_start' => 'DATE NULL',
+            'period_end' => 'DATE NULL',
+            'amount' => 'DECIMAL(14,2) NOT NULL DEFAULT 0',
+            'status' => "VARCHAR(20) NOT NULL DEFAULT 'issued'",
+            'paid_at' => 'DATE NULL',
+            'notes' => 'TEXT NULL',
+            'attachment_path' => 'VARCHAR(255) NULL',
+            'created_by' => 'INT NULL',
+            'created_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            'updated_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
+        ];
+
+        foreach ($expectedColumns as $column => $definition) {
+            if (!$this->db->columnExists('project_invoices', $column)) {
+                $this->db->execute(sprintf('ALTER TABLE project_invoices ADD COLUMN %s %s', $column, $definition));
+                $this->db->clearColumnCache();
+            }
+        }
     }
 
     private function ensureProjectInvoiceTimesheetsTable(): void
@@ -2816,61 +2837,156 @@ class DatabaseMigrator
 
     private function ensureProjectPmoSnapshotsTable(): void
     {
-        if ($this->db->tableExists('project_pmo_snapshots')) {
+        if (!$this->db->tableExists('project_pmo_snapshots')) {
+            $this->db->execute(
+                'CREATE TABLE project_pmo_snapshots (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    project_id INT NOT NULL,
+                    snapshot_date DATE NOT NULL,
+                    progress_manual DECIMAL(5,2) NULL,
+                    progress_hours DECIMAL(5,2) NULL,
+                    progress_tasks DECIMAL(5,2) NULL,
+                    risk_score INT NOT NULL DEFAULT 0,
+                    planned_hours DECIMAL(12,2) NULL,
+                    approved_hours DECIMAL(12,2) NOT NULL DEFAULT 0,
+                    total_tasks INT NOT NULL DEFAULT 0,
+                    done_tasks INT NOT NULL DEFAULT 0,
+                    overdue_tasks INT NOT NULL DEFAULT 0,
+                    open_blockers INT NOT NULL DEFAULT 0,
+                    critical_blockers INT NOT NULL DEFAULT 0,
+                    aged_blockers INT NOT NULL DEFAULT 0,
+                    blocker_mentions INT NOT NULL DEFAULT 0,
+                    stale_business_days INT NOT NULL DEFAULT 0,
+                    payload_json JSON NULL,
+                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date),
+                    INDEX idx_project_pmo_snapshots_project_date (project_id, generated_at),
+                    CONSTRAINT fk_project_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
             return;
         }
 
-        $this->db->execute(
-            'CREATE TABLE project_pmo_snapshots (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                project_id INT NOT NULL,
-                snapshot_date DATE NOT NULL,
-                progress_manual DECIMAL(5,2) NULL,
-                progress_hours DECIMAL(5,2) NULL,
-                progress_tasks DECIMAL(5,2) NULL,
-                risk_score INT NOT NULL DEFAULT 0,
-                planned_hours DECIMAL(12,2) NULL,
-                approved_hours DECIMAL(12,2) NOT NULL DEFAULT 0,
-                total_tasks INT NOT NULL DEFAULT 0,
-                done_tasks INT NOT NULL DEFAULT 0,
-                overdue_tasks INT NOT NULL DEFAULT 0,
-                open_blockers INT NOT NULL DEFAULT 0,
-                critical_blockers INT NOT NULL DEFAULT 0,
-                aged_blockers INT NOT NULL DEFAULT 0,
-                blocker_mentions INT NOT NULL DEFAULT 0,
-                stale_business_days INT NOT NULL DEFAULT 0,
-                payload_json JSON NULL,
-                generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date),
-                INDEX idx_project_pmo_snapshots_project_date (project_id, generated_at),
-                CONSTRAINT fk_project_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-        );
+        $expectedColumns = [
+            'progress_manual' => 'DECIMAL(5,2) NULL',
+            'progress_hours' => 'DECIMAL(5,2) NULL',
+            'progress_tasks' => 'DECIMAL(5,2) NULL',
+            'risk_score' => 'INT NOT NULL DEFAULT 0',
+            'planned_hours' => 'DECIMAL(12,2) NULL',
+            'approved_hours' => 'DECIMAL(12,2) NOT NULL DEFAULT 0',
+            'total_tasks' => 'INT NOT NULL DEFAULT 0',
+            'done_tasks' => 'INT NOT NULL DEFAULT 0',
+            'overdue_tasks' => 'INT NOT NULL DEFAULT 0',
+            'open_blockers' => 'INT NOT NULL DEFAULT 0',
+            'critical_blockers' => 'INT NOT NULL DEFAULT 0',
+            'aged_blockers' => 'INT NOT NULL DEFAULT 0',
+            'blocker_mentions' => 'INT NOT NULL DEFAULT 0',
+            'stale_business_days' => 'INT NOT NULL DEFAULT 0',
+            'payload_json' => 'JSON NULL',
+            'generated_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+        ];
+
+        foreach ($expectedColumns as $column => $definition) {
+            if (!$this->db->columnExists('project_pmo_snapshots', $column)) {
+                $this->db->execute(sprintf('ALTER TABLE project_pmo_snapshots ADD COLUMN %s %s', $column, $definition));
+                $this->db->clearColumnCache();
+            }
+        }
+
+        if (!$this->db->indexExists('project_pmo_snapshots', 'uq_project_pmo_snapshot_date')) {
+            try {
+                $this->db->execute('ALTER TABLE project_pmo_snapshots ADD UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date)');
+            } catch (\PDOException $e) {
+                error_log('PMO snapshots unique key already exists or conflict: ' . $e->getMessage());
+            }
+        }
+
+        if (!$this->db->indexExists('project_pmo_snapshots', 'idx_project_pmo_snapshots_project_date')) {
+            $this->db->execute('ALTER TABLE project_pmo_snapshots ADD INDEX idx_project_pmo_snapshots_project_date (project_id, generated_at)');
+        }
+
+        if (!$this->db->foreignKeyExists('project_pmo_snapshots', 'project_id', 'projects')) {
+            try {
+                $this->db->execute(
+                    'ALTER TABLE project_pmo_snapshots ADD CONSTRAINT fk_project_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE'
+                );
+            } catch (\PDOException $e) {
+                error_log('PMO snapshots FK already exists or conflict: ' . $e->getMessage());
+            }
+        }
     }
 
     private function ensureProjectPmoAlertsTable(): void
     {
-        if ($this->db->tableExists('project_pmo_alerts')) {
+        if (!$this->db->tableExists('project_pmo_alerts')) {
+            $this->db->execute(
+                'CREATE TABLE project_pmo_alerts (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    project_id INT NOT NULL,
+                    snapshot_id BIGINT NULL,
+                    alert_type VARCHAR(80) NOT NULL,
+                    severity ENUM("green", "yellow", "red") NOT NULL DEFAULT "yellow",
+                    title VARCHAR(180) NOT NULL,
+                    message TEXT NOT NULL,
+                    status ENUM("open", "resolved") NOT NULL DEFAULT "open",
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at TIMESTAMP NULL,
+                    INDEX idx_project_pmo_alerts_project_status (project_id, status, created_at),
+                    CONSTRAINT fk_project_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_project_pmo_alerts_snapshot FOREIGN KEY (snapshot_id) REFERENCES project_pmo_snapshots(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
             return;
         }
 
-        $this->db->execute(
-            'CREATE TABLE project_pmo_alerts (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                project_id INT NOT NULL,
-                snapshot_id BIGINT NULL,
-                alert_type VARCHAR(80) NOT NULL,
-                severity ENUM("green", "yellow", "red") NOT NULL DEFAULT "yellow",
-                title VARCHAR(180) NOT NULL,
-                message TEXT NOT NULL,
-                status ENUM("open", "resolved") NOT NULL DEFAULT "open",
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                resolved_at TIMESTAMP NULL,
-                INDEX idx_project_pmo_alerts_project_status (project_id, status, created_at),
-                CONSTRAINT fk_project_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-                CONSTRAINT fk_project_pmo_alerts_snapshot FOREIGN KEY (snapshot_id) REFERENCES project_pmo_snapshots(id) ON DELETE SET NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-        );
+        $expectedColumns = [
+            'snapshot_id' => 'BIGINT NULL',
+            'alert_type' => "VARCHAR(80) NOT NULL DEFAULT ''",
+            'severity' => 'VARCHAR(10) NOT NULL DEFAULT "yellow"',
+            'title' => "VARCHAR(180) NOT NULL DEFAULT ''",
+            'message' => "TEXT NOT NULL",
+            'status' => 'VARCHAR(20) NOT NULL DEFAULT "open"',
+            'created_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            'resolved_at' => 'TIMESTAMP NULL',
+        ];
+
+        foreach ($expectedColumns as $column => $definition) {
+            if (!$this->db->columnExists('project_pmo_alerts', $column)) {
+                $this->db->execute(sprintf('ALTER TABLE project_pmo_alerts ADD COLUMN %s %s', $column, $definition));
+                $this->db->clearColumnCache();
+            }
+        }
+
+        if (!$this->db->indexExists('project_pmo_alerts', 'idx_project_pmo_alerts_project_status')) {
+            try {
+                $this->db->execute('ALTER TABLE project_pmo_alerts ADD INDEX idx_project_pmo_alerts_project_status (project_id, status, created_at)');
+            } catch (\PDOException $e) {
+                error_log('PMO alerts index already exists or conflict: ' . $e->getMessage());
+            }
+        }
+
+        if (!$this->db->foreignKeyExists('project_pmo_alerts', 'project_id', 'projects')) {
+            try {
+                $this->db->execute(
+                    'ALTER TABLE project_pmo_alerts ADD CONSTRAINT fk_project_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE'
+                );
+            } catch (\PDOException $e) {
+                error_log('PMO alerts project FK already exists or conflict: ' . $e->getMessage());
+            }
+        }
+
+        if (
+            $this->db->tableExists('project_pmo_snapshots')
+            && !$this->db->foreignKeyExists('project_pmo_alerts', 'snapshot_id', 'project_pmo_snapshots')
+        ) {
+            try {
+                $this->db->execute(
+                    'ALTER TABLE project_pmo_alerts ADD CONSTRAINT fk_project_pmo_alerts_snapshot FOREIGN KEY (snapshot_id) REFERENCES project_pmo_snapshots(id) ON DELETE SET NULL'
+                );
+            } catch (\PDOException $e) {
+                error_log('PMO alerts snapshot FK already exists or conflict: ' . $e->getMessage());
+            }
+        }
     }
 
     private function ensureProjectStoppersPermissions(): void

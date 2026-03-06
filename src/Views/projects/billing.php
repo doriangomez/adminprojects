@@ -1,6 +1,7 @@
 <?php
 $basePath = $basePath ?? '';
 $project = $project ?? [];
+$detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $billingConfig = is_array($billingConfig ?? null) ? $billingConfig : [];
 $billingTotals = is_array($billingTotals ?? null) ? $billingTotals : [];
 $projectInvoices = is_array($projectInvoices ?? null) ? $projectInvoices : [];
@@ -24,6 +25,11 @@ $hoursBillableAmount = (($billingConfig['billing_type'] ?? '') === 'hours') ? ($
 $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvoiced) : null;
 ?>
 <section class="project-shell">
+    <?php if (!empty($detailWarnings)): ?>
+        <div class="project-inline-warning" role="alert">
+            <?= htmlspecialchars((string) $detailWarnings[0]) ?>
+        </div>
+    <?php endif; ?>
     <header class="project-header">
         <div>
             <p class="eyebrow">Facturación</p>

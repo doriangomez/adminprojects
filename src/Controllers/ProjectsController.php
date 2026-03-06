@@ -408,7 +408,32 @@ class ProjectsController extends Controller
             exit('No tienes permisos para visualizar facturación.');
         }
 
-        $this->render('projects/billing', $this->projectDetailData($id));
+        try {
+            $this->render('projects/billing', $this->projectDetailData($id));
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.billing] Error al cargar facturación proyecto %d: %s',
+                $id,
+                $e->getMessage()
+            ));
+
+            $repo = new ProjectsRepository($this->db);
+            $project = $repo->findForUser($id, $this->auth->user() ?? []);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $this->render('projects/billing', [
+                'title' => 'Facturación de proyecto',
+                'project' => $project,
+                'currentUser' => $this->auth->user() ?? [],
+                'canManage' => $this->auth->can('projects.manage'),
+                'detailWarnings' => [
+                    'No se pudo cargar toda la información de facturación en este momento. Revisa los logs del servidor.',
+                ],
+            ]);
+        }
     }
 
     public function storeTask(int $id): void
@@ -1893,21 +1918,50 @@ class ProjectsController extends Controller
         $healthHistory = $projectService->history($id, 30);
         $billingRepo = new ProjectBillingRepository($this->db);
         $stoppersRepo = new ProjectStoppersRepository($this->db);
-        $billingConfig = $billingRepo->config($id);
-        $invoices = $billingRepo->invoices($id);
-        $invoiceTotals = $billingRepo->invoiceTotals($id);
-        $approvedHoursPendingInvoicing = $billingRepo->approvedHoursNotInvoiced($id);
-        $approvedHoursTotal = $billingRepo->approvedHoursTotal($id);
-        $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
-            ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
-            : [];
-        $stopperMetrics = $stoppersRepo->metricsForProject($id);
-        $stopperBoard = $stoppersRepo->byImpactOpen($id);
-        $pmoAutomation = new PmoAutomationService($this->db);
-        $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
-        $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
-        $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
-        $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+
+        try {
+            $billingConfig = $billingRepo->config($id);
+            $invoices = $billingRepo->invoices($id);
+            $invoiceTotals = $billingRepo->invoiceTotals($id);
+            $approvedHoursPendingInvoicing = $billingRepo->approvedHoursNotInvoiced($id);
+            $approvedHoursTotal = $billingRepo->approvedHoursTotal($id);
+            $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
+                ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
+                : [];
+        } catch (\Throwable $e) {
+            error_log('[projectDetailData] Billing subsystem error for project ' . $id . ': ' . $e->getMessage());
+            $billingConfig = ['is_billable' => 0, 'billing_type' => 'fixed', 'billing_periodicity' => 'monthly', 'contract_value' => 0, 'currency_code' => 'USD', 'billing_start_date' => null, 'billing_end_date' => null, 'hourly_rate' => 0];
+            $invoices = [];
+            $invoiceTotals = [];
+            $approvedHoursPendingInvoicing = 0;
+            $approvedHoursTotal = 0;
+            $missingMonthlyPeriods = [];
+        }
+
+        try {
+            $stoppers = $stoppersRepo->forProject($id);
+            $stopperMetrics = $stoppersRepo->metricsForProject($id);
+            $stopperBoard = $stoppersRepo->byImpactOpen($id);
+        } catch (\Throwable $e) {
+            error_log('[projectDetailData] Stoppers subsystem error for project ' . $id . ': ' . $e->getMessage());
+            $stoppers = [];
+            $stopperMetrics = ['total' => 0, 'open' => 0, 'critical' => 0, 'high' => 0, 'resolved' => 0, 'closed' => 0, 'avg_resolution_days' => 0];
+            $stopperBoard = [];
+        }
+
+        try {
+            $pmoAutomation = new PmoAutomationService($this->db);
+            $pmoSnapshot = $pmoAutomation->ensureTodaySnapshotForProject($id);
+            $pmoAlerts = $pmoAutomation->latestAlertsForProject($id, 10);
+            $pmoHoursTrend = $pmoAutomation->hoursTrendForProject($id, 4);
+            $pmoActiveBlockers = $pmoAutomation->activeBlockersForProject($id, 8);
+        } catch (\Throwable $e) {
+            error_log('[projectDetailData] PMO automation error for project ' . $id . ': ' . $e->getMessage());
+            $pmoSnapshot = [];
+            $pmoAlerts = [];
+            $pmoHoursTrend = [];
+            $pmoActiveBlockers = [];
+        }
 
         return array_merge([
             'title' => 'Detalle de proyecto',
@@ -1943,7 +1997,7 @@ class ProjectsController extends Controller
             'billingTypes' => self::BILLING_TYPES,
             'billingPeriodicities' => self::BILLING_PERIODICITIES,
             'invoiceStatuses' => self::INVOICE_STATUSES,
-            'stoppers' => $stoppersRepo->forProject($id),
+            'stoppers' => $stoppers,
             'stopperMetrics' => $stopperMetrics,
             'stopperBoard' => $stopperBoard,
             'stopperTypeOptions' => self::STOPPER_TYPES,
@@ -3796,23 +3850,48 @@ POST crudo:
 
     public function requirements(int $id): void
     {
-        $data = $this->projectDetailData($id);
-        $repo = new RequirementsRepository($this->db);
-        $config = (new ConfigService($this->db))->getConfig();
+        try {
+            $data = $this->projectDetailData($id);
+            $repo = new RequirementsRepository($this->db);
+            $config = (new ConfigService($this->db))->getConfig();
 
-        $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
-        $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
+            $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
+            $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
 
-        $indicator = $repo->indicatorForProject($id, $start, $end);
-        $history = $repo->auditByProject($id);
+            $indicator = $repo->indicatorForProject($id, $start, $end);
+            $history = $repo->auditByProject($id);
 
-        $data['requirements'] = $repo->listByProject($id);
-        $data['requirementsIndicator'] = $indicator;
-        $data['requirementsAudit'] = $history;
-        $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
-        $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
+            $data['requirements'] = $repo->listByProject($id);
+            $data['requirementsIndicator'] = $indicator;
+            $data['requirementsAudit'] = $history;
+            $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
+            $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
 
-        $this->render('projects/requirements', $data);
+            $this->render('projects/requirements', $data);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.requirements] Error al cargar requisitos proyecto %d: %s',
+                $id,
+                $e->getMessage()
+            ));
+
+            $projectRepo = new ProjectsRepository($this->db);
+            $project = $projectRepo->findForUser($id, $this->auth->user() ?? []);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $this->render('projects/requirements', [
+                'title' => 'Requisitos de proyecto',
+                'project' => $project,
+                'currentUser' => $this->auth->user() ?? [],
+                'canManage' => $this->auth->can('projects.manage'),
+                'detailWarnings' => [
+                    'No se pudo cargar toda la información de requisitos en este momento. Revisa los logs del servidor.',
+                ],
+            ]);
+        }
     }
 
     public function storeRequirement(int $projectId): void

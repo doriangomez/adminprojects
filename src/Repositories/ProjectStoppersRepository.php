@@ -25,6 +25,10 @@ class ProjectStoppersRepository
 
     public function forProject(int $projectId): array
     {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return [];
+        }
+
         return $this->db->fetchAll(
             'SELECT s.*, u.name AS responsible_name
              FROM project_stoppers s
@@ -138,6 +142,10 @@ class ProjectStoppersRepository
 
     public function metricsForProject(int $projectId): array
     {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return ['open_total' => 0, 'critical_open' => 0, 'avg_days_open' => 0, 'high_overdue' => 0];
+        }
+
         $row = $this->db->fetchOne(
             'SELECT
                 SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") THEN 1 ELSE 0 END) AS open_total,
@@ -159,6 +167,10 @@ class ProjectStoppersRepository
 
     public function byImpactOpen(int $projectId): array
     {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return ['critico' => 0, 'alto' => 0, 'medio' => 0, 'bajo' => 0];
+        }
+
         $rows = $this->db->fetchAll(
             'SELECT impact_level, COUNT(*) AS total
              FROM project_stoppers
