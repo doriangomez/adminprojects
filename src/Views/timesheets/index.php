@@ -42,6 +42,29 @@ $activityTypeMeta = [
     'investigación' => ['label' => 'Investigación', 'class' => 'type-research'],
     'research' => ['label' => 'Investigación', 'class' => 'type-research'],
 ];
+$monthShortNames = [
+    1 => 'Ene',
+    2 => 'Feb',
+    3 => 'Mar',
+    4 => 'Abr',
+    5 => 'May',
+    6 => 'Jun',
+    7 => 'Jul',
+    8 => 'Ago',
+    9 => 'Sep',
+    10 => 'Oct',
+    11 => 'Nov',
+    12 => 'Dic',
+];
+$weekDayShortNames = [
+    1 => 'Lun',
+    2 => 'Mar',
+    3 => 'Mie',
+    4 => 'Jue',
+    5 => 'Vie',
+    6 => 'Sab',
+    7 => 'Dom',
+];
 $daysJson = [];
 foreach ($gridDays as $day) {
     $daysJson[(string) ($day['key'] ?? '')] = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
@@ -119,33 +142,47 @@ foreach ($gridDays as $day) {
                 </div>
                 <?php if (round((float) ($weekIndicators['week_total'] ?? 0), 2) <= 0): ?>
                     <div class="calendar-empty-banner">
-                        <strong>Sin actividades registradas</strong>
-                        <small>Registra tu primera actividad</small>
+                        <strong>Semana sin registros</strong>
+                        <small>Comienza el registro de tu semana.</small>
+                        <?php if (!$weekLocked): ?>
+                            <button type="button" class="btn-xs register-activity-btn">+ Registrar actividad</button>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
                 <div class="week-calendar-grid">
                     <?php foreach ($gridDays as $day): ?>
                         <?php
                         $dayDate = (string) ($day['key'] ?? '');
-                        $dayLabel = (string) (($day['label'] ?? '') . ' ' . ($day['number'] ?? ''));
                         $items = is_array($activitiesByDay[$dayDate] ?? null) ? $activitiesByDay[$dayDate] : [];
-                        $dayWeekNumber = (int) ((new DateTimeImmutable($dayDate))->format('N'));
+                        $dayDateObj = new DateTimeImmutable($dayDate);
+                        $dayWeekNumber = (int) $dayDateObj->format('N');
+                        $dayNumber = $dayDateObj->format('d');
+                        $monthNumber = (int) $dayDateObj->format('n');
+                        $monthShort = $monthShortNames[$monthNumber] ?? $dayDateObj->format('M');
+                        $weekDayShort = $weekDayShortNames[$dayWeekNumber] ?? (string) ($day['label'] ?? '');
+                        $dayLabel = trim($weekDayShort . ' ' . $dayNumber . ' ' . $monthShort);
                         $isWeekend = $dayWeekNumber >= 6;
                         $isBlockedWeekend = $isWeekend && !$canRegisterWeekend;
                         ?>
-                        <article class="day-card<?= $isBlockedWeekend ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedWeekend ? '1' : '0' ?>">
-                            <header>
+                        <article class="day-card<?= $isWeekend ? ' weekend-day' : '' ?><?= $isBlockedWeekend ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedWeekend ? '1' : '0' ?>">
+                            <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
-                                <?php if ($isBlockedWeekend): ?>
+                                <?php if ($isWeekend): ?>
                                     <span class="day-state">No laboral</span>
-                                <?php else: ?>
-                                    <span><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</span>
                                 <?php endif; ?>
                             </header>
+                            <div class="day-total">Total: <strong><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</strong></div>
+                            <?php if (!$weekLocked && !$isBlockedWeekend): ?>
+                                <div class="day-drop-hint">Arrastra una actividad y sueltala aqui</div>
+                            <?php endif; ?>
                             <?php if ($items === []): ?>
                                 <div class="day-empty-state">
-                                    <strong>Sin actividades registradas</strong>
-                                    <small>Registra tu primera actividad</small>
+                                    <small>No hay actividades para este dia.</small>
+                                    <?php if (!$weekLocked && !$isBlockedWeekend): ?>
+                                        <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
+                                    <?php elseif ($isBlockedWeekend): ?>
+                                        <small>Registro no habilitado para fin de semana.</small>
+                                    <?php endif; ?>
                                 </div>
                             <?php else: ?>
                                 <ul class="activity-list">
@@ -165,9 +202,12 @@ foreach ($gridDays as $day) {
                                             . "\nTipo: " . $typeMeta['label']
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
-                                        <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $weekLocked ? ' is-locked' : '' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
+                                        <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $weekLocked ? ' is-locked' : ' is-draggable' ?>" <?= $weekLocked ? '' : 'draggable="true"' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
                                             <div class="chip-main">
                                                 <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
+                                                <?php if (!$weekLocked): ?>
+                                                    <span class="chip-drag-hint" aria-hidden="true">⋮⋮ Arrastrar</span>
+                                                <?php endif; ?>
                                                 <strong><?= htmlspecialchars($itemDesc) ?></strong>
                                             </div>
                                             <small class="chip-project">Proyecto: <?= htmlspecialchars($itemProject) ?></small>
@@ -370,25 +410,30 @@ foreach ($gridDays as $day) {
 .calendar-heading h3{margin:0 0 4px}
 .calendar-empty-banner{border:1px dashed var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;background:color-mix(in srgb,var(--surface) 90%,var(--background))}
 .calendar-empty-banner small{color:var(--text-secondary)}
-.week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px}
-.day-card{border:1px solid var(--border);border-radius:12px;padding:10px;min-height:190px;background:color-mix(in srgb,var(--surface) 94%,var(--background))}
-.day-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.day-card.non-working{background:#ffe5e5;border-style:dashed;cursor:not-allowed}
+.week-calendar-grid{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.day-card{flex:1 1 calc((100% - 60px)/7);min-width:150px;border:1px solid var(--border);border-radius:12px;padding:10px;background:color-mix(in srgb,var(--surface) 94%,var(--background));align-self:flex-start}
+.day-card-header{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.day-total{font-size:12px;color:var(--text-secondary);margin:4px 0 8px}
+.day-drop-hint{font-size:11px;color:var(--text-secondary);border:1px dashed var(--border);border-radius:8px;padding:4px 6px;margin-bottom:8px}
+.day-card.weekend-day{background:#ffe8e8;border-color:#f2b8b8}
+.day-card.non-working{border-style:dashed;cursor:not-allowed}
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
-.day-empty-state strong{font-size:12px;color:var(--text-primary)}
+.day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
 .activity-chip{border:1px solid var(--border);border-radius:10px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:6px;cursor:grab}
 .activity-chip:active{cursor:grabbing}
 .activity-chip.is-locked{opacity:.9}
+.activity-chip.is-draggable{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 28%,transparent)}
 .activity-chip.dragging{opacity:.65;box-shadow:0 8px 18px rgba(15,23,42,.25)}
-.activity-chip.type-dev{border-left:4px solid #2563eb}
-.activity-chip.type-meeting{border-left:4px solid #9333ea}
-.activity-chip.type-support{border-left:4px solid #ea580c}
-.activity-chip.type-pm{border-left:4px solid #16a34a}
-.activity-chip.type-research{border-left:4px solid #6b7280}
-.chip-main{display:flex;align-items:center;gap:8px}
+.activity-chip.type-dev{border-left:4px solid #2563eb;border-color:#bfdbfe;background:#eff6ff}
+.activity-chip.type-meeting{border-left:4px solid #9333ea;border-color:#e9d5ff;background:#faf5ff}
+.activity-chip.type-support{border-left:4px solid #ea580c;border-color:#fed7aa;background:#fff7ed}
+.activity-chip.type-pm{border-left:4px solid #16a34a;border-color:#bbf7d0;background:#f0fdf4}
+.activity-chip.type-research{border-left:4px solid #6b7280;border-color:#e5e7eb;background:#f9fafb}
+.chip-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+.chip-drag-hint{font-size:11px;border:1px dashed var(--border);padding:2px 6px;border-radius:999px;color:var(--text-secondary);background:color-mix(in srgb,var(--surface) 75%,var(--background))}
 .chip-project{color:var(--text-secondary)}
 .chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
 .chip-actions{display:flex;gap:6px;flex-wrap:wrap}
@@ -421,8 +466,8 @@ foreach ($gridDays as $day) {
 .quick-lists{display:flex;flex-direction:column;gap:10px}
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
 .chip-btn{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:5px 10px;cursor:pointer;font-size:12px}
-.day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border));box-shadow:0 8px 20px rgba(37,99,235,.18)}
-@media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.week-calendar-grid{grid-template-columns:1fr}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+.day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border));box-shadow:0 8px 20px rgba(37,99,235,.18);transform:translateY(-2px)}
+@media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.day-card{flex:1 1 100%}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
 </style>
 
 <script>
@@ -738,6 +783,21 @@ foreach ($gridDays as $day) {
   document.getElementById('focus-quick-add')?.addEventListener('click', () => {
     if (weekLocked) return;
     document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  document.querySelectorAll('.register-activity-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (weekLocked || !form) return;
+      const targetDate = button.dataset.prefillDate || '';
+      if (targetDate) {
+        const dateInput = form.querySelector('[name="date"]');
+        if (dateInput) {
+          dateInput.value = targetDate;
+        }
+      }
+      document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      form.querySelector('[name="project_id"]')?.focus();
+    });
   });
 
   document.querySelectorAll('.recent-fill').forEach((button) => {
