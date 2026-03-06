@@ -27,6 +27,24 @@ class TimesheetsController extends Controller
             http_response_code(404);
             exit('El módulo de timesheets no está habilitado.');
         }
+        $projectsForTimesheet = $canReport ? $repo->projectsForTimesheetEntry($userId) : [];
+        $clientsForTimesheet = [];
+        $seenClients = [];
+        foreach ($projectsForTimesheet as $project) {
+            $clientId = (int) ($project['client_id'] ?? 0);
+            if (isset($seenClients[$clientId])) {
+                continue;
+            }
+            $seenClients[$clientId] = true;
+            $clientName = trim((string) ($project['client'] ?? ''));
+            $clientsForTimesheet[] = [
+                'client_id' => $clientId,
+                'client' => $clientName !== '' ? $clientName : 'Sin cliente',
+            ];
+        }
+        usort($clientsForTimesheet, static function (array $left, array $right): int {
+            return strcasecmp((string) ($left['client'] ?? ''), (string) ($right['client'] ?? ''));
+        });
         $weeklyGrid = $canReport
             ? $repo->weeklyGridForUser($userId, $weekStart)
             : [
@@ -52,7 +70,8 @@ class TimesheetsController extends Controller
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets · Registro',
-            'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
+            'projectsForTimesheet' => $projectsForTimesheet,
+            'clientsForTimesheet' => $clientsForTimesheet,
             'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
             'recentActivitySuggestions' => $canReport ? $repo->recentActivitySuggestions($userId, 10) : [],
             'activityTypes' => $repo->activityTypesCatalog(),
