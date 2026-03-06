@@ -17,6 +17,7 @@ class TimesheetsController extends Controller
         $canManageWorkflow = $this->auth->canManageTimesheetWorkflow();
         $canDeleteWeek = $this->auth->canDeleteTimesheetWorkflowRecords();
         $canManageAdvanced = $this->auth->canManageAdvancedTimesheets();
+        $canRegisterWeekend = $this->auth->hasRole('Administrador');
         $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
         $weekValue = trim((string) ($_GET['week'] ?? ''));
         $weekStart = $this->parseWeekValue($weekValue) ?? new DateTimeImmutable('monday this week');
@@ -44,6 +45,7 @@ class TimesheetsController extends Controller
             'canReport' => $canReport,
             'canManageWorkflow' => $canManageWorkflow,
             'timesheetsEnabled' => $timesheetsEnabled,
+            'canRegisterWeekend' => $canRegisterWeekend,
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'weekValue' => $weekValue,
@@ -52,6 +54,7 @@ class TimesheetsController extends Controller
             'weekHistoryLog' => $repo->weekHistoryLogForUser($userId, $weekStart),
             'canDeleteWeek' => $canDeleteWeek,
             'canManageAdvanced' => $canManageAdvanced,
+            'currentUserName' => (string) ($user['name'] ?? 'Usuario'),
         ]);
     }
 
@@ -673,6 +676,7 @@ class TimesheetsController extends Controller
         $weekTotal = (float) ($weeklyGrid['week_total'] ?? 0);
         $weeklyCapacity = (float) ($weeklyGrid['weekly_capacity'] ?? 0);
         $compliance = $weeklyCapacity > 0 ? round(($weekTotal / $weeklyCapacity) * 100, 2) : 0.0;
+        $remainingCapacity = max(0.0, $weeklyCapacity - $weekTotal);
         $activityByDay = is_array($weeklyGrid['activities_by_day'] ?? null) ? $weeklyGrid['activities_by_day'] : [];
 
         $byProject = [];
@@ -692,6 +696,7 @@ class TimesheetsController extends Controller
         return [
             'week_total' => $weekTotal,
             'weekly_capacity' => $weeklyCapacity,
+            'remaining_capacity' => $remainingCapacity,
             'compliance_percent' => $compliance,
             'top_project' => $topProject,
             'top_project_hours' => $topProjectHours,
