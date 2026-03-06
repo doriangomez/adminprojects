@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use ConfigService;
 use Database;
 use InvalidArgumentException;
 use TalentAvailabilityService;
@@ -1822,7 +1823,7 @@ class TimesheetsRepository
 
     public function activityTypesCatalog(): array
     {
-        $config = (new \ConfigService($this->db))->getConfig();
+        $config = (new ConfigService($this->db))->getConfig();
         $configured = $config['operational_rules']['timesheets']['activity_types'] ?? [];
         $activityTypes = [];
         foreach ($configured as $type) {
@@ -1924,19 +1925,43 @@ class TimesheetsRepository
         }
         $projectStatusCondition = $this->activeProjectCondition('p');
         $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
+        $hasClientId = $this->db->columnExists('projects', 'client_id');
+        $clientSelect = $hasClientId
+            ? 'p.client_id, COALESCE(c.name, "Sin cliente") AS client_name'
+            : 'NULL AS client_id, "Sin cliente" AS client_name';
+        $clientJoin = $hasClientId ? 'LEFT JOIN clients c ON c.id = p.client_id' : '';
 
         return $this->db->fetchAll(
-            'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval, p.name AS project
+            'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval, p.name AS project, ' . $clientSelect . '
              FROM project_talent_assignments a
              JOIN projects p ON p.id = a.project_id
+             ' . $clientJoin . '
              JOIN talents t ON t.user_id = a.user_id
              WHERE a.user_id = :user
                AND COALESCE(t.requiere_reporte_horas, 0) = 1
                AND ' . $assignmentStatusCondition .
              ($projectStatusCondition !== '' ? ' AND ' . $projectStatusCondition : '') . '
-             ORDER BY p.name ASC',
+             ORDER BY COALESCE(c.name, "zzz") ASC, p.name ASC',
             [':user' => $userId]
         );
+    }
+
+    public function clientsForTimesheetEntry(int $userId): array
+    {
+        $projects = $this->projectsForTimesheetEntry($userId);
+        $clients = [];
+        $seen = [];
+        foreach ($projects as $p) {
+            $clientId = (int) ($p['client_id'] ?? 0);
+            $clientName = trim((string) ($p['client_name'] ?? 'Sin cliente'));
+            $key = $clientId > 0 ? $clientId : '_noclient';
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $clients[] = ['id' => $clientId, 'name' => $clientName ?: 'Sin cliente'];
+            }
+        }
+        usort($clients, static fn ($a, $b) => strcasecmp($a['name'], $b['name']));
+        return $clients;
     }
 
     public function assignmentForProject(int $projectId, int $userId): ?array

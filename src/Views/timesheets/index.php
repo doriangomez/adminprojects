@@ -8,6 +8,7 @@ $weeklyGrid = is_array($weeklyGrid ?? null) ? $weeklyGrid : [];
 $gridDays = is_array($weeklyGrid['days'] ?? null) ? $weeklyGrid['days'] : [];
 $dayTotals = is_array($weeklyGrid['day_totals'] ?? null) ? $weeklyGrid['day_totals'] : [];
 $activitiesByDay = is_array($weeklyGrid['activities_by_day'] ?? null) ? $weeklyGrid['activities_by_day'] : [];
+$clientsForTimesheet = is_array($clientsForTimesheet ?? null) ? $clientsForTimesheet : [];
 $projectsForTimesheet = is_array($projectsForTimesheet ?? null) ? $projectsForTimesheet : [];
 $tasksForTimesheet = is_array($tasksForTimesheet ?? null) ? $tasksForTimesheet : [];
 $recentActivitySuggestions = is_array($recentActivitySuggestions ?? null) ? $recentActivitySuggestions : [];
@@ -15,6 +16,8 @@ $activityTypes = is_array($activityTypes ?? null) ? $activityTypes : [];
 $canApprove = !empty($canApprove);
 $selectedWeekSummary = is_array($selectedWeekSummary ?? null) ? $selectedWeekSummary : [];
 $weekIndicators = is_array($weekIndicators ?? null) ? $weekIndicators : [];
+$capacityTooltipLines = is_array($weekIndicators['capacity_tooltip_lines'] ?? null) ? $weekIndicators['capacity_tooltip_lines'] : [];
+$capacityTooltip = implode(' · ', $capacityTooltipLines) ?: 'Capacidad semanal configurada para la semana';
 $dayStatuses = is_array($weeklyGrid['day_statuses'] ?? null) ? $weeklyGrid['day_statuses'] : [];
 $dayDraftEntries = is_array($weeklyGrid['day_draft_entries'] ?? null) ? $weeklyGrid['day_draft_entries'] : [];
 $weekStatus = (string) ($selectedWeekSummary['status'] ?? 'draft');
@@ -302,11 +305,19 @@ foreach ($gridDays as $day) {
                         <label>Fecha
                             <input type="date" name="date" value="<?= htmlspecialchars($weekStart->format('Y-m-d')) ?>" required>
                         </label>
+                        <label>Cliente*
+                            <select name="client_id" id="qa-client" required>
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($clientsForTimesheet as $client): ?>
+                                    <option value="<?= (int) ($client['id'] ?? 0) ?>"><?= htmlspecialchars((string) ($client['name'] ?? '')) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
                         <label>Proyecto*
                             <select name="project_id" id="qa-project" required>
-                                <option value="">Seleccionar...</option>
+                                <option value="" data-placeholder>Seleccionar cliente primero</option>
                                 <?php foreach ($projectsForTimesheet as $project): ?>
-                                    <option value="<?= (int) ($project['project_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($project['project'] ?? '')) ?></option>
+                                    <option value="<?= (int) ($project['project_id'] ?? 0) ?>" data-client-id="<?= (int) ($project['client_id'] ?? 0) ?>"><?= htmlspecialchars((string) ($project['project'] ?? '')) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </label>
@@ -547,6 +558,7 @@ foreach ($gridDays as $day) {
   const weekFullyLocked = <?= $weekFullyLocked ? 'true' : 'false' ?>;
   const dayLabels = <?= json_encode($daysJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
   const form = document.getElementById('quick-add-form');
+  const clientInput = document.getElementById('qa-client');
   const projectInput = document.getElementById('qa-project');
   const taskInput = document.getElementById('qa-task');
   const taskManagementInput = document.getElementById('qa-task-management-mode');
@@ -628,6 +640,33 @@ foreach ($gridDays as $day) {
     return data;
   };
 
+  const filterProjectsByClient = () => {
+    if (!projectInput) return;
+    const clientId = String(clientInput?.value ?? '');
+    const clientIdNum = clientId === '' ? null : Number(clientId);
+    const placeholder = projectInput.querySelector('option[data-placeholder]');
+    if (placeholder) {
+      placeholder.hidden = clientIdNum !== null;
+      if (clientIdNum !== null) {
+        placeholder.textContent = 'Seleccionar proyecto...';
+      } else {
+        placeholder.textContent = 'Seleccionar cliente primero';
+      }
+    }
+    projectInput.querySelectorAll('option[data-client-id]').forEach((option) => {
+      const optionClientId = option.dataset.clientId;
+      const match = clientIdNum === null
+        ? false
+        : (clientIdNum === 0 ? (Number(optionClientId || 0) === 0) : Number(optionClientId || 0) === clientIdNum);
+      option.hidden = !match;
+    });
+    const selectedOpt = projectInput.selectedOptions?.[0];
+    if (selectedOpt?.hidden || (clientIdNum !== null && !projectInput.querySelector('option[data-client-id]:not([hidden])'))) {
+      projectInput.value = '';
+    }
+    filterTasksByProject();
+  };
+
   const filterTasksByProject = () => {
     if (!taskInput) return;
     const projectId = Number(projectInput?.value || 0);
@@ -637,6 +676,15 @@ foreach ($gridDays as $day) {
     });
     if (taskInput.selectedOptions[0]?.hidden) {
       taskInput.value = '0';
+    }
+  };
+
+  const syncClientFromProject = () => {
+    if (!clientInput || !projectInput) return;
+    const selectedOption = projectInput.selectedOptions?.[0];
+    const projectId = Number(projectInput?.value || 0);
+    if (projectId > 0 && selectedOption?.dataset?.clientId !== undefined) {
+      clientInput.value = String(selectedOption.dataset.clientId ?? '');
     }
   };
 
@@ -686,7 +734,11 @@ foreach ($gridDays as $day) {
     syncToggleLabels();
   };
 
-  projectInput?.addEventListener('change', filterTasksByProject);
+  clientInput?.addEventListener('change', filterProjectsByClient);
+  projectInput?.addEventListener('change', () => {
+    filterTasksByProject();
+    syncClientFromProject();
+  });
   blockerToggle?.addEventListener('change', syncToggles);
   deliverableToggle?.addEventListener('change', syncToggles);
   progressToggle?.addEventListener('change', syncToggles);
@@ -710,6 +762,7 @@ foreach ($gridDays as $day) {
       event.target.value = '';
     }
   });
+  filterProjectsByClient();
   filterTasksByProject();
   syncToggles();
   syncTaskManagementMode();
@@ -720,12 +773,15 @@ foreach ($gridDays as $day) {
 
   const resetForAnother = () => {
     const keepDate = form.querySelector('[name="date"]')?.value || '';
+    const keepClient = form.querySelector('[name="client_id"]')?.value || '';
     const keepProject = form.querySelector('[name="project_id"]')?.value || '';
     const keepTask = form.querySelector('[name="task_id"]')?.value || '0';
     const keepTaskMode = form.querySelector('[name="task_management_mode"]')?.value || 'existing';
     form.reset();
     form.querySelector('[name="activity_id"]').value = '';
     form.querySelector('[name="date"]').value = keepDate;
+    form.querySelector('[name="client_id"]').value = keepClient;
+    filterProjectsByClient();
     form.querySelector('[name="project_id"]').value = keepProject;
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = keepTask;
@@ -738,6 +794,8 @@ foreach ($gridDays as $day) {
     form.querySelector('[name="activity_id"]').value = String(data.id || '');
     form.querySelector('[name="date"]').value = data.date || '';
     form.querySelector('[name="project_id"]').value = String(data.project_id || '');
+    syncClientFromProject();
+    filterProjectsByClient();
     filterTasksByProject();
     form.querySelector('[name="task_id"]').value = String(data.task_id || 0);
     form.querySelector('[name="task_management_mode"]').value = 'existing';
@@ -948,7 +1006,7 @@ foreach ($gridDays as $day) {
         }
       }
       document.getElementById('quick-add-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      form.querySelector('[name="project_id"]')?.focus();
+      (clientInput || form.querySelector('[name="client_id"]'))?.focus();
     });
   });
 
@@ -957,6 +1015,8 @@ foreach ($gridDays as $day) {
       form.querySelector('[name="activity_id"]').value = '';
       form.querySelector('[name="task_management_mode"]').value = 'existing';
       form.querySelector('[name="project_id"]').value = button.dataset.projectId || '';
+      syncClientFromProject();
+      filterProjectsByClient();
       filterTasksByProject();
       form.querySelector('[name="task_id"]').value = button.dataset.taskId || '0';
       form.querySelector('[name="activity_type"]').value = button.dataset.activityType || '';
@@ -995,6 +1055,8 @@ foreach ($gridDays as $day) {
         form.querySelector('[name="activity_id"]').value = '';
         form.querySelector('[name="task_management_mode"]').value = 'existing';
         form.querySelector('[name="project_id"]').value = String(tpl.project_id || '');
+        syncClientFromProject();
+        filterProjectsByClient();
         filterTasksByProject();
         form.querySelector('[name="task_id"]').value = String(tpl.task_id || 0);
         form.querySelector('[name="activity_type"]').value = tpl.activity_type || '';

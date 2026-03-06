@@ -52,6 +52,7 @@ class TimesheetsController extends Controller
 
         $this->render('timesheets/index', [
             'title' => 'Timesheets · Registro',
+            'clientsForTimesheet' => $canReport ? $repo->clientsForTimesheetEntry($userId) : [],
             'projectsForTimesheet' => $canReport ? $repo->projectsForTimesheetEntry($userId) : [],
             'tasksForTimesheet' => $canReport ? $repo->tasksForTimesheetEntry($userId) : [],
             'recentActivitySuggestions' => $canReport ? $repo->recentActivitySuggestions($userId, 10) : [],
