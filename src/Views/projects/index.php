@@ -108,6 +108,27 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     return http_build_query($params);
 };
 
+// Agrupar proyectos por cliente (solo vista; sin modificar datos del backend)
+$clientsByName = [];
+foreach ($clientsList as $c) {
+    $name = trim((string) ($c['name'] ?? ''));
+    if ($name !== '') {
+        $clientsByName[$name] = $c;
+    }
+}
+
+$projectsByClient = [];
+foreach ($projectsList as $project) {
+    $clientName = trim((string) ($project['client'] ?? ''));
+    if ($clientName === '') {
+        $clientName = 'Cliente no registrado';
+    }
+    if (!isset($projectsByClient[$clientName])) {
+        $projectsByClient[$clientName] = [];
+    }
+    $projectsByClient[$clientName][] = $project;
+}
+
 $stopperSeverityLabel = static function (string $impactLevel): string {
     return match (strtolower(trim($impactLevel))) {
         'critico' => 'Crítico',
@@ -605,6 +626,43 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; }
 
+    .client-group { margin-bottom: 24px; }
+    .client-group:last-child { margin-bottom: 0; }
+    .client-group-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        margin-bottom: 0;
+        background: color-mix(in srgb, var(--text-secondary) 10%, var(--background));
+        border: 1px solid var(--border);
+        border-radius: 12px 12px 0 0;
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text-primary);
+    }
+    .client-group-header + .project-table { border-top-left-radius: 0; border-top-right-radius: 0; margin-top: -1px; }
+    .client-group-header + .project-grid { margin-top: 12px; }
+    .client-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        overflow: hidden;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: color-mix(in srgb, var(--primary) 18%, var(--background));
+        color: var(--primary);
+        font-weight: 800;
+        font-size: 16px;
+    }
+    .client-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
         .project-table { font-size: 13px; }
@@ -772,29 +830,46 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     <div class="empty-state">No hay proyectos con estos filtros.</div>
 <?php else: ?>
     <?php if ($viewMode === 'table'): ?>
-        <table class="project-table" aria-label="Listado de proyectos">
-            <colgroup>
-                <col style="width: 42%;">
-                <col style="width: 14%;">
-                <col style="width: 12%;">
-                <col style="width: 12%;">
-                <col style="width: 10%;">
-                <col style="width: 8%;">
-                <col style="width: 2%;">
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>Proyecto</th>
-                    <th>PM</th>
-                    <th>Estado</th>
-                    <th>Salud</th>
-                    <th>Avance</th>
-                    <th>Facturación</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($projectsList as $project): ?>
+        <?php foreach ($projectsByClient as $clientName => $clientProjects): ?>
+            <?php
+                $clientData = $clientsByName[$clientName] ?? null;
+                $logoPath = $clientData['logo_path'] ?? null;
+                $clientInitial = strtoupper(substr($clientName, 0, 1));
+            ?>
+            <div class="client-group">
+                <div class="client-group-header">
+                    <div class="client-avatar" aria-hidden="true">
+                        <?php if (!empty($logoPath)): ?>
+                            <img src="<?= $basePath . $logoPath ?>" alt="Logo de <?= htmlspecialchars($clientName) ?>">
+                        <?php else: ?>
+                            <?= htmlspecialchars($clientInitial) ?>
+                        <?php endif; ?>
+                    </div>
+                    <span><?= htmlspecialchars($clientName) ?></span>
+                </div>
+                <table class="project-table" aria-label="Proyectos de <?= htmlspecialchars($clientName) ?>">
+                    <colgroup>
+                        <col style="width: 42%;">
+                        <col style="width: 14%;">
+                        <col style="width: 12%;">
+                        <col style="width: 12%;">
+                        <col style="width: 10%;">
+                        <col style="width: 8%;">
+                        <col style="width: 2%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Proyecto</th>
+                            <th>PM</th>
+                            <th>Estado</th>
+                            <th>Salud</th>
+                            <th>Avance</th>
+                            <th>Facturación</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                <?php foreach ($clientProjects as $project): ?>
                     <?php
                         $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
                         $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
@@ -913,11 +988,30 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                         </td>
                     </tr>
                 <?php endforeach; ?>
-            </tbody>
-        </table>
+                    </tbody>
+                </table>
+            </div>
+        <?php endforeach; ?>
     <?php else: ?>
-        <div class="project-grid">
-            <?php foreach ($projectsList as $project): ?>
+        <?php foreach ($projectsByClient as $clientName => $clientProjects): ?>
+            <?php
+                $clientData = $clientsByName[$clientName] ?? null;
+                $logoPath = $clientData['logo_path'] ?? null;
+                $clientInitial = strtoupper(substr($clientName, 0, 1));
+            ?>
+            <div class="client-group">
+                <div class="client-group-header">
+                    <div class="client-avatar" aria-hidden="true">
+                        <?php if (!empty($logoPath)): ?>
+                            <img src="<?= $basePath . $logoPath ?>" alt="Logo de <?= htmlspecialchars($clientName) ?>">
+                        <?php else: ?>
+                            <?= htmlspecialchars($clientInitial) ?>
+                        <?php endif; ?>
+                    </div>
+                    <span><?= htmlspecialchars($clientName) ?></span>
+                </div>
+                <div class="project-grid">
+            <?php foreach ($clientProjects as $project): ?>
                 <?php
                     $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
                     $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
@@ -997,7 +1091,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                     </div>
                 </article>
             <?php endforeach; ?>
-        </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
     <?php endif; ?>
 <?php endif; ?>
 
