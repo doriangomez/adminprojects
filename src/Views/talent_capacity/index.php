@@ -218,6 +218,10 @@ foreach ($availableTalents as $item) {
         <article class="kpi-card"><strong><?= (int) ($summary['risk_talents'] ?? 0) ?></strong><span>Talentos críticos (&gt;90%)</span></article>
         <article class="kpi-card"><strong><?= number_format((float) ($summary['idle_capacity'] ?? 0), 1) ?>h</strong><span>Capacidad ociosa global</span></article>
     </section>
+    <div style="background:color-mix(in srgb,var(--info) 10%,var(--background));border:1px solid color-mix(in srgb,var(--info) 30%,var(--border));border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text-secondary)">
+        La <strong>capacidad real</strong> de cada talento descuenta automáticamente festivos y ausencias aprobadas (vacaciones, permisos, incapacidades).
+        Para gestionar ausencias ve a <a href="<?= $basePath ?>/absences" style="color:var(--primary);font-weight:700">Ausencias →</a>
+    </div>
 
     <section class="capacity-block analytics-layer">
         <div class="section-title section-title-stack">

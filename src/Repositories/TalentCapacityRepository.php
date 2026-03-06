@@ -6,6 +6,7 @@ namespace App\Repositories;
 
 use Database;
 use DateTimeImmutable;
+use WorkCalendarService;
 
 class TalentCapacityRepository
 {
@@ -125,6 +126,11 @@ class TalentCapacityRepository
             $dailyLogged[$talentId][$day] = (float) ($row['hours'] ?? 0);
         }
 
+        $absencesRepo = new AbsencesRepository($this->db);
+        $absencesByTalent = $absencesRepo->approvedForTalents($talentIds, $range['start'], $range['end']);
+
+        $workCalendar = new WorkCalendarService($this->db);
+
         $dailyUtilization = [];
         $weeklyUtilization = [];
         $monthlyUtilization = [];
@@ -133,7 +139,22 @@ class TalentCapacityRepository
         foreach ($talents as &$talent) {
             $talentId = (int) $talent['id'];
             $weeklyCapacity = $this->weeklyCapacity($talent);
-            $dailyCapacity = $weeklyCapacity / 5;
+            $dailyCapacity = $weeklyCapacity > 0 ? ($weeklyCapacity / 5) : 0.0;
+
+            $talentAbsences = $absencesByTalent[$talentId] ?? [];
+            $absenceDateMap = [];
+            foreach ($talentAbsences as $abs) {
+                $cursor = new DateTimeImmutable($abs['date_from']);
+                $absEnd = new DateTimeImmutable($abs['date_to']);
+                while ($cursor <= $absEnd) {
+                    $dk = $cursor->format('Y-m-d');
+                    $absHours = ($abs['hours_per_day'] !== null && $abs['hours_per_day'] !== '')
+                        ? (float) $abs['hours_per_day']
+                        : $dailyCapacity;
+                    $absenceDateMap[$dk] = min($dailyCapacity, $absHours);
+                    $cursor = $cursor->modify('+1 day');
+                }
+            }
 
             $dailyUtilization[$talentId] = [];
             $weeklyBuckets = [];
@@ -142,27 +163,37 @@ class TalentCapacityRepository
             $cursor = new DateTimeImmutable($range['start']);
             $limit = new DateTimeImmutable($range['end']);
             while ($cursor <= $limit) {
-                if ((int) $cursor->format('N') > 5) {
+                $weekday = (int) $cursor->format('N');
+                if ($weekday > 5) {
                     $cursor = $cursor->modify('+1 day');
                     continue;
                 }
                 $day = $cursor->format('Y-m-d');
+                $dayMeta = $workCalendar->classifyDate($cursor);
+                $effectiveDailyCapacity = $dailyCapacity;
+                if (!$dayMeta['is_working']) {
+                    $effectiveDailyCapacity = 0.0;
+                } elseif (isset($absenceDateMap[$day])) {
+                    $effectiveDailyCapacity = max(0.0, $dailyCapacity - $absenceDateMap[$day]);
+                }
+
                 $hours = $dailyLogged[$talentId][$day] ?? ($dailyPlanned[$talentId][$day] ?? 0.0);
-                $percentage = $dailyCapacity > 0 ? ($hours / $dailyCapacity) * 100 : 0;
+                $percentage = $effectiveDailyCapacity > 0 ? ($hours / $effectiveDailyCapacity) * 100 : ($hours > 0 ? 100 : 0);
                 $dailyUtilization[$talentId][$day] = [
-                    'hours' => round($hours, 2),
-                    'capacity' => round($dailyCapacity, 2),
-                    'utilization' => round($percentage, 1),
-                    'status' => $this->statusForUtilization($percentage),
+                    'hours'             => round($hours, 2),
+                    'capacity'          => round($effectiveDailyCapacity, 2),
+                    'utilization'       => round($percentage, 1),
+                    'status'            => $this->statusForUtilization($percentage),
+                    'absence_hours'     => round($absenceDateMap[$day] ?? 0.0, 2),
                 ];
 
                 $weekKey = $cursor->format('o-\\WW');
                 $monthlyKey = $cursor->format('Y-m');
                 $weeklyBuckets[$weekKey]['hours'] = ($weeklyBuckets[$weekKey]['hours'] ?? 0) + $hours;
-                $weeklyBuckets[$weekKey]['capacity'] = ($weeklyBuckets[$weekKey]['capacity'] ?? 0) + $dailyCapacity;
+                $weeklyBuckets[$weekKey]['capacity'] = ($weeklyBuckets[$weekKey]['capacity'] ?? 0) + $effectiveDailyCapacity;
 
                 $monthlyBuckets[$monthlyKey]['hours'] = ($monthlyBuckets[$monthlyKey]['hours'] ?? 0) + $hours;
-                $monthlyBuckets[$monthlyKey]['capacity'] = ($monthlyBuckets[$monthlyKey]['capacity'] ?? 0) + $dailyCapacity;
+                $monthlyBuckets[$monthlyKey]['capacity'] = ($monthlyBuckets[$monthlyKey]['capacity'] ?? 0) + $effectiveDailyCapacity;
 
                 $cursor = $cursor->modify('+1 day');
             }

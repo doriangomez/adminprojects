@@ -142,6 +142,29 @@ class TimesheetsRepository
             );
         }
 
+        $profile = $this->talentProfileForUser($userId) ?? [];
+        $baseWeeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
+        if ($baseWeeklyCapacity <= 0) {
+            $baseWeeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
+        }
+
+        $talentAbsences = [];
+        if ($talentId !== null) {
+            $absenceRepo = new AbsencesRepository($this->db);
+            $talentAbsences = $absenceRepo->approvedForTalent(
+                $talentId,
+                $weekStart->format('Y-m-d'),
+                $weekEnd->format('Y-m-d')
+            );
+        }
+
+        $capacityData = $this->workCalendarService()->weeklyCapacityWithAbsences(
+            $baseWeeklyCapacity,
+            $weekStart,
+            $talentAbsences
+        );
+        $absenceDaysMap = $capacityData['absence_days'];
+
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $day = $weekStart->modify('+' . $i . ' days');
@@ -153,6 +176,7 @@ class TimesheetsRepository
                 'is_holiday' => false,
                 'is_exception' => false,
             ];
+            $absenceDay = $absenceDaysMap[$dayKey] ?? null;
             $days[] = [
                 'key' => $dayKey,
                 'label' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][$i],
@@ -162,6 +186,7 @@ class TimesheetsRepository
                 'day_name' => (string) ($dayMeta['name'] ?? ''),
                 'is_holiday' => (bool) ($dayMeta['is_holiday'] ?? false),
                 'is_exception' => (bool) ($dayMeta['is_exception'] ?? false),
+                'absence' => $absenceDay,
             ];
         }
 
@@ -244,13 +269,6 @@ class TimesheetsRepository
             ];
         }
 
-        $profile = $this->talentProfileForUser($userId) ?? [];
-        $weeklyCapacity = (float) ($profile['capacidad_horaria'] ?? 0);
-        if ($weeklyCapacity <= 0) {
-            $weeklyCapacity = (float) ($profile['weekly_capacity'] ?? 0);
-        }
-        $weeklyCapacity = $this->workCalendarService()->weeklyCapacityForWeek($weeklyCapacity, $weekStart);
-
         foreach ($activitiesByDay as &$dayItems) {
             usort($dayItems, static function (array $a, array $b): int {
                 return strcmp((string) ($a['project'] ?? ''), (string) ($b['project'] ?? ''));
@@ -263,7 +281,8 @@ class TimesheetsRepository
             'rows' => $rows,
             'day_totals' => $dayTotals,
             'week_total' => array_sum($dayTotals),
-            'weekly_capacity' => $weeklyCapacity,
+            'weekly_capacity' => $capacityData['real_capacity'],
+            'capacity_data' => $capacityData,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
@@ -2472,11 +2491,45 @@ class TimesheetsRepository
             throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
         }
 
+        $this->assertNoVacationOnDate($userId, $date);
+
         $weekStart = $day->modify('monday this week')->setTime(0, 0);
         $summary = $this->weekSummaryForUser($userId, $weekStart);
         $status = (string) ($summary['status'] ?? 'draft');
         if (in_array($status, ['submitted', 'approved'], true)) {
             throw new InvalidArgumentException('Semana enviada – registros bloqueados.');
+        }
+    }
+
+    private function assertNoVacationOnDate(int $userId, string $date): void
+    {
+        $talentRow = $this->db->fetchOne(
+            'SELECT id FROM talents WHERE user_id = :uid LIMIT 1',
+            [':uid' => $userId]
+        );
+        if (!$talentRow) {
+            return;
+        }
+
+        if (!$this->db->tableExists('talent_absences')) {
+            return;
+        }
+
+        $absence = $this->db->fetchOne(
+            'SELECT type FROM talent_absences
+             WHERE talent_id = :tid
+               AND status = "aprobado"
+               AND type = "vacaciones"
+               AND date_from <= :date
+               AND date_to >= :date
+             LIMIT 1',
+            [':tid' => (int) $talentRow['id'], ':date' => $date]
+        );
+
+        if ($absence) {
+            throw new InvalidArgumentException(
+                'No puedes registrar horas. Estás en vacaciones este día.'
+            );
         }
     }
 

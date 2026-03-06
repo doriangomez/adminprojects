@@ -2720,4 +2720,33 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTalentAbsencesTable(): void
+    {
+        if (!$this->db->tableExists('talent_absences')) {
+            $this->db->execute(
+                'CREATE TABLE talent_absences (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    talent_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    type ENUM("vacaciones","incapacidad","permiso_personal","permiso_medico","capacitacion","licencia","festivo") NOT NULL,
+                    date_from DATE NOT NULL,
+                    date_to DATE NOT NULL,
+                    hours_per_day DECIMAL(5,2) DEFAULT NULL COMMENT "NULL = día completo",
+                    reason TEXT DEFAULT NULL,
+                    status ENUM("pendiente","aprobado","rechazado") NOT NULL DEFAULT "pendiente",
+                    approved_by INT DEFAULT NULL,
+                    approved_at DATETIME DEFAULT NULL,
+                    rejection_reason TEXT DEFAULT NULL,
+                    created_by INT DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_talent_absences_talent_dates (talent_id, date_from, date_to),
+                    INDEX idx_talent_absences_status (status),
+                    CONSTRAINT fk_talent_absences_talent FOREIGN KEY (talent_id) REFERENCES talents(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_talent_absences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+        }
+    }
+
 }

@@ -129,6 +129,109 @@ class WorkCalendarService
         return round($dailyCapacity * $effectiveWorkingDays, 2);
     }
 
+    /**
+     * Computes real weekly capacity after subtracting absences.
+     * Returns a detailed breakdown including absent hours by type.
+     *
+     * @param float              $weeklyCapacity  Base weekly hours (e.g. 40)
+     * @param \DateTimeImmutable $weekStart       Monday of the week
+     * @param array              $absences        Rows from talent_absences (approved, overlapping with week)
+     * @return array{
+     *   base_capacity: float,
+     *   holiday_hours: float,
+     *   absent_hours: float,
+     *   real_capacity: float,
+     *   daily_capacity: float,
+     *   breakdown: array<string,float>,
+     *   absence_days: array<string,array>
+     * }
+     */
+    public function weeklyCapacityWithAbsences(
+        float $weeklyCapacity,
+        \DateTimeImmutable $weekStart,
+        array $absences = []
+    ): array {
+        $weeklyCapacity = max(0.0, $weeklyCapacity);
+        $config = $this->getCalendarConfig();
+        $baselineWorkingDays = max(1, count($config['working_days']));
+        $dailyCapacity = $weeklyCapacity > 0 ? $weeklyCapacity / $baselineWorkingDays : 0.0;
+
+        $weekMap = $this->weekMap($weekStart);
+        $weekEnd = $weekStart->modify('+6 days');
+
+        $holidayHours = 0.0;
+        $absentHours = 0.0;
+        $breakdown = [];
+        $absenceDays = [];
+
+        foreach ($weekMap as $dateKey => $dayMeta) {
+            if (!in_array((int) $dayMeta['weekday'], $config['working_days'], true)) {
+                continue;
+            }
+
+            if (!empty($dayMeta['is_holiday'])) {
+                $holidayHours += $dailyCapacity;
+                $absenceDays[$dateKey] = [
+                    'type'     => 'festivo',
+                    'label'    => (string) ($dayMeta['name'] ?: 'Festivo'),
+                    'color'    => '#6366f1',
+                    'hours'    => $dailyCapacity,
+                    'full_day' => true,
+                ];
+                $breakdown['festivo'] = ($breakdown['festivo'] ?? 0.0) + $dailyCapacity;
+                continue;
+            }
+
+            if (!empty($dayMeta['is_exception']) && !$dayMeta['is_working']) {
+                $holidayHours += $dailyCapacity;
+                $absenceDays[$dateKey] = [
+                    'type'     => 'festivo',
+                    'label'    => (string) ($dayMeta['name'] ?: 'No laborable'),
+                    'color'    => '#6366f1',
+                    'hours'    => $dailyCapacity,
+                    'full_day' => true,
+                ];
+                $breakdown['festivo'] = ($breakdown['festivo'] ?? 0.0) + $dailyCapacity;
+                continue;
+            }
+
+            foreach ($absences as $absence) {
+                if ((string) $absence['date_from'] <= $dateKey && (string) $absence['date_to'] >= $dateKey) {
+                    $absHours = ($absence['hours_per_day'] !== null && $absence['hours_per_day'] !== '')
+                        ? (float) $absence['hours_per_day']
+                        : $dailyCapacity;
+                    $type = (string) $absence['type'];
+                    $typeLabels = \App\Repositories\AbsencesRepository::ABSENCE_TYPES;
+                    $typeColors = \App\Repositories\AbsencesRepository::TYPE_COLORS;
+                    $absentHours += $absHours;
+                    $breakdown[$type] = ($breakdown[$type] ?? 0.0) + $absHours;
+                    $absenceDays[$dateKey] = [
+                        'type'       => $type,
+                        'label'      => $typeLabels[$type] ?? $type,
+                        'color'      => $typeColors[$type] ?? '#6b7280',
+                        'hours'      => $absHours,
+                        'full_day'   => $absence['hours_per_day'] === null || $absence['hours_per_day'] === '',
+                        'absence_id' => (int) $absence['id'],
+                    ];
+                    break;
+                }
+            }
+        }
+
+        $baseAfterHolidays = max(0.0, $weeklyCapacity - $holidayHours);
+        $realCapacity = max(0.0, $baseAfterHolidays - $absentHours);
+
+        return [
+            'base_capacity'  => round($weeklyCapacity, 2),
+            'holiday_hours'  => round($holidayHours, 2),
+            'absent_hours'   => round($absentHours, 2),
+            'real_capacity'  => round($realCapacity, 2),
+            'daily_capacity' => round($dailyCapacity, 2),
+            'breakdown'      => $breakdown,
+            'absence_days'   => $absenceDays,
+        ];
+    }
+
     public function equivalentWorkingWeeks(\DateTimeImmutable $start, \DateTimeImmutable $end): float
     {
         if ($start > $end) {
