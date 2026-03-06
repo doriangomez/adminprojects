@@ -108,6 +108,71 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     return http_build_query($params);
 };
 
+$normalizeClientKey = static function (string $value): string {
+    $trimmed = trim($value);
+    if ($trimmed === '') {
+        return '';
+    }
+
+    return function_exists('mb_strtolower')
+        ? mb_strtolower($trimmed, 'UTF-8')
+        : strtolower($trimmed);
+};
+
+$clientMetaByName = [];
+$clientMetaById = [];
+foreach ($clientsList as $clientItem) {
+    $clientName = trim((string) ($clientItem['name'] ?? ''));
+    if ($clientName === '') {
+        continue;
+    }
+
+    $meta = [
+        'name' => $clientName,
+        'logo_path' => trim((string) ($clientItem['logo_path'] ?? '')),
+    ];
+
+    $clientMetaByName[$normalizeClientKey($clientName)] = $meta;
+
+    $clientId = (int) ($clientItem['id'] ?? 0);
+    if ($clientId > 0) {
+        $clientMetaById[$clientId] = $meta;
+    }
+}
+
+$projectsGroupedByClient = [];
+foreach ($projectsList as $project) {
+    $projectClientName = trim((string) ($project['client'] ?? ''));
+    if ($projectClientName === '') {
+        $projectClientName = 'Cliente no registrado';
+    }
+
+    $projectClientId = (int) ($project['client_id'] ?? 0);
+    $groupKey = $normalizeClientKey($projectClientName);
+    if ($groupKey === '') {
+        $groupKey = 'cliente-no-registrado';
+    }
+
+    $groupMeta = $clientMetaByName[$groupKey] ?? [
+        'name' => $projectClientName,
+        'logo_path' => '',
+    ];
+
+    if ($projectClientId > 0 && isset($clientMetaById[$projectClientId])) {
+        $groupMeta = $clientMetaById[$projectClientId];
+    }
+
+    if (!isset($projectsGroupedByClient[$groupKey])) {
+        $projectsGroupedByClient[$groupKey] = [
+            'client_name' => $groupMeta['name'],
+            'logo_path' => $groupMeta['logo_path'],
+            'projects' => [],
+        ];
+    }
+
+    $projectsGroupedByClient[$groupKey]['projects'][] = $project;
+}
+
 $stopperSeverityLabel = static function (string $impactLevel): string {
     return match (strtolower(trim($impactLevel))) {
         'critico' => 'Crítico',
@@ -502,6 +567,63 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         gap: 14px;
     }
 
+    .client-group {
+        margin-top: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .client-group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .client-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .client-brand-logo,
+    .client-brand-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .client-brand-logo {
+        object-fit: contain;
+        padding: 6px;
+    }
+
+    .client-brand-avatar {
+        font-size: 16px;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .client-group-title {
+        margin: 0;
+        font-size: 16px;
+        color: var(--text-primary);
+        font-weight: 800;
+    }
+
+    .client-group-subtitle {
+        margin: 2px 0 0;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
     .project-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -610,6 +732,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         .project-table { font-size: 13px; }
         .project-cell { min-width: 240px; }
         .progress-track { width: 80px; }
+        .client-group-header { align-items: flex-start; }
     }
 </style>
 
@@ -759,8 +882,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
 <div class="toolbar" style="margin-top: 6px;">
     <div>
-        <strong style="color: var(--text-primary);">Listado general</strong>
-        <p class="muted" style="margin:4px 0 0;">Vista compacta para operación o lectura ejecutiva.</p>
+        <strong style="color: var(--text-primary);">Listado por cliente</strong>
+        <p class="muted" style="margin:4px 0 0;">Proyectos agrupados por cliente con la misma información operativa.</p>
     </div>
     <div class="view-toggle">
         <a href="<?= $basePath ?>/projects?<?= htmlspecialchars($buildQuery(['view_mode' => 'table'])) ?>" class="<?= $viewMode === 'table' ? 'active' : '' ?>">Tabla</a>
@@ -772,232 +895,308 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     <div class="empty-state">No hay proyectos con estos filtros.</div>
 <?php else: ?>
     <?php if ($viewMode === 'table'): ?>
-        <table class="project-table" aria-label="Listado de proyectos">
-            <colgroup>
-                <col style="width: 42%;">
-                <col style="width: 14%;">
-                <col style="width: 12%;">
-                <col style="width: 12%;">
-                <col style="width: 10%;">
-                <col style="width: 8%;">
-                <col style="width: 2%;">
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>Proyecto</th>
-                    <th>PM</th>
-                    <th>Estado</th>
-                    <th>Salud</th>
-                    <th>Avance</th>
-                    <th>Facturación</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($projectsList as $project): ?>
-                    <?php
-                        $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
-                        $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
-                        $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
-                        $progress = (float) ($project['progress'] ?? 0);
-                        $progressLabel = rtrim(rtrim(number_format($progress, 1, '.', ''), '0'), '.');
-                        $pmName = $project['pm_name'] ?? 'Sin PM asignado';
-                        $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
-                        $riskCount = count($riskCodes);
-                        $noteData = is_array($project['latest_note'] ?? null) ? $project['latest_note'] : [];
-                        $stopperData = is_array($project['top_stopper'] ?? null) ? $project['top_stopper'] : [];
-                        $projectId = (int) ($project['id'] ?? 0);
-                        $rowLink = $basePath . '/projects/' . $projectId . '?return=' . urlencode($returnUrl);
-                        $notePreviewText = trim((string) ($noteData['text'] ?? ''));
-                        $stopperPreviewText = trim((string) ($stopperData['text'] ?? ''));
-                        $noteTimestamp = strtotime((string) ($noteData['created_at'] ?? '')) ?: null;
-                        $stopperTimestamp = strtotime((string) ($stopperData['created_at'] ?? '')) ?: null;
-                        $previewType = 'note';
-                        $previewLabel = 'Nota';
-                        $previewIcon = '📝';
-                        $previewText = '';
+        <?php foreach ($projectsGroupedByClient as $clientGroup): ?>
+            <?php
+                $clientNameGroup = (string) ($clientGroup['client_name'] ?? 'Cliente');
+                $clientProjects = is_array($clientGroup['projects'] ?? null) ? $clientGroup['projects'] : [];
+                $clientLogoPath = trim((string) ($clientGroup['logo_path'] ?? ''));
+                $clientLogoUrl = '';
+                if ($clientLogoPath !== '') {
+                    $clientLogoUrl = str_starts_with($clientLogoPath, 'http://') || str_starts_with($clientLogoPath, 'https://')
+                        ? $clientLogoPath
+                        : $basePath . $clientLogoPath;
+                }
 
-                        if ($notePreviewText !== '' || $stopperPreviewText !== '') {
-                            $useStopperPreview = false;
-                            if ($stopperPreviewText !== '') {
-                                if ($notePreviewText === '') {
-                                    $useStopperPreview = true;
-                                } elseif ($stopperTimestamp !== null && $noteTimestamp !== null) {
-                                    $useStopperPreview = $stopperTimestamp >= $noteTimestamp;
-                                } elseif ($stopperTimestamp !== null && $noteTimestamp === null) {
-                                    $useStopperPreview = true;
+                $clientInitial = function_exists('mb_substr')
+                    ? mb_substr($clientNameGroup, 0, 1, 'UTF-8')
+                    : substr($clientNameGroup, 0, 1);
+                if ($clientInitial === '' || $clientInitial === false) {
+                    $clientInitial = '?';
+                }
+                $clientInitial = function_exists('mb_strtoupper')
+                    ? mb_strtoupper((string) $clientInitial, 'UTF-8')
+                    : strtoupper((string) $clientInitial);
+            ?>
+            <section class="client-group">
+                <header class="client-group-header">
+                    <div class="client-brand">
+                        <?php if ($clientLogoUrl !== ''): ?>
+                            <img class="client-brand-logo" src="<?= htmlspecialchars($clientLogoUrl) ?>" alt="Logo de <?= htmlspecialchars($clientNameGroup) ?>">
+                        <?php else: ?>
+                            <span class="client-brand-avatar" aria-hidden="true"><?= htmlspecialchars($clientInitial) ?></span>
+                        <?php endif; ?>
+                        <div>
+                            <h3 class="client-group-title"><?= htmlspecialchars($clientNameGroup) ?></h3>
+                            <p class="client-group-subtitle"><?= count($clientProjects) ?> proyecto(s)</p>
+                        </div>
+                    </div>
+                </header>
+                <table class="project-table" aria-label="Listado de proyectos de <?= htmlspecialchars($clientNameGroup) ?>">
+                    <colgroup>
+                        <col style="width: 42%;">
+                        <col style="width: 14%;">
+                        <col style="width: 12%;">
+                        <col style="width: 12%;">
+                        <col style="width: 10%;">
+                        <col style="width: 8%;">
+                        <col style="width: 2%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Proyecto</th>
+                            <th>PM</th>
+                            <th>Estado</th>
+                            <th>Salud</th>
+                            <th>Avance</th>
+                            <th>Facturación</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($clientProjects as $project): ?>
+                            <?php
+                                $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
+                                $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
+                                $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
+                                $progress = (float) ($project['progress'] ?? 0);
+                                $progressLabel = rtrim(rtrim(number_format($progress, 1, '.', ''), '0'), '.');
+                                $pmName = $project['pm_name'] ?? 'Sin PM asignado';
+                                $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+                                $riskCount = count($riskCodes);
+                                $noteData = is_array($project['latest_note'] ?? null) ? $project['latest_note'] : [];
+                                $stopperData = is_array($project['top_stopper'] ?? null) ? $project['top_stopper'] : [];
+                                $projectId = (int) ($project['id'] ?? 0);
+                                $rowLink = $basePath . '/projects/' . $projectId . '?return=' . urlencode($returnUrl);
+                                $notePreviewText = trim((string) ($noteData['text'] ?? ''));
+                                $stopperPreviewText = trim((string) ($stopperData['text'] ?? ''));
+                                $noteTimestamp = strtotime((string) ($noteData['created_at'] ?? '')) ?: null;
+                                $stopperTimestamp = strtotime((string) ($stopperData['created_at'] ?? '')) ?: null;
+                                $previewType = 'note';
+                                $previewLabel = 'Nota';
+                                $previewIcon = '📝';
+                                $previewText = '';
+
+                                if ($notePreviewText !== '' || $stopperPreviewText !== '') {
+                                    $useStopperPreview = false;
+                                    if ($stopperPreviewText !== '') {
+                                        if ($notePreviewText === '') {
+                                            $useStopperPreview = true;
+                                        } elseif ($stopperTimestamp !== null && $noteTimestamp !== null) {
+                                            $useStopperPreview = $stopperTimestamp >= $noteTimestamp;
+                                        } elseif ($stopperTimestamp !== null && $noteTimestamp === null) {
+                                            $useStopperPreview = true;
+                                        }
+                                    }
+
+                                    if ($useStopperPreview) {
+                                        $previewType = 'stopper';
+                                        $previewLabel = 'Bloqueo';
+                                        $previewIcon = '⛔';
+                                        $previewText = $stopperPreviewText;
+                                    } else {
+                                        $previewText = $notePreviewText;
+                                    }
                                 }
-                            }
 
-                            if ($useStopperPreview) {
-                                $previewType = 'stopper';
-                                $previewLabel = 'Bloqueo';
-                                $previewIcon = '⛔';
-                                $previewText = $stopperPreviewText;
-                            } else {
-                                $previewText = $notePreviewText;
-                            }
-                        }
+                                $previewHref = $basePath . '/projects/' . $projectId
+                                    . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
+                                    . '&return=' . urlencode($returnUrl);
+                                $blockersCount = (int) ($stopperData['total_count'] ?? 0);
+                                $clientName = $project['client'] ?? 'Cliente no registrado';
+                                $isBillable = (int) ($project['is_billable'] ?? 0) === 1;
+                                $compactHealth = (int) (($project['health_score']['total_score'] ?? 0));
+                                $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
+                                $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
+                                $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
+                                $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                            ?>
+                            <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
+                                <td class="project-cell">
+                                    <div class="project-main">
+                                        <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                                        <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
+                                    </div>
+                                    <?php if ($previewText !== ''): ?>
+                                        <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
+                                            <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
+                                            <span class="context-label"><?= $previewLabel ?>:</span>
+                                            <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="project-context-preview" title="Sin notas o bloqueos registrados">
+                                            <span class="context-icon" aria-hidden="true">📝</span>
+                                            <span class="context-label">Nota:</span>
+                                            <span class="context-text">Sin notas o bloqueos registrados.</span>
+                                        </span>
+                                    <?php endif; ?>
+                                    <div class="project-context-stats">
+                                        <span>⚠ Riesgos: <?= $riskCount ?></span>
+                                        <span>⛔ Bloqueos: <?= $blockersCount ?></span>
+                                    </div>
+                                </td>
+                                <td><span class="pm-cell-text"><?= htmlspecialchars($pmName) ?></span></td>
+                                <td>
+                                    <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
+                                </td>
+                                <td>
+                                    <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
+                                    <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
+                                </td>
+                                <td>
+                                    <div class="progress-compact">
+                                        <div class="progress-track" aria-hidden="true">
+                                            <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
+                                        </div>
+                                        <span class="progress-value"><?= $progressLabel ?>%</span>
+                                        <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
+                                        <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? 'Facturable' : 'No facturable' ?></span>
+                                </td>
+                                <td class="actions-cell">
+                                    <details class="menu-details table-actions-menu" data-no-row>
+                                        <summary class="menu-trigger" aria-label="Acciones" data-no-row>⋯</summary>
+                                        <div class="menu-list">
+                                            <a href="<?= $basePath ?>/projects/<?= $projectId ?>?return=<?= urlencode($returnUrl) ?>" data-no-row>Ver detalle</a>
+                                            <a href="<?= $basePath ?>/projects/<?= $projectId ?>/edit?return=<?= urlencode($returnUrl) ?>" data-no-row>Editar</a>
+                                            <a href="<?= $basePath ?>/projects/<?= $projectId ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" data-no-row>Documentos</a>
+                                            <a href="<?= $basePath ?>/projects/<?= $projectId ?>/talent?return=<?= urlencode($returnUrl) ?>" data-no-row>Talento</a>
+                                            <a href="<?= $basePath ?>/projects/<?= $projectId ?>/costs?return=<?= urlencode($returnUrl) ?>" data-no-row>Costos</a>
+                                            <form action="<?= $basePath ?>/projects/<?= $projectId ?>/close" method="GET" data-no-row>
+                                                <button type="submit" data-no-row>Cerrar proyecto</button>
+                                            </form>
+                                        </div>
+                                    </details>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </section>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <?php foreach ($projectsGroupedByClient as $clientGroup): ?>
+            <?php
+                $clientNameGroup = (string) ($clientGroup['client_name'] ?? 'Cliente');
+                $clientProjects = is_array($clientGroup['projects'] ?? null) ? $clientGroup['projects'] : [];
+                $clientLogoPath = trim((string) ($clientGroup['logo_path'] ?? ''));
+                $clientLogoUrl = '';
+                if ($clientLogoPath !== '') {
+                    $clientLogoUrl = str_starts_with($clientLogoPath, 'http://') || str_starts_with($clientLogoPath, 'https://')
+                        ? $clientLogoPath
+                        : $basePath . $clientLogoPath;
+                }
 
-                        $previewHref = $basePath . '/projects/' . $projectId
-                            . '?view=' . ($previewType === 'stopper' ? 'bloqueos' : 'seguimiento')
-                            . '&return=' . urlencode($returnUrl);
-                        $blockersCount = (int) ($stopperData['total_count'] ?? 0);
-                        $clientName = $project['client'] ?? 'Cliente no registrado';
-                        $isBillable = (int) ($project['is_billable'] ?? 0) === 1;
-                        $compactHealth = (int) (($project['health_score']['total_score'] ?? 0));
-                        $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
-                        $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
-                        $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
-                        $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
-                    ?>
-                    <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
-                        <td class="project-cell">
-                            <div class="project-main">
-                                <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
-                                <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
+                $clientInitial = function_exists('mb_substr')
+                    ? mb_substr($clientNameGroup, 0, 1, 'UTF-8')
+                    : substr($clientNameGroup, 0, 1);
+                if ($clientInitial === '' || $clientInitial === false) {
+                    $clientInitial = '?';
+                }
+                $clientInitial = function_exists('mb_strtoupper')
+                    ? mb_strtoupper((string) $clientInitial, 'UTF-8')
+                    : strtoupper((string) $clientInitial);
+            ?>
+            <section class="client-group">
+                <header class="client-group-header">
+                    <div class="client-brand">
+                        <?php if ($clientLogoUrl !== ''): ?>
+                            <img class="client-brand-logo" src="<?= htmlspecialchars($clientLogoUrl) ?>" alt="Logo de <?= htmlspecialchars($clientNameGroup) ?>">
+                        <?php else: ?>
+                            <span class="client-brand-avatar" aria-hidden="true"><?= htmlspecialchars($clientInitial) ?></span>
+                        <?php endif; ?>
+                        <div>
+                            <h3 class="client-group-title"><?= htmlspecialchars($clientNameGroup) ?></h3>
+                            <p class="client-group-subtitle"><?= count($clientProjects) ?> proyecto(s)</p>
+                        </div>
+                    </div>
+                </header>
+                <div class="project-grid">
+                    <?php foreach ($clientProjects as $project): ?>
+                        <?php
+                            $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
+                            $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
+                            $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
+                            $progress = (float) ($project['progress'] ?? 0);
+                            $methodology = $project['methodology'] ?? 'No definido';
+                            $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
+                            $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
+                            $riskCount = count($riskCodes);
+                            $approvedDocs = (int) ($project['approved_documents'] ?? 0);
+                            $hoursValue = number_format((float) ($project['actual_hours'] ?? 0), 0, ',', '.');
+                            $costValue = number_format((float) ($project['actual_cost'] ?? 0), 0, ',', '.');
+                            $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
+                            $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
+                            $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
+                            $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                        ?>
+                        <article class="project-card">
+                            <header>
+                                <div>
+                                    <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
+                                    <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                                </div>
+                                <div class="card-actions">
+                                    <details class="menu-details">
+                                        <summary class="menu-trigger" aria-label="Acciones">⋯</summary>
+                                        <div class="menu-list">
+                                            <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>">Ver detalle</a>
+                                            <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>">Editar</a>
+                                            <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>">Documentos</a>
+                                            <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>">Talento</a>
+                                            <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>">Costos</a>
+                                            <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET">
+                                                <button type="submit">Cerrar proyecto</button>
+                                            </form>
+                                        </div>
+                                    </details>
+                                </div>
+                            </header>
+
+                            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
+                                <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
+                                <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
+                                <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
+                                <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
+                                <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
                             </div>
-                            <?php if ($previewText !== ''): ?>
-                                <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
-                                    <span class="context-icon" aria-hidden="true"><?= $previewIcon ?></span>
-                                    <span class="context-label"><?= $previewLabel ?>:</span>
-                                    <span class="context-text"><?= htmlspecialchars($previewText) ?></span>
-                                </a>
-                            <?php else: ?>
-                                <span class="project-context-preview" title="Sin notas o bloqueos registrados">
-                                    <span class="context-icon" aria-hidden="true">📝</span>
-                                    <span class="context-label">Nota:</span>
-                                    <span class="context-text">Sin notas o bloqueos registrados.</span>
-                                </span>
-                            <?php endif; ?>
-                            <div class="project-context-stats">
-                                <span>⚠ Riesgos: <?= $riskCount ?></span>
-                                <span>⛔ Bloqueos: <?= $blockersCount ?></span>
-                            </div>
-                        </td>
-                        <td><span class="pm-cell-text"><?= htmlspecialchars($pmName) ?></span></td>
-                        <td>
-                            <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
-                        </td>
-                        <td>
-                            <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
-                            <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
-                        </td>
-                        <td>
-                            <div class="progress-compact">
+
+                            <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
+
+                            <div>
                                 <div class="progress-track" aria-hidden="true">
                                     <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                 </div>
-                                <span class="progress-value"><?= $progressLabel ?>%</span>
-                                <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
-                                <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                <span style="font-size:12px; color: var(--text-secondary);">Avance <?= $progress ?>%</span>
+                                <div style="font-size:11px; color: var(--text-secondary); margin-top:4px;">
+                                    Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
+                                    Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
+                                </div>
+                                <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
                             </div>
-                        </td>
-                        <td>
-                            <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? 'Facturable' : 'No facturable' ?></span>
-                        </td>
-                        <td class="actions-cell">
-                            <details class="menu-details table-actions-menu" data-no-row>
-                                <summary class="menu-trigger" aria-label="Acciones" data-no-row>⋯</summary>
-                                <div class="menu-list">
-                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>?return=<?= urlencode($returnUrl) ?>" data-no-row>Ver detalle</a>
-                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>/edit?return=<?= urlencode($returnUrl) ?>" data-no-row>Editar</a>
-                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" data-no-row>Documentos</a>
-                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>/talent?return=<?= urlencode($returnUrl) ?>" data-no-row>Talento</a>
-                                    <a href="<?= $basePath ?>/projects/<?= $projectId ?>/costs?return=<?= urlencode($returnUrl) ?>" data-no-row>Costos</a>
-                                    <form action="<?= $basePath ?>/projects/<?= $projectId ?>/close" method="GET" data-no-row>
-                                        <button type="submit" data-no-row>Cerrar proyecto</button>
-                                    </form>
+
+                            <div class="card-metrics">
+                                <div class="metric">
+                                    <span>Docs aprobados</span>
+                                    <strong><?= $approvedDocs ?></strong>
                                 </div>
-                            </details>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php else: ?>
-        <div class="project-grid">
-            <?php foreach ($projectsList as $project): ?>
-                <?php
-                    $statusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
-                    $healthLabel = $project['health_label'] ?? $project['health'] ?? 'Sin riesgo';
-                    $riskClass = $healthBadgeClass(strtolower((string) ($project['health'] ?? '')));
-                    $progress = (float) ($project['progress'] ?? 0);
-                    $methodology = $project['methodology'] ?? 'No definido';
-                    $riskCodes = is_array($project['risks'] ?? null) ? $project['risks'] : [];
-                    $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
-                    $riskCount = count($riskCodes);
-                    $approvedDocs = (int) ($project['approved_documents'] ?? 0);
-                    $hoursValue = number_format((float) ($project['actual_hours'] ?? 0), 0, ',', '.');
-                    $costValue = number_format((float) ($project['actual_cost'] ?? 0), 0, ',', '.');
-                    $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
-                    $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
-                    $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
-                    $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
-                ?>
-                <article class="project-card">
-                    <header>
-                        <div>
-                            <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
-                            <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
-                        </div>
-                        <div class="card-actions">
-                            <details class="menu-details">
-                                <summary class="menu-trigger" aria-label="Acciones">⋯</summary>
-                                <div class="menu-list">
-                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?return=<?= urlencode($returnUrl) ?>">Ver detalle</a>
-                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit?return=<?= urlencode($returnUrl) ?>">Editar</a>
-                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>">Documentos</a>
-                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>">Talento</a>
-                                    <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>">Costos</a>
-                                    <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET">
-                                        <button type="submit">Cerrar proyecto</button>
-                                    </form>
+                                <div class="metric">
+                                    <span>Horas</span>
+                                    <strong><?= $hoursValue ?>h</strong>
                                 </div>
-                            </details>
-                        </div>
-                    </header>
-
-                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                        <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
-                        <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
-                        <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
-                        <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
-                        <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
-                        <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
-                    </div>
-
-                    <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
-
-                    <div>
-                        <div class="progress-track" aria-hidden="true">
-                            <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
-                        </div>
-                        <span style="font-size:12px; color: var(--text-secondary);">Avance <?= $progress ?>%</span>
-                        <div style="font-size:11px; color: var(--text-secondary); margin-top:4px;">
-                            Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
-                            Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
-                        </div>
-                        <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
-                    </div>
-
-                    <div class="card-metrics">
-                        <div class="metric">
-                            <span>Docs aprobados</span>
-                            <strong><?= $approvedDocs ?></strong>
-                        </div>
-                        <div class="metric">
-                            <span>Horas</span>
-                            <strong><?= $hoursValue ?>h</strong>
-                        </div>
-                        <div class="metric">
-                            <span>Costos</span>
-                            <strong>$<?= $costValue ?></strong>
-                        </div>
-                    </div>
-                </article>
-            <?php endforeach; ?>
-        </div>
+                                <div class="metric">
+                                    <span>Costos</span>
+                                    <strong>$<?= $costValue ?></strong>
+                                </div>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endforeach; ?>
     <?php endif; ?>
 <?php endif; ?>
 
