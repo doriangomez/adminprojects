@@ -549,10 +549,22 @@ class ProjectService
             return $fallback;
         }
 
-        $row = $this->db->fetchOne(
-            'SELECT SUM(hours) AS total FROM timesheets WHERE project_id = :projectId',
-            [':projectId' => $projectId]
-        );
+        if ($this->db->columnExists('timesheets', 'project_id')) {
+            $row = $this->db->fetchOne(
+                'SELECT SUM(hours) AS total FROM timesheets WHERE project_id = :projectId',
+                [':projectId' => $projectId]
+            );
+        } elseif ($this->db->tableExists('tasks')) {
+            $row = $this->db->fetchOne(
+                'SELECT SUM(ts.hours) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :projectId',
+                [':projectId' => $projectId]
+            );
+        } else {
+            $row = null;
+        }
 
         $hours = (float) ($row['total'] ?? 0);
 

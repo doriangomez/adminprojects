@@ -72,6 +72,10 @@ class ProjectBillingRepository
 
     public function invoices(int $projectId): array
     {
+        if (!$this->db->tableExists('project_invoices')) {
+            return [];
+        }
+
         return $this->db->fetchAll(
             'SELECT * FROM project_invoices WHERE project_id = :project_id ORDER BY issued_at DESC, id DESC',
             [':project_id' => $projectId]
@@ -80,16 +84,34 @@ class ProjectBillingRepository
 
     public function approvedHoursNotInvoiced(int $projectId): float
     {
-        $row = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(ts.hours), 0) AS total
-             FROM timesheets ts
-             WHERE ts.project_id = :project_id
-               AND ts.status = "approved"
-               AND NOT EXISTS (
+        if (!$this->db->tableExists('timesheets')) {
+            return 0.0;
+        }
+
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return 0.0;
+        }
+
+        $hasInvoicePivot = $this->db->tableExists('project_invoice_timesheets');
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project_id' : 't.project_id = :project_id';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
+        $invoiceExclusion = $hasInvoicePivot
+            ? 'AND NOT EXISTS (
                     SELECT 1
                     FROM project_invoice_timesheets pit
                     WHERE pit.timesheet_id = ts.id
-               )',
+               )'
+            : '';
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(ts.hours), 0) AS total
+             FROM timesheets ts
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter . '
+               AND ts.status = "approved"
+               ' . $invoiceExclusion,
             [':project_id' => $projectId]
         );
 
@@ -98,10 +120,23 @@ class ProjectBillingRepository
 
     public function approvedHoursTotal(int $projectId): float
     {
+        if (!$this->db->tableExists('timesheets')) {
+            return 0.0;
+        }
+
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return 0.0;
+        }
+
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project_id' : 't.project_id = :project_id';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
         $row = $this->db->fetchOne(
             'SELECT COALESCE(SUM(ts.hours), 0) AS total
              FROM timesheets ts
-             WHERE ts.project_id = :project_id
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter . '
                AND ts.status = "approved"',
             [':project_id' => $projectId]
         );
@@ -111,6 +146,14 @@ class ProjectBillingRepository
 
     public function invoiceTotals(int $projectId): array
     {
+        if (!$this->db->tableExists('project_invoices')) {
+            return [
+                'total_invoiced' => 0.0,
+                'total_paid' => 0.0,
+                'total_due' => 0.0,
+            ];
+        }
+
         $row = $this->db->fetchOne(
             'SELECT
                 COALESCE(SUM(amount), 0) AS total_invoiced,
@@ -175,7 +218,7 @@ class ProjectBillingRepository
 
     public function missingMonthlyPeriods(int $projectId, ?string $startDate, ?string $endDate): array
     {
-        if (!$startDate) {
+        if (!$startDate || !$this->db->tableExists('project_invoices')) {
             return [];
         }
 

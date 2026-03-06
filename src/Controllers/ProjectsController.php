@@ -100,7 +100,34 @@ class ProjectsController extends Controller
     public function show(int $id): void
     {
         $this->requirePermission('projects.view');
-        $this->render('projects/show', $this->projectDetailData($id));
+        try {
+            $this->render('projects/show', $this->projectDetailData($id));
+            return;
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.show] Error al cargar proyecto %d para user %d: %s',
+                $id,
+                (int) ($this->auth->user()['id'] ?? 0),
+                $e->getMessage()
+            ));
+
+            $repo = new ProjectsRepository($this->db);
+            $project = $repo->findForUser($id, $this->auth->user() ?? []);
+            if (!$project) {
+                http_response_code(404);
+                exit('Proyecto no encontrado');
+            }
+
+            $this->render('projects/show', [
+                'title' => 'Detalle de proyecto',
+                'project' => $project,
+                'currentUser' => $this->auth->user() ?? [],
+                'canManage' => $this->auth->can('projects.manage'),
+                'detailWarnings' => [
+                    'No se pudo cargar toda la información del proyecto en este momento. Revisa los logs del servidor para más detalle.',
+                ],
+            ]);
+        }
     }
 
     public function edit(int $id): void

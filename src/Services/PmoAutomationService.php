@@ -133,17 +133,26 @@ class PmoAutomationService
             return [];
         }
 
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return [];
+        }
+
         $safeWeeks = max(1, (int) $weeks);
         $safeLimit = max(1, (int) $weeks);
         $startDate = (new DateTimeImmutable('today'))->modify('-' . ($safeWeeks * 7) . ' days')->format('Y-m-d');
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project' : 't.project_id = :project';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
         $rows = $this->db->fetchAll(
-            'SELECT DATE_SUB(date, INTERVAL WEEKDAY(date) DAY) AS week_start,
-                    COALESCE(SUM(hours), 0) AS approved_hours
-             FROM timesheets
-             WHERE project_id = :project
-               AND status = "approved"
-               AND date >= :start_date
-             GROUP BY DATE_SUB(date, INTERVAL WEEKDAY(date) DAY)
+            'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                    COALESCE(SUM(ts.hours), 0) AS approved_hours
+             FROM timesheets ts
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter . '
+               AND ts.status = "approved"
+               AND ts.date >= :start_date
+             GROUP BY DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)
              ORDER BY week_start DESC
              LIMIT ' . $safeLimit,
             [
@@ -241,12 +250,21 @@ class PmoAutomationService
             return 0.0;
         }
 
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return 0.0;
+        }
+
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project' : 't.project_id = :project';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
         $row = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(hours), 0) AS total
-             FROM timesheets
-             WHERE project_id = :project
-               AND status = "approved"
-               AND date <= :snapshot_date',
+            'SELECT COALESCE(SUM(ts.hours), 0) AS total
+             FROM timesheets ts
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter . '
+               AND ts.status = "approved"
+               AND ts.date <= :snapshot_date',
             [
                 ':project' => $projectId,
                 ':snapshot_date' => $snapshotDate,
@@ -317,12 +335,21 @@ class PmoAutomationService
             return 0;
         }
 
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return 0;
+        }
+
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project' : 't.project_id = :project';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
         $row = $this->db->fetchOne(
             'SELECT COUNT(*) AS total
-             FROM timesheets
-             WHERE project_id = :project
-               AND had_blocker = 1
-               AND date BETWEEN DATE_SUB(:snapshot_date, INTERVAL 14 DAY) AND :snapshot_date',
+             FROM timesheets ts
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter . '
+               AND ts.had_blocker = 1
+               AND ts.date BETWEEN DATE_SUB(:snapshot_date, INTERVAL 14 DAY) AND :snapshot_date',
             [
                 ':project' => $projectId,
                 ':snapshot_date' => $snapshotDate,
@@ -338,10 +365,19 @@ class PmoAutomationService
             return 0;
         }
 
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = !$usesProjectColumn && $this->db->tableExists('tasks');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return 999;
+        }
+
+        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project' : 't.project_id = :project';
+        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
         $last = $this->db->fetchOne(
-            'SELECT MAX(date) AS last_date
-             FROM timesheets
-             WHERE project_id = :project',
+            'SELECT MAX(ts.date) AS last_date
+             FROM timesheets ts
+             ' . $taskJoin . '
+             WHERE ' . $projectFilter,
             [':project' => $projectId]
         );
         $lastDate = trim((string) ($last['last_date'] ?? ''));
