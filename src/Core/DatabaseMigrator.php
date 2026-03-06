@@ -981,8 +981,95 @@ class DatabaseMigrator
         try {
             $this->ensureProjectPmoSnapshotsTable();
             $this->ensureProjectPmoAlertsTable();
+            $this->ensureProjectPmoSchemaColumns();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo PMO automático: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Añade columnas, índices y FKs faltantes en tablas PMO existentes (esquema legado parcial).
+     */
+    private function ensureProjectPmoSchemaColumns(): void
+    {
+        if ($this->db->tableExists('project_pmo_snapshots')) {
+            $snapshotColumns = [
+                'snapshot_date' => 'DATE NULL',
+                'progress_manual' => 'DECIMAL(5,2) NULL',
+                'progress_hours' => 'DECIMAL(5,2) NULL',
+                'progress_tasks' => 'DECIMAL(5,2) NULL',
+                'risk_score' => 'INT NOT NULL DEFAULT 0',
+                'planned_hours' => 'DECIMAL(12,2) NULL',
+                'approved_hours' => 'DECIMAL(12,2) NOT NULL DEFAULT 0',
+                'total_tasks' => 'INT NOT NULL DEFAULT 0',
+                'done_tasks' => 'INT NOT NULL DEFAULT 0',
+                'overdue_tasks' => 'INT NOT NULL DEFAULT 0',
+                'open_blockers' => 'INT NOT NULL DEFAULT 0',
+                'critical_blockers' => 'INT NOT NULL DEFAULT 0',
+                'aged_blockers' => 'INT NOT NULL DEFAULT 0',
+                'blocker_mentions' => 'INT NOT NULL DEFAULT 0',
+                'stale_business_days' => 'INT NOT NULL DEFAULT 0',
+                'payload_json' => 'JSON NULL',
+                'generated_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            ];
+            foreach ($snapshotColumns as $col => $def) {
+                if (!$this->db->columnExists('project_pmo_snapshots', $col)) {
+                    $this->db->execute('ALTER TABLE project_pmo_snapshots ADD COLUMN ' . $col . ' ' . $def);
+                }
+            }
+            if (!$this->db->indexExists('project_pmo_snapshots', 'idx_project_pmo_snapshots_project_date')) {
+                $this->db->execute('ALTER TABLE project_pmo_snapshots ADD INDEX idx_project_pmo_snapshots_project_date (project_id, generated_at)');
+            }
+            if (!$this->db->indexExists('project_pmo_snapshots', 'uq_project_pmo_snapshot_date')) {
+                try {
+                    $this->db->execute('ALTER TABLE project_pmo_snapshots ADD UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date)');
+                } catch (\PDOException $e) {
+                    if (strpos($e->getMessage(), 'Duplicate') === false) {
+                        throw $e;
+                    }
+                }
+            }
+            if ($this->db->tableExists('projects') && !$this->db->foreignKeyExists('project_pmo_snapshots', 'project_id', 'projects')) {
+                try {
+                    $this->db->execute('ALTER TABLE project_pmo_snapshots ADD CONSTRAINT fk_project_pmo_snapshots_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE');
+                } catch (\PDOException $e) {
+                    error_log('FK project_pmo_snapshots->projects: ' . $e->getMessage());
+                }
+            }
+        }
+
+        if ($this->db->tableExists('project_pmo_alerts')) {
+            $alertColumns = [
+                'snapshot_id' => 'BIGINT NULL',
+                'alert_type' => 'VARCHAR(80) NOT NULL',
+                'severity' => "ENUM('green','yellow','red') NOT NULL DEFAULT 'yellow'",
+                'title' => 'VARCHAR(180) NOT NULL',
+                'message' => 'TEXT NOT NULL',
+                'status' => "ENUM('open','resolved') NOT NULL DEFAULT 'open'",
+                'resolved_at' => 'TIMESTAMP NULL',
+            ];
+            foreach ($alertColumns as $col => $def) {
+                if (!$this->db->columnExists('project_pmo_alerts', $col)) {
+                    $this->db->execute('ALTER TABLE project_pmo_alerts ADD COLUMN ' . $col . ' ' . $def);
+                }
+            }
+            if (!$this->db->indexExists('project_pmo_alerts', 'idx_project_pmo_alerts_project_status')) {
+                $this->db->execute('ALTER TABLE project_pmo_alerts ADD INDEX idx_project_pmo_alerts_project_status (project_id, status, created_at)');
+            }
+            if ($this->db->tableExists('projects') && !$this->db->foreignKeyExists('project_pmo_alerts', 'project_id', 'projects')) {
+                try {
+                    $this->db->execute('ALTER TABLE project_pmo_alerts ADD CONSTRAINT fk_project_pmo_alerts_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE');
+                } catch (\PDOException $e) {
+                    error_log('FK project_pmo_alerts->projects: ' . $e->getMessage());
+                }
+            }
+            if ($this->db->tableExists('project_pmo_snapshots') && !$this->db->foreignKeyExists('project_pmo_alerts', 'snapshot_id', 'project_pmo_snapshots')) {
+                try {
+                    $this->db->execute('ALTER TABLE project_pmo_alerts ADD CONSTRAINT fk_project_pmo_alerts_snapshot FOREIGN KEY (snapshot_id) REFERENCES project_pmo_snapshots(id) ON DELETE SET NULL');
+                } catch (\PDOException $e) {
+                    error_log('FK project_pmo_alerts->project_pmo_snapshots: ' . $e->getMessage());
+                }
+            }
         }
     }
 

@@ -786,14 +786,19 @@ class ProjectNodesRepository
         $normalized = in_array($status, $validStatuses, true) ? $status : 'pendiente';
         $completedAt = $normalized === 'completado' ? date('Y-m-d H:i:s') : null;
 
+        $hasCompletedAt = $this->db->columnExists('project_nodes', 'completed_at');
+        $setClause = $hasCompletedAt ? 'status = :status, completed_at = :completed_at' : 'status = :status';
+        $params = [
+            ':status' => $normalized,
+            ':id' => $nodeId,
+            ':project_id' => $projectId,
+        ];
+        if ($hasCompletedAt) {
+            $params[':completed_at'] = $completedAt;
+        }
         $this->db->execute(
-            'UPDATE project_nodes SET status = :status, completed_at = :completed_at WHERE id = :id AND project_id = :project_id',
-            [
-                ':status' => $normalized,
-                ':completed_at' => $completedAt,
-                ':id' => $nodeId,
-                ':project_id' => $projectId,
-            ]
+            'UPDATE project_nodes SET ' . $setClause . ' WHERE id = :id AND project_id = :project_id',
+            $params
         );
     }
 

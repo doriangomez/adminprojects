@@ -1760,6 +1760,9 @@ class TimesheetsRepository
         if (!$this->db->tableExists('timesheets')) {
             return [];
         }
+        if (!$this->db->columnExists('timesheets', 'activity_type') || !$this->db->columnExists('timesheets', 'phase_name')) {
+            return [];
+        }
 
         $sqlLimit = max(1, min(30, $limit * 4));
 
@@ -1836,6 +1839,9 @@ class TimesheetsRepository
 
     public function activityTypeBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
     {
+        if (!$this->db->tableExists('timesheets') || !$this->db->columnExists('timesheets', 'activity_type')) {
+            return [];
+        }
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
             ':end' => $periodEnd->format('Y-m-d'),
@@ -1870,6 +1876,9 @@ class TimesheetsRepository
 
     public function phaseBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
     {
+        if (!$this->db->tableExists('timesheets') || !$this->db->columnExists('timesheets', 'phase_name')) {
+            return [];
+        }
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
             ':end' => $periodEnd->format('Y-m-d'),
