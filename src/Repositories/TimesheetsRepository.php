@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use ConfigService;
 use Database;
 use InvalidArgumentException;
 use TalentAvailabilityService;
@@ -1822,7 +1823,7 @@ class TimesheetsRepository
 
     public function activityTypesCatalog(): array
     {
-        $config = (new \ConfigService($this->db))->getConfig();
+        $config = (new ConfigService($this->db))->getConfig();
         $configured = $config['operational_rules']['timesheets']['activity_types'] ?? [];
         $activityTypes = [];
         foreach ($configured as $type) {
@@ -1924,17 +1925,25 @@ class TimesheetsRepository
         }
         $projectStatusCondition = $this->activeProjectCondition('p');
         $assignmentStatusCondition = "(a.assignment_status = 'active' OR (a.assignment_status IS NULL AND a.active = 1))";
+        $supportsClients = $this->db->tableExists('clients') && $this->db->columnExists('projects', 'client_id');
+        $clientSelect = $supportsClients
+            ? 'p.client_id AS client_id, COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client,'
+            : '0 AS client_id, "Sin cliente" AS client,';
+        $clientJoin = $supportsClients ? ' LEFT JOIN clients c ON c.id = p.client_id' : '';
 
         return $this->db->fetchAll(
-            'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval, p.name AS project
+            'SELECT a.id AS assignment_id, a.project_id, a.requires_timesheet_approval,
+                    ' . $clientSelect . '
+                    p.name AS project
              FROM project_talent_assignments a
              JOIN projects p ON p.id = a.project_id
+             ' . $clientJoin . '
              JOIN talents t ON t.user_id = a.user_id
              WHERE a.user_id = :user
                AND COALESCE(t.requiere_reporte_horas, 0) = 1
                AND ' . $assignmentStatusCondition .
              ($projectStatusCondition !== '' ? ' AND ' . $projectStatusCondition : '') . '
-             ORDER BY p.name ASC',
+             ORDER BY client ASC, p.name ASC',
             [':user' => $userId]
         );
     }
