@@ -133,24 +133,49 @@ class PmoAutomationService
             return [];
         }
 
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasTasks = $this->db->tableExists('tasks');
+
         $safeWeeks = max(1, (int) $weeks);
         $safeLimit = max(1, (int) $weeks);
         $startDate = (new DateTimeImmutable('today'))->modify('-' . ($safeWeeks * 7) . ' days')->format('Y-m-d');
-        $rows = $this->db->fetchAll(
-            'SELECT DATE_SUB(date, INTERVAL WEEKDAY(date) DAY) AS week_start,
-                    COALESCE(SUM(hours), 0) AS approved_hours
-             FROM timesheets
-             WHERE project_id = :project
-               AND status = "approved"
-               AND date >= :start_date
-             GROUP BY DATE_SUB(date, INTERVAL WEEKDAY(date) DAY)
-             ORDER BY week_start DESC
-             LIMIT ' . $safeLimit,
-            [
-                ':project' => $projectId,
-                ':start_date' => $startDate,
-            ]
-        );
+
+        if ($hasProjectId) {
+            $rows = $this->db->fetchAll(
+                'SELECT DATE_SUB(date, INTERVAL WEEKDAY(date) DAY) AS week_start,
+                        COALESCE(SUM(hours), 0) AS approved_hours
+                 FROM timesheets
+                 WHERE project_id = :project
+                   AND status = "approved"
+                   AND date >= :start_date
+                 GROUP BY DATE_SUB(date, INTERVAL WEEKDAY(date) DAY)
+                 ORDER BY week_start DESC
+                 LIMIT ' . $safeLimit,
+                [
+                    ':project' => $projectId,
+                    ':start_date' => $startDate,
+                ]
+            );
+        } elseif ($hasTasks) {
+            $rows = $this->db->fetchAll(
+                'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                        COALESCE(SUM(ts.hours), 0) AS approved_hours
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :project
+                   AND ts.status = "approved"
+                   AND ts.date >= :start_date
+                 GROUP BY DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)
+                 ORDER BY week_start DESC
+                 LIMIT ' . $safeLimit,
+                [
+                    ':project' => $projectId,
+                    ':start_date' => $startDate,
+                ]
+            );
+        } else {
+            $rows = [];
+        }
 
         $rows = array_reverse($rows);
         foreach ($rows as &$row) {
@@ -241,17 +266,37 @@ class PmoAutomationService
             return 0.0;
         }
 
-        $row = $this->db->fetchOne(
-            'SELECT COALESCE(SUM(hours), 0) AS total
-             FROM timesheets
-             WHERE project_id = :project
-               AND status = "approved"
-               AND date <= :snapshot_date',
-            [
-                ':project' => $projectId,
-                ':snapshot_date' => $snapshotDate,
-            ]
-        );
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasTasks = $this->db->tableExists('tasks');
+
+        if ($hasProjectId) {
+            $row = $this->db->fetchOne(
+                'SELECT COALESCE(SUM(hours), 0) AS total
+                 FROM timesheets
+                 WHERE project_id = :project
+                   AND status = "approved"
+                   AND date <= :snapshot_date',
+                [
+                    ':project' => $projectId,
+                    ':snapshot_date' => $snapshotDate,
+                ]
+            );
+        } elseif ($hasTasks) {
+            $row = $this->db->fetchOne(
+                'SELECT COALESCE(SUM(ts.hours), 0) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :project
+                   AND ts.status = "approved"
+                   AND ts.date <= :snapshot_date',
+                [
+                    ':project' => $projectId,
+                    ':snapshot_date' => $snapshotDate,
+                ]
+            );
+        } else {
+            return 0.0;
+        }
 
         return (float) ($row['total'] ?? 0);
     }
@@ -317,17 +362,37 @@ class PmoAutomationService
             return 0;
         }
 
-        $row = $this->db->fetchOne(
-            'SELECT COUNT(*) AS total
-             FROM timesheets
-             WHERE project_id = :project
-               AND had_blocker = 1
-               AND date BETWEEN DATE_SUB(:snapshot_date, INTERVAL 14 DAY) AND :snapshot_date',
-            [
-                ':project' => $projectId,
-                ':snapshot_date' => $snapshotDate,
-            ]
-        );
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasTasks = $this->db->tableExists('tasks');
+
+        if ($hasProjectId) {
+            $row = $this->db->fetchOne(
+                'SELECT COUNT(*) AS total
+                 FROM timesheets
+                 WHERE project_id = :project
+                   AND had_blocker = 1
+                   AND date BETWEEN DATE_SUB(:snapshot_date, INTERVAL 14 DAY) AND :snapshot_date',
+                [
+                    ':project' => $projectId,
+                    ':snapshot_date' => $snapshotDate,
+                ]
+            );
+        } elseif ($hasTasks) {
+            $row = $this->db->fetchOne(
+                'SELECT COUNT(*) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :project
+                   AND ts.had_blocker = 1
+                   AND ts.date BETWEEN DATE_SUB(:snapshot_date, INTERVAL 14 DAY) AND :snapshot_date',
+                [
+                    ':project' => $projectId,
+                    ':snapshot_date' => $snapshotDate,
+                ]
+            );
+        } else {
+            return 0;
+        }
 
         return (int) ($row['total'] ?? 0);
     }
@@ -338,12 +403,28 @@ class PmoAutomationService
             return 0;
         }
 
-        $last = $this->db->fetchOne(
-            'SELECT MAX(date) AS last_date
-             FROM timesheets
-             WHERE project_id = :project',
-            [':project' => $projectId]
-        );
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasTasks = $this->db->tableExists('tasks');
+
+        if ($hasProjectId) {
+            $last = $this->db->fetchOne(
+                'SELECT MAX(date) AS last_date
+                 FROM timesheets
+                 WHERE project_id = :project',
+                [':project' => $projectId]
+            );
+        } elseif ($hasTasks) {
+            $last = $this->db->fetchOne(
+                'SELECT MAX(ts.date) AS last_date
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :project',
+                [':project' => $projectId]
+            );
+        } else {
+            $last = null;
+        }
+
         $lastDate = trim((string) ($last['last_date'] ?? ''));
         if ($lastDate === '') {
             $lastDate = trim((string) ($project['start_date'] ?? ''));

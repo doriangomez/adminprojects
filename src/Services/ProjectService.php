@@ -211,14 +211,31 @@ class ProjectService
         }
 
         if ($dimension === 'horas' && $this->db->tableExists('timesheets')) {
-            $row = $this->db->fetchOne(
-                "SELECT
-                    SUM(CASE WHEN status IN ('pending','submitted','pending_approval') THEN hours ELSE 0 END) AS pending_hours,
-                    SUM(hours) AS total_hours
-                FROM timesheets
-                WHERE project_id = :projectId",
-                [':projectId' => $projectId]
-            );
+            $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+            $hasTasks = $this->db->tableExists('tasks');
+
+            if ($hasProjectId) {
+                $row = $this->db->fetchOne(
+                    "SELECT
+                        SUM(CASE WHEN status IN ('pending','submitted','pending_approval') THEN hours ELSE 0 END) AS pending_hours,
+                        SUM(hours) AS total_hours
+                    FROM timesheets
+                    WHERE project_id = :projectId",
+                    [':projectId' => $projectId]
+                );
+            } elseif ($hasTasks) {
+                $row = $this->db->fetchOne(
+                    "SELECT
+                        SUM(CASE WHEN ts.status IN ('pending','submitted','pending_approval') THEN ts.hours ELSE 0 END) AS pending_hours,
+                        SUM(ts.hours) AS total_hours
+                    FROM timesheets ts
+                    JOIN tasks t ON t.id = ts.task_id
+                    WHERE t.project_id = :projectId",
+                    [':projectId' => $projectId]
+                );
+            } else {
+                $row = null;
+            }
             $pending = (float) ($row['pending_hours'] ?? 0);
             $total = (float) ($row['total_hours'] ?? 0);
             $ratio = $total > 0 ? $pending / $total : 0.0;
@@ -549,10 +566,25 @@ class ProjectService
             return $fallback;
         }
 
-        $row = $this->db->fetchOne(
-            'SELECT SUM(hours) AS total FROM timesheets WHERE project_id = :projectId',
-            [':projectId' => $projectId]
-        );
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasTasks = $this->db->tableExists('tasks');
+
+        if ($hasProjectId) {
+            $row = $this->db->fetchOne(
+                'SELECT SUM(hours) AS total FROM timesheets WHERE project_id = :projectId',
+                [':projectId' => $projectId]
+            );
+        } elseif ($hasTasks) {
+            $row = $this->db->fetchOne(
+                'SELECT SUM(ts.hours) AS total
+                 FROM timesheets ts
+                 JOIN tasks t ON t.id = ts.task_id
+                 WHERE t.project_id = :projectId',
+                [':projectId' => $projectId]
+            );
+        } else {
+            $row = null;
+        }
 
         $hours = (float) ($row['total'] ?? 0);
 
