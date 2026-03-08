@@ -4,6 +4,7 @@ $project = $project ?? [];
 $activeTab = $activeTab ?? 'documents';
 $projectId = (int) ($project['id'] ?? 0);
 $projectType = (string) ($project['project_type'] ?? '');
+$canViewTimesheetTab = !empty($canViewTimesheetTab);
 $viewParam = $_GET['view'] ?? null;
 $summaryHref = $basePath . '/projects/' . $projectId . '?view=resumen';
 $documentsHref = $basePath . '/projects/' . $projectId . ($viewParam === 'documentos' ? '?view=documentos' : '?view=documentos');
@@ -61,6 +62,13 @@ if ($projectType === 'outsourcing') {
         'icon' => 'outsourcing',
     ];
 }
+if ($canViewTimesheetTab) {
+    $tabs['horas'] = [
+        'label' => 'Horas',
+        'href' => $basePath . '/projects/' . $projectId . '?view=horas',
+        'icon' => 'horas',
+    ];
+}
 
 $projectTabIcon = static function (string $icon): string {
     return match ($icon) {
@@ -74,6 +82,7 @@ $projectTabIcon = static function (string $icon): string {
         'costs' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/><path d="M9.5 10c0-1 1-2 2.5-2s2.5.9 2.5 2-1 2-2.5 2-2.5.9-2.5 2 1 2 2.5 2 2.5-1 2.5-2"/></svg>',
         'billing' => '<svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>',
         'outsourcing' => '<svg viewBox="0 0 24 24"><path d="M4 8h16"/><path d="M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><rect x="3" y="8" width="18" height="12" rx="2"/></svg>',
+        'horas' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2.5"/></svg>',
         default => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/></svg>',
     };
 };

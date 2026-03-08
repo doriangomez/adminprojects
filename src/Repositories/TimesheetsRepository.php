@@ -2045,6 +2045,44 @@ class TimesheetsRepository
         ];
     }
 
+    public function timesheetEntriesForProject(int $projectId, int $limit = 300): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
+
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return [];
+        }
+
+        $projectFilter = $usesProjectColumn
+            ? 'COALESCE(ts.project_id, tk.project_id) = :project_id'
+            : 'tk.project_id = :project_id';
+
+        return $this->db->fetchAll(
+            'SELECT ts.id,
+                    ts.date,
+                    COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                    COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea") AS task_name,
+                    ts.hours,
+                    ts.status,
+                    COALESCE(ts.activity_description, "") AS activity_description,
+                    COALESCE(ts.comment, "") AS comment
+             FROM timesheets ts
+             LEFT JOIN users u ON u.id = ts.user_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             WHERE ' . $projectFilter . '
+             ORDER BY ts.date DESC, ts.id DESC
+             LIMIT ' . (int) $limit,
+            [':project_id' => $projectId]
+        );
+    }
+
     public function projectsForTimesheetEntry(int $userId): array
     {
         if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('projects')) {

@@ -38,7 +38,13 @@ $pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers :
 $detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
-$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos'], true) ? $view : 'documentos';
+$canViewTimesheetTab = !empty($canViewTimesheetTab);
+$timesheetEntries = is_array($timesheetEntries ?? null) ? $timesheetEntries : [];
+$allowedViews = ['resumen', 'documentos', 'seguimiento', 'bloqueos'];
+if ($canViewTimesheetTab) {
+    $allowedViews[] = 'horas';
+}
+$view = in_array($view, $allowedViews, true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -445,6 +451,7 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
         'resumen' => 'resumen',
         'seguimiento' => 'seguimiento',
         'bloqueos' => 'bloqueos',
+        'horas' => 'horas',
         default => 'documents',
     };
     require __DIR__ . '/_tabs.php';
@@ -930,6 +937,117 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                     </div>
                 <?php endif; ?>
             </article>
+        </section>
+    <?php elseif ($view === 'horas'): ?>
+        <?php
+        $tsStatusLabel = static function (string $status): string {
+            return match (strtolower(trim($status))) {
+                'approved' => 'Aprobado',
+                'rejected' => 'Rechazado',
+                'submitted', 'pending', 'pending_approval' => 'Enviado',
+                'draft' => 'Borrador',
+                default => $status !== '' ? ucfirst($status) : 'Sin estado',
+            };
+        };
+        $tsStatusClass = static function (string $status): string {
+            return match (strtolower(trim($status))) {
+                'approved' => 'ts-badge approved',
+                'rejected' => 'ts-badge rejected',
+                'submitted', 'pending', 'pending_approval' => 'ts-badge submitted',
+                default => 'ts-badge draft',
+            };
+        };
+        $projectPlannedHours = (float) ($project['planned_hours'] ?? 0);
+        $projectLoggedHours = (float) ($progressIndicators['logged_hours'] ?? 0);
+        $hoursPercent = $projectPlannedHours > 0
+            ? min(100, round(($projectLoggedHours / $projectPlannedHours) * 100, 1))
+            : 0;
+        ?>
+        <style>
+            .hours-tab { display:flex; flex-direction:column; gap:16px; }
+            .hours-kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+            .hours-kpi { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 16px; }
+            .hours-kpi p { margin:0; }
+            .hours-kpi .lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-secondary); }
+            .hours-kpi .val { font-size:22px; font-weight:800; color:var(--text-primary); margin-top:4px; }
+            .hours-progress-track { height:8px; background:color-mix(in srgb,var(--text-secondary) 20%,var(--background)); border-radius:999px; overflow:hidden; margin-top:8px; }
+            .hours-progress-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,color-mix(in srgb,var(--primary) 60%,var(--background)),color-mix(in srgb,var(--success) 70%,var(--background))); }
+            .ts-badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; border:1px solid transparent; }
+            .ts-badge.approved { background:color-mix(in srgb,var(--success) 15%,var(--background)); color:var(--success); border-color:color-mix(in srgb,var(--success) 30%,var(--background)); }
+            .ts-badge.submitted { background:color-mix(in srgb,var(--warning) 18%,var(--background)); color:color-mix(in srgb,var(--warning) 80%,var(--text-primary)); border-color:color-mix(in srgb,var(--warning) 30%,var(--background)); }
+            .ts-badge.rejected { background:color-mix(in srgb,var(--danger) 15%,var(--background)); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 30%,var(--background)); }
+            .ts-badge.draft { background:color-mix(in srgb,var(--text-secondary) 14%,var(--background)); color:var(--text-secondary); border-color:color-mix(in srgb,var(--text-secondary) 25%,var(--background)); }
+            .hours-table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+            .hours-table { width:100%; border-collapse:collapse; font-size:13px; }
+            .hours-table th { padding:10px 14px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); background:color-mix(in srgb,var(--text-secondary) 12%,var(--background)); border-bottom:1px solid var(--border); white-space:nowrap; }
+            .hours-table td { padding:11px 14px; border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent); vertical-align:middle; }
+            .hours-table tbody tr:last-child td { border-bottom:none; }
+            .hours-table tbody tr:hover { background:color-mix(in srgb,var(--text-secondary) 6%,var(--background)); }
+            .hours-empty { padding:28px; text-align:center; color:var(--text-secondary); font-weight:600; }
+        </style>
+        <section class="hours-tab">
+            <div class="hours-kpi-row">
+                <div class="hours-kpi">
+                    <p class="lbl">Horas registradas</p>
+                    <p class="val"><?= number_format($projectLoggedHours, 1) ?>h</p>
+                </div>
+                <div class="hours-kpi">
+                    <p class="lbl">Horas estimadas</p>
+                    <p class="val"><?= $projectPlannedHours > 0 ? number_format($projectPlannedHours, 1) . 'h' : '—' ?></p>
+                </div>
+                <div class="hours-kpi" style="grid-column:span 2;">
+                    <p class="lbl">Avance en horas</p>
+                    <p class="val"><?= $hoursPercent ?>%</p>
+                    <div class="hours-progress-track">
+                        <div class="hours-progress-fill" style="width:<?= $hoursPercent ?>%;"></div>
+                    </div>
+                    <?php if ($projectPlannedHours > 0): ?>
+                        <p style="margin:4px 0 0; font-size:12px; color:var(--text-secondary);">
+                            <?= number_format($projectLoggedHours, 1) ?>h / <?= number_format($projectPlannedHours, 1) ?>h
+                        </p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="hours-table-wrap">
+                <?php if (empty($timesheetEntries)): ?>
+                    <p class="hours-empty">No hay registros de horas para este proyecto.</p>
+                <?php else: ?>
+                    <div style="overflow-x:auto;">
+                        <table class="hours-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Usuario</th>
+                                    <th>Tarea</th>
+                                    <th>Descripción</th>
+                                    <th>Horas</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($timesheetEntries as $entry): ?>
+                                    <tr>
+                                        <td style="white-space:nowrap; font-weight:600;">
+                                            <?php
+                                            $d = DateTimeImmutable::createFromFormat('Y-m-d', (string) ($entry['date'] ?? ''));
+                                            echo $d ? htmlspecialchars($d->format('d M Y')) : htmlspecialchars((string) ($entry['date'] ?? '—'));
+                                            ?>
+                                        </td>
+                                        <td style="font-weight:600;"><?= htmlspecialchars((string) ($entry['user_name'] ?? '—')) ?></td>
+                                        <td><?= htmlspecialchars((string) ($entry['task_name'] ?? '—')) ?></td>
+                                        <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?= htmlspecialchars((string) ($entry['activity_description'] ?? '')) ?>">
+                                            <?= htmlspecialchars((string) ($entry['activity_description'] ?? '')) ?: '<span style="color:var(--text-secondary);">—</span>' ?>
+                                        </td>
+                                        <td><strong><?= number_format((float) ($entry['hours'] ?? 0), 2) ?>h</strong></td>
+                                        <td><span class="<?= $tsStatusClass((string) ($entry['status'] ?? '')) ?>"><?= htmlspecialchars($tsStatusLabel((string) ($entry['status'] ?? ''))) ?></span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
         </section>
     <?php else: ?>
         <div class="project-layout">

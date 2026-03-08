@@ -12,6 +12,7 @@ use App\Repositories\ProjectStoppersRepository;
 use App\Repositories\ProjectsRepository;
 use App\Repositories\TalentsRepository;
 use App\Repositories\TasksRepository;
+use App\Repositories\TimesheetsRepository;
 use App\Repositories\UsersRepository;
 
 class ProjectsController extends Controller
@@ -1903,6 +1904,17 @@ class ProjectsController extends Controller
             : [];
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
+
+        $canViewTimesheetTab = $this->auth->isTimesheetsEnabled()
+            && ($this->auth->hasRole('Administrador')
+                || $this->auth->hasRole('PMO')
+                || $this->auth->canManageAdvancedTimesheets());
+        $timesheetEntries = [];
+        if ($canViewTimesheetTab) {
+            $tsRepo = new TimesheetsRepository($this->db);
+            $timesheetEntries = $tsRepo->timesheetEntriesForProject($id);
+        }
+
         $pmoSnapshot = [];
         $pmoAlerts = [];
         $pmoHoursTrend = [];
@@ -1971,6 +1983,8 @@ class ProjectsController extends Controller
             'pmoHoursTrend' => $pmoHoursTrend,
             'pmoActiveBlockers' => $pmoActiveBlockers,
             'detailWarnings' => $detailWarnings,
+            'timesheetEntries' => $timesheetEntries,
+            'canViewTimesheetTab' => $canViewTimesheetTab,
         ], $deleteContext);
     }
 
