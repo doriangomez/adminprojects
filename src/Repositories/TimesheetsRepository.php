@@ -41,7 +41,10 @@ class TimesheetsRepository
         $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
 
         if (!$this->isPrivileged($user)) {
-            if ($roleName === 'talento' && $userId > 0) {
+            if ($roleName === 'talento' && $talentId !== null) {
+                $conditions[] = 'ts.talent_id = :talentId';
+                $params[':talentId'] = $talentId;
+            } elseif ($roleName === 'talento' && $userId > 0) {
                 $conditions[] = 'ts.user_id = :scopeUserId';
                 $params[':scopeUserId'] = $userId;
             } elseif ($talentId !== null) {
@@ -82,7 +85,10 @@ class TimesheetsRepository
         $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
 
         if (!$this->isPrivileged($user)) {
-            if ($roleName === 'talento' && $userId > 0) {
+            if ($roleName === 'talento' && $talentId !== null) {
+                $conditions[] = 'ts.talent_id = :talentId';
+                $params[':talentId'] = $talentId;
+            } elseif ($roleName === 'talento' && $userId > 0) {
                 $conditions[] = 'ts.user_id = :scopeUserId';
                 $params[':scopeUserId'] = $userId;
             } elseif ($talentId !== null) {
@@ -3476,7 +3482,10 @@ class TimesheetsRepository
         $talentId = $this->talentIdForUser($userId);
 
         if (!$this->isPrivileged($user)) {
-            if ($roleName === 'talento' && $userId > 0) {
+            if ($roleName === 'talento' && $talentId !== null) {
+                $where[] = 'ts.talent_id = :scopeTalentId';
+                $params[':scopeTalentId'] = $talentId;
+            } elseif ($roleName === 'talento' && $userId > 0) {
                 $where[] = 'ts.user_id = :scopeUserId';
                 $params[':scopeUserId'] = $userId;
             } elseif ($talentId !== null) {
