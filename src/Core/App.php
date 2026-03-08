@@ -42,6 +42,7 @@ class App
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
         $migrator->ensureDecisionCenterPermissions();
+        $migrator->ensureTimesheetAdminPermission();
         $this->auth = new Auth($this->db);
     }
 
@@ -542,6 +543,11 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 return;
             }
             $controller->index();
+            return;
+        }
+
+        if ($path === '/admin/timesheets' && $method === 'GET') {
+            (new TimesheetsController($this->db, $this->auth))->adminView();
             return;
         }
 

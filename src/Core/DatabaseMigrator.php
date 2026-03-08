@@ -1044,6 +1044,51 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureTimesheetAdminPermission(): void
+    {
+        if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => 'timesheets.admin_view',
+                    ':code_check' => 'timesheets.admin_view',
+                    ':name' => 'Vista administrativa de timesheets (PMO)',
+                ]
+            );
+
+            foreach (['Administrador', 'PMO'] as $roleName) {
+                $role = $this->db->fetchOne('SELECT id FROM roles WHERE nombre = :name LIMIT 1', [':name' => $roleName]);
+                if (!$role) {
+                    continue;
+                }
+
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :role_id_value, p.id
+                     FROM permissions p
+                     WHERE p.code = :code_value
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                     )',
+                    [
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => 'timesheets.admin_view',
+                    ]
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando permiso timesheets.admin_view: ' . $e->getMessage());
+        }
+    }
+
     public function resetProjectModuleDataOnce(): void
     {
         if (!$this->db->tableExists('projects')) {
@@ -2852,8 +2897,12 @@ class DatabaseMigrator
             'progress_hours' => 'DECIMAL(5,2) NULL',
             'progress_tasks' => 'DECIMAL(5,2) NULL',
             'risk_score' => 'INT NOT NULL DEFAULT 0',
+            'pmo_risk_label' => "ENUM('on_track','warning','critical') NOT NULL DEFAULT 'on_track'",
             'planned_hours' => 'DECIMAL(12,2) NULL',
+            'estimated_hours_tasks' => 'DECIMAL(12,2) NOT NULL DEFAULT 0',
             'approved_hours' => 'DECIMAL(12,2) NOT NULL DEFAULT 0',
+            'hours_consumption_pct' => 'DECIMAL(8,2) NULL',
+            'hours_deviation' => 'DECIMAL(12,2) NOT NULL DEFAULT 0',
             'total_tasks' => 'INT NOT NULL DEFAULT 0',
             'done_tasks' => 'INT NOT NULL DEFAULT 0',
             'overdue_tasks' => 'INT NOT NULL DEFAULT 0',

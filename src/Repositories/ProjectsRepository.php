@@ -112,6 +112,10 @@ class ProjectsRepository
             $hasProjectPmoSnapshots ? 'ppmo.progress_hours AS progress_hours_auto' : 'NULL AS progress_hours_auto',
             $hasProjectPmoSnapshots ? 'ppmo.progress_tasks AS progress_tasks_auto' : 'NULL AS progress_tasks_auto',
             $hasProjectPmoSnapshots ? 'ppmo.risk_score AS pmo_risk_score' : 'NULL AS pmo_risk_score',
+            $hasProjectPmoSnapshots ? 'ppmo.approved_hours AS ts_approved_hours' : 'NULL AS ts_approved_hours',
+            $hasProjectPmoSnapshots ? 'ppmo.hours_deviation AS ts_hours_deviation' : 'NULL AS ts_hours_deviation',
+            $hasProjectPmoSnapshots ? 'ppmo.hours_consumption_pct AS ts_consumption_pct' : 'NULL AS ts_consumption_pct',
+            $hasProjectPmoSnapshots ? 'ppmo.pmo_risk_label AS pmo_risk_label' : 'NULL AS pmo_risk_label',
         ];
 
         $joins = [
@@ -141,8 +145,15 @@ class ProjectsRepository
         }
 
         if ($hasProjectPmoSnapshots) {
+            $hasConsumptionCol = $this->db->columnExists('project_pmo_snapshots', 'hours_consumption_pct');
+            $hasDeviationCol = $this->db->columnExists('project_pmo_snapshots', 'hours_deviation');
+            $hasRiskLabelCol = $this->db->columnExists('project_pmo_snapshots', 'pmo_risk_label');
+            $extraSnapshotCols = 'ps.progress_hours, ps.progress_tasks, ps.risk_score, ps.approved_hours';
+            $extraSnapshotCols .= $hasConsumptionCol ? ', ps.hours_consumption_pct' : ', NULL AS hours_consumption_pct';
+            $extraSnapshotCols .= $hasDeviationCol ? ', ps.hours_deviation' : ', 0 AS hours_deviation';
+            $extraSnapshotCols .= $hasRiskLabelCol ? ', ps.pmo_risk_label' : ", 'on_track' AS pmo_risk_label";
             $joins[] = "LEFT JOIN (
-                SELECT ps.project_id, ps.progress_hours, ps.progress_tasks, ps.risk_score
+                SELECT ps.project_id, {$extraSnapshotCols}
                 FROM project_pmo_snapshots ps
                 JOIN (
                     SELECT project_id, MAX(snapshot_date) AS latest_date

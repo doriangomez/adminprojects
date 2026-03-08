@@ -3496,4 +3496,183 @@ class TimesheetsRepository
 
         return implode(' AND ', $conditions);
     }
+
+    public function adminTimesheets(array $filters = []): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return ['rows' => [], 'totals' => []];
+        }
+
+        $conditions = [];
+        $params = [];
+
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasUserId = $this->db->columnExists('timesheets', 'user_id');
+        $hasTalentId = $this->db->columnExists('timesheets', 'talent_id');
+        $hasBillable = $this->db->columnExists('timesheets', 'billable');
+
+        if (!empty($filters['user_id'])) {
+            if ($hasUserId) {
+                $conditions[] = 'ts.user_id = :filter_user_id';
+                $params[':filter_user_id'] = (int) $filters['user_id'];
+            }
+        }
+
+        if (!empty($filters['project_id'])) {
+            if ($hasProjectId) {
+                $conditions[] = 'ts.project_id = :filter_project_id';
+                $params[':filter_project_id'] = (int) $filters['project_id'];
+            } else {
+                $conditions[] = 't.project_id = :filter_project_id';
+                $params[':filter_project_id'] = (int) $filters['project_id'];
+            }
+        }
+
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'p.client_id = :filter_client_id';
+            $params[':filter_client_id'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['week'])) {
+            $weekStart = $this->parseWeekParam((string) $filters['week']);
+            if ($weekStart !== null) {
+                $weekEnd = $weekStart->modify('+6 days');
+                $conditions[] = 'ts.date BETWEEN :filter_week_start AND :filter_week_end';
+                $params[':filter_week_start'] = $weekStart->format('Y-m-d');
+                $params[':filter_week_end'] = $weekEnd->format('Y-m-d');
+            }
+        } elseif (!empty($filters['date_from']) || !empty($filters['date_to'])) {
+            if (!empty($filters['date_from'])) {
+                $conditions[] = 'ts.date >= :filter_date_from';
+                $params[':filter_date_from'] = (string) $filters['date_from'];
+            }
+            if (!empty($filters['date_to'])) {
+                $conditions[] = 'ts.date <= :filter_date_to';
+                $params[':filter_date_to'] = (string) $filters['date_to'];
+            }
+        }
+
+        if (!empty($filters['status'])) {
+            $allowedStatuses = ['draft', 'submitted', 'pending_approval', 'approved', 'rejected'];
+            if (in_array($filters['status'], $allowedStatuses, true)) {
+                $conditions[] = 'ts.status = :filter_status';
+                $params[':filter_status'] = $filters['status'];
+            }
+        }
+
+        if (!empty($filters['task_id'])) {
+            $conditions[] = 'ts.task_id = :filter_task_id';
+            $params[':filter_task_id'] = (int) $filters['task_id'];
+        }
+
+        $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $projectSelect = $hasProjectId
+            ? 'COALESCE(ts.project_id, t.project_id)'
+            : 't.project_id';
+
+        $userSelect = $hasUserId ? 'ts.user_id' : ($hasTalentId ? 'ts.talent_id' : 'NULL');
+        $billableSelect = $hasBillable ? 'ts.billable' : '0 AS billable';
+
+        $rows = $this->db->fetchAll(
+            'SELECT ts.id,
+                    ts.date,
+                    ts.hours,
+                    ts.status,
+                    ts.comment,
+                    ts.task_id,
+                    ' . $userSelect . ' AS user_id,
+                    u.name AS user_name,
+                    tk.title AS task_title,
+                    p.name AS project_name,
+                    p.id AS project_id,
+                    c.name AS client_name,
+                    c.id AS client_id,
+                    ' . $billableSelect . '
+             FROM timesheets ts
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             LEFT JOIN projects p ON p.id = ' . $projectSelect . '
+             LEFT JOIN clients c ON c.id = p.client_id
+             LEFT JOIN users u ON u.id = ' . $userSelect . '
+             ' . $whereClause . '
+             ORDER BY ts.date DESC, p.name ASC, u.name ASC, ts.id DESC
+             LIMIT 2000',
+            $params
+        );
+
+        $totals = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(ts.hours), 0) AS total_hours,
+                    COUNT(*) AS total_entries
+             FROM timesheets ts
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             LEFT JOIN projects p ON p.id = ' . $projectSelect . '
+             LEFT JOIN clients c ON c.id = p.client_id
+             LEFT JOIN users u ON u.id = ' . $userSelect . '
+             ' . $whereClause,
+            $params
+        ) ?? [];
+
+        return ['rows' => $rows, 'totals' => $totals];
+    }
+
+    public function adminTimesheetKpis(): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $hasProjectId = $this->db->columnExists('timesheets', 'project_id');
+        $hasUserId = $this->db->columnExists('timesheets', 'user_id');
+        $hasTalentId = $this->db->columnExists('timesheets', 'talent_id');
+        $userExpr = $hasUserId ? 'ts.user_id' : ($hasTalentId ? 'ts.talent_id' : 'NULL');
+        $projectExpr = $hasProjectId ? 'COALESCE(ts.project_id, t.project_id)' : 't.project_id';
+
+        $row = $this->db->fetchOne(
+            'SELECT
+                COALESCE(SUM(CASE WHEN ts.status = "approved" THEN ts.hours ELSE 0 END), 0) AS approved_hours,
+                COALESCE(SUM(CASE WHEN ts.status = "pending_approval" THEN ts.hours ELSE 0 END), 0) AS pending_hours,
+                COALESCE(SUM(CASE WHEN ts.status = "draft" THEN ts.hours ELSE 0 END), 0) AS draft_hours,
+                COALESCE(SUM(ts.hours), 0) AS total_hours,
+                COUNT(DISTINCT ' . $userExpr . ') AS active_users,
+                COUNT(DISTINCT ' . $projectExpr . ') AS active_projects
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id'
+        ) ?? [];
+
+        return $row;
+    }
+
+    public function adminTimesheetUsers(): array
+    {
+        if (!$this->db->tableExists('timesheets') || !$this->db->tableExists('users')) {
+            return [];
+        }
+
+        $hasUserId = $this->db->columnExists('timesheets', 'user_id');
+        $hasTalentId = $this->db->columnExists('timesheets', 'talent_id');
+        if (!$hasUserId && !$hasTalentId) {
+            return [];
+        }
+
+        $userExpr = $hasUserId ? 'ts.user_id' : 'ts.talent_id';
+        return $this->db->fetchAll(
+            'SELECT u.id, u.name
+             FROM users u
+             WHERE u.id IN (SELECT DISTINCT ' . $userExpr . ' FROM timesheets ts WHERE ' . $userExpr . ' IS NOT NULL)
+             ORDER BY u.name ASC'
+        );
+    }
+
+    private function parseWeekParam(string $value): ?\DateTimeImmutable
+    {
+        if (preg_match('/^(\d{4})-W(\d{2})$/', trim($value), $m)) {
+            try {
+                return new \DateTimeImmutable($m[1] . 'W' . str_pad($m[2], 2, '0', STR_PAD_LEFT) . '1');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
+    }
 }

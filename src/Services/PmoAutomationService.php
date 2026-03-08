@@ -41,15 +41,21 @@ class PmoAutomationService
         $plannedHours = (float) ($project['planned_hours'] ?? 0);
         $manualProgress = (float) ($project['progress'] ?? 0);
         $approvedHours = $this->approvedHours($projectId, $dateStr);
+        $estimatedHoursFromTasks = $this->estimatedHoursFromTasks($projectId);
         $taskMetrics = $this->taskMetrics($projectId, $dateStr);
         $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
         $blockerMentions = $this->blockerMentions($projectId, $dateStr);
         $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
 
-        $progressHours = $plannedHours > 0 ? min(100.0, round(($approvedHours / $plannedHours) * 100, 2)) : null;
+        // Progress by hours: use tasks estimated hours when available, fall back to project planned_hours
+        $hoursBase = $estimatedHoursFromTasks > 0 ? $estimatedHoursFromTasks : $plannedHours;
+        $progressHours = $hoursBase > 0 ? min(100.0, round(($approvedHours / $hoursBase) * 100, 2)) : null;
+
         $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
             ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
             : null;
+
+        $hoursConsumptionPct = $plannedHours > 0 ? round(($approvedHours / $plannedHours) * 100, 2) : null;
 
         $riskScore = $this->riskScore([
             'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
@@ -58,7 +64,10 @@ class PmoAutomationService
             'blocker_mentions' => $blockerMentions,
             'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
             'stale_business_days' => $staleBusinessDays,
+            'hours_consumption_pct' => $hoursConsumptionPct,
         ]);
+
+        $pmoRiskLabel = $this->pmoRiskLabel($riskScore, $hoursConsumptionPct);
 
         $snapshot = [
             'project_id' => $projectId,
@@ -68,8 +77,12 @@ class PmoAutomationService
             'progress_hours' => $progressHours,
             'progress_tasks' => $progressTasks,
             'risk_score' => $riskScore,
+            'pmo_risk_label' => $pmoRiskLabel,
             'planned_hours' => $plannedHours,
+            'estimated_hours_tasks' => round($estimatedHoursFromTasks, 2),
             'approved_hours' => round($approvedHours, 2),
+            'hours_consumption_pct' => $hoursConsumptionPct,
+            'hours_deviation' => round($approvedHours - $plannedHours, 2),
             'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
             'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
             'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
@@ -245,6 +258,22 @@ class PmoAutomationService
         }
 
         return $total;
+    }
+
+    private function estimatedHoursFromTasks(int $projectId): float
+    {
+        if (!$this->db->tableExists('tasks') || !$this->db->columnExists('tasks', 'estimated_hours')) {
+            return 0.0;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(estimated_hours), 0) AS total
+             FROM tasks
+             WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+
+        return (float) ($row['total'] ?? 0);
     }
 
     private function approvedHours(int $projectId, string $snapshotDate): float
@@ -439,7 +468,29 @@ class PmoAutomationService
             $score += 20;
         }
 
+        $consumptionPct = $metrics['hours_consumption_pct'] ?? null;
+        if ($consumptionPct !== null) {
+            if ((float) $consumptionPct > 100) {
+                $score += 25;
+            } elseif ((float) $consumptionPct > 80) {
+                $score += 12;
+            }
+        }
+
         return max(0, min(100, $score));
+    }
+
+    private function pmoRiskLabel(int $riskScore, ?float $consumptionPct): string
+    {
+        if ($riskScore >= 60 || ($consumptionPct !== null && $consumptionPct > 100)) {
+            return 'critical';
+        }
+
+        if ($riskScore >= 30 || ($consumptionPct !== null && $consumptionPct > 80)) {
+            return 'warning';
+        }
+
+        return 'on_track';
     }
 
     private function persistSnapshot(array $snapshot): int
@@ -448,17 +499,55 @@ class PmoAutomationService
             return 0;
         }
 
+        $hasRiskLabel = $this->db->columnExists('project_pmo_snapshots', 'pmo_risk_label');
+        $hasEstimatedHours = $this->db->columnExists('project_pmo_snapshots', 'estimated_hours_tasks');
+        $hasConsumptionPct = $this->db->columnExists('project_pmo_snapshots', 'hours_consumption_pct');
+        $hasDeviation = $this->db->columnExists('project_pmo_snapshots', 'hours_deviation');
+
+        $extraInsertCols = '';
+        $extraInsertVals = '';
+        $extraUpdateClauses = '';
+        $extraParams = [];
+
+        if ($hasRiskLabel) {
+            $extraInsertCols .= ', pmo_risk_label';
+            $extraInsertVals .= ', :pmo_risk_label';
+            $extraUpdateClauses .= ', pmo_risk_label = VALUES(pmo_risk_label)';
+            $extraParams[':pmo_risk_label'] = $snapshot['pmo_risk_label'] ?? 'on_track';
+        }
+
+        if ($hasEstimatedHours) {
+            $extraInsertCols .= ', estimated_hours_tasks';
+            $extraInsertVals .= ', :estimated_hours_tasks';
+            $extraUpdateClauses .= ', estimated_hours_tasks = VALUES(estimated_hours_tasks)';
+            $extraParams[':estimated_hours_tasks'] = $snapshot['estimated_hours_tasks'] ?? 0;
+        }
+
+        if ($hasConsumptionPct) {
+            $extraInsertCols .= ', hours_consumption_pct';
+            $extraInsertVals .= ', :hours_consumption_pct';
+            $extraUpdateClauses .= ', hours_consumption_pct = VALUES(hours_consumption_pct)';
+            $extraParams[':hours_consumption_pct'] = $snapshot['hours_consumption_pct'] ?? null;
+        }
+
+        if ($hasDeviation) {
+            $extraInsertCols .= ', hours_deviation';
+            $extraInsertVals .= ', :hours_deviation';
+            $extraUpdateClauses .= ', hours_deviation = VALUES(hours_deviation)';
+            $extraParams[':hours_deviation'] = $snapshot['hours_deviation'] ?? 0;
+        }
+
         $this->db->execute(
             'INSERT INTO project_pmo_snapshots (
                 project_id, snapshot_date, progress_manual, progress_hours, progress_tasks, risk_score,
                 planned_hours, approved_hours, total_tasks, done_tasks, overdue_tasks,
                 open_blockers, critical_blockers, aged_blockers, blocker_mentions, stale_business_days,
-                payload_json, generated_at
+                payload_json, generated_at' . $extraInsertCols . '
             ) VALUES (
                 :project_id, :snapshot_date, :progress_manual, :progress_hours, :progress_tasks, :risk_score,
                 :planned_hours, :approved_hours, :total_tasks, :done_tasks, :overdue_tasks,
                 :open_blockers, :critical_blockers, :aged_blockers, :blocker_mentions, :stale_business_days,
-                :payload_json, NOW()
+                :payload_json, NOW()' . $extraInsertVals . '
             )
             ON DUPLICATE KEY UPDATE
                 progress_manual = VALUES(progress_manual),
@@ -476,26 +565,29 @@ class PmoAutomationService
                 blocker_mentions = VALUES(blocker_mentions),
                 stale_business_days = VALUES(stale_business_days),
                 payload_json = VALUES(payload_json),
-                generated_at = NOW()',
-            [
-                ':project_id' => $snapshot['project_id'],
-                ':snapshot_date' => $snapshot['snapshot_date'],
-                ':progress_manual' => $snapshot['progress_manual'],
-                ':progress_hours' => $snapshot['progress_hours'],
-                ':progress_tasks' => $snapshot['progress_tasks'],
-                ':risk_score' => $snapshot['risk_score'],
-                ':planned_hours' => $snapshot['planned_hours'],
-                ':approved_hours' => $snapshot['approved_hours'],
-                ':total_tasks' => $snapshot['total_tasks'],
-                ':done_tasks' => $snapshot['done_tasks'],
-                ':overdue_tasks' => $snapshot['overdue_tasks'],
-                ':open_blockers' => $snapshot['open_blockers'],
-                ':critical_blockers' => $snapshot['critical_blockers'],
-                ':aged_blockers' => $snapshot['aged_blockers'],
-                ':blocker_mentions' => $snapshot['blocker_mentions'],
-                ':stale_business_days' => $snapshot['stale_business_days'],
-                ':payload_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            ]
+                generated_at = NOW()' . $extraUpdateClauses,
+            array_merge(
+                [
+                    ':project_id' => $snapshot['project_id'],
+                    ':snapshot_date' => $snapshot['snapshot_date'],
+                    ':progress_manual' => $snapshot['progress_manual'],
+                    ':progress_hours' => $snapshot['progress_hours'],
+                    ':progress_tasks' => $snapshot['progress_tasks'],
+                    ':risk_score' => $snapshot['risk_score'],
+                    ':planned_hours' => $snapshot['planned_hours'],
+                    ':approved_hours' => $snapshot['approved_hours'],
+                    ':total_tasks' => $snapshot['total_tasks'],
+                    ':done_tasks' => $snapshot['done_tasks'],
+                    ':overdue_tasks' => $snapshot['overdue_tasks'],
+                    ':open_blockers' => $snapshot['open_blockers'],
+                    ':critical_blockers' => $snapshot['critical_blockers'],
+                    ':aged_blockers' => $snapshot['aged_blockers'],
+                    ':blocker_mentions' => $snapshot['blocker_mentions'],
+                    ':stale_business_days' => $snapshot['stale_business_days'],
+                    ':payload_json' => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ],
+                $extraParams
+            )
         );
 
         $row = $this->db->fetchOne(
@@ -527,14 +619,34 @@ class PmoAutomationService
         $alerts = [];
         $plannedHours = (float) ($snapshot['planned_hours'] ?? 0);
         $approvedHours = (float) ($snapshot['approved_hours'] ?? 0);
-        if ($plannedHours > 0 && $approvedHours > ($plannedHours * 1.1)) {
-            $severity = $approvedHours > ($plannedHours * 1.25) ? 'red' : 'yellow';
-            $alerts[] = [
-                'type' => 'hours_overconsumption',
-                'severity' => $severity,
-                'title' => 'Sobreconsumo de horas',
-                'message' => sprintf('Horas aprobadas %.2f superan el plan %.2f.', $approvedHours, $plannedHours),
-            ];
+        $consumptionPct = $plannedHours > 0 ? ($approvedHours / $plannedHours) * 100 : null;
+
+        if ($plannedHours > 0 && $consumptionPct !== null) {
+            if ($consumptionPct > 100) {
+                $alerts[] = [
+                    'type' => 'hours_overconsumption',
+                    'severity' => 'red',
+                    'title' => 'Sobreconsumo de horas',
+                    'message' => sprintf(
+                        'Horas registradas %.2fh superan el plan de %.2fh (%.1f%%).',
+                        $approvedHours,
+                        $plannedHours,
+                        $consumptionPct
+                    ),
+                ];
+            } elseif ($consumptionPct > 80) {
+                $alerts[] = [
+                    'type' => 'hours_consumption_warning',
+                    'severity' => 'yellow',
+                    'title' => 'Alerta de consumo de horas',
+                    'message' => sprintf(
+                        'Consumo de horas al %.1f%% del plan (%.2fh de %.2fh).',
+                        $consumptionPct,
+                        $approvedHours,
+                        $plannedHours
+                    ),
+                ];
+            }
         }
 
         $manual = (float) ($snapshot['progress_manual'] ?? 0);

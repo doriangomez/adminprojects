@@ -93,6 +93,58 @@ class TimesheetsController extends Controller
         ]);
     }
 
+    public function adminView(): void
+    {
+        $user = $this->auth->user() ?? [];
+        $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
+        }
+
+        if (!$this->auth->can('timesheets.admin_view') && !$this->auth->canManageAdvancedTimesheets()) {
+            http_response_code(403);
+            exit('Acceso denegado. Se requiere permiso de vista administrativa de timesheets.');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+
+        $filters = [
+            'user_id' => (int) ($_GET['user_id'] ?? 0) ?: null,
+            'project_id' => (int) ($_GET['project_id'] ?? 0) ?: null,
+            'client_id' => (int) ($_GET['client_id'] ?? 0) ?: null,
+            'week' => trim((string) ($_GET['week'] ?? '')),
+            'status' => trim((string) ($_GET['status'] ?? '')),
+            'task_id' => (int) ($_GET['task_id'] ?? 0) ?: null,
+        ];
+
+        // Remove null/empty filters
+        $filters = array_filter($filters, static fn ($v) => $v !== null && $v !== '' && $v !== 0);
+
+        $result = $repo->adminTimesheets($filters);
+        $kpis = $repo->adminTimesheetKpis();
+        $users = $repo->adminTimesheetUsers();
+        $projects = $repo->projectsCatalog();
+
+        // Build clients list from projects
+        $clientsRaw = $this->db->tableExists('clients')
+            ? $this->db->fetchAll('SELECT id, name FROM clients ORDER BY name ASC')
+            : [];
+
+        $this->render('timesheets/admin', [
+            'title' => 'Timesheets · Vista Administrativa PMO',
+            'rows' => $result['rows'],
+            'totals' => $result['totals'],
+            'kpis' => $kpis,
+            'users' => $users,
+            'projects' => $projects,
+            'clients' => $clientsRaw,
+            'filters' => $filters,
+            'currentUser' => $user,
+        ]);
+    }
+
     public function analytics(): void
     {
         $repo = new TimesheetsRepository($this->db);

@@ -727,6 +727,18 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; }
 
+    .pmo-hours-cell { display: flex; flex-direction: column; gap: 3px; }
+    .pmo-hours-value { font-weight: 800; font-size: 14px; color: var(--text-primary); }
+    .pmo-hours-na { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+    .pmo-consumption, .pmo-deviation { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 5px; display: inline-block; }
+    .pmo-ok { color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--background)); }
+    .pmo-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--background)); }
+    .pmo-over { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
+    .pmo-risk-badge { margin-top: 2px; font-size: 11px; }
+    .status-danger { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); }
+    .status-warning { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border)); }
+    .status-success { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border)); }
+
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
         .project-table { font-size: 13px; }
@@ -933,12 +945,13 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                 </header>
                 <table class="project-table" aria-label="Listado de proyectos de <?= htmlspecialchars($clientNameGroup) ?>">
                     <colgroup>
-                        <col style="width: 42%;">
-                        <col style="width: 14%;">
-                        <col style="width: 12%;">
+                        <col style="width: 36%;">
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
+                        <col style="width: 10%;">
                         <col style="width: 12%;">
                         <col style="width: 10%;">
-                        <col style="width: 8%;">
                         <col style="width: 2%;">
                     </colgroup>
                     <thead>
@@ -948,6 +961,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <th>Estado</th>
                             <th>Salud</th>
                             <th>Avance</th>
+                            <th>Horas PMO</th>
                             <th>Facturación</th>
                             <th>Acciones</th>
                         </tr>
@@ -1009,6 +1023,20 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
                                 $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
                                 $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                                $tsApprovedHours = isset($project['ts_approved_hours']) ? (float) $project['ts_approved_hours'] : null;
+                                $tsDeviation = isset($project['ts_hours_deviation']) ? (float) $project['ts_hours_deviation'] : null;
+                                $tsConsumptionPct = isset($project['ts_consumption_pct']) ? (float) $project['ts_consumption_pct'] : null;
+                                $pmoRiskLabel = $project['pmo_risk_label'] ?? null;
+                                $pmoRiskLabelClass = match ($pmoRiskLabel) {
+                                    'critical' => 'status-danger',
+                                    'warning' => 'status-warning',
+                                    default => 'status-success',
+                                };
+                                $pmoRiskLabelText = match ($pmoRiskLabel) {
+                                    'critical' => 'Critical',
+                                    'warning' => 'Warning',
+                                    default => 'On Track',
+                                };
                             ?>
                             <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                                 <td class="project-cell">
@@ -1048,8 +1076,27 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                             <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                         </div>
                                         <span class="progress-value"><?= $progressLabel ?>%</span>
-                                        <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
-                                        <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                        <small class="section-muted">Hrs <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="pmo-hours-cell">
+                                        <?php if ($tsApprovedHours !== null): ?>
+                                            <span class="pmo-hours-value"><?= number_format($tsApprovedHours, 1) ?>h</span>
+                                            <?php if ($tsConsumptionPct !== null): ?>
+                                                <small class="pmo-consumption <?= $tsConsumptionPct > 100 ? 'pmo-over' : ($tsConsumptionPct > 80 ? 'pmo-warn' : 'pmo-ok') ?>">
+                                                    <?= number_format($tsConsumptionPct, 1) ?>% consumo
+                                                </small>
+                                            <?php endif; ?>
+                                            <?php if ($tsDeviation !== null && $tsDeviation != 0): ?>
+                                                <small class="pmo-deviation <?= $tsDeviation > 0 ? 'pmo-over' : 'pmo-ok' ?>">
+                                                    <?= $tsDeviation > 0 ? '+' : '' ?><?= number_format($tsDeviation, 1) ?>h desv.
+                                                </small>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span class="pmo-hours-na">Sin datos</span>
+                                        <?php endif; ?>
+                                        <span class="badge <?= $pmoRiskLabelClass ?> pmo-risk-badge"><?= $pmoRiskLabelText ?></span>
                                     </div>
                                 </td>
                                 <td>
