@@ -36,9 +36,10 @@ $pmoAlerts = is_array($pmoAlerts ?? null) ? $pmoAlerts : [];
 $pmoHoursTrend = is_array($pmoHoursTrend ?? null) ? $pmoHoursTrend : [];
 $pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers : [];
 $detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
+$timesheetEntries = is_array($timesheetEntries ?? null) ? $timesheetEntries : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
-$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos'], true) ? $view : 'documentos';
+$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos', 'horas'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -303,6 +304,17 @@ $computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpe
 $projectProgress = (float) ($project['progress'] ?? 0);
 $projectStatusLabel = $project['status_label'] ?? $project['status'] ?? 'Estado no registrado';
 $projectClient = $project['client_name'] ?? $project['client'] ?? '';
+$clientLogoPath = trim((string) ($project['client_logo_path'] ?? ''));
+$clientLogoUrl = $clientLogoPath !== ''
+    ? (str_starts_with($clientLogoPath, 'http://') || str_starts_with($clientLogoPath, 'https://') ? $clientLogoPath : $basePath . $clientLogoPath)
+    : '';
+$clientInitialRaw = $projectClient !== '' ? $projectClient : 'C';
+$clientInitial = function_exists('mb_substr')
+    ? mb_substr($clientInitialRaw, 0, 1, 'UTF-8')
+    : substr($clientInitialRaw, 0, 1);
+$clientInitial = function_exists('mb_strtoupper')
+    ? mb_strtoupper((string) $clientInitial, 'UTF-8')
+    : strtoupper((string) $clientInitial);
 $projectMethodLabel = $badgeLabel;
 $projectPmName = $project['pm_name'] ?? 'Sin PM asignado';
 $projectStage = (string) ($project['project_stage'] ?? 'Discovery');
@@ -333,6 +345,10 @@ $activeTabDescription = $activeSubphaseSuffix ? ($tabDescriptions[$activeSubphas
 $approvedDocuments = (int) ($progressIndicators['approved_documents'] ?? 0);
 $pendingControls = (int) ($progressIndicators['pending_controls'] ?? 0);
 $loggedHours = $progressIndicators['logged_hours'] ?? null;
+$estimatedHours = (float) ($project['planned_hours'] ?? 0);
+$hoursProgressPercent = ($loggedHours !== null && $estimatedHours > 0)
+    ? max(0.0, min(100.0, (((float) $loggedHours) / $estimatedHours) * 100))
+    : null;
 $lastProgressEntry = $progressHistory[0] ?? null;
 $lastProgressUser = $lastProgressEntry['user_name'] ?? 'Sistema';
 $lastProgressPayload = is_array($lastProgressEntry['payload'] ?? null) ? $lastProgressEntry['payload'] : [];
@@ -384,6 +400,17 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
         <div class="project-title-block">
             <p class="eyebrow">Detalle de proyecto</p>
             <h2><?= htmlspecialchars($project['name'] ?? '') ?></h2>
+            <div class="project-client-identity">
+                <?php if ($clientLogoUrl !== ''): ?>
+                    <img class="project-client-logo" src="<?= htmlspecialchars($clientLogoUrl) ?>" alt="Logo de <?= htmlspecialchars($projectClient !== '' ? $projectClient : 'Cliente') ?>">
+                <?php else: ?>
+                    <span class="project-client-avatar" aria-hidden="true"><?= htmlspecialchars($clientInitial !== '' ? $clientInitial : 'C') ?></span>
+                <?php endif; ?>
+                <div>
+                    <strong><?= htmlspecialchars($projectClient !== '' ? $projectClient : 'Cliente no registrado') ?></strong>
+                    <small>PM: <?= htmlspecialchars($projectPmName) ?></small>
+                </div>
+            </div>
             <div class="project-badges">
                 <span class="<?= $badgeClass ?>"><?= htmlspecialchars($badgeLabel) ?></span>
                 <span class="pill neutral">Cliente: <?= htmlspecialchars($projectClient) ?></span>
@@ -443,6 +470,7 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
     <?php
     $activeTab = match ($view) {
         'resumen' => 'resumen',
+        'horas' => 'horas',
         'seguimiento' => 'seguimiento',
         'bloqueos' => 'bloqueos',
         default => 'documents',
@@ -562,9 +590,14 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
             <article class="indicator-card">
                 <span class="indicator-icon">⏱️</span>
                 <div>
-                    <span>Horas registradas</span>
-                    <strong><?= $loggedHours !== null ? number_format((float) $loggedHours, 1) : 'N/A' ?></strong>
-                    <small><?= $loggedHours !== null ? 'Timesheets vinculados' : 'Sin timesheets' ?></small>
+                    <span>Horas (registradas / estimadas)</span>
+                    <strong>
+                        <?= $loggedHours !== null ? number_format((float) $loggedHours, 1) . 'h' : 'N/A' ?>
+                        / <?= number_format($estimatedHours, 1) ?>h
+                    </strong>
+                    <small>
+                        <?= $hoursProgressPercent !== null ? 'Consumo ' . number_format($hoursProgressPercent, 1) . '%' : 'Sin base estimada' ?>
+                    </small>
                 </div>
             </article>
         </section>
@@ -882,6 +915,38 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
             </tbody></table></div>
         </section>
 
+    <?php elseif ($view === 'horas'): ?>
+        <section class="card">
+            <h4>Horas registradas del proyecto</h4>
+            <p class="section-muted">Detalle operativo consolidado desde el módulo de timesheets.</p>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Usuario</th>
+                            <th>Tarea</th>
+                            <th>Horas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($timesheetEntries === []): ?>
+                            <tr>
+                                <td colspan="4" class="section-muted">No hay registros de horas para este proyecto.</td>
+                            </tr>
+                        <?php endif; ?>
+                        <?php foreach ($timesheetEntries as $entry): ?>
+                            <tr>
+                                <td><?= htmlspecialchars((string) ($entry['date'] ?? '')) ?></td>
+                                <td><?= htmlspecialchars((string) ($entry['user_name'] ?? 'Sin usuario')) ?></td>
+                                <td><?= htmlspecialchars((string) ($entry['task_name'] ?? 'Sin tarea')) ?></td>
+                                <td><?= number_format((float) ($entry['hours'] ?? 0), 2) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     <?php elseif ($view === 'seguimiento'): ?>
         <section class="notes-grid" id="project-notes">
             <article class="notes-card">
@@ -1281,6 +1346,22 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
     .dim-red { background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
     .project-title-block { display:flex; flex-direction:column; gap:8px; }
     .project-title-block h2 { margin:0; color: var(--text-primary); }
+    .project-client-identity { display:flex; align-items:center; gap:10px; }
+    .project-client-logo,
+    .project-client-avatar {
+        width:40px;
+        height:40px;
+        border-radius:10px;
+        border:1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background));
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+    }
+    .project-client-logo { object-fit: contain; padding: 6px; }
+    .project-client-avatar { font-weight: 800; color: var(--primary); }
+    .project-client-identity strong { display:block; color: var(--text-primary); }
+    .project-client-identity small { color: var(--text-secondary); font-size: 12px; }
     .project-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .danger-shortcut { margin-top:12px; border:1px solid color-mix(in srgb, var(--danger) 30%, var(--background)); background: color-mix(in srgb, var(--danger) 10%, var(--surface) 90%); border-radius:12px; padding:12px; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
     .danger-shortcut p { margin:0; color: var(--text-primary); font-weight:600; }

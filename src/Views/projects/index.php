@@ -1028,6 +1028,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <div class="project-main">
                                         <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
                                         <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
+                                        <p class="project-client">PM: <?= htmlspecialchars($pmName) ?></p>
                                     </div>
                                     <?php if ($previewText !== ''): ?>
                                         <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
@@ -1056,8 +1057,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
                                 </td>
                                 <td>
-                                    <strong><?= number_format($hoursLogged, 1) ?>h</strong>
-                                    <div class="tiny-meta">Est.: <?= number_format($hoursEstimated, 1) ?>h</div>
+                                    <strong><?= number_format($hoursLogged, 1) ?>h / <?= number_format($hoursEstimated, 1) ?>h</strong>
+                                    <div class="tiny-meta">Registradas / estimadas</div>
                                     <?php if ($hoursAlertLevel === 'critical'): ?>
                                         <span class="badge risk-high">Consumo &gt; 100%</span>
                                     <?php elseif ($hoursAlertLevel === 'warning'): ?>
@@ -1171,6 +1172,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <div>
                                     <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
                                     <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                                    <p class="project-client">PM: <?= htmlspecialchars((string) ($project['pm_name'] ?? 'Sin PM asignado')) ?></p>
                                 </div>
                                 <div class="card-actions">
                                     <details class="menu-details">
@@ -1223,8 +1225,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 </div>
                                 <div class="metric">
                                     <span>Horas</span>
-                                    <strong><?= $hoursValue ?>h</strong>
-                                    <span>Est.: <?= number_format($hoursEstimated, 0, ',', '.') ?>h</span>
+                                    <strong><?= $hoursValue ?>h / <?= number_format($hoursEstimated, 0, ',', '.') ?>h</strong>
+                                    <span>Registradas / estimadas</span>
                                 </div>
                                 <div class="metric">
                                     <span>Costos</span>

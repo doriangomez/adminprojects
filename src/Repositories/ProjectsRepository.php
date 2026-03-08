@@ -325,6 +325,7 @@ class ProjectsRepository
         $hasTypeColumn = $this->db->columnExists('projects', 'project_type');
         $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
+        $hasClientLogoColumn = $this->db->columnExists('clients', 'logo_path');
         $isoColumns = $this->isoFlagColumns();
 
         $select = [
@@ -345,6 +346,7 @@ class ProjectsRepository
             'p.project_stage',
             'prisk.risks AS risk_codes',
             'c.name AS client_name',
+            $hasClientLogoColumn ? 'c.logo_path AS client_logo_path' : 'NULL AS client_logo_path',
         ];
 
         $joins = [
@@ -700,6 +702,61 @@ class ProjectsRepository
         );
 
         return $row ? (float) ($row['total'] ?? 0) : 0.0;
+    }
+
+    public function timesheetEntriesForProject(int $projectId, int $limit = 300): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $hasTasksTable = $this->db->tableExists('tasks');
+        $canResolveFromTasks = $hasTasksTable && $this->db->columnExists('timesheets', 'task_id');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return [];
+        }
+
+        $safeLimit = max(1, min(2000, $limit));
+        $taskJoin = $canResolveFromTasks ? 'LEFT JOIN tasks tk ON tk.id = ts.task_id' : '';
+        $projectExpr = $usesProjectColumn
+            ? ($canResolveFromTasks ? 'COALESCE(ts.project_id, tk.project_id, 0)' : 'COALESCE(ts.project_id, 0)')
+            : 'COALESCE(tk.project_id, 0)';
+
+        $hasUsersTable = $this->db->tableExists('users') && $this->db->columnExists('timesheets', 'user_id');
+        $hasTalentsTable = $this->db->tableExists('talents') && $this->db->columnExists('timesheets', 'talent_id');
+        $userJoin = $hasUsersTable ? 'LEFT JOIN users u ON u.id = ts.user_id' : '';
+        $talentJoin = $hasTalentsTable ? 'LEFT JOIN talents ta ON ta.id = ts.talent_id' : '';
+        $userNameExpr = $hasUsersTable && $hasTalentsTable
+            ? 'COALESCE(NULLIF(TRIM(u.name), ""), NULLIF(TRIM(ta.name), ""), "Sin usuario")'
+            : ($hasUsersTable
+                ? 'COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario")'
+                : ($hasTalentsTable
+                    ? 'COALESCE(NULLIF(TRIM(ta.name), ""), "Sin usuario")'
+                    : '"Sin usuario"'));
+        $activityExpr = $this->db->columnExists('timesheets', 'activity_description')
+            ? 'NULLIF(TRIM(ts.activity_description), "")'
+            : 'NULL';
+        $taskTitleExpr = ($hasTasksTable && $this->db->columnExists('tasks', 'title'))
+            ? 'NULLIF(TRIM(tk.title), "")'
+            : 'NULL';
+
+        return $this->db->fetchAll(
+            'SELECT ts.id,
+                    ts.date,
+                    ts.hours,
+                    ts.status,
+                    ' . $userNameExpr . ' AS user_name,
+                    COALESCE(' . $activityExpr . ', ' . $taskTitleExpr . ', "Sin tarea") AS task_name
+             FROM timesheets ts
+             ' . $taskJoin . '
+             ' . $userJoin . '
+             ' . $talentJoin . '
+             WHERE ' . $projectExpr . ' = :project_id
+             ORDER BY ts.date DESC, ts.id DESC
+             LIMIT ' . $safeLimit,
+            [':project_id' => $projectId]
+        );
     }
 
     public function assignmentsForProject(int $projectId, array $user): array

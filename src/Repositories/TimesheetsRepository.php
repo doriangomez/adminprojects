@@ -1923,6 +1923,9 @@ class TimesheetsRepository
         if (!$this->db->tableExists('timesheets')) {
             return [
                 'totals' => ['entries' => 0, 'hours' => 0.0],
+                'weekly_rows' => [],
+                'detail_rows' => [],
+                'selected_detail' => [],
                 'rows' => [],
                 'by_user' => [],
                 'by_project' => [],
@@ -1947,24 +1950,51 @@ class TimesheetsRepository
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, tk.project_id)
              LEFT JOIN clients c ON c.id = p.client_id';
 
-        $rows = $this->db->fetchAll(
-            'SELECT ts.id,
-                    ts.user_id,
+        $weeklyRows = $this->db->fetchAll(
+            'SELECT ts.user_id,
                     COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
                     COALESCE(p.client_id, 0) AS client_id,
                     COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client_name,
                     COALESCE(p.id, 0) AS project_id,
                     COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto") AS project_name,
-                    COALESCE(tk.id, 0) AS task_id,
-                    COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea") AS task_name,
-                    ts.date,
-                    ts.hours,
-                    ts.status
+                    DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                    DATE_ADD(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY), INTERVAL 6 DAY) AS week_end,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours,
+                    MAX(CASE ts.status
+                        WHEN "approved" THEN 5
+                        WHEN "rejected" THEN 4
+                        WHEN "submitted" THEN 3
+                        WHEN "pending" THEN 3
+                        WHEN "pending_approval" THEN 3
+                        WHEN "draft" THEN 2
+                        ELSE 1 END) AS status_weight,
+                    COUNT(DISTINCT CASE
+                        WHEN ts.status IN ("approved") THEN "approved"
+                        WHEN ts.status IN ("rejected") THEN "rejected"
+                        WHEN ts.status IN ("submitted", "pending", "pending_approval") THEN "submitted"
+                        ELSE "draft" END) AS status_count
              ' . $baseFrom . $whereSql . '
-             ORDER BY ts.date DESC, ts.id DESC
+             GROUP BY ts.user_id,
+                      COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario"),
+                      COALESCE(p.client_id, 0),
+                      COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente"),
+                      COALESCE(p.id, 0),
+                      COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto"),
+                      DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY),
+                      DATE_ADD(DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY), INTERVAL 6 DAY)
+             ORDER BY week_start DESC, user_name ASC, client_name ASC, project_name ASC
              LIMIT 2000',
             $params
         );
+
+        foreach ($weeklyRows as &$weekRow) {
+            $weekRow['total_hours'] = round((float) ($weekRow['total_hours'] ?? 0), 2);
+            $weekRow['status'] = $this->statusByWeight(
+                (int) ($weekRow['status_weight'] ?? 0),
+                (int) ($weekRow['status_count'] ?? 1)
+            );
+        }
+        unset($weekRow);
 
         $totals = $this->db->fetchOne(
             'SELECT COUNT(*) AS entries, COALESCE(SUM(ts.hours), 0) AS hours
@@ -1972,70 +2002,73 @@ class TimesheetsRepository
             $params
         ) ?? ['entries' => 0, 'hours' => 0.0];
 
-        $byUser = $this->db->fetchAll(
-            'SELECT COALESCE(ts.user_id, 0) AS user_id,
-                    COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
-                    COUNT(*) AS entries,
-                    COALESCE(SUM(ts.hours), 0) AS total_hours
-             ' . $baseFrom . $whereSql . '
-             GROUP BY COALESCE(ts.user_id, 0), COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario")
-             ORDER BY total_hours DESC, user_name ASC',
-            $params
-        );
-
-        $byProject = $this->db->fetchAll(
-            'SELECT COALESCE(p.id, 0) AS project_id,
-                    COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto") AS project_name,
-                    COUNT(*) AS entries,
-                    COALESCE(SUM(ts.hours), 0) AS total_hours
-             ' . $baseFrom . $whereSql . '
-             GROUP BY COALESCE(p.id, 0), COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto")
-             ORDER BY total_hours DESC, project_name ASC',
-            $params
-        );
-
-        $byClient = $this->db->fetchAll(
-            'SELECT COALESCE(c.id, 0) AS client_id,
-                    COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client_name,
-                    COUNT(*) AS entries,
-                    COALESCE(SUM(ts.hours), 0) AS total_hours
-             ' . $baseFrom . $whereSql . '
-             GROUP BY COALESCE(c.id, 0), COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente")
-             ORDER BY total_hours DESC, client_name ASC',
-            $params
-        );
-
-        $byTask = $this->db->fetchAll(
-            'SELECT COALESCE(tk.id, 0) AS task_id,
-                    COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea") AS task_name,
-                    COUNT(*) AS entries,
-                    COALESCE(SUM(ts.hours), 0) AS total_hours
-             ' . $baseFrom . $whereSql . '
-             GROUP BY COALESCE(tk.id, 0), COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea")
-             ORDER BY total_hours DESC, task_name ASC
-             LIMIT 100',
-            $params
-        );
-
-        $statusBreakdown = $this->db->fetchAll(
-            'SELECT ts.status, COUNT(*) AS entries, COALESCE(SUM(ts.hours), 0) AS total_hours
-             ' . $baseFrom . $whereSql . '
-             GROUP BY ts.status
-             ORDER BY total_hours DESC',
-            $params
-        );
+        $detailRows = [];
+        $selectedDetail = [];
+        $detailUserId = (int) ($filters['detail_user_id'] ?? 0);
+        $detailProjectId = (int) ($filters['detail_project_id'] ?? -1);
+        $detailWeekStartRaw = trim((string) ($filters['detail_week_start'] ?? ''));
+        if ($detailUserId > 0 && $detailProjectId >= 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $detailWeekStartRaw)) {
+            try {
+                $detailWeekStart = new \DateTimeImmutable($detailWeekStartRaw);
+                $detailWeekEnd = $detailWeekStart->modify('+6 days');
+                $detailActivityExpr = $this->db->columnExists('timesheets', 'activity_description')
+                    ? 'NULLIF(TRIM(ts.activity_description), "")'
+                    : 'NULL';
+                $detailTaskTitleExpr = $this->db->tableExists('tasks') && $this->db->columnExists('tasks', 'title')
+                    ? 'NULLIF(TRIM(tk.title), "")'
+                    : 'NULL';
+                $detailParams = [
+                    ':detail_user_id' => $detailUserId,
+                    ':detail_project_id' => $detailProjectId,
+                    ':detail_week_start' => $detailWeekStart->format('Y-m-d'),
+                    ':detail_week_end' => $detailWeekEnd->format('Y-m-d'),
+                ];
+                $detailRows = $this->db->fetchAll(
+                    'SELECT ts.id,
+                            ts.date,
+                            ts.hours,
+                            ts.status,
+                            COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                            COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client_name,
+                            COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto") AS project_name,
+                            COALESCE(' . $detailActivityExpr . ', ' . $detailTaskTitleExpr . ', "Sin tarea") AS task_name
+                     FROM timesheets ts
+                     LEFT JOIN users u ON u.id = ts.user_id
+                     LEFT JOIN tasks tk ON tk.id = ts.task_id
+                     LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, tk.project_id)
+                     LEFT JOIN clients c ON c.id = p.client_id
+                     WHERE ts.user_id = :detail_user_id
+                       AND COALESCE(ts.project_id, tk.project_id, 0) = :detail_project_id
+                       AND ts.date BETWEEN :detail_week_start AND :detail_week_end
+                     ORDER BY ts.date ASC, ts.id ASC',
+                    $detailParams
+                );
+                $selectedDetail = [
+                    'user_id' => $detailUserId,
+                    'project_id' => $detailProjectId,
+                    'week_start' => $detailWeekStart->format('Y-m-d'),
+                    'week_end' => $detailWeekEnd->format('Y-m-d'),
+                ];
+            } catch (\Throwable $e) {
+                $detailRows = [];
+                $selectedDetail = [];
+            }
+        }
 
         return [
             'totals' => [
                 'entries' => (int) ($totals['entries'] ?? 0),
                 'hours' => round((float) ($totals['hours'] ?? 0), 2),
             ],
-            'rows' => $rows,
-            'by_user' => $byUser,
-            'by_project' => $byProject,
-            'by_client' => $byClient,
-            'by_task' => $byTask,
-            'status_breakdown' => $statusBreakdown,
+            'weekly_rows' => $weeklyRows,
+            'detail_rows' => $detailRows,
+            'selected_detail' => $selectedDetail,
+            'rows' => [],
+            'by_user' => [],
+            'by_project' => [],
+            'by_client' => [],
+            'by_task' => [],
+            'status_breakdown' => [],
             'filter_options' => [
                 'users' => $this->adminUsersFilterOptions(),
                 'projects' => $this->adminProjectsFilterOptions(),
