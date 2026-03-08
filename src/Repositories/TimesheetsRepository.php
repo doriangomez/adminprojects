@@ -150,23 +150,26 @@ class TimesheetsRepository
         }
 
         $talentId = $this->talentIdForUser($userId);
-        $entries = [];
+        $structuredSelect = $this->structuredTimesheetSelectColumns();
+        $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+        $ownershipCondition = 'user_id = :user';
+        $entryParams = [
+            ':user' => $userId,
+            ':start' => $weekStart->format('Y-m-d'),
+            ':end' => $weekEnd->format('Y-m-d'),
+        ];
         if ($talentId !== null) {
-            $structuredSelect = $this->structuredTimesheetSelectColumns();
-            $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
-            $entries = $this->db->fetchAll(
-                'SELECT id, project_id, task_id, date, hours, status, comment, approval_comment' . $structuredSegment . '
-                 FROM timesheets
-                 WHERE user_id = :user
-                   AND date BETWEEN :start AND :end
-                 ORDER BY date ASC, updated_at DESC, id DESC',
-                [
-                    ':user' => $userId,
-                    ':start' => $weekStart->format('Y-m-d'),
-                    ':end' => $weekEnd->format('Y-m-d'),
-                ]
-            );
+            $ownershipCondition = '(user_id = :user OR talent_id = :talent)';
+            $entryParams[':talent'] = $talentId;
         }
+        $entries = $this->db->fetchAll(
+            'SELECT id, project_id, task_id, date, hours, status, comment, approval_comment' . $structuredSegment . '
+             FROM timesheets
+             WHERE ' . $ownershipCondition . '
+               AND date BETWEEN :start AND :end
+             ORDER BY date ASC, updated_at DESC, id DESC',
+            $entryParams
+        );
 
         $profile = $this->talentProfileForUser($userId) ?? [];
         $weeklyBaseCapacity = $this->weeklyBaseCapacityFromProfile($profile);
@@ -1113,6 +1116,13 @@ class TimesheetsRepository
     public function weekSummaryForUser(int $userId, \DateTimeImmutable $weekStart): array
     {
         $weekEnd = $weekStart->modify('+6 days');
+        $talentId = $this->talentIdForUser($userId);
+        $scopeClause = 'user_id = :user';
+        $params = [':user' => $userId, ':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')];
+        if ($talentId !== null) {
+            $scopeClause = '(user_id = :user OR talent_id = :talent)';
+            $params[':talent'] = $talentId;
+        }
         $row = $this->db->fetchOne(
             'SELECT COALESCE(SUM(hours), 0) AS total_hours,
                     MAX(CASE status
@@ -1130,9 +1140,9 @@ class TimesheetsRepository
                     MAX(rejected_by) AS rejected_by,
                     COUNT(DISTINCT status) AS status_count
              FROM timesheets
-             WHERE user_id = :user
+             WHERE ' . $scopeClause . '
                AND date BETWEEN :start AND :end',
-            [':user' => $userId, ':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')]
+            $params
         ) ?: [];
 
         $status = $this->statusByWeight((int) ($row['status_weight'] ?? 2), (int) ($row['status_count'] ?? 1));

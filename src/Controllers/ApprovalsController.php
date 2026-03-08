@@ -13,8 +13,9 @@ class ApprovalsController extends Controller
         $userId = (int) ($user['id'] ?? 0);
         $canViewProjects = $this->auth->can('projects.view');
         $canAccessTimesheets = $this->auth->canAccessTimesheets();
+        $canViewOwnTimesheetApprovals = $canAccessTimesheets || $this->auth->hasRole('Talento');
 
-        if (!$canViewProjects && !$canAccessTimesheets) {
+        if (!$canViewProjects && !$canViewOwnTimesheetApprovals) {
             $this->denyAccess('No tienes permisos para acceder a la bandeja de aprobaciones.');
         }
 
@@ -59,7 +60,7 @@ class ApprovalsController extends Controller
         $talentApprovalSummary = [];
         $talentApprovalWeeks = [];
         $talentApprovalPeriod = [];
-        if (!$canApproveTimesheets && $canAccessTimesheets) {
+        if (!$canApproveTimesheets && $canViewOwnTimesheetApprovals) {
             $periodStart = (new DateTimeImmutable('first day of this month'))->setTime(0, 0);
             $periodEnd = (new DateTimeImmutable('last day of this month'))->setTime(0, 0);
             $talentApprovalSummary = $timesheetsRepo->executiveSummary($user, $periodStart, $periodEnd);
