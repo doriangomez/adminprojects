@@ -9,25 +9,37 @@ class ApprovalsController extends Controller
 {
     public function index(): void
     {
-        $this->requirePermission('projects.view');
-
         $user = $this->auth->user() ?? [];
         $userId = (int) ($user['id'] ?? 0);
-        $roleFlags = $this->documentRoleFlags($userId);
+        $canViewProjects = $this->auth->can('projects.view');
+        $canAccessTimesheets = $this->auth->canAccessTimesheets();
+
+        if (!$canViewProjects && !$canAccessTimesheets) {
+            $this->denyAccess('No tienes permisos para acceder a la bandeja de aprobaciones.');
+        }
+
+        $roleFlags = $canViewProjects
+            ? $this->documentRoleFlags($userId)
+            : [
+                'can_review' => false,
+                'can_validate' => false,
+                'can_approve' => false,
+                'can_manage' => false,
+            ];
 
         $repo = new ProjectNodesRepository($this->db);
-        $reviewQueue = $roleFlags['can_review']
+        $reviewQueue = $canViewProjects && $roleFlags['can_review']
             ? $repo->inboxDocumentsForUser('en_revision', 'reviewer_id', $userId)
             : [];
-        $validationQueue = $roleFlags['can_validate']
+        $validationQueue = $canViewProjects && $roleFlags['can_validate']
             ? $repo->inboxDocumentsForUser('en_validacion', 'validator_id', $userId)
             : [];
-        $approvalQueue = $roleFlags['can_approve']
+        $approvalQueue = $canViewProjects && $roleFlags['can_approve']
             ? $repo->inboxDocumentsForUser('en_aprobacion', 'approver_id', $userId)
             : [];
 
         $dispatchQueue = [];
-        if ($this->auth->can('projects.manage')) {
+        if ($canViewProjects && $this->auth->can('projects.manage')) {
             $reviewed = $repo->inboxDocumentsByStatus('revisado');
             $validated = $repo->inboxDocumentsByStatus('validado');
             $dispatchQueue = [
@@ -38,7 +50,6 @@ class ApprovalsController extends Controller
 
         $timesheetsRepo = new TimesheetsRepository($this->db);
         $canApproveTimesheets = $this->auth->canApproveTimesheets();
-        $canAccessTimesheets = $this->auth->canAccessTimesheets();
         $timesheetApprovals = $canApproveTimesheets
             ? $timesheetsRepo->pendingApprovalsByWeek($user)
             : [];
