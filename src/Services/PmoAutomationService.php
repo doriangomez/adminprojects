@@ -41,12 +41,14 @@ class PmoAutomationService
         $plannedHours = (float) ($project['planned_hours'] ?? 0);
         $manualProgress = (float) ($project['progress'] ?? 0);
         $approvedHours = $this->approvedHours($projectId, $dateStr);
+        $estimatedHours = $this->estimatedHours($projectId, $plannedHours);
         $taskMetrics = $this->taskMetrics($projectId, $dateStr);
         $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
         $blockerMentions = $this->blockerMentions($projectId, $dateStr);
         $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
 
-        $progressHours = $plannedHours > 0 ? min(100.0, round(($approvedHours / $plannedHours) * 100, 2)) : null;
+        $hoursConsumption = $estimatedHours > 0 ? round(($approvedHours / $estimatedHours) * 100, 2) : null;
+        $progressHours = $estimatedHours > 0 ? min(100.0, $hoursConsumption) : null;
         $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
             ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
             : null;
@@ -57,6 +59,7 @@ class PmoAutomationService
             'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
             'blocker_mentions' => $blockerMentions,
             'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
+            'hours_consumption_percent' => $hoursConsumption,
             'stale_business_days' => $staleBusinessDays,
         ]);
 
@@ -68,8 +71,9 @@ class PmoAutomationService
             'progress_hours' => $progressHours,
             'progress_tasks' => $progressTasks,
             'risk_score' => $riskScore,
-            'planned_hours' => $plannedHours,
+            'planned_hours' => $estimatedHours,
             'approved_hours' => round($approvedHours, 2),
+            'hours_consumption_percent' => $hoursConsumption,
             'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
             'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
             'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
@@ -269,7 +273,6 @@ class PmoAutomationService
              FROM timesheets ts
              ' . $taskJoin . '
              WHERE ' . $projectFilter . '
-               AND ts.status = "approved"
                AND ts.date <= :snapshot_date',
             [
                 ':project' => $projectId,
@@ -278,6 +281,26 @@ class PmoAutomationService
         );
 
         return (float) ($row['total'] ?? 0);
+    }
+
+    private function estimatedHours(int $projectId, float $fallback): float
+    {
+        if (!$this->db->tableExists('tasks') || !$this->db->columnExists('tasks', 'estimated_hours')) {
+            return max(0.0, $fallback);
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(COALESCE(estimated_hours, 0)), 0) AS total
+             FROM tasks
+             WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+        $estimated = (float) ($row['total'] ?? 0);
+        if ($estimated > 0) {
+            return $estimated;
+        }
+
+        return max(0.0, $fallback);
     }
 
     private function taskMetrics(int $projectId, string $snapshotDate): array
@@ -289,8 +312,8 @@ class PmoAutomationService
         $row = $this->db->fetchOne(
             'SELECT
                 COUNT(*) AS total_tasks,
-                SUM(CASE WHEN status IN ("done", "completed") THEN 1 ELSE 0 END) AS done_tasks,
-                SUM(CASE WHEN due_date IS NOT NULL AND due_date < :snapshot_date AND status NOT IN ("done", "completed") THEN 1 ELSE 0 END) AS overdue_tasks
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ""))) IN ("done", "completed", "completada") THEN 1 ELSE 0 END) AS done_tasks,
+                SUM(CASE WHEN due_date IS NOT NULL AND due_date < :snapshot_date AND LOWER(TRIM(COALESCE(status, ""))) NOT IN ("done", "completed", "completada") THEN 1 ELSE 0 END) AS overdue_tasks
              FROM tasks
              WHERE project_id = :project',
             [
@@ -430,11 +453,17 @@ class PmoAutomationService
     private function riskScore(array $metrics): int
     {
         $score = 0;
-        $score += max(0, (int) ($metrics['open_blockers'] ?? 0)) * 8;
-        $score += max(0, (int) ($metrics['aged_blockers'] ?? 0)) * 12;
-        $score += max(0, (int) ($metrics['critical_blockers'] ?? 0)) * 18;
-        $score += max(0, (int) ($metrics['blocker_mentions'] ?? 0)) * 4;
-        $score += max(0, (int) ($metrics['overdue_tasks'] ?? 0)) * 6;
+        $score += max(0, (int) ($metrics['open_blockers'] ?? 0)) * 10;
+        $score += max(0, (int) ($metrics['aged_blockers'] ?? 0)) * 8;
+        $score += max(0, (int) ($metrics['critical_blockers'] ?? 0)) * 20;
+        $score += max(0, (int) ($metrics['blocker_mentions'] ?? 0)) * 2;
+        $score += max(0, (int) ($metrics['overdue_tasks'] ?? 0)) * 8;
+        $consumption = (float) ($metrics['hours_consumption_percent'] ?? 0);
+        if ($consumption > 100) {
+            $score += 30;
+        } elseif ($consumption > 80) {
+            $score += 15;
+        }
         if ((int) ($metrics['stale_business_days'] ?? 0) >= 7) {
             $score += 20;
         }
@@ -527,13 +556,14 @@ class PmoAutomationService
         $alerts = [];
         $plannedHours = (float) ($snapshot['planned_hours'] ?? 0);
         $approvedHours = (float) ($snapshot['approved_hours'] ?? 0);
-        if ($plannedHours > 0 && $approvedHours > ($plannedHours * 1.1)) {
-            $severity = $approvedHours > ($plannedHours * 1.25) ? 'red' : 'yellow';
+        if ($plannedHours > 0 && $approvedHours > ($plannedHours * 0.8)) {
+            $severity = $approvedHours > $plannedHours ? 'red' : 'yellow';
+            $consumptionPercent = round(($approvedHours / $plannedHours) * 100, 2);
             $alerts[] = [
                 'type' => 'hours_overconsumption',
                 'severity' => $severity,
                 'title' => 'Sobreconsumo de horas',
-                'message' => sprintf('Horas aprobadas %.2f superan el plan %.2f.', $approvedHours, $plannedHours),
+                'message' => sprintf('Horas registradas %.2f (%.2f%%) frente a estimadas %.2f.', $approvedHours, $consumptionPercent, $plannedHours),
             ];
         }
 
