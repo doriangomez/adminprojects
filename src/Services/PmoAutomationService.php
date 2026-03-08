@@ -527,13 +527,19 @@ class PmoAutomationService
         $alerts = [];
         $plannedHours = (float) ($snapshot['planned_hours'] ?? 0);
         $approvedHours = (float) ($snapshot['approved_hours'] ?? 0);
-        if ($plannedHours > 0 && $approvedHours > ($plannedHours * 1.1)) {
-            $severity = $approvedHours > ($plannedHours * 1.25) ? 'red' : 'yellow';
+        if ($plannedHours > 0 && $approvedHours > $plannedHours) {
             $alerts[] = [
                 'type' => 'hours_overconsumption',
-                'severity' => $severity,
-                'title' => 'Sobreconsumo de horas',
-                'message' => sprintf('Horas aprobadas %.2f superan el plan %.2f.', $approvedHours, $plannedHours),
+                'severity' => 'red',
+                'title' => 'Sobreconsumo de horas (>100%)',
+                'message' => sprintf('Horas registradas %.2f superan las planificadas %.2f.', $approvedHours, $plannedHours),
+            ];
+        } elseif ($plannedHours > 0 && $approvedHours > ($plannedHours * 0.80)) {
+            $alerts[] = [
+                'type' => 'hours_high_consumption',
+                'severity' => 'yellow',
+                'title' => 'Consumo alto de horas (>80%)',
+                'message' => sprintf('Horas registradas %.2f alcanzan el %.1f%% del plan %.2f.', $approvedHours, ($approvedHours / $plannedHours) * 100, $plannedHours),
             ];
         }
 

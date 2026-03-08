@@ -545,6 +545,12 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             return;
         }
 
+        if (str_starts_with($path, '/admin/timesheets')) {
+            $controller = new AdminTimesheetsController($this->db, $this->auth);
+            $controller->index();
+            return;
+        }
+
         if (str_starts_with($path, '/timesheets')) {
             $controller = new TimesheetsController($this->db, $this->auth);
             if ($path === '/timesheets/analytics' && $method === 'GET') {

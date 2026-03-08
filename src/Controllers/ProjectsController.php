@@ -81,9 +81,19 @@ class ProjectsController extends Controller
         $config = (new ConfigService($this->db))->getConfig();
         $clientsRepo = new ClientsRepository($this->db);
         $projectService = new ProjectService($this->db);
+        $timesheetPmo = new TimesheetPmoService($this->db);
         $projects = $repo->summary($user, $filters);
         foreach ($projects as &$project) {
-            $project['health_score'] = $projectService->calculateProjectHealthScore((int) ($project['id'] ?? 0));
+            $projectId = (int) ($project['id'] ?? 0);
+            $project['health_score'] = $projectService->calculateProjectHealthScore($projectId);
+            $pmoIndicators = $timesheetPmo->projectPmoIndicators($projectId);
+            $project['ts_registered_hours'] = $pmoIndicators['registered_hours'];
+            $project['ts_progress_hours'] = $pmoIndicators['progress_hours'];
+            $project['ts_progress_tasks'] = $pmoIndicators['progress_tasks'];
+            $project['ts_hours_deviation'] = $pmoIndicators['hours_deviation'];
+            $project['ts_hours_alert'] = $pmoIndicators['hours_alert'];
+            $project['ts_pmo_risk_level'] = $pmoIndicators['pmo_risk_level'];
+            $project['ts_pmo_risk_factors'] = $pmoIndicators['pmo_risk_factors'];
         }
         unset($project);
 
@@ -1907,6 +1917,7 @@ class ProjectsController extends Controller
         $pmoAlerts = [];
         $pmoHoursTrend = [];
         $pmoActiveBlockers = [];
+        $tsPmoIndicators = [];
         $detailWarnings = [];
         try {
             $pmoAutomation = new PmoAutomationService($this->db);
@@ -1921,6 +1932,16 @@ class ProjectsController extends Controller
                 $e->getMessage()
             ));
             $detailWarnings[] = 'No se pudo cargar la automatización PMO en este momento.';
+        }
+        try {
+            $timesheetPmo = new TimesheetPmoService($this->db);
+            $tsPmoIndicators = $timesheetPmo->projectPmoIndicators($id);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[projects.detail.tsPmo] Error al cargar indicadores PMO de timesheets para proyecto %d: %s',
+                $id,
+                $e->getMessage()
+            ));
         }
 
         return array_merge([
@@ -1970,6 +1991,7 @@ class ProjectsController extends Controller
             'pmoAlerts' => $pmoAlerts,
             'pmoHoursTrend' => $pmoHoursTrend,
             'pmoActiveBlockers' => $pmoActiveBlockers,
+            'tsPmoIndicators' => $tsPmoIndicators,
             'detailWarnings' => $detailWarnings,
         ], $deleteContext);
     }

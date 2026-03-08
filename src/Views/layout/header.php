@@ -730,6 +730,13 @@ error_log(sprintf(
                 </a>
             <?php endif; ?>
 
+            <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true) && $timesheetsEnabled): ?>
+                <a href="<?= $basePath ?>/admin/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/admin/timesheets') ? 'active' : '' ?>" data-tone="pink">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 4v16"/><path d="M13 15l2 2 4-4"/></svg></span>
+                    <span class="nav-label">Timesheets PMO</span>
+                </a>
+            <?php endif; ?>
+
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>

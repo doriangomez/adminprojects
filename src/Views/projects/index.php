@@ -45,7 +45,7 @@ foreach ($projectsList as $project) {
         $outsourcingCount++;
     }
 
-    $hoursUsed += (float) ($project['actual_hours'] ?? 0);
+    $hoursUsed += (float) ($project['ts_registered_hours'] ?? $project['actual_hours'] ?? 0);
     $plannedHours += (float) ($project['planned_hours'] ?? 0);
     $budgetTotal += (float) ($project['budget'] ?? 0);
     $actualCostTotal += (float) ($project['actual_cost'] ?? 0);
@@ -933,11 +933,13 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                 </header>
                 <table class="project-table" aria-label="Listado de proyectos de <?= htmlspecialchars($clientNameGroup) ?>">
                     <colgroup>
-                        <col style="width: 42%;">
-                        <col style="width: 14%;">
-                        <col style="width: 12%;">
-                        <col style="width: 12%;">
+                        <col style="width: 30%;">
                         <col style="width: 10%;">
+                        <col style="width: 9%;">
+                        <col style="width: 9%;">
+                        <col style="width: 12%;">
+                        <col style="width: 12%;">
+                        <col style="width: 8%;">
                         <col style="width: 8%;">
                         <col style="width: 2%;">
                     </colgroup>
@@ -948,6 +950,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <th>Estado</th>
                             <th>Salud</th>
                             <th>Avance</th>
+                            <th>Horas</th>
+                            <th>Riesgo PMO</th>
                             <th>Facturación</th>
                             <th>Acciones</th>
                         </tr>
@@ -1009,6 +1013,28 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
                                 $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
                                 $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                                $tsRegisteredHours = (float) ($project['ts_registered_hours'] ?? 0);
+                                $tsProgressHours = isset($project['ts_progress_hours']) ? (float) $project['ts_progress_hours'] : null;
+                                $tsProgressTasks = isset($project['ts_progress_tasks']) ? (float) $project['ts_progress_tasks'] : null;
+                                $tsDeviation = (float) ($project['ts_hours_deviation'] ?? 0);
+                                $tsAlert = (string) ($project['ts_hours_alert'] ?? 'normal');
+                                $tsPmoRisk = (string) ($project['ts_pmo_risk_level'] ?? 'on_track');
+                                $tsPmoRiskLabel = match ($tsPmoRisk) {
+                                    'critical' => 'Crítico',
+                                    'warning' => 'Atención',
+                                    default => 'En curso',
+                                };
+                                $tsPmoRiskBadge = match ($tsPmoRisk) {
+                                    'critical' => 'badge risk-high',
+                                    'warning' => 'badge risk-medium',
+                                    default => 'badge risk-low',
+                                };
+                                $tsAlertBadge = match ($tsAlert) {
+                                    'overconsumed' => 'badge risk-high',
+                                    'warning' => 'badge risk-medium',
+                                    default => '',
+                                };
+                                $plannedHoursProject = (float) ($project['planned_hours'] ?? 0);
                             ?>
                             <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                                 <td class="project-cell">
@@ -1048,9 +1074,29 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                             <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                         </div>
                                         <span class="progress-value"><?= $progressLabel ?>%</span>
-                                        <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
-                                        <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                        <small class="section-muted">Horas <?= $tsProgressHours !== null ? number_format($tsProgressHours, 1) . '%' : 'N/A' ?> · Tareas <?= $tsProgressTasks !== null ? number_format($tsProgressTasks, 1) . '%' : 'N/A' ?></small>
                                     </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex; flex-direction:column; gap:3px;">
+                                        <strong style="font-size:13px; color: var(--text-primary);"><?= number_format($tsRegisteredHours, 1) ?>h</strong>
+                                        <?php if ($plannedHoursProject > 0): ?>
+                                            <small class="section-muted">de <?= number_format($plannedHoursProject, 0) ?>h</small>
+                                            <?php if ($tsDeviation > 0): ?>
+                                                <small style="color: var(--danger); font-weight:700;">+<?= number_format($tsDeviation, 1) ?>h</small>
+                                            <?php elseif ($tsDeviation < 0): ?>
+                                                <small style="color: var(--success); font-weight:700;"><?= number_format($tsDeviation, 1) ?>h</small>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <small class="section-muted">Sin plan</small>
+                                        <?php endif; ?>
+                                        <?php if ($tsAlertBadge !== ''): ?>
+                                            <span class="<?= $tsAlertBadge ?>" style="font-size:10px; margin-top:2px;"><?= $tsAlert === 'overconsumed' ? 'Sobreconsumo' : 'Alerta >80%' ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="<?= $tsPmoRiskBadge ?>"><?= $tsPmoRiskLabel ?></span>
                                 </td>
                                 <td>
                                     <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? 'Facturable' : 'No facturable' ?></span>
@@ -1131,6 +1177,22 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
                             $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
                             $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                            $tsRegisteredHours = (float) ($project['ts_registered_hours'] ?? 0);
+                            $tsProgressHours = isset($project['ts_progress_hours']) ? (float) $project['ts_progress_hours'] : null;
+                            $tsProgressTasks = isset($project['ts_progress_tasks']) ? (float) $project['ts_progress_tasks'] : null;
+                            $tsDeviation = (float) ($project['ts_hours_deviation'] ?? 0);
+                            $tsAlert = (string) ($project['ts_hours_alert'] ?? 'normal');
+                            $tsPmoRisk = (string) ($project['ts_pmo_risk_level'] ?? 'on_track');
+                            $tsPmoRiskLabel = match ($tsPmoRisk) {
+                                'critical' => 'Crítico',
+                                'warning' => 'Atención',
+                                default => 'En curso',
+                            };
+                            $tsPmoRiskBadge = match ($tsPmoRisk) {
+                                'critical' => 'badge risk-high',
+                                'warning' => 'badge risk-medium',
+                                default => 'badge risk-low',
+                            };
                         ?>
                         <article class="project-card">
                             <header>
@@ -1162,6 +1224,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
                                 <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
                                 <span class="compact-health <?= $healthScoreClass($compactHealth) ?>">● <?= $compactHealth ?></span>
+                                <span class="<?= $tsPmoRiskBadge ?>"><?= $tsPmoRiskLabel ?></span>
                             </div>
 
                             <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
@@ -1172,26 +1235,32 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 </div>
                                 <span style="font-size:12px; color: var(--text-secondary);">Avance <?= $progress ?>%</span>
                                 <div style="font-size:11px; color: var(--text-secondary); margin-top:4px;">
-                                    Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
-                                    Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
+                                    Horas <?= $tsProgressHours !== null ? number_format($tsProgressHours, 1) . '%' : 'N/A' ?> ·
+                                    Tareas <?= $tsProgressTasks !== null ? number_format($tsProgressTasks, 1) . '%' : 'N/A' ?>
                                 </div>
-                                <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
                             </div>
 
                             <div class="card-metrics">
                                 <div class="metric">
-                                    <span>Docs aprobados</span>
-                                    <strong><?= $approvedDocs ?></strong>
+                                    <span>Horas registradas</span>
+                                    <strong><?= number_format($tsRegisteredHours, 1) ?>h</strong>
                                 </div>
                                 <div class="metric">
-                                    <span>Horas</span>
-                                    <strong><?= $hoursValue ?>h</strong>
+                                    <span>Desviación</span>
+                                    <strong style="color: <?= $tsDeviation > 0 ? 'var(--danger)' : ($tsDeviation < 0 ? 'var(--success)' : 'var(--text-primary)') ?>;">
+                                        <?= $tsDeviation > 0 ? '+' : '' ?><?= number_format($tsDeviation, 1) ?>h
+                                    </strong>
                                 </div>
                                 <div class="metric">
                                     <span>Costos</span>
                                     <strong>$<?= $costValue ?></strong>
                                 </div>
                             </div>
+                            <?php if ($tsAlert !== 'normal'): ?>
+                                <div style="padding:6px 10px; border-radius:10px; font-size:12px; font-weight:700; border:1px solid; <?= $tsAlert === 'overconsumed' ? 'color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--border)); background:color-mix(in srgb, var(--danger) 12%, var(--background));' : 'color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--border)); background:color-mix(in srgb, var(--warning) 12%, var(--background));' ?>">
+                                    <?= $tsAlert === 'overconsumed' ? '⚠ Sobreconsumo de horas (>100%)' : '⚠ Consumo alto de horas (>80%)' ?>
+                                </div>
+                            <?php endif; ?>
                         </article>
                     <?php endforeach; ?>
                 </div>

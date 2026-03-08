@@ -35,6 +35,7 @@ $pmoSnapshot = is_array($pmoSnapshot ?? null) ? $pmoSnapshot : [];
 $pmoAlerts = is_array($pmoAlerts ?? null) ? $pmoAlerts : [];
 $pmoHoursTrend = is_array($pmoHoursTrend ?? null) ? $pmoHoursTrend : [];
 $pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers : [];
+$tsPmoIndicators = is_array($tsPmoIndicators ?? null) ? $tsPmoIndicators : [];
 $detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
@@ -367,10 +368,25 @@ $healthBreakdown = is_array($healthScore['breakdown'] ?? null) ? $healthScore['b
 $healthRecommendations = is_array($healthScore['recommendations'] ?? null) ? $healthScore['recommendations'] : [];
 $healthHistory = is_array($healthHistory ?? null) ? $healthHistory : [];
 $healthLevel = (string) ($healthScore['level'] ?? ($healthTotal >= 90 ? 'optimal' : ($healthTotal >= 75 ? 'attention' : 'critical')));
-$progressHoursAuto = isset($pmoSnapshot['progress_hours']) ? (float) $pmoSnapshot['progress_hours'] : null;
-$progressTasksAuto = isset($pmoSnapshot['progress_tasks']) ? (float) $pmoSnapshot['progress_tasks'] : null;
+$progressHoursAuto = isset($tsPmoIndicators['progress_hours']) ? (float) $tsPmoIndicators['progress_hours'] : (isset($pmoSnapshot['progress_hours']) ? (float) $pmoSnapshot['progress_hours'] : null);
+$progressTasksAuto = isset($tsPmoIndicators['progress_tasks']) ? (float) $tsPmoIndicators['progress_tasks'] : (isset($pmoSnapshot['progress_tasks']) ? (float) $pmoSnapshot['progress_tasks'] : null);
 $riskPmoScore = (int) ($pmoSnapshot['risk_score'] ?? 0);
 $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : 'green');
+$tsRegisteredHours = (float) ($tsPmoIndicators['registered_hours'] ?? 0);
+$tsPlannedHours = (float) ($tsPmoIndicators['planned_hours'] ?? 0);
+$tsHoursDeviation = (float) ($tsPmoIndicators['hours_deviation'] ?? 0);
+$tsHoursAlert = (string) ($tsPmoIndicators['hours_alert'] ?? 'normal');
+$tsPmoRiskLevel = (string) ($tsPmoIndicators['pmo_risk_level'] ?? 'on_track');
+$tsPmoRiskLabel = match ($tsPmoRiskLevel) {
+    'critical' => 'Crítico',
+    'warning' => 'Atención',
+    default => 'En curso',
+};
+$tsPmoRiskTone = match ($tsPmoRiskLevel) {
+    'critical' => 'red',
+    'warning' => 'yellow',
+    default => 'green',
+};
 ?>
 
 <section class="project-shell">
@@ -523,10 +539,23 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                         <strong><?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></strong>
                     </div>
                     <div class="pmo-kpi">
+                        <span>Horas registradas</span>
+                        <strong><?= number_format($tsRegisteredHours, 1) ?>h<?= $tsPlannedHours > 0 ? ' / ' . number_format($tsPlannedHours, 0) . 'h' : '' ?></strong>
+                    </div>
+                    <div class="pmo-kpi">
+                        <span>Desviación horas</span>
+                        <strong style="color: <?= $tsHoursDeviation > 0 ? 'var(--danger)' : ($tsHoursDeviation < 0 ? 'var(--success)' : 'var(--text-primary)') ?>;"><?= $tsHoursDeviation > 0 ? '+' : '' ?><?= number_format($tsHoursDeviation, 1) ?>h</strong>
+                    </div>
+                    <div class="pmo-kpi">
                         <span>Riesgo PMO</span>
-                        <strong class="status-<?= $riskPmoTone ?>"><?= $riskPmoScore ?>/100</strong>
+                        <strong class="status-<?= $tsPmoRiskTone ?>"><?= $tsPmoRiskLabel ?></strong>
                     </div>
                 </div>
+                <?php if ($tsHoursAlert !== 'normal'): ?>
+                    <div style="padding:8px 12px; border-radius:10px; font-size:12px; font-weight:700; margin-top:6px; border:1px solid; <?= $tsHoursAlert === 'overconsumed' ? 'color:var(--danger); border-color:color-mix(in srgb, var(--danger) 40%, var(--border)); background:color-mix(in srgb, var(--danger) 12%, var(--background));' : 'color:var(--warning); border-color:color-mix(in srgb, var(--warning) 40%, var(--border)); background:color-mix(in srgb, var(--warning) 12%, var(--background));' ?>">
+                        <?= $tsHoursAlert === 'overconsumed' ? '⚠ Sobreconsumo de horas: se han superado las horas planificadas del proyecto.' : '⚠ Consumo alto: las horas registradas superan el 80% del plan.' ?>
+                    </div>
+                <?php endif; ?>
                 <div class="progress-meta">
                     <div class="progress-meta__item">
                         <span>Última actualización</span>
