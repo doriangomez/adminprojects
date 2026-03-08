@@ -730,9 +730,15 @@ error_log(sprintf(
                 </a>
             <?php endif; ?>
 
-            <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
+            <?php if(in_array($user['role'] ?? $user['rol_nombre'] ?? '', ['Administrador', 'PMO'], true)): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">Admin</span>
+                <?php if ($timesheetsEnabled && ($auth->canManageAdvancedTimesheets() || in_array($user['role'] ?? $user['rol_nombre'] ?? '', ['Administrador', 'PMO'], true))): ?>
+                <a href="<?= $basePath ?>/admin/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/admin/timesheets') ? 'active' : '' ?>" data-tone="pink">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="m12 13 3 2"/><path d="M9 3h6"/><path d="M12 3v2"/></svg></span>
+                    <span class="nav-label">Timesheets admin</span>
+                </a>
+                <?php endif; ?>
                 <a href="<?= $basePath ?>/config" class="nav-link <?= str_starts_with($normalizedPath, '/config') ? 'active' : '' ?>" data-tone="orange">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.1a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.1a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.1a1 1 0 0 0-.9.6"/></svg></span>
                     <span class="nav-label">Configuración</span>

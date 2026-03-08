@@ -1007,8 +1007,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 $compactHealth = (int) (($project['health_score']['total_score'] ?? 0));
                                 $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
                                 $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
-                                $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
-                                $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                                $pmoRiskLevel = (string) ($project['pmo_risk_level'] ?? 'on_track');
+                                $pmoRiskClass = $pmoRiskLevel === 'critical' ? 'status-danger' : ($pmoRiskLevel === 'warning' ? 'status-warning' : 'status-success');
+                                $pmoRiskLabel = $pmoRiskLevel === 'critical' ? 'Crítico' : ($pmoRiskLevel === 'warning' ? 'Advertencia' : 'En ruta');
+                                $hoursRegistered = (float) ($project['timesheet_hours_registered'] ?? $project['actual_hours'] ?? 0);
+                                $hoursDeviation = isset($project['hours_deviation']) ? (float) $project['hours_deviation'] : null;
                             ?>
                             <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                                 <td class="project-cell">
@@ -1049,7 +1052,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                         </div>
                                         <span class="progress-value"><?= $progressLabel ?>%</span>
                                         <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
-                                        <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                        <small class="section-muted">Registradas: <?= number_format($hoursRegistered, 1) ?>h<?= $hoursDeviation !== null ? ' · Desv: ' . ($hoursDeviation >= 0 ? '+' : '') . number_format($hoursDeviation, 1) . 'h' : '' ?></small>
+                                        <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO: <?= htmlspecialchars($pmoRiskLabel) ?></span>
                                     </div>
                                 </td>
                                 <td>
@@ -1129,8 +1133,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             $costValue = number_format((float) ($project['actual_cost'] ?? 0), 0, ',', '.');
                             $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
                             $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
-                            $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
-                            $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                            $pmoRiskLevel = (string) ($project['pmo_risk_level'] ?? 'on_track');
+                            $pmoRiskClass = $pmoRiskLevel === 'critical' ? 'status-danger' : ($pmoRiskLevel === 'warning' ? 'status-warning' : 'status-success');
+                            $pmoRiskLabel = $pmoRiskLevel === 'critical' ? 'Crítico' : ($pmoRiskLevel === 'warning' ? 'Advertencia' : 'En ruta');
+                            $hoursRegistered = (float) ($project['timesheet_hours_registered'] ?? $project['actual_hours'] ?? 0);
+                            $hoursDeviation = isset($project['hours_deviation']) ? (float) $project['hours_deviation'] : null;
                         ?>
                         <article class="project-card">
                             <header>
@@ -1175,7 +1182,10 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
                                     Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
                                 </div>
-                                <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                <div style="font-size:11px; color: var(--text-secondary); margin-top:2px;">
+                                    Registradas: <?= number_format($hoursRegistered, 1) ?>h<?= $hoursDeviation !== null ? ' · Desv: ' . ($hoursDeviation >= 0 ? '+' : '') . number_format($hoursDeviation, 1) . 'h' : '' ?>
+                                </div>
+                                <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO: <?= htmlspecialchars($pmoRiskLabel) ?></span>
                             </div>
 
                             <div class="card-metrics">
@@ -1184,8 +1194,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <strong><?= $approvedDocs ?></strong>
                                 </div>
                                 <div class="metric">
-                                    <span>Horas</span>
-                                    <strong><?= $hoursValue ?>h</strong>
+                                    <span>Horas registradas</span>
+                                    <strong><?= number_format($hoursRegistered, 1) ?>h</strong>
                                 </div>
                                 <div class="metric">
                                     <span>Costos</span>

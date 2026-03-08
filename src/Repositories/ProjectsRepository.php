@@ -112,6 +112,7 @@ class ProjectsRepository
             $hasProjectPmoSnapshots ? 'ppmo.progress_hours AS progress_hours_auto' : 'NULL AS progress_hours_auto',
             $hasProjectPmoSnapshots ? 'ppmo.progress_tasks AS progress_tasks_auto' : 'NULL AS progress_tasks_auto',
             $hasProjectPmoSnapshots ? 'ppmo.risk_score AS pmo_risk_score' : 'NULL AS pmo_risk_score',
+            $hasProjectPmoSnapshots ? 'ppmo.approved_hours AS timesheet_approved_hours' : 'NULL AS timesheet_approved_hours',
         ];
 
         $joins = [
@@ -142,7 +143,7 @@ class ProjectsRepository
 
         if ($hasProjectPmoSnapshots) {
             $joins[] = "LEFT JOIN (
-                SELECT ps.project_id, ps.progress_hours, ps.progress_tasks, ps.risk_score
+                SELECT ps.project_id, ps.progress_hours, ps.progress_tasks, ps.risk_score, ps.approved_hours
                 FROM project_pmo_snapshots ps
                 JOIN (
                     SELECT project_id, MAX(snapshot_date) AS latest_date
@@ -237,6 +238,13 @@ class ProjectsRepository
             if (isset($activeStoppersByProject[$projectId])) {
                 $stopperData = array_merge($stopperData, $activeStoppersByProject[$projectId]);
             }
+
+            $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
+            $project['pmo_risk_level'] = $pmoRiskScore >= 70 ? 'critical' : ($pmoRiskScore >= 40 ? 'warning' : 'on_track');
+            $approvedHours = (float) ($project['timesheet_approved_hours'] ?? $project['actual_hours'] ?? 0);
+            $plannedHours = (float) ($project['planned_hours'] ?? 0);
+            $project['timesheet_hours_registered'] = $approvedHours;
+            $project['hours_deviation'] = $plannedHours > 0 ? round($approvedHours - $plannedHours, 2) : null;
 
             return $this->attachProjectOperationalData(
                 $this->attachProjectSignal($project),

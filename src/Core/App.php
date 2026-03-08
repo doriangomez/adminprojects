@@ -111,6 +111,11 @@ class App
             return;
         }
 
+        if ($path === '/admin/timesheets' && $method === 'GET') {
+            (new AdminTimesheetsController($this->db, $this->auth))->index();
+            return;
+        }
+
         if ($path === '/approvals' && $method === 'GET') {
             (new ApprovalsController($this->db, $this->auth))->index();
             return;

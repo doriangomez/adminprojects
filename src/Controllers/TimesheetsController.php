@@ -620,6 +620,9 @@ class TimesheetsController extends Controller
                 $comment !== '' ? $comment : null,
                 $targetUserId > 0 ? $targetUserId : null
             );
+            if ($status === 'approved') {
+                $this->refreshPmoSnapshotsForApprovedTimesheets($repo, $weekStart, null, $userId, $targetUserId > 0 ? $targetUserId : null);
+            }
             header('Location: /approvals');
         } catch (\Throwable $e) {
             error_log('Error al aprobar semana de timesheets: ' . $e->getMessage());
@@ -664,6 +667,10 @@ class TimesheetsController extends Controller
                 $comment !== '' ? $comment : null,
                 $targetUserId > 0 ? $targetUserId : null
             );
+            if ($status === 'approved') {
+                $weekStart = (new \DateTimeImmutable($date))->modify('monday this week')->format('Y-m-d');
+                $this->refreshPmoSnapshotsForApprovedTimesheets($repo, $weekStart, $date, $userId, $targetUserId > 0 ? $targetUserId : null);
+            }
             header('Location: /approvals');
         } catch (\Throwable $e) {
             error_log('Error al aprobar día de timesheets: ' . $e->getMessage());
@@ -672,6 +679,20 @@ class TimesheetsController extends Controller
         }
     }
 
+    private function refreshPmoSnapshotsForApprovedTimesheets(TimesheetsRepository $repo, string $weekStart, ?string $date, int $approverUserId, ?int $targetUserId): void
+    {
+        try {
+            $projectIds = $repo->getProjectIdsForApprovalScope($weekStart, $date, $approverUserId, $targetUserId);
+            $pmoService = new PmoAutomationService($this->db);
+            foreach ($projectIds as $projectId) {
+                if ($projectId > 0) {
+                    $pmoService->ensureTodaySnapshotForProject($projectId);
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('Error al actualizar snapshots PMO tras aprobación: ' . $e->getMessage());
+        }
+    }
 
     public function adminAction(): void
     {

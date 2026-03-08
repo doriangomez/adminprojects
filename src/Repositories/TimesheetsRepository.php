@@ -64,6 +64,62 @@ class TimesheetsRepository
         );
     }
 
+    public function adminList(array $filters = []): array
+    {
+        $conditions = [];
+        $params = [];
+
+        $conditions[] = '1=1';
+
+        if (!empty($filters['user_id'])) {
+            $conditions[] = '(ts.user_id = :user_id OR ta.user_id = :user_id)';
+            $params[':user_id'] = (int) $filters['user_id'];
+        }
+
+        if (!empty($filters['project_id'])) {
+            $conditions[] = '(ts.project_id = :project_id OR t.project_id = :project_id)';
+            $params[':project_id'] = (int) $filters['project_id'];
+        }
+
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'p.client_id = :client_id';
+            $params[':client_id'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['week_start'])) {
+            $start = (new \DateTimeImmutable($filters['week_start']))->setTime(0, 0);
+            $end = $start->modify('+6 days');
+            $conditions[] = 'ts.date BETWEEN :week_start AND :week_end';
+            $params[':week_start'] = $start->format('Y-m-d');
+            $params[':week_end'] = $end->format('Y-m-d');
+        }
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'ts.status = :status';
+            $params[':status'] = $filters['status'];
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        return $this->db->fetchAll(
+            'SELECT ts.id, ts.date, ts.hours, ts.status,
+                    COALESCE(u.name, ta.name) AS usuario,
+                    c.name AS cliente,
+                    p.name AS proyecto,
+                    t.title AS tarea
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
+             LEFT JOIN clients c ON c.id = p.client_id
+             LEFT JOIN users u ON u.id = ts.user_id
+             JOIN talents ta ON ta.id = ts.talent_id
+             WHERE ' . $where . '
+             ORDER BY ts.date DESC, ts.id DESC
+             LIMIT 2000',
+            $params
+        );
+    }
+
     public function kpis(array $user): array
     {
         $conditions = [];
@@ -1493,6 +1549,49 @@ class TimesheetsRepository
         }
 
         return $updated;
+    }
+
+    public function getProjectIdsForApprovalScope(string $weekStart, ?string $singleDate = null, int $approverUserId = 0, ?int $targetUserId = null): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $start = new \DateTimeImmutable($weekStart);
+        $end = $singleDate !== null && $singleDate !== ''
+            ? new \DateTimeImmutable($singleDate)
+            : $start->modify('+6 days');
+
+        $params = [
+            ':start' => $start->format('Y-m-d'),
+            ':end' => $end->format('Y-m-d'),
+        ];
+        $whereUser = '';
+        if ($approverUserId > 0) {
+            $params[':approver'] = $approverUserId;
+        }
+        if ($targetUserId !== null && $targetUserId > 0) {
+            $params[':target_user'] = $targetUserId;
+            $whereUser = ' AND ts.user_id = :target_user';
+        }
+
+        $approverWhere = $approverUserId > 0 ? 'ts.approver_user_id = :approver AND ' : '';
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $projectExpr = $usesProjectColumn
+            ? 'COALESCE(ts.project_id, t.project_id)'
+            : 't.project_id';
+
+        $rows = $this->db->fetchAll(
+            "SELECT DISTINCT $projectExpr AS project_id
+             FROM timesheets ts
+             LEFT JOIN tasks t ON t.id = ts.task_id
+             WHERE {$approverWhere}ts.date BETWEEN :start AND :end
+               AND ts.status = 'approved'
+               $whereUser",
+            $params
+        );
+
+        return array_values(array_filter(array_map(static fn (array $r): int => (int) ($r['project_id'] ?? 0), $rows)));
     }
 
     public function updateDayApprovalStatus(int $approverUserId, string $date, string $status, ?string $comment = null, ?int $targetUserId = null): int

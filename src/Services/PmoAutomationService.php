@@ -41,16 +41,19 @@ class PmoAutomationService
         $plannedHours = (float) ($project['planned_hours'] ?? 0);
         $manualProgress = (float) ($project['progress'] ?? 0);
         $approvedHours = $this->approvedHours($projectId, $dateStr);
+        $estimatedHoursFromTasks = $this->estimatedHoursFromTasks($projectId);
+        $estimatedHours = $estimatedHoursFromTasks > 0 ? $estimatedHoursFromTasks : $plannedHours;
         $taskMetrics = $this->taskMetrics($projectId, $dateStr);
         $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
         $blockerMentions = $this->blockerMentions($projectId, $dateStr);
         $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
 
-        $progressHours = $plannedHours > 0 ? min(100.0, round(($approvedHours / $plannedHours) * 100, 2)) : null;
+        $progressHours = $estimatedHours > 0 ? min(100.0, round(($approvedHours / $estimatedHours) * 100, 2)) : null;
         $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
             ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
             : null;
 
+        $hoursConsumption = $estimatedHours > 0 ? ($approvedHours / $estimatedHours) * 100 : 0;
         $riskScore = $this->riskScore([
             'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
             'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
@@ -58,8 +61,10 @@ class PmoAutomationService
             'blocker_mentions' => $blockerMentions,
             'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
             'stale_business_days' => $staleBusinessDays,
+            'hours_consumption_pct' => $hoursConsumption,
         ]);
 
+        $pmoRiskLevel = $this->pmoRiskLevel($riskScore);
         $snapshot = [
             'project_id' => $projectId,
             'snapshot_date' => $dateStr,
@@ -68,7 +73,9 @@ class PmoAutomationService
             'progress_hours' => $progressHours,
             'progress_tasks' => $progressTasks,
             'risk_score' => $riskScore,
+            'pmo_risk_level' => $pmoRiskLevel,
             'planned_hours' => $plannedHours,
+            'estimated_hours_tasks' => $estimatedHoursFromTasks,
             'approved_hours' => round($approvedHours, 2),
             'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
             'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
@@ -289,8 +296,8 @@ class PmoAutomationService
         $row = $this->db->fetchOne(
             'SELECT
                 COUNT(*) AS total_tasks,
-                SUM(CASE WHEN status IN ("done", "completed") THEN 1 ELSE 0 END) AS done_tasks,
-                SUM(CASE WHEN due_date IS NOT NULL AND due_date < :snapshot_date AND status NOT IN ("done", "completed") THEN 1 ELSE 0 END) AS overdue_tasks
+                SUM(CASE WHEN status IN ("done", "completed", "completada") THEN 1 ELSE 0 END) AS done_tasks,
+                SUM(CASE WHEN due_date IS NOT NULL AND due_date < :snapshot_date AND status NOT IN ("done", "completed", "completada") THEN 1 ELSE 0 END) AS overdue_tasks
              FROM tasks
              WHERE project_id = :project',
             [
@@ -438,9 +445,44 @@ class PmoAutomationService
         if ((int) ($metrics['stale_business_days'] ?? 0) >= 7) {
             $score += 20;
         }
+        $consumptionPct = (float) ($metrics['hours_consumption_pct'] ?? 0);
+        if ($consumptionPct > 100) {
+            $score += 25;
+        } elseif ($consumptionPct > 80) {
+            $score += 12;
+        }
 
         return max(0, min(100, $score));
     }
+
+    private function pmoRiskLevel(int $riskScore): string
+    {
+        if ($riskScore >= 70) {
+            return 'critical';
+        }
+        if ($riskScore >= 40) {
+            return 'warning';
+        }
+
+        return 'on_track';
+    }
+
+    private function estimatedHoursFromTasks(int $projectId): float
+    {
+        if (!$this->db->tableExists('tasks') || !$this->db->columnExists('tasks', 'estimated_hours')) {
+            return 0.0;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(estimated_hours), 0) AS total
+             FROM tasks
+             WHERE project_id = :project',
+            [':project' => $projectId]
+        );
+
+        return (float) ($row['total'] ?? 0);
+    }
+
 
     private function persistSnapshot(array $snapshot): int
     {
@@ -526,14 +568,22 @@ class PmoAutomationService
 
         $alerts = [];
         $plannedHours = (float) ($snapshot['planned_hours'] ?? 0);
+        $estimatedFromTasks = (float) ($snapshot['estimated_hours_tasks'] ?? 0);
+        $estimatedHours = $estimatedFromTasks > 0 ? $estimatedFromTasks : $plannedHours;
         $approvedHours = (float) ($snapshot['approved_hours'] ?? 0);
-        if ($plannedHours > 0 && $approvedHours > ($plannedHours * 1.1)) {
-            $severity = $approvedHours > ($plannedHours * 1.25) ? 'red' : 'yellow';
+        $consumptionPct = $estimatedHours > 0 ? ($approvedHours / $estimatedHours) * 100 : 0;
+        if ($estimatedHours > 0 && $consumptionPct > 80) {
+            $severity = $consumptionPct > 100 ? 'red' : 'yellow';
             $alerts[] = [
                 'type' => 'hours_overconsumption',
                 'severity' => $severity,
                 'title' => 'Sobreconsumo de horas',
-                'message' => sprintf('Horas aprobadas %.2f superan el plan %.2f.', $approvedHours, $plannedHours),
+                'message' => sprintf(
+                    'Consumo %.1f%% (%.2f h registradas vs %.2f h estimadas).',
+                    $consumptionPct,
+                    $approvedHours,
+                    $estimatedHours
+                ),
             ];
         }
 
