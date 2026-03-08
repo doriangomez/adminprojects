@@ -28,6 +28,11 @@ $tabs = [
         'href' => $basePath . '/projects/' . $projectId . '?view=bloqueos',
         'icon' => 'blockers',
     ],
+    'horas' => [
+        'label' => 'Horas',
+        'href' => $basePath . '/projects/' . $projectId . '?view=horas',
+        'icon' => 'hours',
+    ],
     'requisitos' => [
         'label' => 'Requisitos',
         'href' => $basePath . '/projects/' . $projectId . '/requirements',
@@ -68,6 +73,7 @@ $projectTabIcon = static function (string $icon): string {
         'documents' => '<svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9.5A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M4 9h16"/></svg>',
         'notes' => '<svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6"/><path d="M9 12h6"/></svg>',
         'blockers' => '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 8 8 8"/><path d="m16 8-8 8"/></svg>',
+        'hours' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="m12 13 3 2"/><path d="M9 3h6"/><path d="M12 3v2"/></svg>',
         'requirements' => '<svg viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>',
         'tasks' => '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h7"/><path d="M9 12h7"/><path d="M9 16h5"/><path d="m6.5 8 .5.5 1-1"/><path d="m6.5 12 .5.5 1-1"/></svg>',
         'talent' => '<svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg>',

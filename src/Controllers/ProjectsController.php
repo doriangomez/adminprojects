@@ -1886,6 +1886,7 @@ class ProjectsController extends Controller
         $pendingControls = count($nodesRepo->pendingCriticalNodes($id));
         $approvedDocuments = $this->countApprovedDocuments($projectNodes);
         $loggedHours = $repo->timesheetHoursForProject($id);
+        $timesheetEntries = $repo->timesheetEntriesForProject($id, 300);
         $dependencies = $repo->dependencySummary($id);
         $deleteContext = $this->projectDeletionContext($id, $repo);
         $projectService = new ProjectService($this->db);
@@ -1943,6 +1944,7 @@ class ProjectsController extends Controller
                 'pending_controls' => $pendingControls,
                 'logged_hours' => $loggedHours,
             ],
+            'timesheetEntries' => $timesheetEntries,
             'billingConfig' => $billingConfig,
             'projectInvoices' => $invoices,
             'billingTotals' => $invoiceTotals,
