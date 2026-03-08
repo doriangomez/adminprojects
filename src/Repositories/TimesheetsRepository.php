@@ -2045,6 +2045,83 @@ class TimesheetsRepository
         ];
     }
 
+    public function adminWeeklySummary(array $filters = []): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $params = [];
+        $whereParts = $this->adminTimesheetsWhere($filters, $params);
+        $whereSql = $whereParts ? ' WHERE ' . implode(' AND ', $whereParts) : '';
+        $baseFrom = ' FROM timesheets ts
+             LEFT JOIN users u ON u.id = ts.user_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, tk.project_id)
+             LEFT JOIN clients c ON c.id = p.client_id';
+
+        return $this->db->fetchAll(
+            'SELECT
+                COALESCE(ts.user_id, 0) AS user_id,
+                COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                COALESCE(p.id, 0) AS project_id,
+                COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto") AS project_name,
+                COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client_name,
+                COALESCE(SUM(ts.hours), 0) AS total_hours,
+                COUNT(*) AS entries,
+                MIN(ts.date) AS week_start,
+                MAX(ts.date) AS week_end,
+                GROUP_CONCAT(DISTINCT ts.status ORDER BY ts.status) AS statuses
+             ' . $baseFrom . $whereSql . '
+             GROUP BY COALESCE(ts.user_id, 0),
+                      COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario"),
+                      COALESCE(p.id, 0),
+                      COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto"),
+                      COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente")
+             ORDER BY user_name ASC, project_name ASC',
+            $params
+        );
+    }
+
+    public function timesheetEntriesForProject(int $projectId, ?int $limit = 200): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $canResolveFromTasks = $this->db->tableExists('tasks')
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
+        if (!$usesProjectColumn && !$canResolveFromTasks) {
+            return [];
+        }
+
+        $projectFilter = $usesProjectColumn
+            ? 'COALESCE(ts.project_id, tk.project_id) = :project_id'
+            : 'tk.project_id = :project_id';
+
+        $limitSql = $limit !== null ? ' LIMIT ' . (int) $limit : '';
+
+        return $this->db->fetchAll(
+            'SELECT ts.id,
+                    ts.date,
+                    COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                    COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea") AS task_name,
+                    ts.hours,
+                    ts.status,
+                    ts.activity_type,
+                    ts.activity_description,
+                    ts.comment
+             FROM timesheets ts
+             LEFT JOIN users u ON u.id = ts.user_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             WHERE ' . $projectFilter . '
+             ORDER BY ts.date DESC, ts.id DESC' . $limitSql,
+            [':project_id' => $projectId]
+        );
+    }
+
     public function projectsForTimesheetEntry(int $userId): array
     {
         if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('projects')) {

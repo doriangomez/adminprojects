@@ -402,6 +402,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
     .project-client { color: var(--text-secondary); font-size: 12px; margin: 2px 0 0; }
+    .project-pm-line { color: var(--text-secondary); font-size: 12px; margin: 2px 0 0; }
+    .project-pm-line strong { color: var(--text-primary); }
     .project-cell { min-width: 320px; }
     .project-main { display: flex; flex-direction: column; gap: 2px; }
 
@@ -624,6 +626,20 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         font-weight: 600;
     }
 
+    .client-projects-count {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--primary) 16%, var(--background));
+        color: var(--primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 14px;
+        border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--background));
+    }
+
     .project-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -726,6 +742,54 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .risk-summary { font-size: 12px; color: var(--text-secondary); }
 
     .empty-state { padding: 18px; border-radius: 14px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; }
+
+    .card-hours-progress {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: color-mix(in srgb, var(--text-secondary) 8%, var(--background));
+    }
+
+    .card-hours-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+
+    .card-hours-header span {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .card-hours-header strong {
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .card-hours-track {
+        height: 8px;
+        background: color-mix(in srgb, var(--text-secondary) 18%, var(--background));
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .card-hours-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.3s ease;
+    }
+
+    .card-hours-pct {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
 
     @media (max-width: 960px) {
         .projects-hero { flex-direction: column; align-items: flex-start; }
@@ -1141,6 +1205,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <p class="client-group-subtitle"><?= count($clientProjects) ?> proyecto(s)</p>
                         </div>
                     </div>
+                    <span class="client-projects-count"><?= count($clientProjects) ?></span>
                 </header>
                 <div class="project-grid">
                     <?php foreach ($clientProjects as $project): ?>
@@ -1171,6 +1236,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <div>
                                     <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
                                     <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                                    <p class="project-pm-line">PM: <strong><?= htmlspecialchars($project['pm_name'] ?? 'Sin PM') ?></strong></p>
                                 </div>
                                 <div class="card-actions">
                                     <details class="menu-details">
@@ -1216,15 +1282,29 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 </div>
                             </div>
 
+                            <?php
+                            $hoursProgressPct = $hoursEstimated > 0 ? min(100, round(($hoursLogged / $hoursEstimated) * 100, 1)) : 0;
+                            $hoursBarColor = $hoursProgressPct >= 100 ? 'var(--danger)' : ($hoursProgressPct >= 80 ? 'var(--warning)' : 'var(--primary)');
+                            ?>
+                            <div class="card-hours-progress">
+                                <div class="card-hours-header">
+                                    <span>Horas</span>
+                                    <strong><?= $hoursValue ?>h / <?= number_format($hoursEstimated, 0, ',', '.') ?>h</strong>
+                                </div>
+                                <div class="card-hours-track">
+                                    <div class="card-hours-fill" style="width: <?= max(0, min(100, $hoursProgressPct)) ?>%; background: <?= $hoursBarColor ?>;"></div>
+                                </div>
+                                <span class="card-hours-pct"><?= $hoursProgressPct ?>% consumido</span>
+                            </div>
+
                             <div class="card-metrics">
                                 <div class="metric">
                                     <span>Docs aprobados</span>
                                     <strong><?= $approvedDocs ?></strong>
                                 </div>
                                 <div class="metric">
-                                    <span>Horas</span>
-                                    <strong><?= $hoursValue ?>h</strong>
-                                    <span>Est.: <?= number_format($hoursEstimated, 0, ',', '.') ?>h</span>
+                                    <span>PM</span>
+                                    <strong><?= htmlspecialchars($project['pm_name'] ?? 'Sin PM') ?></strong>
                                 </div>
                                 <div class="metric">
                                     <span>Costos</span>

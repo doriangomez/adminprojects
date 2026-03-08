@@ -196,6 +196,7 @@ class TimesheetsController extends Controller
         ];
 
         $report = $repo->adminTimesheetsReport($filters);
+        $weeklySummary = $repo->adminWeeklySummary($filters);
 
         $this->render('admin/timesheets', [
             'title' => 'Admin · Timesheets',
@@ -204,6 +205,7 @@ class TimesheetsController extends Controller
             'weekEnd' => $weekEnd,
             'filters' => $filters,
             'report' => $report,
+            'weeklySummary' => $weeklySummary,
         ]);
     }
 

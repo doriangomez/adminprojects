@@ -12,6 +12,7 @@ use App\Repositories\ProjectStoppersRepository;
 use App\Repositories\ProjectsRepository;
 use App\Repositories\TalentsRepository;
 use App\Repositories\TasksRepository;
+use App\Repositories\TimesheetsRepository;
 use App\Repositories\UsersRepository;
 
 class ProjectsController extends Controller
@@ -1971,6 +1972,9 @@ class ProjectsController extends Controller
             'pmoHoursTrend' => $pmoHoursTrend,
             'pmoActiveBlockers' => $pmoActiveBlockers,
             'detailWarnings' => $detailWarnings,
+            'timesheetEntries' => $this->db->tableExists('timesheets')
+                ? (new TimesheetsRepository($this->db))->timesheetEntriesForProject($id)
+                : [],
         ], $deleteContext);
     }
 

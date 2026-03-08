@@ -38,7 +38,7 @@ $pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers :
 $detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
-$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos'], true) ? $view : 'documentos';
+$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos', 'horas'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -445,6 +445,7 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
         'resumen' => 'resumen',
         'seguimiento' => 'seguimiento',
         'bloqueos' => 'bloqueos',
+        'horas' => 'horas',
         default => 'documents',
     };
     require __DIR__ . '/_tabs.php';
@@ -663,6 +664,152 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                 <?php endif; ?>
             </div>
         </section>
+    <?php elseif ($view === 'horas'): ?>
+        <?php
+        $timesheetEntries = is_array($timesheetEntries ?? null) ? $timesheetEntries : [];
+        $hoursLogged = (float) ($progressIndicators['logged_hours'] ?? 0);
+        $hoursPlanned = (float) ($project['planned_hours'] ?? 0);
+        $hoursPercent = $hoursPlanned > 0 ? min(100, round(($hoursLogged / $hoursPlanned) * 100, 1)) : 0;
+
+        $tsStatusLabel = static function (string $status): string {
+            return match (strtolower(trim($status))) {
+                'approved' => 'Aprobado',
+                'rejected' => 'Rechazado',
+                'submitted', 'pending', 'pending_approval' => 'Enviado',
+                'draft' => 'Borrador',
+                default => $status !== '' ? ucfirst($status) : 'Sin estado',
+            };
+        };
+        $tsStatusClass = static function (string $status): string {
+            return match (strtolower(trim($status))) {
+                'approved' => 'ph-badge-approved',
+                'rejected' => 'ph-badge-rejected',
+                'submitted', 'pending', 'pending_approval' => 'ph-badge-submitted',
+                default => 'ph-badge-draft',
+            };
+        };
+        ?>
+        <section class="ph-hours-section">
+            <div class="ph-hours-summary">
+                <article class="ph-hours-card">
+                    <div class="ph-hours-progress-ring">
+                        <svg viewBox="0 0 120 120" width="120" height="120">
+                            <circle cx="60" cy="60" r="50" stroke="var(--border)" stroke-width="10" fill="none"></circle>
+                            <circle cx="60" cy="60" r="50" stroke="var(--primary)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="<?= 314 - (314 * $hoursPercent / 100) ?>" transform="rotate(-90 60 60)"></circle>
+                            <text x="60" y="56" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text-primary)"><?= $hoursPercent ?>%</text>
+                            <text x="60" y="74" text-anchor="middle" font-size="11" fill="var(--text-secondary)">consumo</text>
+                        </svg>
+                    </div>
+                    <div class="ph-hours-info">
+                        <p class="ph-eyebrow">Avance de horas</p>
+                        <h3><?= number_format($hoursLogged, 1) ?>h <span class="ph-of">/ <?= number_format($hoursPlanned, 1) ?>h</span></h3>
+                        <div class="ph-bar-track">
+                            <div class="ph-bar-fill" style="width: <?= max(0, min(100, $hoursPercent)) ?>%;"></div>
+                        </div>
+                        <p class="ph-hours-meta">
+                            <?php if ($hoursPercent >= 100): ?>
+                                <span class="ph-alert-over">Horas consumidas al 100%</span>
+                            <?php elseif ($hoursPercent >= 80): ?>
+                                <span class="ph-alert-warn">Consumo superior al 80%</span>
+                            <?php else: ?>
+                                <span>Dentro del presupuesto de horas</span>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                </article>
+            </div>
+
+            <article class="ph-entries-card">
+                <div class="ph-entries-header">
+                    <div>
+                        <p class="ph-eyebrow">Detalle de horas</p>
+                        <h4>Registro de horas del proyecto</h4>
+                    </div>
+                    <span class="count-pill"><?= count($timesheetEntries) ?> registros</span>
+                </div>
+                <?php if (empty($timesheetEntries)): ?>
+                    <div class="ph-empty">No hay horas registradas en este proyecto.</div>
+                <?php else: ?>
+                    <div class="table-wrapper">
+                        <table class="ph-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Usuario</th>
+                                    <th>Tarea</th>
+                                    <th>Actividad</th>
+                                    <th>Horas</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($timesheetEntries as $entry): ?>
+                                    <?php
+                                    $dateRaw = (string) ($entry['date'] ?? '');
+                                    $dateFormatted = $dateRaw;
+                                    if ($dateRaw !== '') {
+                                        $ts = strtotime($dateRaw);
+                                        if ($ts) {
+                                            $dateFormatted = date('d M', $ts);
+                                        }
+                                    }
+                                    $activityDesc = trim((string) ($entry['activity_description'] ?? ''));
+                                    if ($activityDesc === '') {
+                                        $activityDesc = trim((string) ($entry['activity_type'] ?? ''));
+                                    }
+                                    ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($dateFormatted) ?></td>
+                                        <td>
+                                            <div class="ph-user-cell">
+                                                <span class="ph-user-avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) ($entry['user_name'] ?? '?'), 0, 1, 'UTF-8'), 'UTF-8')) ?></span>
+                                                <?= htmlspecialchars((string) ($entry['user_name'] ?? 'Sin usuario')) ?>
+                                            </div>
+                                        </td>
+                                        <td><?= htmlspecialchars((string) ($entry['task_name'] ?? 'Sin tarea')) ?></td>
+                                        <td><?= htmlspecialchars($activityDesc ?: '—') ?></td>
+                                        <td><strong><?= number_format((float) ($entry['hours'] ?? 0), 1) ?>h</strong></td>
+                                        <td><span class="ph-badge <?= $tsStatusClass((string) ($entry['status'] ?? '')) ?>"><?= htmlspecialchars($tsStatusLabel((string) ($entry['status'] ?? ''))) ?></span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </article>
+        </section>
+
+        <style>
+            .ph-hours-section { display: flex; flex-direction: column; gap: 16px; }
+            .ph-hours-summary { display: flex; gap: 14px; }
+            .ph-hours-card { flex: 1; display: flex; align-items: center; gap: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 6%, var(--background)); }
+            .ph-hours-info { flex: 1; }
+            .ph-eyebrow { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); font-weight: 800; }
+            .ph-hours-info h3 { margin: 4px 0 8px; font-size: 28px; color: var(--text-primary); }
+            .ph-of { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
+            .ph-bar-track { height: 8px; background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); border-radius: 999px; overflow: hidden; }
+            .ph-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 60%, var(--background)), color-mix(in srgb, var(--success) 70%, var(--background))); }
+            .ph-hours-meta { margin: 6px 0 0; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+            .ph-alert-over { color: var(--danger); font-weight: 700; }
+            .ph-alert-warn { color: var(--warning); font-weight: 700; }
+            .ph-entries-card { border: 1px solid var(--border); border-radius: 16px; padding: 18px; background: var(--surface); box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 6%, var(--background)); }
+            .ph-entries-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+            .ph-entries-header h4 { margin: 2px 0 0; }
+            .ph-table { width: 100%; border-collapse: collapse; }
+            .ph-table th, .ph-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; }
+            .ph-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); font-weight: 700; white-space: nowrap; }
+            .ph-table tbody tr:last-child td { border-bottom: none; }
+            .ph-table tbody tr:hover { background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); }
+            .ph-user-cell { display: flex; align-items: center; gap: 8px; }
+            .ph-user-avatar { width: 28px; height: 28px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex-shrink: 0; }
+            .ph-badge { display: inline-flex; padding: 3px 8px; border-radius: 999px; font-weight: 700; font-size: 11px; border: 1px solid transparent; }
+            .ph-badge-approved { background: color-mix(in srgb, var(--success) 16%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
+            .ph-badge-submitted { background: color-mix(in srgb, #3b82f6 16%, var(--background)); color: #3b82f6; border-color: color-mix(in srgb, #3b82f6 35%, var(--background)); }
+            .ph-badge-rejected { background: color-mix(in srgb, var(--danger) 16%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
+            .ph-badge-draft { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: color-mix(in srgb, var(--warning) 75%, var(--text-primary)); border-color: color-mix(in srgb, var(--warning) 35%, var(--background)); }
+            .ph-empty { padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; text-align: center; }
+            @media (max-width: 768px) { .ph-hours-card { flex-direction: column; text-align: center; } }
+        </style>
     <?php elseif ($view === 'bloqueos'): ?>
         <?php
         $impactLabel = ['bajo' => 'Bajo', 'medio' => 'Medio', 'alto' => 'Alto', 'critico' => 'Crítico'];
