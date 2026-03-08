@@ -132,8 +132,9 @@ class TimesheetsRepository
         if ($talentId !== null) {
             $structuredSelect = $this->structuredTimesheetSelectColumns();
             $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+            $approvalCommentCol = $this->db->columnExists('timesheets', 'approval_comment') ? ', approval_comment' : '';
             $entries = $this->db->fetchAll(
-                'SELECT id, project_id, task_id, date, hours, status, comment' . $structuredSegment . '
+                'SELECT id, project_id, task_id, date, hours, status, comment' . $approvalCommentCol . $structuredSegment . '
                  FROM timesheets
                  WHERE user_id = :user
                    AND date BETWEEN :start AND :end
@@ -261,6 +262,7 @@ class TimesheetsRepository
                 'hours' => $entryHours,
                 'status' => $entryStatus,
                 'comment' => $entryComment,
+                'approval_comment' => trim((string) ($entry['approval_comment'] ?? '')),
                 'phase_name' => trim((string) ($entry['phase_name'] ?? '')),
                 'subphase_name' => trim((string) ($entry['subphase_name'] ?? '')),
                 'activity_type' => trim((string) ($entry['activity_type'] ?? '')),
@@ -1120,6 +1122,8 @@ class TimesheetsRepository
             $approverName = $u['name'] ?? null;
         }
 
+        $hoursByStatus = $this->weekHoursByStatusForUser($userId, $weekStart);
+
         return [
             'status' => $status,
             'total_hours' => (float) ($row['total_hours'] ?? 0),
@@ -1127,7 +1131,34 @@ class TimesheetsRepository
             'rejected_at' => $row['rejected_at'] ?? null,
             'approval_comment' => $row['latest_comment'] ?? null,
             'approver_name' => $approverName,
+            'hours_approved' => $hoursByStatus['approved'],
+            'hours_pending' => $hoursByStatus['pending'],
+            'hours_rejected' => $hoursByStatus['rejected'],
         ];
+    }
+
+    public function weekHoursByStatusForUser(int $userId, \DateTimeImmutable $weekStart): array
+    {
+        $weekEnd = $weekStart->modify('+6 days');
+        $rows = $this->db->fetchAll(
+            'SELECT status, COALESCE(SUM(hours), 0) AS total_hours
+             FROM timesheets
+             WHERE user_id = :user
+               AND date BETWEEN :start AND :end
+             GROUP BY status',
+            [':user' => $userId, ':start' => $weekStart->format('Y-m-d'), ':end' => $weekEnd->format('Y-m-d')]
+        );
+        $out = ['approved' => 0.0, 'pending' => 0.0, 'rejected' => 0.0];
+        foreach ($rows as $r) {
+            $hours = (float) ($r['total_hours'] ?? 0);
+            $status = (string) ($r['status'] ?? 'draft');
+            if (in_array($status, ['submitted', 'pending', 'pending_approval'], true)) {
+                $out['pending'] += $hours;
+            } elseif (isset($out[$status])) {
+                $out[$status] += $hours;
+            }
+        }
+        return $out;
     }
 
     public function monthlySummaryForUser(int $userId, \DateTimeImmutable $weekStart): array

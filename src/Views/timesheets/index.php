@@ -27,10 +27,12 @@ $capacityTooltip = $capacityTooltipLines !== []
     : 'Sin detalle de capacidad semanal.';
 $statusMeta = [
     'draft' => ['label' => 'Borrador', 'class' => 'draft'],
-    'submitted' => ['label' => 'Enviado', 'class' => 'submitted'],
-    'partial' => ['label' => 'Parcial', 'class' => 'submitted'],
-    'approved' => ['label' => 'Aprobada', 'class' => 'approved'],
-    'rejected' => ['label' => 'Rechazada', 'class' => 'rejected'],
+    'submitted' => ['label' => 'Pendiente', 'class' => 'submitted'],
+    'partial' => ['label' => 'Pendiente', 'class' => 'submitted'],
+    'pending' => ['label' => 'Pendiente', 'class' => 'submitted'],
+    'pending_approval' => ['label' => 'Pendiente', 'class' => 'submitted'],
+    'approved' => ['label' => 'Aprobado', 'class' => 'approved'],
+    'rejected' => ['label' => 'Rechazado', 'class' => 'rejected'],
 ];
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
 $weekFullyLocked = true;
@@ -159,6 +161,11 @@ foreach ($gridDays as $day) {
             <article class="card indicator"><span>Progreso semanal</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
             <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
         </section>
+        <section class="indicators-grid status-breakdown">
+            <article class="card indicator status-approved"><span>Horas aprobadas</span><strong><?= round((float) ($selectedWeekSummary['hours_approved'] ?? 0), 2) ?>h</strong></article>
+            <article class="card indicator status-pending"><span>Horas pendientes</span><strong><?= round((float) ($selectedWeekSummary['hours_pending'] ?? 0), 2) ?>h</strong></article>
+            <article class="card indicator status-rejected"><span>Horas rechazadas</span><strong><?= round((float) ($selectedWeekSummary['hours_rejected'] ?? 0), 2) ?>h</strong></article>
+        </section>
 
         <section class="timesheet-main-layout">
             <div class="calendar-column card">
@@ -255,6 +262,9 @@ foreach ($gridDays as $day) {
                                         $itemHours = (float) ($item['hours'] ?? 0);
                                         $itemDesc = trim((string) ($item['activity_description'] ?? '')) ?: trim((string) ($item['activity_type'] ?? 'Actividad'));
                                         $itemComment = (string) ($item['comment'] ?? '');
+                                        $itemStatus = (string) ($item['status'] ?? 'draft');
+                                        $itemApprovalComment = trim((string) ($item['approval_comment'] ?? ''));
+                                        $itemStatusMeta = $statusMeta[$itemStatus] ?? $statusMeta['draft'];
                                         $itemType = strtolower(trim((string) ($item['activity_type'] ?? '')));
                                         $typeMeta = $activityTypeMeta[$itemType] ?? ['label' => 'Investigación', 'class' => 'type-research'];
                                         $taskTooltip = $itemDesc !== '' ? $itemDesc : 'Sin tarea';
@@ -262,17 +272,24 @@ foreach ($gridDays as $day) {
                                             . "\nTarea: " . $taskTooltip
                                             . "\nHoras: " . round($itemHours, 2)
                                             . "\nTipo: " . $typeMeta['label']
+                                            . "\nEstado: " . $itemStatusMeta['label']
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
                                         <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $canEditDay ? ' is-draggable' : ' is-locked' ?>" <?= $canEditDay ? 'draggable="true"' : '' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
                                             <div class="chip-main">
                                                 <span class="chip-hours">[<?= round($itemHours, 2) ?>h]</span>
+                                                <span class="chip-status pill status <?= htmlspecialchars($itemStatusMeta['class']) ?>"><?= htmlspecialchars($itemStatusMeta['label']) ?></span>
                                                 <?php if ($canEditDay): ?>
                                                     <span class="chip-drag-hint" aria-hidden="true">⋮⋮ Arrastrar</span>
                                                 <?php endif; ?>
                                                 <strong><?= htmlspecialchars($itemDesc) ?></strong>
                                             </div>
                                             <small class="chip-project">Proyecto: <?= htmlspecialchars($itemProject) ?></small>
+                                            <?php if ($itemStatus === 'rejected' && $itemApprovalComment !== ''): ?>
+                                                <div class="chip-rejection-comment" title="Comentario del aprobador">
+                                                    <small class="rejection-label">Motivo rechazo:</small> <?= htmlspecialchars($itemApprovalComment) ?>
+                                                </div>
+                                            <?php endif; ?>
                                             <div class="chip-meta">
                                                 <?php if (!empty($item['had_blocker'])): ?><span title="Bloqueo">⛔</span><?php endif; ?>
                                                 <?php if (!empty($item['generated_deliverable'])): ?><span title="Entregable">📦</span><?php endif; ?>
@@ -519,6 +536,12 @@ foreach ($gridDays as $day) {
 .activity-chip.type-research{border-left:4px solid #6b7280;border-color:#e5e7eb;background:#f9fafb}
 .chip-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chip-hours{font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap}
+.chip-status{font-size:11px;padding:2px 6px;flex-shrink:0}
+.chip-rejection-comment{margin-top:4px;padding:6px 8px;background:#fee2e2;border-radius:8px;border-left:3px solid #b91c1c;font-size:12px;color:#7f1d1d}
+.chip-rejection-comment .rejection-label{font-weight:700;display:inline}
+.status-breakdown .status-approved{border-left:4px solid #16a34a}
+.status-breakdown .status-pending{border-left:4px solid #2563eb}
+.status-breakdown .status-rejected{border-left:4px solid #dc2626}
 .chip-drag-hint{font-size:11px;border:1px dashed var(--border);padding:2px 6px;border-radius:999px;color:var(--text-secondary);background:color-mix(in srgb,var(--surface) 75%,var(--background))}
 .chip-project{color:var(--text-secondary)}
 .chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
