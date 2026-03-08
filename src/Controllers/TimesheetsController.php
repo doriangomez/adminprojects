@@ -892,6 +892,7 @@ class TimesheetsController extends Controller
         }
 
         $byProject = [];
+        $hoursByStatus = ['approved' => 0.0, 'submitted' => 0.0, 'rejected' => 0.0, 'draft' => 0.0];
         foreach ($activityByDay as $items) {
             if (!is_array($items)) {
                 continue;
@@ -899,6 +900,14 @@ class TimesheetsController extends Controller
             foreach ($items as $item) {
                 $project = trim((string) ($item['project'] ?? 'Sin proyecto'));
                 $byProject[$project] = ($byProject[$project] ?? 0.0) + (float) ($item['hours'] ?? 0);
+                $itemStatus = strtolower(trim((string) ($item['status'] ?? 'draft')));
+                $normalizedStatus = match ($itemStatus) {
+                    'approved' => 'approved',
+                    'rejected' => 'rejected',
+                    'submitted', 'pending', 'pending_approval' => 'submitted',
+                    default => 'draft',
+                };
+                $hoursByStatus[$normalizedStatus] += (float) ($item['hours'] ?? 0);
             }
         }
         arsort($byProject);
@@ -915,6 +924,7 @@ class TimesheetsController extends Controller
             'top_project_hours' => $topProjectHours,
             'capacity_tooltip_lines' => $capacityTooltipLines,
             'capacity_breakdown' => $capacityBreakdown,
+            'hours_by_status' => $hoursByStatus,
         ];
     }
 

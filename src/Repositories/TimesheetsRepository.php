@@ -270,6 +270,7 @@ class TimesheetsRepository
                 'had_significant_progress' => (int) ($entry['had_significant_progress'] ?? 0) === 1,
                 'generated_deliverable' => (int) ($entry['generated_deliverable'] ?? 0) === 1,
                 'operational_comment' => trim((string) ($entry['operational_comment'] ?? '')),
+                'approval_comment' => trim((string) ($entry['approval_comment'] ?? '')),
             ];
             $cells[$projectId][$date]['entries'][] = $activityItem;
             $activitiesByDay[$date][] = array_merge($activityItem, [
@@ -2712,6 +2713,7 @@ class TimesheetsRepository
             'generated_deliverable',
             'operational_comment',
             'linked_stopper_id',
+            'approval_comment',
             'updated_at',
         ];
 
