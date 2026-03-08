@@ -193,6 +193,9 @@ class TimesheetsController extends Controller
             'status' => strtolower(trim((string) ($_GET['status'] ?? ''))),
             'week_start' => $weekStart->format('Y-m-d'),
             'week_end' => $weekEnd->format('Y-m-d'),
+            'detail_user_id' => (int) ($_GET['detail_user_id'] ?? 0),
+            'detail_project_id' => isset($_GET['detail_project_id']) ? (int) $_GET['detail_project_id'] : -1,
+            'detail_week_start' => trim((string) ($_GET['detail_week_start'] ?? '')),
         ];
 
         $report = $repo->adminTimesheetsReport($filters);
@@ -204,6 +207,7 @@ class TimesheetsController extends Controller
             'weekEnd' => $weekEnd,
             'filters' => $filters,
             'report' => $report,
+            'canApprove' => $this->auth->canApproveTimesheets(),
         ]);
     }
 
