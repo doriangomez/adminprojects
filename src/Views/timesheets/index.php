@@ -32,6 +32,22 @@ $statusMeta = [
     'approved' => ['label' => 'Aprobada', 'class' => 'approved'],
     'rejected' => ['label' => 'Rechazada', 'class' => 'rejected'],
 ];
+$approvalStateMeta = [
+    'pending' => ['label' => 'Pendiente', 'class' => 'submitted'],
+    'approved' => ['label' => 'Aprobado', 'class' => 'approved'],
+    'rejected' => ['label' => 'Rechazado', 'class' => 'rejected'],
+];
+$resolveActivityApprovalState = static function (string $rawStatus): string {
+    $normalized = strtolower(trim($rawStatus));
+    if ($normalized === 'approved') {
+        return 'approved';
+    }
+    if ($normalized === 'rejected') {
+        return 'rejected';
+    }
+
+    return 'pending';
+};
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
 $weekFullyLocked = true;
 foreach ($gridDays as $dayMeta) {
@@ -48,6 +64,23 @@ foreach ($dayDraftEntries as $draftCount) {
     if ((int) $draftCount > 0) {
         $hasDraftEntriesInWeek = true;
         break;
+    }
+}
+$weeklyApprovalTotals = [
+    'approved' => 0.0,
+    'pending' => 0.0,
+    'rejected' => 0.0,
+];
+foreach ($activitiesByDay as $dayItems) {
+    if (!is_array($dayItems)) {
+        continue;
+    }
+    foreach ($dayItems as $activityItem) {
+        if (!is_array($activityItem)) {
+            continue;
+        }
+        $activityState = $resolveActivityApprovalState((string) ($activityItem['status'] ?? ''));
+        $weeklyApprovalTotals[$activityState] += (float) ($activityItem['hours'] ?? 0);
     }
 }
 $activityTypeMeta = [
@@ -159,6 +192,23 @@ foreach ($gridDays as $day) {
             <article class="card indicator"><span>Progreso semanal</span><strong><?= round((float) ($weekIndicators['compliance_percent'] ?? 0), 2) ?>%</strong></article>
             <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
         </section>
+        <section class="card weekly-approval-summary">
+            <h3>Resumen semanal de aprobación</h3>
+            <div class="approval-summary-grid">
+                <article class="approval-summary-item">
+                    <span>Horas aprobadas</span>
+                    <strong><?= round((float) ($weeklyApprovalTotals['approved'] ?? 0), 2) ?>h</strong>
+                </article>
+                <article class="approval-summary-item">
+                    <span>Horas pendientes</span>
+                    <strong><?= round((float) ($weeklyApprovalTotals['pending'] ?? 0), 2) ?>h</strong>
+                </article>
+                <article class="approval-summary-item">
+                    <span>Horas rechazadas</span>
+                    <strong><?= round((float) ($weeklyApprovalTotals['rejected'] ?? 0), 2) ?>h</strong>
+                </article>
+            </div>
+        </section>
 
         <section class="timesheet-main-layout">
             <div class="calendar-column card">
@@ -257,11 +307,15 @@ foreach ($gridDays as $day) {
                                         $itemComment = (string) ($item['comment'] ?? '');
                                         $itemType = strtolower(trim((string) ($item['activity_type'] ?? '')));
                                         $typeMeta = $activityTypeMeta[$itemType] ?? ['label' => 'Investigación', 'class' => 'type-research'];
+                                        $itemApprovalState = $resolveActivityApprovalState((string) ($item['status'] ?? ''));
+                                        $itemApprovalMeta = $approvalStateMeta[$itemApprovalState] ?? $approvalStateMeta['pending'];
+                                        $itemApprovalComment = trim((string) ($item['approval_comment'] ?? ''));
                                         $taskTooltip = $itemDesc !== '' ? $itemDesc : 'Sin tarea';
                                         $chipTooltip = 'Proyecto: ' . $itemProject
                                             . "\nTarea: " . $taskTooltip
                                             . "\nHoras: " . round($itemHours, 2)
                                             . "\nTipo: " . $typeMeta['label']
+                                            . "\nEstado: " . $itemApprovalMeta['label']
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
                                         <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $canEditDay ? ' is-draggable' : ' is-locked' ?>" <?= $canEditDay ? 'draggable="true"' : '' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
@@ -279,6 +333,14 @@ foreach ($gridDays as $day) {
                                                 <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
                                                 <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
                                             </div>
+                                            <div class="chip-status-row">
+                                                <span class="chip-approval-status pill status <?= htmlspecialchars($itemApprovalMeta['class']) ?>">
+                                                    <?= htmlspecialchars($itemApprovalMeta['label']) ?>
+                                                </span>
+                                            </div>
+                                            <?php if ($itemApprovalState === 'rejected' && $itemApprovalComment !== ''): ?>
+                                                <small class="chip-approval-comment">Comentario aprobador: <?= htmlspecialchars($itemApprovalComment) ?></small>
+                                            <?php endif; ?>
                                             <?php if ($canEditDay): ?>
                                                 <div class="chip-actions">
                                                     <button type="button" class="chip-action edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏ Editar</button>
@@ -482,6 +544,11 @@ foreach ($gridDays as $day) {
 .indicators-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}
 .indicator{display:flex;flex-direction:column;gap:4px}
 .indicator span{color:var(--text-secondary);font-size:12px}
+.weekly-approval-summary{display:flex;flex-direction:column;gap:10px}
+.weekly-approval-summary h3{margin:0}
+.approval-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(140px,1fr));gap:10px}
+.approval-summary-item{display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);border-radius:12px;padding:10px;background:color-mix(in srgb,var(--surface) 92%,var(--background))}
+.approval-summary-item span{font-size:12px;color:var(--text-secondary)}
 .timesheet-main-layout{display:grid;grid-template-columns:3fr 7fr;gap:14px}
 .calendar-column{display:flex;flex-direction:column;gap:10px;order:2}
 .calendar-heading h3{margin:0 0 4px}
@@ -522,6 +589,9 @@ foreach ($gridDays as $day) {
 .chip-drag-hint{font-size:11px;border:1px dashed var(--border);padding:2px 6px;border-radius:999px;color:var(--text-secondary);background:color-mix(in srgb,var(--surface) 75%,var(--background))}
 .chip-project{color:var(--text-secondary)}
 .chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
+.chip-status-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.chip-approval-status{font-size:11px;padding:3px 8px}
+.chip-approval-comment{color:#991b1b;font-size:11px;font-weight:600}
 .chip-actions{display:flex;gap:6px;flex-wrap:wrap}
 .chip-action{font-size:12px;padding:5px 8px;border-radius:8px}
 .chip-action.danger{border-color:#dc3545;color:#dc3545;background:#fff}
@@ -553,7 +623,7 @@ foreach ($gridDays as $day) {
 .chip-list{display:flex;flex-wrap:wrap;gap:6px}
 .chip-btn{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:5px 10px;cursor:pointer;font-size:12px}
 .day-card.is-drop-target{outline:2px dashed color-mix(in srgb,var(--primary) 55%,var(--border));box-shadow:0 8px 20px rgba(37,99,235,.18);transform:translateY(-2px)}
-@media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.day-card{flex:1 1 100%}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+@media (max-width: 1100px){.timesheet-sticky-header{grid-template-columns:1fr}.timesheet-main-layout{grid-template-columns:1fr}.day-card{flex:1 1 100%}.quick-add-box{position:static}.indicators-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.approval-summary-grid{grid-template-columns:1fr}}
 </style>
 
 <script>
