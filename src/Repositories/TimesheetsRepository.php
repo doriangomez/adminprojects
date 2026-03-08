@@ -36,15 +36,23 @@ class TimesheetsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $userId = (int) ($user['id'] ?? 0);
+        $roleName = strtolower(trim((string) ($user['role'] ?? '')));
         $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
 
         if (!$this->isPrivileged($user)) {
-            if ($talentId !== null) {
+            if ($roleName === 'talento' && $userId > 0) {
+                $conditions[] = 'ts.user_id = :scopeUserId';
+                $params[':scopeUserId'] = $userId;
+            } elseif ($talentId !== null) {
                 $conditions[] = 'ts.talent_id = :talentId';
                 $params[':talentId'] = $talentId;
             } elseif ($hasPmColumn) {
                 $conditions[] = 'p.pm_id = :pmId';
                 $params[':pmId'] = $user['id'];
+            } elseif ($userId > 0) {
+                $conditions[] = 'ts.user_id = :scopeUserId';
+                $params[':scopeUserId'] = $userId;
             }
         }
 
@@ -69,15 +77,23 @@ class TimesheetsRepository
         $conditions = [];
         $params = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
+        $userId = (int) ($user['id'] ?? 0);
+        $roleName = strtolower(trim((string) ($user['role'] ?? '')));
         $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
 
         if (!$this->isPrivileged($user)) {
-            if ($talentId !== null) {
+            if ($roleName === 'talento' && $userId > 0) {
+                $conditions[] = 'ts.user_id = :scopeUserId';
+                $params[':scopeUserId'] = $userId;
+            } elseif ($talentId !== null) {
                 $conditions[] = 'ts.talent_id = :talentId';
                 $params[':talentId'] = $talentId;
             } elseif ($hasPmColumn) {
                 $conditions[] = 'p.pm_id = :pmId';
                 $params[':pmId'] = $user['id'];
+            } elseif ($userId > 0) {
+                $conditions[] = 'ts.user_id = :scopeUserId';
+                $params[':scopeUserId'] = $userId;
             }
         }
 
@@ -3455,15 +3471,23 @@ class TimesheetsRepository
     {
         $where = [];
         $hasPmColumn = $this->db->columnExists('projects', 'pm_id');
-        $talentId = $this->talentIdForUser((int) ($user['id'] ?? 0));
+        $userId = (int) ($user['id'] ?? 0);
+        $roleName = strtolower(trim((string) ($user['role'] ?? '')));
+        $talentId = $this->talentIdForUser($userId);
 
         if (!$this->isPrivileged($user)) {
-            if ($talentId !== null) {
+            if ($roleName === 'talento' && $userId > 0) {
+                $where[] = 'ts.user_id = :scopeUserId';
+                $params[':scopeUserId'] = $userId;
+            } elseif ($talentId !== null) {
                 $where[] = 'ts.talent_id = :scopeTalentId';
                 $params[':scopeTalentId'] = $talentId;
             } elseif ($hasPmColumn) {
                 $where[] = 'p.pm_id = :scopePmId';
-                $params[':scopePmId'] = (int) ($user['id'] ?? 0);
+                $params[':scopePmId'] = $userId;
+            } elseif ($userId > 0) {
+                $where[] = 'ts.user_id = :scopeUserId';
+                $params[':scopeUserId'] = $userId;
             }
         }
 

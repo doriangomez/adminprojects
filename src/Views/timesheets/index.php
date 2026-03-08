@@ -130,8 +130,8 @@ foreach ($gridDays as $day) {
 <section class="timesheet-ux">
     <div class="timesheet-tabs card">
         <a class="tab active" href="<?= $basePath ?>/timesheets?week=<?= urlencode($weekValue) ?>">Registro de horas</a>
-        <a class="tab" href="<?= $basePath ?>/approvals">Aprobación de horas</a>
         <?php if ($canApprove): ?>
+            <a class="tab" href="<?= $basePath ?>/approvals">Aprobación de horas</a>
             <a class="tab" href="<?= $basePath ?>/timesheets/analytics?week=<?= urlencode($weekValue) ?>">Analítica gerencial</a>
         <?php endif; ?>
     </div>
