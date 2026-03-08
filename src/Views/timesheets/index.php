@@ -32,6 +32,22 @@ $statusMeta = [
     'approved' => ['label' => 'Aprobada', 'class' => 'approved'],
     'rejected' => ['label' => 'Rechazada', 'class' => 'rejected'],
 ];
+$activityStatusMeta = [
+    'draft' => ['label' => 'Borrador', 'class' => 'draft'],
+    'submitted' => ['label' => 'Pendiente', 'class' => 'submitted'],
+    'approved' => ['label' => 'Aprobado', 'class' => 'approved'],
+    'rejected' => ['label' => 'Rechazado', 'class' => 'rejected'],
+];
+$weekStatusBreakdown = ['approved' => 0.0, 'submitted' => 0.0, 'rejected' => 0.0, 'draft' => 0.0];
+foreach ($activitiesByDay as $dayItems) {
+    foreach ($dayItems as $item) {
+        $brkStatus = (string) ($item['status'] ?? 'draft');
+        if (!array_key_exists($brkStatus, $weekStatusBreakdown)) {
+            $brkStatus = 'draft';
+        }
+        $weekStatusBreakdown[$brkStatus] += (float) ($item['hours'] ?? 0);
+    }
+}
 $status = $statusMeta[$weekStatus] ?? $statusMeta['draft'];
 $weekFullyLocked = true;
 foreach ($gridDays as $dayMeta) {
@@ -160,6 +176,30 @@ foreach ($gridDays as $day) {
             <article class="card indicator"><span>Proyecto con mayor carga</span><strong><?= htmlspecialchars((string) ($weekIndicators['top_project'] ?? 'Sin datos')) ?></strong><small><?= round((float) ($weekIndicators['top_project_hours'] ?? 0), 2) ?>h</small></article>
         </section>
 
+        <?php if (array_sum($weekStatusBreakdown) > 0): ?>
+        <section class="card week-approval-summary">
+            <h4 class="week-approval-summary-title">Resumen de aprobación semanal</h4>
+            <div class="week-approval-summary-grid">
+                <div class="was-item was-approved">
+                    <span class="was-label">Horas aprobadas</span>
+                    <strong class="was-value"><?= round($weekStatusBreakdown['approved'], 2) ?>h</strong>
+                </div>
+                <div class="was-item was-pending">
+                    <span class="was-label">Horas pendientes</span>
+                    <strong class="was-value"><?= round($weekStatusBreakdown['submitted'], 2) ?>h</strong>
+                </div>
+                <div class="was-item was-rejected">
+                    <span class="was-label">Horas rechazadas</span>
+                    <strong class="was-value"><?= round($weekStatusBreakdown['rejected'], 2) ?>h</strong>
+                </div>
+                <div class="was-item was-draft">
+                    <span class="was-label">En borrador</span>
+                    <strong class="was-value"><?= round($weekStatusBreakdown['draft'], 2) ?>h</strong>
+                </div>
+            </div>
+        </section>
+        <?php endif; ?>
+
         <section class="timesheet-main-layout">
             <div class="calendar-column card">
                 <div class="calendar-heading">
@@ -257,11 +297,15 @@ foreach ($gridDays as $day) {
                                         $itemComment = (string) ($item['comment'] ?? '');
                                         $itemType = strtolower(trim((string) ($item['activity_type'] ?? '')));
                                         $typeMeta = $activityTypeMeta[$itemType] ?? ['label' => 'Investigación', 'class' => 'type-research'];
+                                        $itemStatus = (string) ($item['status'] ?? 'draft');
+                                        $itemStatusDisplay = $activityStatusMeta[$itemStatus] ?? $activityStatusMeta['draft'];
+                                        $itemApprovalComment = trim((string) ($item['approval_comment'] ?? ''));
                                         $taskTooltip = $itemDesc !== '' ? $itemDesc : 'Sin tarea';
                                         $chipTooltip = 'Proyecto: ' . $itemProject
                                             . "\nTarea: " . $taskTooltip
                                             . "\nHoras: " . round($itemHours, 2)
                                             . "\nTipo: " . $typeMeta['label']
+                                            . "\nEstado: " . $itemStatusDisplay['label']
                                             . "\nUsuario: " . $currentUserName;
                                         ?>
                                         <li class="activity-chip <?= htmlspecialchars($typeMeta['class']) ?><?= $canEditDay ? ' is-draggable' : ' is-locked' ?>" <?= $canEditDay ? 'draggable="true"' : '' ?> data-activity-id="<?= $itemId ?>" title="<?= htmlspecialchars($chipTooltip) ?>">
@@ -271,6 +315,7 @@ foreach ($gridDays as $day) {
                                                     <span class="chip-drag-hint" aria-hidden="true">⋮⋮ Arrastrar</span>
                                                 <?php endif; ?>
                                                 <strong><?= htmlspecialchars($itemDesc) ?></strong>
+                                                <span class="pill status chip-status-pill <?= htmlspecialchars($itemStatusDisplay['class']) ?>"><?= htmlspecialchars($itemStatusDisplay['label']) ?></span>
                                             </div>
                                             <small class="chip-project">Proyecto: <?= htmlspecialchars($itemProject) ?></small>
                                             <div class="chip-meta">
@@ -279,6 +324,12 @@ foreach ($gridDays as $day) {
                                                 <?php if (!empty($item['had_significant_progress'])): ?><span title="Avance">📈</span><?php endif; ?>
                                                 <small><?= htmlspecialchars($itemComment !== '' ? $itemComment : 'Sin comentario') ?></small>
                                             </div>
+                                            <?php if ($itemStatus === 'rejected' && $itemApprovalComment !== ''): ?>
+                                                <div class="chip-rejection-note">
+                                                    <span class="chip-rejection-icon">💬</span>
+                                                    <span><?= htmlspecialchars($itemApprovalComment) ?></span>
+                                                </div>
+                                            <?php endif; ?>
                                             <?php if ($canEditDay): ?>
                                                 <div class="chip-actions">
                                                     <button type="button" class="chip-action edit-activity" data-payload='<?= htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>'>✏ Editar</button>
@@ -522,10 +573,24 @@ foreach ($gridDays as $day) {
 .chip-drag-hint{font-size:11px;border:1px dashed var(--border);padding:2px 6px;border-radius:999px;color:var(--text-secondary);background:color-mix(in srgb,var(--surface) 75%,var(--background))}
 .chip-project{color:var(--text-secondary)}
 .chip-meta{display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
+.chip-status-pill{font-size:10px;padding:2px 7px;margin-left:auto}
+.chip-rejection-note{display:flex;align-items:flex-start;gap:6px;font-size:12px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 8px;margin-top:2px}
+.chip-rejection-icon{flex-shrink:0}
 .chip-actions{display:flex;gap:6px;flex-wrap:wrap}
 .chip-action{font-size:12px;padding:5px 8px;border-radius:8px}
 .chip-action.danger{border-color:#dc3545;color:#dc3545;background:#fff}
 .chip-action.danger:hover{background:#ffe5e5}
+.week-approval-summary{padding:14px 16px}
+.week-approval-summary-title{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em}
+.week-approval-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.was-item{display:flex;flex-direction:column;gap:3px;border-radius:10px;padding:10px 12px}
+.was-label{font-size:12px;color:var(--text-secondary)}
+.was-value{font-size:18px;font-weight:700}
+.was-approved{background:#dcfce7;border:1px solid #bbf7d0}.was-approved .was-value{color:#166534}
+.was-pending{background:#dbeafe;border:1px solid #bfdbfe}.was-pending .was-value{color:#1d4ed8}
+.was-rejected{background:#fee2e2;border:1px solid #fecaca}.was-rejected .was-value{color:#b91c1c}
+.was-draft{background:#f3f4f6;border:1px solid #e5e7eb}.was-draft .was-value{color:#374151}
+@media (max-width: 700px){.week-approval-summary-grid{grid-template-columns:repeat(2,1fr)}}
 .quick-add-column{display:flex;flex-direction:column;order:1}
 .quick-add-box{position:sticky;top:150px;display:flex;flex-direction:column;gap:10px}
 #quick-add-form{display:flex;flex-direction:column;gap:8px}

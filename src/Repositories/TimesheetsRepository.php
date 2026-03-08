@@ -132,8 +132,9 @@ class TimesheetsRepository
         if ($talentId !== null) {
             $structuredSelect = $this->structuredTimesheetSelectColumns();
             $structuredSegment = $structuredSelect !== '' ? ', ' . $structuredSelect : '';
+            $approvalCommentSegment = $this->db->columnExists('timesheets', 'approval_comment') ? ', approval_comment' : '';
             $entries = $this->db->fetchAll(
-                'SELECT id, project_id, task_id, date, hours, status, comment' . $structuredSegment . '
+                'SELECT id, project_id, task_id, date, hours, status, comment' . $structuredSegment . $approvalCommentSegment . '
                  FROM timesheets
                  WHERE user_id = :user
                    AND date BETWEEN :start AND :end
@@ -261,6 +262,7 @@ class TimesheetsRepository
                 'hours' => $entryHours,
                 'status' => $entryStatus,
                 'comment' => $entryComment,
+                'approval_comment' => trim((string) ($entry['approval_comment'] ?? '')),
                 'phase_name' => trim((string) ($entry['phase_name'] ?? '')),
                 'subphase_name' => trim((string) ($entry['subphase_name'] ?? '')),
                 'activity_type' => trim((string) ($entry['activity_type'] ?? '')),
