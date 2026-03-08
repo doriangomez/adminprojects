@@ -362,6 +362,10 @@ class App
                 $controller->deleteTalentAssignment((int) $matches[1], (int) $matches[2]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/hours$#', $path, $matches) && $method === 'GET') {
+                $controller->hours((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/costs$#', $path, $matches) && $method === 'GET') {
                 $controller->costs((int) $matches[1]);
                 return;

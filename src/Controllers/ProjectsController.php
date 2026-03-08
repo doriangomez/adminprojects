@@ -366,6 +366,34 @@ class ProjectsController extends Controller
         ]);
     }
 
+    public function hours(int $id): void
+    {
+        $this->requirePermission('projects.view');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($id, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $timesheetsRepo = new \App\Repositories\TimesheetsRepository($this->db);
+        $timesheetEntries = $timesheetsRepo->entriesForProject($id);
+        $hoursLogged = (float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0);
+        if ($hoursLogged <= 0 && !empty($timesheetEntries)) {
+            $hoursLogged = array_sum(array_map(static fn (array $e): float => (float) ($e['hours'] ?? 0), $timesheetEntries));
+        }
+        $project['timesheet_hours_logged'] = $hoursLogged;
+        $project['hours_estimated_total'] = (float) ($project['hours_estimated_total'] ?? $project['planned_hours'] ?? 0);
+
+        $this->render('projects/hours', [
+            'title' => 'Horas del proyecto',
+            'project' => $project,
+            'timesheetEntries' => $timesheetEntries,
+        ]);
+    }
+
     public function tasks(int $id): void
     {
         $this->requirePermission('projects.view');

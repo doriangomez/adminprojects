@@ -2025,12 +2025,15 @@ class TimesheetsRepository
             $params
         );
 
+        $aggregatedRows = $this->adminTimesheetsAggregatedRows($rows);
+
         return [
             'totals' => [
                 'entries' => (int) ($totals['entries'] ?? 0),
                 'hours' => round((float) ($totals['hours'] ?? 0), 2),
             ],
             'rows' => $rows,
+            'aggregated_rows' => $aggregatedRows,
             'by_user' => $byUser,
             'by_project' => $byProject,
             'by_client' => $byClient,
@@ -2043,6 +2046,110 @@ class TimesheetsRepository
                 'statuses' => $this->adminStatusesFilterOptions(),
             ],
         ];
+    }
+
+    /**
+     * Entradas de timesheet para un proyecto. Usado en la pestaña Horas del detalle.
+     * Retorna: date, user_name, task_name, activity_description, hours
+     */
+    public function entriesForProject(int $projectId): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+        $projectExpr = $usesProjectColumn ? 'COALESCE(ts.project_id, tk.project_id)' : 'tk.project_id';
+        $projectFilter = $projectExpr . ' = :project_id';
+
+        return $this->db->fetchAll(
+            'SELECT ts.date,
+                    COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                    COALESCE(NULLIF(TRIM(tk.title), ""), NULLIF(TRIM(ts.activity_description), ""), NULLIF(TRIM(ts.activity_type), ""), "Sin tarea") AS task_name,
+                    ts.hours
+             FROM timesheets ts
+             LEFT JOIN users u ON u.id = ts.user_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             WHERE ' . $projectFilter . '
+             ORDER BY ts.date DESC, ts.id DESC
+             LIMIT 500',
+            [':project_id' => $projectId]
+        );
+    }
+
+    /**
+     * Agrupa filas de timesheet por (usuario, proyecto, cliente, semana) para vista de control operativo.
+     * Retorna: user_name, client_name, project_name, week_start, week_label, total_hours, status
+     */
+    private function adminTimesheetsAggregatedRows(array $rows): array
+    {
+        $grouped = [];
+        foreach ($rows as $row) {
+            $dateStr = trim((string) ($row['date'] ?? ''));
+            if ($dateStr === '') {
+                continue;
+            }
+            try {
+                $date = new \DateTimeImmutable($dateStr);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            $weekStart = $date->modify('monday this week')->format('Y-m-d');
+            $weekEnd = $date->modify('sunday this week');
+            $weekLabel = $date->modify('monday this week')->format('d') . '-' . $weekEnd->format('d') . ' ' . $this->monthAbbr($weekEnd->format('n'));
+
+            $userId = (int) ($row['user_id'] ?? 0);
+            $projectId = (int) ($row['project_id'] ?? 0);
+            $key = $weekStart . '|' . $userId . '|' . $projectId;
+
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'user_id' => $userId,
+                    'user_name' => (string) ($row['user_name'] ?? 'Sin usuario'),
+                    'client_name' => (string) ($row['client_name'] ?? 'Sin cliente'),
+                    'project_id' => $projectId,
+                    'project_name' => (string) ($row['project_name'] ?? 'Sin proyecto'),
+                    'week_start' => $weekStart,
+                    'week_label' => $weekLabel,
+                    'total_hours' => 0.0,
+                    'status' => 'draft',
+                ];
+            }
+
+            $grouped[$key]['total_hours'] += (float) ($row['hours'] ?? 0);
+            $entryStatus = $this->normalizeWorkflowStatus((string) ($row['status'] ?? 'draft'));
+            $grouped[$key]['status'] = $this->adminWorstStatus((string) $grouped[$key]['status'], $entryStatus);
+        }
+
+        $out = array_values($grouped);
+        usort($out, static function (array $a, array $b): int {
+            $c = strcmp((string) ($b['week_start'] ?? ''), (string) ($a['week_start'] ?? ''));
+            if ($c !== 0) {
+                return $c;
+            }
+            $c = strcmp((string) ($a['user_name'] ?? ''), (string) ($b['user_name'] ?? ''));
+            if ($c !== 0) {
+                return $c;
+            }
+            return strcmp((string) ($a['project_name'] ?? ''), (string) ($b['project_name'] ?? ''));
+        });
+
+        return $out;
+    }
+
+    private function monthAbbr(int $month): string
+    {
+        $months = [1 => 'Ene', 2 => 'Feb', 3 => 'Mar', 4 => 'Abr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Ago', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dic'];
+        return $months[$month] ?? '';
+    }
+
+    /** Para vista admin: prioridad rechazado > enviado > aprobado > borrador */
+    private function adminWorstStatus(string $current, string $incoming): string
+    {
+        $order = ['draft' => 1, 'approved' => 2, 'submitted' => 3, 'rejected' => 4];
+        $c = $order[$this->normalizeWorkflowStatus($current)] ?? 1;
+        $i = $order[$this->normalizeWorkflowStatus($incoming)] ?? 1;
+        return $i > $c ? $incoming : $current;
     }
 
     public function projectsForTimesheetEntry(int $userId): array
@@ -3533,7 +3640,15 @@ class TimesheetsRepository
              ORDER BY status ASC'
         );
 
-        return array_values(array_filter(array_map(static fn(array $row): string => (string) ($row['status'] ?? ''), $rows)));
+        $list = array_values(array_filter(array_map(static fn(array $row): string => (string) ($row['status'] ?? ''), $rows)));
+        $defaults = ['draft', 'submitted', 'pending', 'pending_approval', 'approved', 'rejected'];
+        foreach ($defaults as $d) {
+            if (!in_array($d, $list, true)) {
+                $list[] = $d;
+            }
+        }
+        sort($list);
+        return $list;
     }
 
     private function capacityForScope(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): float

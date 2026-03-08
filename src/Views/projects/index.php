@@ -635,12 +635,64 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 6%, var(--background));
     }
 
+    .project-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .project-card-brand {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .project-card-logo,
+    .project-card-avatar {
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 92%, var(--background));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .project-card-logo {
+        object-fit: contain;
+        padding: 6px;
+    }
+
+    .project-card-avatar {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .project-card-info { min-width: 0; }
+    .project-card-info .project-title { margin: 0 0 2px; }
+    .project-card-info .project-client { margin: 0; font-size: 12px; color: var(--text-secondary); }
+    .project-pm { margin: 2px 0 0; font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+
     .project-card header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         gap: 10px;
     }
+
+    .card-progress-block { display: flex; flex-direction: column; gap: 6px; }
+    .card-progress-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 700; }
+    .progress-track--card { width: 100%; height: 8px; }
+    .card-progress-value { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+    .card-hours-display { display: flex; flex-direction: column; gap: 2px; }
+    .card-hours-display strong { font-size: 11px; color: var(--text-secondary); }
+    .card-hours-display span { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 
     .card-metrics {
         display: grid;
@@ -1056,8 +1108,10 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
                                 </td>
                                 <td>
-                                    <strong><?= number_format($hoursLogged, 1) ?>h</strong>
-                                    <div class="tiny-meta">Est.: <?= number_format($hoursEstimated, 1) ?>h</div>
+                                    <div class="hours-cell">
+                                        <strong><?= number_format($hoursLogged, 0, ',', '.') ?>h / <?= number_format($hoursEstimated, 0, ',', '.') ?>h</strong>
+                                        <div class="tiny-meta"><?= $hoursEstimated > 0 ? round(($hoursLogged / $hoursEstimated) * 100, 0) . '%' : '—' ?></div>
+                                    </div>
                                     <?php if ($hoursAlertLevel === 'critical'): ?>
                                         <span class="badge risk-high">Consumo &gt; 100%</span>
                                     <?php elseif ($hoursAlertLevel === 'warning'): ?>
@@ -1166,11 +1220,29 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             $hoursDeviationPercent = isset($project['hours_deviation_percent']) ? (float) $project['hours_deviation_percent'] : null;
                             $hoursConsumption = isset($project['hours_consumption_percent']) ? (float) $project['hours_consumption_percent'] : null;
                         ?>
+                        <?php
+                            $cardClientLogoPath = trim((string) ($clientGroup['logo_path'] ?? ''));
+                            $cardClientLogoUrl = '';
+                            if ($cardClientLogoPath !== '') {
+                                $cardClientLogoUrl = str_starts_with($cardClientLogoPath, 'http') ? $cardClientLogoPath : $basePath . $cardClientLogoPath;
+                            }
+                            $cardClientInitial = function_exists('mb_substr') ? mb_substr($clientNameGroup, 0, 1, 'UTF-8') : substr($clientNameGroup, 0, 1);
+                            $cardClientInitial = $cardClientInitial ? (function_exists('mb_strtoupper') ? mb_strtoupper($cardClientInitial, 'UTF-8') : strtoupper($cardClientInitial)) : '?';
+                            $cardPmName = $project['pm_name'] ?? 'Sin PM';
+                        ?>
                         <article class="project-card">
-                            <header>
-                                <div>
-                                    <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
-                                    <p class="project-client"><?= htmlspecialchars($project['client'] ?? 'Cliente no registrado') ?></p>
+                            <header class="project-card-header">
+                                <div class="project-card-brand">
+                                    <?php if ($cardClientLogoUrl !== ''): ?>
+                                        <img class="project-card-logo" src="<?= htmlspecialchars($cardClientLogoUrl) ?>" alt="">
+                                    <?php else: ?>
+                                        <span class="project-card-avatar"><?= htmlspecialchars($cardClientInitial) ?></span>
+                                    <?php endif; ?>
+                                    <div class="project-card-info">
+                                        <h3 class="project-title"><?= htmlspecialchars($project['name']) ?></h3>
+                                        <p class="project-client"><?= htmlspecialchars($clientNameGroup) ?></p>
+                                        <p class="project-pm">PM: <?= htmlspecialchars($cardPmName) ?></p>
+                                    </div>
                                 </div>
                                 <div class="card-actions">
                                     <details class="menu-details">
@@ -1200,20 +1272,22 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
                             <div class="risk-summary" title="<?= htmlspecialchars($riskSummary) ?>">Riesgos: <?= $riskCount ?></div>
 
-                            <div>
-                                <div class="progress-track" aria-hidden="true">
+                            <div class="card-progress-block">
+                                <div class="card-progress-label">Avance</div>
+                                <div class="progress-track progress-track--card" aria-hidden="true">
                                     <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                 </div>
-                                <span style="font-size:12px; color: var(--text-secondary);">Avance <?= $progress ?>%</span>
-                                <div style="font-size:11px; color: var(--text-secondary); margin-top:4px;">
-                                    Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
-                                    Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
+                                <span class="card-progress-value"><?= $progress ?>%</span>
+                                <div class="card-hours-display">
+                                    <strong>Horas</strong>
+                                    <span><?= number_format($hoursLogged, 0, ',', '.') ?>h / <?= number_format($hoursEstimated, 0, ',', '.') ?>h</span>
+                                </div>
+                                <div class="tiny-meta" style="margin-top:4px;">
+                                    <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '% horas' : '' ?>
+                                    <?= $progressHoursAuto !== null && $progressTasksAuto !== null ? ' · ' : '' ?>
+                                    <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '% tareas' : '' ?>
                                 </div>
                                 <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;"><?= htmlspecialchars($pmoRiskLevel) ?> · <?= $pmoRiskScore ?>/100</span>
-                                <div class="tiny-meta" style="margin-top:4px;">
-                                    Consumo <?= $hoursConsumption !== null ? number_format($hoursConsumption, 1) . '%' : 'N/A' ?> ·
-                                    Desviación <?= $hoursDeviationPercent !== null ? number_format($hoursDeviationPercent, 1) . '%' : 'N/A' ?>
-                                </div>
                             </div>
 
                             <div class="card-metrics">

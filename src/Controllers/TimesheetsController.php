@@ -204,6 +204,7 @@ class TimesheetsController extends Controller
             'weekEnd' => $weekEnd,
             'filters' => $filters,
             'report' => $report,
+            'canApprove' => $this->auth->canApproveTimesheets(),
         ]);
     }
 
