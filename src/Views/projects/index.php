@@ -45,7 +45,7 @@ foreach ($projectsList as $project) {
         $outsourcingCount++;
     }
 
-    $hoursUsed += (float) ($project['actual_hours'] ?? 0);
+    $hoursUsed += (float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0);
     $plannedHours += (float) ($project['planned_hours'] ?? 0);
     $budgetTotal += (float) ($project['budget'] ?? 0);
     $actualCostTotal += (float) ($project['actual_cost'] ?? 0);
@@ -933,12 +933,15 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                 </header>
                 <table class="project-table" aria-label="Listado de proyectos de <?= htmlspecialchars($clientNameGroup) ?>">
                     <colgroup>
-                        <col style="width: 42%;">
-                        <col style="width: 14%;">
-                        <col style="width: 12%;">
-                        <col style="width: 12%;">
+                        <col style="width: 34%;">
+                        <col style="width: 10%;">
+                        <col style="width: 9%;">
+                        <col style="width: 9%;">
+                        <col style="width: 8%;">
                         <col style="width: 10%;">
                         <col style="width: 8%;">
+                        <col style="width: 8%;">
+                        <col style="width: 2%;">
                         <col style="width: 2%;">
                     </colgroup>
                     <thead>
@@ -947,7 +950,10 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <th>PM</th>
                             <th>Estado</th>
                             <th>Salud</th>
+                            <th>Horas</th>
                             <th>Avance</th>
+                            <th>Desviación</th>
+                            <th>Riesgo PMO</th>
                             <th>Facturación</th>
                             <th>Acciones</th>
                         </tr>
@@ -1008,7 +1014,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
                                 $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
                                 $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
-                                $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                                $pmoRiskLevel = (string) ($project['pmo_risk_level'] ?? ($pmoRiskScore >= 70 ? 'critical' : ($pmoRiskScore >= 40 ? 'warning' : 'on_track')));
+                                $pmoRiskClass = $pmoRiskLevel === 'critical' ? 'risk-high' : ($pmoRiskLevel === 'warning' ? 'risk-medium' : 'risk-low');
+                                $hoursLogged = (float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0);
+                                $hoursEstimated = (float) ($project['hours_estimated_total'] ?? $project['planned_hours'] ?? 0);
+                                $hoursConsumption = isset($project['hours_consumption_percent']) ? (float) $project['hours_consumption_percent'] : null;
+                                $hoursDeviationPercent = isset($project['hours_deviation_percent']) ? (float) $project['hours_deviation_percent'] : null;
+                                $hoursDeviationHours = isset($project['hours_deviation_hours']) ? (float) $project['hours_deviation_hours'] : null;
+                                $hoursAlertLevel = (string) ($project['hours_alert_level'] ?? 'none');
                             ?>
                             <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                                 <td class="project-cell">
@@ -1043,14 +1056,30 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     <div><span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span></div>
                                 </td>
                                 <td>
+                                    <strong><?= number_format($hoursLogged, 1) ?>h</strong>
+                                    <div class="tiny-meta">Est.: <?= number_format($hoursEstimated, 1) ?>h</div>
+                                    <?php if ($hoursAlertLevel === 'critical'): ?>
+                                        <span class="badge risk-high">Consumo &gt; 100%</span>
+                                    <?php elseif ($hoursAlertLevel === 'warning'): ?>
+                                        <span class="badge risk-medium">Consumo &gt; 80%</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <div class="progress-compact">
                                         <div class="progress-track" aria-hidden="true">
                                             <div class="progress-bar" style="width: <?= max(0, min(100, $progress)) ?>%;"></div>
                                         </div>
                                         <span class="progress-value"><?= $progressLabel ?>%</span>
                                         <small class="section-muted">Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> · Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?></small>
-                                        <span class="badge <?= $pmoRiskClass ?>">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
                                     </div>
+                                </td>
+                                <td>
+                                    <strong><?= $hoursDeviationPercent !== null ? number_format($hoursDeviationPercent, 1) . '%' : 'N/A' ?></strong>
+                                    <div class="tiny-meta"><?= $hoursDeviationHours !== null ? number_format($hoursDeviationHours, 1) . 'h' : '—' ?></div>
+                                </td>
+                                <td>
+                                    <span class="badge <?= $pmoRiskClass ?>"><?= htmlspecialchars($pmoRiskLevel) ?></span>
+                                    <div class="tiny-meta"><?= $pmoRiskScore ?>/100</div>
                                 </td>
                                 <td>
                                     <span class="badge <?= $isBillable ? 'billable-on' : 'billable-off' ?>"><?= $isBillable ? 'Facturable' : 'No facturable' ?></span>
@@ -1125,12 +1154,17 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             $riskSummary = $riskCodes ? implode(', ', array_map(fn ($code) => $riskLabels[$code] ?? $code, $riskCodes)) : 'Sin riesgos seleccionados';
                             $riskCount = count($riskCodes);
                             $approvedDocs = (int) ($project['approved_documents'] ?? 0);
-                            $hoursValue = number_format((float) ($project['actual_hours'] ?? 0), 0, ',', '.');
+                            $hoursLogged = (float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0);
+                            $hoursEstimated = (float) ($project['hours_estimated_total'] ?? $project['planned_hours'] ?? 0);
+                            $hoursValue = number_format($hoursLogged, 0, ',', '.');
                             $costValue = number_format((float) ($project['actual_cost'] ?? 0), 0, ',', '.');
                             $progressHoursAuto = isset($project['progress_hours_auto']) ? (float) $project['progress_hours_auto'] : null;
                             $progressTasksAuto = isset($project['progress_tasks_auto']) ? (float) $project['progress_tasks_auto'] : null;
                             $pmoRiskScore = (int) ($project['pmo_risk_score'] ?? 0);
-                            $pmoRiskClass = $pmoRiskScore >= 70 ? 'status-danger' : ($pmoRiskScore >= 40 ? 'status-warning' : 'status-success');
+                            $pmoRiskLevel = (string) ($project['pmo_risk_level'] ?? ($pmoRiskScore >= 70 ? 'critical' : ($pmoRiskScore >= 40 ? 'warning' : 'on_track')));
+                            $pmoRiskClass = $pmoRiskLevel === 'critical' ? 'risk-high' : ($pmoRiskLevel === 'warning' ? 'risk-medium' : 'risk-low');
+                            $hoursDeviationPercent = isset($project['hours_deviation_percent']) ? (float) $project['hours_deviation_percent'] : null;
+                            $hoursConsumption = isset($project['hours_consumption_percent']) ? (float) $project['hours_consumption_percent'] : null;
                         ?>
                         <article class="project-card">
                             <header>
@@ -1175,7 +1209,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                     Horas <?= $progressHoursAuto !== null ? number_format($progressHoursAuto, 1) . '%' : 'N/A' ?> ·
                                     Tareas <?= $progressTasksAuto !== null ? number_format($progressTasksAuto, 1) . '%' : 'N/A' ?>
                                 </div>
-                                <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;">Riesgo PMO <?= $pmoRiskScore ?>/100</span>
+                                <span class="badge <?= $pmoRiskClass ?>" style="margin-top:6px; display:inline-flex;"><?= htmlspecialchars($pmoRiskLevel) ?> · <?= $pmoRiskScore ?>/100</span>
+                                <div class="tiny-meta" style="margin-top:4px;">
+                                    Consumo <?= $hoursConsumption !== null ? number_format($hoursConsumption, 1) . '%' : 'N/A' ?> ·
+                                    Desviación <?= $hoursDeviationPercent !== null ? number_format($hoursDeviationPercent, 1) . '%' : 'N/A' ?>
+                                </div>
                             </div>
 
                             <div class="card-metrics">
@@ -1186,6 +1224,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                 <div class="metric">
                                     <span>Horas</span>
                                     <strong><?= $hoursValue ?>h</strong>
+                                    <span>Est.: <?= number_format($hoursEstimated, 0, ',', '.') ?>h</span>
                                 </div>
                                 <div class="metric">
                                     <span>Costos</span>

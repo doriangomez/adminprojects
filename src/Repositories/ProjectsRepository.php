@@ -41,6 +41,17 @@ class ProjectsRepository
         $hasAuditLogTable = $this->db->tableExists('audit_log');
         $hasProjectStoppersTable = $this->db->tableExists('project_stoppers');
         $hasProjectPmoSnapshots = $this->db->tableExists('project_pmo_snapshots');
+        $hasTasksTable = $this->db->tableExists('tasks');
+        $hasTimesheetsTable = $this->db->tableExists('timesheets');
+        $timesheetsHasProjectColumn = $hasTimesheetsTable && $this->db->columnExists('timesheets', 'project_id');
+        $timesheetsCanResolveFromTasks = !$timesheetsHasProjectColumn
+            && $hasTimesheetsTable
+            && $hasTasksTable
+            && $this->db->columnExists('timesheets', 'task_id')
+            && $this->db->columnExists('tasks', 'project_id');
+        $tasksHasStatusColumn = $hasTasksTable && $this->db->columnExists('tasks', 'status');
+        $tasksHasDueDateColumn = $hasTasksTable && $this->db->columnExists('tasks', 'due_date');
+        $tasksHasEstimatedColumn = $hasTasksTable && $this->db->columnExists('tasks', 'estimated_hours');
 
         if ($hasPmColumn && !$this->isPrivileged($user)) {
             $conditions[] = 'p.pm_id = :pmId';
@@ -109,6 +120,15 @@ class ProjectsRepository
             $hasProjectStoppersTable ? 'COALESCE(pstop.total_count, 0) AS blockers_count' : '0 AS blockers_count',
             $hasProjectStoppersTable ? 'COALESCE(pstop.critical_count, 0) AS blocker_critical_count' : '0 AS blocker_critical_count',
             $hasProjectStoppersTable ? 'COALESCE(pstop.high_count, 0) AS blocker_high_count' : '0 AS blocker_high_count',
+            ($hasTimesheetsTable && ($timesheetsHasProjectColumn || $timesheetsCanResolveFromTasks))
+                ? 'COALESCE(ptsh.logged_hours, p.actual_hours, 0) AS timesheet_hours_logged'
+                : 'COALESCE(p.actual_hours, 0) AS timesheet_hours_logged',
+            $hasTasksTable
+                ? 'COALESCE(ptask.estimated_hours, 0) AS hours_estimated_total'
+                : 'COALESCE(p.planned_hours, 0) AS hours_estimated_total',
+            $hasTasksTable ? 'COALESCE(ptask.total_tasks, 0) AS tasks_total_auto' : '0 AS tasks_total_auto',
+            $hasTasksTable ? 'COALESCE(ptask.completed_tasks, 0) AS tasks_completed_auto' : '0 AS tasks_completed_auto',
+            $hasTasksTable ? 'COALESCE(ptask.overdue_tasks, 0) AS tasks_overdue_auto' : '0 AS tasks_overdue_auto',
             $hasProjectPmoSnapshots ? 'ppmo.progress_hours AS progress_hours_auto' : 'NULL AS progress_hours_auto',
             $hasProjectPmoSnapshots ? 'ppmo.progress_tasks AS progress_tasks_auto' : 'NULL AS progress_tasks_auto',
             $hasProjectPmoSnapshots ? 'ppmo.risk_score AS pmo_risk_score' : 'NULL AS pmo_risk_score',
@@ -138,6 +158,39 @@ class ProjectsRepository
                 WHERE status <> 'cerrado'
                 GROUP BY project_id
             ) pstop ON pstop.project_id = p.id";
+        }
+
+        if ($hasTimesheetsTable && ($timesheetsHasProjectColumn || $timesheetsCanResolveFromTasks)) {
+            $timesheetProjectExpr = $timesheetsHasProjectColumn ? 'ts.project_id' : 'tk.project_id';
+            $timesheetTaskJoin = $timesheetsHasProjectColumn ? '' : 'LEFT JOIN tasks tk ON tk.id = ts.task_id';
+            $joins[] = "LEFT JOIN (
+                SELECT {$timesheetProjectExpr} AS project_id,
+                       COALESCE(SUM(ts.hours), 0) AS logged_hours
+                FROM timesheets ts
+                {$timesheetTaskJoin}
+                GROUP BY {$timesheetProjectExpr}
+            ) ptsh ON ptsh.project_id = p.id";
+        }
+
+        if ($hasTasksTable) {
+            $estimatedExpr = $tasksHasEstimatedColumn
+                ? 'COALESCE(SUM(COALESCE(tk.estimated_hours, 0)), 0)'
+                : '0';
+            $doneCondition = $tasksHasStatusColumn
+                ? 'LOWER(TRIM(COALESCE(tk.status, ""))) IN ("done", "completed", "completada")'
+                : '0 = 1';
+            $overdueCondition = ($tasksHasStatusColumn && $tasksHasDueDateColumn)
+                ? 'tk.due_date IS NOT NULL AND tk.due_date < CURDATE() AND LOWER(TRIM(COALESCE(tk.status, ""))) NOT IN ("done", "completed", "completada")'
+                : '0 = 1';
+            $joins[] = "LEFT JOIN (
+                SELECT tk.project_id,
+                       {$estimatedExpr} AS estimated_hours,
+                       COUNT(*) AS total_tasks,
+                       SUM(CASE WHEN {$doneCondition} THEN 1 ELSE 0 END) AS completed_tasks,
+                       SUM(CASE WHEN {$overdueCondition} THEN 1 ELSE 0 END) AS overdue_tasks
+                FROM tasks tk
+                GROUP BY tk.project_id
+            ) ptask ON ptask.project_id = p.id";
         }
 
         if ($hasProjectPmoSnapshots) {
@@ -237,6 +290,8 @@ class ProjectsRepository
             if (isset($activeStoppersByProject[$projectId])) {
                 $stopperData = array_merge($stopperData, $activeStoppersByProject[$projectId]);
             }
+
+            $project = $this->enrichPmoIndicators($project);
 
             return $this->attachProjectOperationalData(
                 $this->attachProjectSignal($project),
@@ -2384,17 +2439,17 @@ class ProjectsRepository
             }
         }
 
-        $hoursDeviation = $this->deviationPercent((float) ($project['actual_hours'] ?? 0), (float) ($project['planned_hours'] ?? 0));
+        $actualHoursForSignal = (float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0);
+        $plannedHoursForSignal = (float) ($project['hours_estimated_total'] ?? $project['planned_hours'] ?? 0);
+        $hoursDeviation = $this->deviationPercent($actualHoursForSignal, $plannedHoursForSignal);
         if ($hoursDeviation !== null) {
-            $hoursRules = $this->signalRules['hours'] ?? [];
-            $redHours = (float) ($hoursRules['red_above'] ?? 0.1);
-            $yellowHours = (float) ($hoursRules['yellow_above'] ?? 0.05);
-            if ($hoursDeviation > $redHours) {
+            $consumptionPercent = ($actualHoursForSignal / max(1.0, $plannedHoursForSignal)) * 100;
+            if ($consumptionPercent > 100.0) {
                 $severity = 'red';
-                $reasons[] = 'Las horas ejecutadas superan el plan en más de ' . (int) round($redHours * 100) . '%.';
-            } elseif ($hoursDeviation > $yellowHours) {
+                $reasons[] = 'El consumo de horas superó el 100% de lo estimado.';
+            } elseif ($consumptionPercent > 80.0) {
                 $severity = $this->maxSeverity($severity, 'yellow');
-                $reasons[] = 'Las horas ejecutadas superan el plan en más de ' . (int) round($yellowHours * 100) . '%.';
+                $reasons[] = 'El consumo de horas superó el 80% de lo estimado.';
             }
         }
 
@@ -2474,6 +2529,84 @@ class ProjectsRepository
         $rank = ['green' => 1, 'yellow' => 2, 'red' => 3];
 
         return ($rank[$candidate] ?? 1) > ($rank[$current] ?? 1) ? $candidate : $current;
+    }
+
+    private function enrichPmoIndicators(array $project): array
+    {
+        $loggedHours = round((float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0), 2);
+        $estimatedHours = (float) ($project['hours_estimated_total'] ?? 0);
+        if ($estimatedHours <= 0) {
+            $estimatedHours = (float) ($project['planned_hours'] ?? 0);
+        }
+        $estimatedHours = round(max(0.0, $estimatedHours), 2);
+
+        $totalTasks = max(0, (int) ($project['tasks_total_auto'] ?? 0));
+        $completedTasks = max(0, (int) ($project['tasks_completed_auto'] ?? 0));
+        $overdueTasks = max(0, (int) ($project['tasks_overdue_auto'] ?? 0));
+        $openBlockers = max(0, (int) ($project['blockers_count'] ?? 0));
+        $criticalBlockers = max(0, (int) ($project['blocker_critical_count'] ?? 0));
+
+        $progressHours = $estimatedHours > 0
+            ? round(min(100.0, ($loggedHours / $estimatedHours) * 100), 2)
+            : (isset($project['progress_hours_auto']) && $project['progress_hours_auto'] !== null ? round((float) $project['progress_hours_auto'], 2) : null);
+        $progressTasks = $totalTasks > 0
+            ? round(($completedTasks / $totalTasks) * 100, 2)
+            : (isset($project['progress_tasks_auto']) && $project['progress_tasks_auto'] !== null ? round((float) $project['progress_tasks_auto'], 2) : null);
+        $consumptionPercent = $estimatedHours > 0 ? round(($loggedHours / $estimatedHours) * 100, 2) : null;
+        $deviationHours = $estimatedHours > 0 ? round($loggedHours - $estimatedHours, 2) : null;
+        $deviationPercent = $estimatedHours > 0 ? round((($loggedHours - $estimatedHours) / $estimatedHours) * 100, 2) : null;
+
+        $riskScore = $this->automaticPmoRiskScore([
+            'open_blockers' => $openBlockers,
+            'critical_blockers' => $criticalBlockers,
+            'overdue_tasks' => $overdueTasks,
+            'hours_consumption_percent' => $consumptionPercent,
+        ]);
+        $riskLevel = $this->automaticPmoRiskLevel($riskScore);
+
+        $project['timesheet_hours_logged'] = $loggedHours;
+        $project['hours_estimated_total'] = $estimatedHours;
+        $project['progress_hours_auto'] = $progressHours;
+        $project['progress_tasks_auto'] = $progressTasks;
+        $project['hours_consumption_percent'] = $consumptionPercent;
+        $project['hours_deviation_hours'] = $deviationHours;
+        $project['hours_deviation_percent'] = $deviationPercent;
+        $project['pmo_risk_score'] = $riskScore;
+        $project['pmo_risk_level'] = $riskLevel;
+        $project['hours_alert_level'] = $consumptionPercent === null
+            ? 'none'
+            : ($consumptionPercent > 100 ? 'critical' : ($consumptionPercent > 80 ? 'warning' : 'none'));
+
+        return $project;
+    }
+
+    private function automaticPmoRiskScore(array $metrics): int
+    {
+        $score = 0;
+        $score += max(0, (int) ($metrics['open_blockers'] ?? 0)) * 10;
+        $score += max(0, (int) ($metrics['critical_blockers'] ?? 0)) * 20;
+        $score += max(0, (int) ($metrics['overdue_tasks'] ?? 0)) * 8;
+
+        $consumption = (float) ($metrics['hours_consumption_percent'] ?? 0);
+        if ($consumption > 100) {
+            $score += 30;
+        } elseif ($consumption > 80) {
+            $score += 15;
+        }
+
+        return max(0, min(100, $score));
+    }
+
+    private function automaticPmoRiskLevel(int $riskScore): string
+    {
+        if ($riskScore >= 70) {
+            return 'critical';
+        }
+        if ($riskScore >= 40) {
+            return 'warning';
+        }
+
+        return 'on_track';
     }
 
     private function deviationPercent(float $actual, float $planned): ?float

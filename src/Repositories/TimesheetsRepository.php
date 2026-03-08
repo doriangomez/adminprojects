@@ -1918,6 +1918,133 @@ class TimesheetsRepository
         );
     }
 
+    public function adminTimesheetsReport(array $filters = []): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [
+                'totals' => ['entries' => 0, 'hours' => 0.0],
+                'rows' => [],
+                'by_user' => [],
+                'by_project' => [],
+                'by_client' => [],
+                'by_task' => [],
+                'status_breakdown' => [],
+                'filter_options' => [
+                    'users' => [],
+                    'projects' => [],
+                    'clients' => [],
+                    'statuses' => [],
+                ],
+            ];
+        }
+
+        $params = [];
+        $whereParts = $this->adminTimesheetsWhere($filters, $params);
+        $whereSql = $whereParts ? ' WHERE ' . implode(' AND ', $whereParts) : '';
+        $baseFrom = ' FROM timesheets ts
+             LEFT JOIN users u ON u.id = ts.user_id
+             LEFT JOIN tasks tk ON tk.id = ts.task_id
+             LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, tk.project_id)
+             LEFT JOIN clients c ON c.id = p.client_id';
+
+        $rows = $this->db->fetchAll(
+            'SELECT ts.id,
+                    ts.user_id,
+                    COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                    COALESCE(p.client_id, 0) AS client_id,
+                    COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client_name,
+                    COALESCE(p.id, 0) AS project_id,
+                    COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto") AS project_name,
+                    COALESCE(tk.id, 0) AS task_id,
+                    COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea") AS task_name,
+                    ts.date,
+                    ts.hours,
+                    ts.status
+             ' . $baseFrom . $whereSql . '
+             ORDER BY ts.date DESC, ts.id DESC
+             LIMIT 2000',
+            $params
+        );
+
+        $totals = $this->db->fetchOne(
+            'SELECT COUNT(*) AS entries, COALESCE(SUM(ts.hours), 0) AS hours
+             ' . $baseFrom . $whereSql,
+            $params
+        ) ?? ['entries' => 0, 'hours' => 0.0];
+
+        $byUser = $this->db->fetchAll(
+            'SELECT COALESCE(ts.user_id, 0) AS user_id,
+                    COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario") AS user_name,
+                    COUNT(*) AS entries,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             ' . $baseFrom . $whereSql . '
+             GROUP BY COALESCE(ts.user_id, 0), COALESCE(NULLIF(TRIM(u.name), ""), "Sin usuario")
+             ORDER BY total_hours DESC, user_name ASC',
+            $params
+        );
+
+        $byProject = $this->db->fetchAll(
+            'SELECT COALESCE(p.id, 0) AS project_id,
+                    COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto") AS project_name,
+                    COUNT(*) AS entries,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             ' . $baseFrom . $whereSql . '
+             GROUP BY COALESCE(p.id, 0), COALESCE(NULLIF(TRIM(p.name), ""), "Sin proyecto")
+             ORDER BY total_hours DESC, project_name ASC',
+            $params
+        );
+
+        $byClient = $this->db->fetchAll(
+            'SELECT COALESCE(c.id, 0) AS client_id,
+                    COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente") AS client_name,
+                    COUNT(*) AS entries,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             ' . $baseFrom . $whereSql . '
+             GROUP BY COALESCE(c.id, 0), COALESCE(NULLIF(TRIM(c.name), ""), "Sin cliente")
+             ORDER BY total_hours DESC, client_name ASC',
+            $params
+        );
+
+        $byTask = $this->db->fetchAll(
+            'SELECT COALESCE(tk.id, 0) AS task_id,
+                    COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea") AS task_name,
+                    COUNT(*) AS entries,
+                    COALESCE(SUM(ts.hours), 0) AS total_hours
+             ' . $baseFrom . $whereSql . '
+             GROUP BY COALESCE(tk.id, 0), COALESCE(NULLIF(TRIM(tk.title), ""), "Sin tarea")
+             ORDER BY total_hours DESC, task_name ASC
+             LIMIT 100',
+            $params
+        );
+
+        $statusBreakdown = $this->db->fetchAll(
+            'SELECT ts.status, COUNT(*) AS entries, COALESCE(SUM(ts.hours), 0) AS total_hours
+             ' . $baseFrom . $whereSql . '
+             GROUP BY ts.status
+             ORDER BY total_hours DESC',
+            $params
+        );
+
+        return [
+            'totals' => [
+                'entries' => (int) ($totals['entries'] ?? 0),
+                'hours' => round((float) ($totals['hours'] ?? 0), 2),
+            ],
+            'rows' => $rows,
+            'by_user' => $byUser,
+            'by_project' => $byProject,
+            'by_client' => $byClient,
+            'by_task' => $byTask,
+            'status_breakdown' => $statusBreakdown,
+            'filter_options' => [
+                'users' => $this->adminUsersFilterOptions(),
+                'projects' => $this->adminProjectsFilterOptions(),
+                'clients' => $this->adminClientsFilterOptions(),
+                'statuses' => $this->adminStatusesFilterOptions(),
+            ],
+        ];
+    }
+
     public function projectsForTimesheetEntry(int $userId): array
     {
         if (!$this->db->tableExists('project_talent_assignments') || !$this->db->tableExists('projects')) {
@@ -3307,6 +3434,106 @@ class TimesheetsRepository
         }
 
         return $where;
+    }
+
+    private function adminTimesheetsWhere(array $filters, array &$params): array
+    {
+        $where = [];
+
+        $userId = (int) ($filters['user_id'] ?? 0);
+        if ($userId > 0) {
+            $where[] = 'ts.user_id = :admin_user_id';
+            $params[':admin_user_id'] = $userId;
+        }
+
+        $projectId = (int) ($filters['project_id'] ?? 0);
+        if ($projectId > 0) {
+            $where[] = 'COALESCE(ts.project_id, tk.project_id) = :admin_project_id';
+            $params[':admin_project_id'] = $projectId;
+        }
+
+        $clientId = (int) ($filters['client_id'] ?? 0);
+        if ($clientId > 0) {
+            $where[] = 'p.client_id = :admin_client_id';
+            $params[':admin_client_id'] = $clientId;
+        }
+
+        $status = strtolower(trim((string) ($filters['status'] ?? '')));
+        if ($status !== '') {
+            $where[] = 'LOWER(TRIM(COALESCE(ts.status, ""))) = :admin_status';
+            $params[':admin_status'] = $status;
+        }
+
+        $weekStart = trim((string) ($filters['week_start'] ?? ''));
+        $weekEnd = trim((string) ($filters['week_end'] ?? ''));
+        if ($weekStart !== '' && $weekEnd !== '') {
+            $where[] = 'ts.date BETWEEN :admin_week_start AND :admin_week_end';
+            $params[':admin_week_start'] = $weekStart;
+            $params[':admin_week_end'] = $weekEnd;
+        }
+
+        return $where;
+    }
+
+    private function adminUsersFilterOptions(): array
+    {
+        if (!$this->db->tableExists('users')) {
+            return [];
+        }
+
+        $activeWhere = $this->db->columnExists('users', 'active') ? 'WHERE active = 1' : '';
+
+        return $this->db->fetchAll(
+            'SELECT id AS user_id, name AS user_name
+             FROM users
+             ' . $activeWhere . '
+             ORDER BY name ASC'
+        );
+    }
+
+    private function adminProjectsFilterOptions(): array
+    {
+        if (!$this->db->tableExists('projects')) {
+            return [];
+        }
+
+        $activeWhere = $this->db->columnExists('projects', 'active') ? 'WHERE active = 1' : '';
+
+        return $this->db->fetchAll(
+            'SELECT id AS project_id, name AS project_name
+             FROM projects
+             ' . $activeWhere . '
+             ORDER BY name ASC'
+        );
+    }
+
+    private function adminClientsFilterOptions(): array
+    {
+        if (!$this->db->tableExists('clients')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT id AS client_id, name AS client_name
+             FROM clients
+             ORDER BY name ASC'
+        );
+    }
+
+    private function adminStatusesFilterOptions(): array
+    {
+        if (!$this->db->tableExists('timesheets')) {
+            return [];
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT DISTINCT LOWER(TRIM(COALESCE(status, ""))) AS status
+             FROM timesheets
+             WHERE COALESCE(status, "") <> ""
+             ORDER BY status ASC'
+        );
+
+        return array_values(array_filter(array_map(static fn(array $row): string => (string) ($row['status'] ?? ''), $rows)));
     }
 
     private function capacityForScope(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): float

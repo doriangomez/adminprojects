@@ -164,6 +164,49 @@ class TimesheetsController extends Controller
         ]);
     }
 
+    public function adminTimesheets(): void
+    {
+        $timesheetsEnabled = $this->auth->isTimesheetsEnabled();
+        if (!$timesheetsEnabled) {
+            http_response_code(404);
+            exit('El módulo de timesheets no está habilitado.');
+        }
+
+        $canAccessAdminView = $this->auth->hasRole('Administrador')
+            || $this->auth->hasRole('PMO')
+            || $this->auth->canManageAdvancedTimesheets();
+        if (!$canAccessAdminView) {
+            http_response_code(403);
+            exit('Acceso denegado');
+        }
+
+        $repo = new TimesheetsRepository($this->db);
+        $weekValueRaw = trim((string) ($_GET['week'] ?? ''));
+        $weekStart = $this->parseWeekValue($weekValueRaw) ?? new DateTimeImmutable('monday this week');
+        $weekEnd = $weekStart->modify('+6 days');
+        $weekValue = $weekStart->format('o-\\WW');
+
+        $filters = [
+            'user_id' => (int) ($_GET['user_id'] ?? 0),
+            'project_id' => (int) ($_GET['project_id'] ?? 0),
+            'client_id' => (int) ($_GET['client_id'] ?? 0),
+            'status' => strtolower(trim((string) ($_GET['status'] ?? ''))),
+            'week_start' => $weekStart->format('Y-m-d'),
+            'week_end' => $weekEnd->format('Y-m-d'),
+        ];
+
+        $report = $repo->adminTimesheetsReport($filters);
+
+        $this->render('admin/timesheets', [
+            'title' => 'Admin · Timesheets',
+            'weekValue' => $weekValue,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'filters' => $filters,
+            'report' => $report,
+        ]);
+    }
+
     public function saveCell(): void
     {
         if (!$this->auth->canAccessTimesheets()) {
@@ -203,6 +246,7 @@ class TimesheetsController extends Controller
         try {
             $repo->upsertDraftCell($userId, $projectId, $date, $hours, $comment, $metadata, $syncOperational);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            $this->capturePmoSnapshot($projectId);
             header('Content-Type: application/json');
             echo json_encode(['ok' => true]);
         } catch (\InvalidArgumentException $e) {
@@ -397,6 +441,7 @@ class TimesheetsController extends Controller
         try {
             $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            $this->capturePmoSnapshot($projectId);
             $weekDate = $this->parseDateValue($date);
             $weekValue = $weekDate ? $weekDate->modify('monday this week')->format('o-\\WW') : (new DateTimeImmutable('monday this week'))->format('o-\\WW');
             header('Location: /timesheets?week=' . urlencode($weekValue));
@@ -448,6 +493,7 @@ class TimesheetsController extends Controller
         try {
             $activityId = $repo->createDraftActivity($userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            $this->capturePmoSnapshot($projectId);
             $this->jsonResponse(200, ['ok' => true, 'id' => $activityId]);
         } catch (\InvalidArgumentException $e) {
             $this->jsonResponse(400, ['ok' => false, 'message' => $e->getMessage()]);
@@ -488,6 +534,7 @@ class TimesheetsController extends Controller
             }
             $updated = $repo->updateDraftActivity($activityId, $userId, $projectId, $date, $hours, $comment, $metadata);
             (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+            $this->capturePmoSnapshot($projectId);
             $this->jsonResponse(200, ['ok' => $updated]);
         } catch (\InvalidArgumentException $e) {
             $this->jsonResponse(400, ['ok' => false, 'message' => $e->getMessage()]);
@@ -882,6 +929,19 @@ class TimesheetsController extends Controller
         return (new DateTimeImmutable('now'))->setISODate($year, $week, 1)->setTime(0, 0);
     }
 
+    private function capturePmoSnapshot(int $projectId): void
+    {
+        if ($projectId <= 0) {
+            return;
+        }
+
+        try {
+            (new PmoAutomationService($this->db))->captureSnapshotForProject($projectId, new DateTimeImmutable('today'));
+        } catch (\Throwable $e) {
+            error_log('Error actualizando snapshot PMO: ' . $e->getMessage());
+        }
+    }
+
     private function parseDateValue(string $value): ?DateTimeImmutable
     {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
@@ -925,6 +985,7 @@ class TimesheetsController extends Controller
             $projectId = (int) ($repo->projectIdForTimesheet($timesheetId) ?? 0);
             if ($projectId > 0) {
                 (new ProjectService($this->db))->recordHealthSnapshot($projectId);
+                $this->capturePmoSnapshot($projectId);
             }
 
             (new AuditLogRepository($this->db))->log(
