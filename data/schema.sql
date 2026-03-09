@@ -223,7 +223,7 @@ CREATE TABLE project_requirements (
     version VARCHAR(40) NOT NULL DEFAULT '1.0',
     delivery_date DATE NULL,
     approval_date DATE NULL,
-    status ENUM('borrador','entregado','aprobado','rechazado') NOT NULL DEFAULT 'borrador',
+    status ENUM('borrador','definido','en_revision','aprobado','rechazado','entregado') NOT NULL DEFAULT 'borrador',
     approved_first_delivery TINYINT(1) NOT NULL DEFAULT 0,
     reprocess_count INT NOT NULL DEFAULT 0,
     is_final_version TINYINT(1) NOT NULL DEFAULT 1,

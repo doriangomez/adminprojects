@@ -3822,9 +3822,11 @@ POST crudo:
 
         $indicator = $repo->indicatorForProject($id, $start, $end);
         $history = $repo->auditByProject($id);
+        $summary = $repo->summaryByProject($id);
 
         $data['requirements'] = $repo->listByProject($id);
         $data['requirementsIndicator'] = $indicator;
+        $data['requirementsSummary'] = $summary;
         $data['requirementsAudit'] = $history;
         $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
         $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
@@ -3862,7 +3864,7 @@ POST crudo:
     {
         $user = $this->auth->user() ?? [];
         $status = (string) ($_POST['status'] ?? 'borrador');
-        $allowed = ['borrador', 'entregado', 'aprobado', 'rechazado'];
+        $allowed = ['borrador', 'definido', 'en_revision', 'aprobado', 'rechazado', 'entregado'];
         if (!in_array($status, $allowed, true)) {
             $status = 'borrador';
         }

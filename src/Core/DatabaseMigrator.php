@@ -934,9 +934,27 @@ class DatabaseMigrator
             $this->createProjectRequirementsTable();
             $this->createRequirementAuditLogTable();
             $this->createRequirementIndicatorSnapshotsTable();
+            $this->ensureRequirementStatusWorkflow();
             $this->ensureRequirementMetaPermissions();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de requisitos: ' . $e->getMessage());
+        }
+    }
+
+    private function ensureRequirementStatusWorkflow(): void
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                "ALTER TABLE project_requirements MODIFY COLUMN status ENUM('borrador','definido','en_revision','aprobado','rechazado','entregado') NOT NULL DEFAULT 'borrador'"
+            );
+        } catch (\PDOException $e) {
+            if (strpos($e->getMessage(), 'Duplicate column') === false) {
+                error_log('Error extendiendo workflow de requisitos: ' . $e->getMessage());
+            }
         }
     }
 
@@ -2509,7 +2527,7 @@ class DatabaseMigrator
                 version VARCHAR(40) NOT NULL DEFAULT "1.0",
                 delivery_date DATE NULL,
                 approval_date DATE NULL,
-                status ENUM("borrador","entregado","aprobado","rechazado") NOT NULL DEFAULT "borrador",
+                status ENUM("borrador","definido","en_revision","aprobado","rechazado","entregado") NOT NULL DEFAULT "borrador",
                 approved_first_delivery TINYINT(1) NOT NULL DEFAULT 0,
                 reprocess_count INT NOT NULL DEFAULT 0,
                 is_final_version TINYINT(1) NOT NULL DEFAULT 1,

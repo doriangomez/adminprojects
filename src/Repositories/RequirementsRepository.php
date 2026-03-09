@@ -24,6 +24,48 @@ class RequirementsRepository
         );
     }
 
+    public function summaryByProject(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return [
+                'total' => 0,
+                'aprobados' => 0,
+                'en_revision' => 0,
+                'rechazados' => 0,
+                'pendientes' => 0,
+                'cumplimiento' => 0.0,
+            ];
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status IN ("aprobado","entregado") THEN 1 ELSE 0 END) AS aprobados,
+                SUM(CASE WHEN status = "en_revision" THEN 1 ELSE 0 END) AS en_revision,
+                SUM(CASE WHEN status = "rechazado" THEN 1 ELSE 0 END) AS rechazados,
+                SUM(CASE WHEN status IN ("borrador","definido") THEN 1 ELSE 0 END) AS pendientes
+             FROM project_requirements
+             WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        );
+
+        $total = (int) ($row['total'] ?? 0);
+        $aprobados = (int) ($row['aprobados'] ?? 0);
+        $enRevision = (int) ($row['en_revision'] ?? 0);
+        $rechazados = (int) ($row['rechazados'] ?? 0);
+        $pendientes = (int) ($row['pendientes'] ?? 0);
+        $cumplimiento = $total > 0 ? round(($aprobados / $total) * 100, 2) : 0.0;
+
+        return [
+            'total' => $total,
+            'aprobados' => $aprobados,
+            'en_revision' => $enRevision,
+            'rechazados' => $rechazados,
+            'pendientes' => $pendientes,
+            'cumplimiento' => $cumplimiento,
+        ];
+    }
+
     public function create(array $payload): int
     {
         return $this->db->insert(
@@ -52,7 +94,8 @@ class RequirementsRepository
         }
 
         $reprocessCount = (int) ($current['reprocess_count'] ?? 0);
-        if (($current['status'] ?? '') === 'rechazado' && $status === 'entregado') {
+        $fromStatus = (string) ($current['status'] ?? '');
+        if ($status === 'en_revision' && in_array($fromStatus, ['aprobado', 'rechazado', 'entregado'], true)) {
             $reprocessCount++;
         }
 
