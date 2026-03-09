@@ -24,6 +24,43 @@ class RequirementsRepository
         );
     }
 
+    public function statusCountsForProject(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return ['total' => 0, 'borrador' => 0, 'definido' => 0, 'en_revision' => 0, 'aprobado' => 0, 'rechazado' => 0, 'entregado' => 0, 'cumplimiento' => 0.0];
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT status, COUNT(*) AS cnt
+             FROM project_requirements
+             WHERE project_id = :project_id AND active = 1
+             GROUP BY status',
+            [':project_id' => $projectId]
+        );
+
+        $counts = ['borrador' => 0, 'definido' => 0, 'en_revision' => 0, 'aprobado' => 0, 'rechazado' => 0, 'entregado' => 0];
+        foreach ($rows as $row) {
+            $s = (string) ($row['status'] ?? '');
+            if (array_key_exists($s, $counts)) {
+                $counts[$s] = (int) ($row['cnt'] ?? 0);
+            }
+        }
+
+        $total = array_sum($counts);
+        $aprobados = $counts['aprobado'];
+        $cumplimiento = $total > 0 ? round(($aprobados / $total) * 100, 2) : 0.0;
+
+        return array_merge($counts, [
+            'total' => $total,
+            'cumplimiento' => $cumplimiento,
+        ]);
+    }
+
+    public function allowedTransitionsFrom(string $status): array
+    {
+        return self::WORKFLOW_TRANSITIONS[$status] ?? [];
+    }
+
     public function create(array $payload): int
     {
         return $this->db->insert(
@@ -44,6 +81,20 @@ class RequirementsRepository
         );
     }
 
+    private const WORKFLOW_TRANSITIONS = [
+        'borrador'    => ['definido'],
+        'definido'    => ['en_revision', 'borrador'],
+        'en_revision' => ['aprobado', 'rechazado', 'definido'],
+        'aprobado'    => ['entregado'],
+        'rechazado'   => ['en_revision', 'borrador'],
+        'entregado'   => [],
+    ];
+
+    public function isValidTransition(string $from, string $to): bool
+    {
+        return in_array($to, self::WORKFLOW_TRANSITIONS[$from] ?? [], true);
+    }
+
     public function updateStatus(int $requirementId, string $status, int $updatedBy): void
     {
         $current = $this->db->fetchOne('SELECT * FROM project_requirements WHERE id = :id LIMIT 1', [':id' => $requirementId]);
@@ -51,8 +102,13 @@ class RequirementsRepository
             throw new \RuntimeException('Requisito no encontrado.');
         }
 
+        $fromStatus = (string) ($current['status'] ?? 'borrador');
+        if (!$this->isValidTransition($fromStatus, $status)) {
+            throw new \RuntimeException("Transición no permitida: {$fromStatus} → {$status}");
+        }
+
         $reprocessCount = (int) ($current['reprocess_count'] ?? 0);
-        if (($current['status'] ?? '') === 'rechazado' && $status === 'entregado') {
+        if ($status === 'en_revision' && $fromStatus === 'rechazado') {
             $reprocessCount++;
         }
 
@@ -64,6 +120,11 @@ class RequirementsRepository
         $approvedFirstDelivery = (int) ($current['approved_first_delivery'] ?? 0);
         if ($status === 'aprobado' && $reprocessCount === 0) {
             $approvedFirstDelivery = 1;
+        }
+
+        $notes = null;
+        if ($reprocessCount > (int) ($current['reprocess_count'] ?? 0)) {
+            $notes = 'Se incrementa reproceso';
         }
 
         $this->db->execute(
@@ -90,9 +151,9 @@ class RequirementsRepository
                 ':requirement_id' => $requirementId,
                 ':project_id' => (int) ($current['project_id'] ?? 0),
                 ':changed_by' => $updatedBy,
-                ':from_status' => (string) ($current['status'] ?? ''),
+                ':from_status' => $fromStatus,
                 ':to_status' => $status,
-                ':notes' => $reprocessCount > (int) ($current['reprocess_count'] ?? 0) ? 'Se incrementa reproceso' : null,
+                ':notes' => $notes,
             ]
         );
     }
@@ -182,7 +243,7 @@ class RequirementsRepository
 
         $rows = $this->db->fetchAll(
             'SELECT p.id AS project_id, p.name AS project_name, c.name AS client_name,
-                    SUM(CASE WHEN r.status IN (\'entregado\',\'aprobado\',\'rechazado\') THEN 1 ELSE 0 END) AS total,
+                    SUM(CASE WHEN r.status IN (\'entregado\',\'aprobado\',\'rechazado\',\'en_revision\',\'definido\') THEN 1 ELSE 0 END) AS total,
                     SUM(CASE WHEN r.status = \'' . "aprobado" . '\' AND (r.reprocess_count = 0 OR r.approved_first_delivery = 1) THEN 1 ELSE 0 END) AS approved_no_reprocess,
                     AVG(r.reprocess_count) AS avg_reprocess
              FROM project_requirements r
@@ -222,7 +283,7 @@ class RequirementsRepository
 
         return $this->db->fetchAll(
             'SELECT DATE_FORMAT(delivery_date, "%Y-%m") AS period,
-                    SUM(CASE WHEN status IN (\'entregado\',\'aprobado\',\'rechazado\') THEN 1 ELSE 0 END) AS total,
+                    SUM(CASE WHEN status IN (\'entregado\',\'aprobado\',\'rechazado\',\'en_revision\',\'definido\') THEN 1 ELSE 0 END) AS total,
                     SUM(CASE WHEN status = \'' . "aprobado" . '\' AND (reprocess_count = 0 OR approved_first_delivery = 1) THEN 1 ELSE 0 END) AS approved_no_reprocess
              FROM project_requirements
              WHERE project_id = :project_id
@@ -280,8 +341,9 @@ class RequirementsRepository
         $reprocessTotal = 0;
         $approvalLeadTimes = [];
 
+        $countedStatuses = ['entregado', 'aprobado', 'rechazado', 'en_revision', 'definido'];
         foreach ($rows as $row) {
-            if (!in_array($row['status'] ?? '', ['entregado', 'aprobado', 'rechazado'], true)) {
+            if (!in_array($row['status'] ?? '', $countedStatuses, true)) {
                 continue;
             }
 

@@ -935,6 +935,7 @@ class DatabaseMigrator
             $this->createRequirementAuditLogTable();
             $this->createRequirementIndicatorSnapshotsTable();
             $this->ensureRequirementMetaPermissions();
+            $this->ensureRequirementWorkflowStates();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de requisitos: ' . $e->getMessage());
         }
@@ -2509,7 +2510,7 @@ class DatabaseMigrator
                 version VARCHAR(40) NOT NULL DEFAULT "1.0",
                 delivery_date DATE NULL,
                 approval_date DATE NULL,
-                status ENUM("borrador","entregado","aprobado","rechazado") NOT NULL DEFAULT "borrador",
+                status ENUM("borrador","definido","en_revision","aprobado","rechazado","entregado") NOT NULL DEFAULT "borrador",
                 approved_first_delivery TINYINT(1) NOT NULL DEFAULT 0,
                 reprocess_count INT NOT NULL DEFAULT 0,
                 is_final_version TINYINT(1) NOT NULL DEFAULT 1,
@@ -2603,6 +2604,23 @@ class DatabaseMigrator
                  SET u.can_delete_requirement_history = 1
                  WHERE r.nombre = 'Administrador'"
             );
+        }
+    }
+
+    private function ensureRequirementWorkflowStates(): void
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return;
+        }
+
+        try {
+            $this->db->execute(
+                'ALTER TABLE project_requirements
+                 MODIFY COLUMN status ENUM("borrador","definido","en_revision","aprobado","rechazado","entregado")
+                 NOT NULL DEFAULT "borrador"'
+            );
+        } catch (\PDOException $e) {
+            error_log('ensureRequirementWorkflowStates: ' . $e->getMessage());
         }
     }
 

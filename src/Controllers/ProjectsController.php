@@ -3828,6 +3828,7 @@ POST crudo:
         $data['requirementsAudit'] = $history;
         $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
         $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
+        $data['requirementsStatusCounts'] = $repo->statusCountsForProject($id);
 
         $this->render('projects/requirements', $data);
     }
@@ -3862,13 +3863,17 @@ POST crudo:
     {
         $user = $this->auth->user() ?? [];
         $status = (string) ($_POST['status'] ?? 'borrador');
-        $allowed = ['borrador', 'entregado', 'aprobado', 'rechazado'];
+        $allowed = ['borrador', 'definido', 'en_revision', 'aprobado', 'rechazado', 'entregado'];
         if (!in_array($status, $allowed, true)) {
             $status = 'borrador';
         }
 
-        (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
-        header('Location: /projects/' . $projectId . '/requirements?updated=1');
+        try {
+            (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
+            header('Location: /projects/' . $projectId . '/requirements?updated=1');
+        } catch (\RuntimeException $e) {
+            header('Location: /projects/' . $projectId . '/requirements?error=' . urlencode($e->getMessage()));
+        }
         exit;
     }
 
