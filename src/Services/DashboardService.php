@@ -941,7 +941,6 @@ class DashboardService
 
     public function requirementsOverview(array $user): array
     {
-        $repo = new RequirementsRepository($this->db);
         $filters = [
             'start_date' => $_GET['start_date'] ?? date('Y-m-01'),
             'end_date' => $_GET['end_date'] ?? date('Y-m-t'),
@@ -949,12 +948,18 @@ class DashboardService
             'pm_id' => $_GET['pm_id'] ?? null,
         ];
 
-        $projects = $repo->indicatorByProject($filters);
-        usort($projects, static fn (array $a, array $b): int => (float) ($b['indicator'] ?? -1) <=> (float) ($a['indicator'] ?? -1));
-
+        $projects = [];
         $trend = [];
-        foreach ($projects as $project) {
-            $trend[(string) ($project['project'] ?? '')] = $repo->trendForProject((int) ($project['project_id'] ?? 0), 6);
+        try {
+            $repo = new RequirementsRepository($this->db);
+            $projects = $repo->indicatorByProject($filters);
+            usort($projects, static fn (array $a, array $b): int => (float) ($b['indicator'] ?? -1) <=> (float) ($a['indicator'] ?? -1));
+
+            foreach ($projects as $project) {
+                $trend[(string) ($project['project'] ?? '')] = $repo->trendForProject((int) ($project['project_id'] ?? 0), 6);
+            }
+        } catch (\Throwable $e) {
+            error_log(sprintf('[DashboardService] Error cargando requisitos del dashboard: %s', $e->getMessage()));
         }
 
         return [

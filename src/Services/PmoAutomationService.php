@@ -10,87 +10,99 @@ class PmoAutomationService
 
     public function ensureTodaySnapshotForProject(int $projectId): array
     {
-        $today = (new DateTimeImmutable('today'))->format('Y-m-d');
-        $existing = $this->latestSnapshotForProject($projectId);
-        if ($existing && (string) ($existing['snapshot_date'] ?? '') === $today) {
-            return $existing;
-        }
+        try {
+            $today = (new DateTimeImmutable('today'))->format('Y-m-d');
+            $existing = $this->latestSnapshotForProject($projectId);
+            if ($existing && (string) ($existing['snapshot_date'] ?? '') === $today) {
+                return $existing;
+            }
 
-        return $this->captureSnapshotForProject($projectId, new DateTimeImmutable('today'));
+            return $this->captureSnapshotForProject($projectId, new DateTimeImmutable('today'));
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] ensureTodaySnapshotForProject error (%d): %s', $projectId, $e->getMessage()));
+
+            return [];
+        }
     }
 
     public function captureSnapshotForProject(int $projectId, ?DateTimeImmutable $snapshotDate = null): array
     {
-        if ($projectId <= 0 || !$this->db->tableExists('projects')) {
+        try {
+            if ($projectId <= 0 || !$this->db->tableExists('projects')) {
+                return [];
+            }
+
+            $date = ($snapshotDate ?? new DateTimeImmutable('today'))->setTime(0, 0);
+            $dateStr = $date->format('Y-m-d');
+            $project = $this->db->fetchOne(
+                'SELECT id, name, progress, planned_hours, start_date
+                 FROM projects
+                 WHERE id = :id
+                 LIMIT 1',
+                [':id' => $projectId]
+            );
+            if (!$project) {
+                return [];
+            }
+
+            $plannedHours = (float) ($project['planned_hours'] ?? 0);
+            $manualProgress = (float) ($project['progress'] ?? 0);
+            $approvedHours = $this->approvedHours($projectId, $dateStr);
+            $estimatedHours = $this->estimatedHours($projectId, $plannedHours);
+            $taskMetrics = $this->taskMetrics($projectId, $dateStr);
+            $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
+            $blockerMentions = $this->blockerMentions($projectId, $dateStr);
+            $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
+
+            $hoursConsumption = $estimatedHours > 0 ? round(($approvedHours / $estimatedHours) * 100, 2) : null;
+            $progressHours = $estimatedHours > 0 ? min(100.0, $hoursConsumption) : null;
+            $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
+                ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
+                : null;
+
+            $riskScore = $this->riskScore([
+                'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
+                'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
+                'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
+                'blocker_mentions' => $blockerMentions,
+                'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
+                'hours_consumption_percent' => $hoursConsumption,
+                'stale_business_days' => $staleBusinessDays,
+            ]);
+
+            $snapshot = [
+                'project_id' => $projectId,
+                'snapshot_date' => $dateStr,
+                'project_name' => (string) ($project['name'] ?? 'Proyecto'),
+                'progress_manual' => round($manualProgress, 2),
+                'progress_hours' => $progressHours,
+                'progress_tasks' => $progressTasks,
+                'risk_score' => $riskScore,
+                'planned_hours' => $estimatedHours,
+                'approved_hours' => round($approvedHours, 2),
+                'hours_consumption_percent' => $hoursConsumption,
+                'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
+                'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
+                'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
+                'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
+                'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
+                'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
+                'blocker_mentions' => $blockerMentions,
+                'stale_business_days' => $staleBusinessDays,
+            ];
+
+            $snapshotId = $this->persistSnapshot($snapshot);
+            if ($snapshotId > 0) {
+                $snapshot['id'] = $snapshotId;
+                $this->syncAlerts($snapshotId, $snapshot);
+            }
+
+            return $snapshot;
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] captureSnapshotForProject error (%d): %s', $projectId, $e->getMessage()));
+
             return [];
         }
-
-        $date = ($snapshotDate ?? new DateTimeImmutable('today'))->setTime(0, 0);
-        $dateStr = $date->format('Y-m-d');
-        $project = $this->db->fetchOne(
-            'SELECT id, name, progress, planned_hours, start_date
-             FROM projects
-             WHERE id = :id
-             LIMIT 1',
-            [':id' => $projectId]
-        );
-        if (!$project) {
-            return [];
-        }
-
-        $plannedHours = (float) ($project['planned_hours'] ?? 0);
-        $manualProgress = (float) ($project['progress'] ?? 0);
-        $approvedHours = $this->approvedHours($projectId, $dateStr);
-        $estimatedHours = $this->estimatedHours($projectId, $plannedHours);
-        $taskMetrics = $this->taskMetrics($projectId, $dateStr);
-        $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
-        $blockerMentions = $this->blockerMentions($projectId, $dateStr);
-        $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
-
-        $hoursConsumption = $estimatedHours > 0 ? round(($approvedHours / $estimatedHours) * 100, 2) : null;
-        $progressHours = $estimatedHours > 0 ? min(100.0, $hoursConsumption) : null;
-        $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
-            ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
-            : null;
-
-        $riskScore = $this->riskScore([
-            'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
-            'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
-            'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
-            'blocker_mentions' => $blockerMentions,
-            'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
-            'hours_consumption_percent' => $hoursConsumption,
-            'stale_business_days' => $staleBusinessDays,
-        ]);
-
-        $snapshot = [
-            'project_id' => $projectId,
-            'snapshot_date' => $dateStr,
-            'project_name' => (string) ($project['name'] ?? 'Proyecto'),
-            'progress_manual' => round($manualProgress, 2),
-            'progress_hours' => $progressHours,
-            'progress_tasks' => $progressTasks,
-            'risk_score' => $riskScore,
-            'planned_hours' => $estimatedHours,
-            'approved_hours' => round($approvedHours, 2),
-            'hours_consumption_percent' => $hoursConsumption,
-            'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
-            'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
-            'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
-            'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
-            'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
-            'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
-            'blocker_mentions' => $blockerMentions,
-            'stale_business_days' => $staleBusinessDays,
-        ];
-
-        $snapshotId = $this->persistSnapshot($snapshot);
-        if ($snapshotId > 0) {
-            $snapshot['id'] = $snapshotId;
-            $this->syncAlerts($snapshotId, $snapshot);
-        }
-
-        return $snapshot;
     }
 
     public function latestSnapshotForProject(int $projectId): ?array
@@ -113,89 +125,117 @@ class PmoAutomationService
 
     public function latestAlertsForProject(int $projectId, int $limit = 20): array
     {
-        if (!$this->db->tableExists('project_pmo_alerts')) {
+        try {
+            if (!$this->db->tableExists('project_pmo_alerts')) {
+                return [];
+            }
+
+            $safeLimit = max(1, (int) $limit);
+            return $this->db->fetchAll(
+                'SELECT *
+                 FROM project_pmo_alerts
+                 WHERE project_id = :project
+                   AND status = "open"
+                 ORDER BY FIELD(severity, "red", "yellow", "green"), created_at DESC, id DESC
+                 LIMIT ' . $safeLimit,
+                [
+                    ':project' => $projectId,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] latestAlertsForProject error (%d): %s', $projectId, $e->getMessage()));
+
             return [];
         }
-
-        $safeLimit = max(1, (int) $limit);
-        return $this->db->fetchAll(
-            'SELECT *
-             FROM project_pmo_alerts
-             WHERE project_id = :project
-               AND status = "open"
-             ORDER BY FIELD(severity, "red", "yellow", "green"), created_at DESC, id DESC
-             LIMIT ' . $safeLimit,
-            [
-                ':project' => $projectId,
-            ]
-        );
     }
 
     public function hoursTrendForProject(int $projectId, int $weeks = 4): array
     {
-        if (!$this->db->tableExists('timesheets')) {
+        try {
+            if (
+                !$this->db->tableExists('timesheets')
+                || !$this->db->columnExists('timesheets', 'date')
+                || !$this->db->columnExists('timesheets', 'hours')
+            ) {
+                return [];
+            }
+
+            $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
+            $canResolveFromTasks = !$usesProjectColumn
+                && $this->db->tableExists('tasks')
+                && $this->db->columnExists('timesheets', 'task_id')
+                && $this->db->columnExists('tasks', 'project_id');
+            if (!$usesProjectColumn && !$canResolveFromTasks) {
+                return [];
+            }
+
+            $safeWeeks = max(1, (int) $weeks);
+            $safeLimit = max(1, (int) $weeks);
+            $startDate = (new DateTimeImmutable('today'))->modify('-' . ($safeWeeks * 7) . ' days')->format('Y-m-d');
+            $projectFilter = $usesProjectColumn ? 'ts.project_id = :project' : 't.project_id = :project';
+            $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
+            $statusFilter = $this->db->columnExists('timesheets', 'status') ? 'AND ts.status = "approved"' : '';
+            $rows = $this->db->fetchAll(
+                'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
+                        COALESCE(SUM(ts.hours), 0) AS approved_hours
+                 FROM timesheets ts
+                 ' . $taskJoin . '
+                 WHERE ' . $projectFilter . '
+                   ' . $statusFilter . '
+                   AND ts.date >= :start_date
+                 GROUP BY DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)
+                 ORDER BY week_start DESC
+                 LIMIT ' . $safeLimit,
+                [
+                    ':project' => $projectId,
+                    ':start_date' => $startDate,
+                ]
+            );
+
+            $rows = array_reverse($rows);
+            foreach ($rows as &$row) {
+                $row['label'] = isset($row['week_start']) ? 'Sem ' . date('W', strtotime((string) $row['week_start'])) : 'Semana';
+                $row['approved_hours'] = round((float) ($row['approved_hours'] ?? 0), 2);
+            }
+            unset($row);
+
+            return $rows;
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] hoursTrendForProject error (%d): %s', $projectId, $e->getMessage()));
+
             return [];
         }
-
-        $usesProjectColumn = $this->db->columnExists('timesheets', 'project_id');
-        $canResolveFromTasks = !$usesProjectColumn
-            && $this->db->tableExists('tasks')
-            && $this->db->columnExists('timesheets', 'task_id')
-            && $this->db->columnExists('tasks', 'project_id');
-        if (!$usesProjectColumn && !$canResolveFromTasks) {
-            return [];
-        }
-
-        $safeWeeks = max(1, (int) $weeks);
-        $safeLimit = max(1, (int) $weeks);
-        $startDate = (new DateTimeImmutable('today'))->modify('-' . ($safeWeeks * 7) . ' days')->format('Y-m-d');
-        $projectFilter = $usesProjectColumn ? 'ts.project_id = :project' : 't.project_id = :project';
-        $taskJoin = $usesProjectColumn ? '' : 'JOIN tasks t ON t.id = ts.task_id';
-        $rows = $this->db->fetchAll(
-            'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
-                    COALESCE(SUM(ts.hours), 0) AS approved_hours
-             FROM timesheets ts
-             ' . $taskJoin . '
-             WHERE ' . $projectFilter . '
-               AND ts.status = "approved"
-               AND ts.date >= :start_date
-             GROUP BY DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY)
-             ORDER BY week_start DESC
-             LIMIT ' . $safeLimit,
-            [
-                ':project' => $projectId,
-                ':start_date' => $startDate,
-            ]
-        );
-
-        $rows = array_reverse($rows);
-        foreach ($rows as &$row) {
-            $row['label'] = isset($row['week_start']) ? 'Sem ' . date('W', strtotime((string) $row['week_start'])) : 'Semana';
-            $row['approved_hours'] = round((float) ($row['approved_hours'] ?? 0), 2);
-        }
-        unset($row);
-
-        return $rows;
     }
 
     public function activeBlockersForProject(int $projectId, int $limit = 8): array
     {
-        if (!$this->db->tableExists('project_stoppers')) {
+        try {
+            if (
+                !$this->db->tableExists('project_stoppers')
+                || !$this->db->columnExists('project_stoppers', 'status')
+                || !$this->db->columnExists('project_stoppers', 'impact_level')
+                || !$this->db->columnExists('project_stoppers', 'detected_at')
+            ) {
+                return [];
+            }
+
+            $safeLimit = max(1, (int) $limit);
+            return $this->db->fetchAll(
+                'SELECT id, title, description, impact_level, status, detected_at
+                 FROM project_stoppers
+                 WHERE project_id = :project
+                   AND status IN ("abierto", "en_gestion", "escalado", "resuelto")
+                 ORDER BY FIELD(impact_level, "critico", "alto", "medio", "bajo"), detected_at ASC, id ASC
+                 LIMIT ' . $safeLimit,
+                [
+                    ':project' => $projectId,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] activeBlockersForProject error (%d): %s', $projectId, $e->getMessage()));
+
             return [];
         }
-
-        $safeLimit = max(1, (int) $limit);
-        return $this->db->fetchAll(
-            'SELECT id, title, description, impact_level, status, detected_at
-             FROM project_stoppers
-             WHERE project_id = :project
-               AND status IN ("abierto", "en_gestion", "escalado", "resuelto")
-             ORDER BY FIELD(impact_level, "critico", "alto", "medio", "bajo"), detected_at ASC, id ASC
-             LIMIT ' . $safeLimit,
-            [
-                ':project' => $projectId,
-            ]
-        );
     }
 
     public function runDailyForAllProjects(): int
@@ -309,11 +349,24 @@ class PmoAutomationService
             return ['total_tasks' => 0, 'done_tasks' => 0, 'overdue_tasks' => 0];
         }
 
+        $hasStatus = $this->db->columnExists('tasks', 'status');
+        $hasDueDate = $this->db->columnExists('tasks', 'due_date');
+        $doneCondition = $hasStatus
+            ? 'LOWER(TRIM(COALESCE(status, ""))) IN ("done", "completed", "completada")'
+            : '1 = 0';
+        if ($hasDueDate && $hasStatus) {
+            $overdueCondition = 'due_date IS NOT NULL AND due_date < :snapshot_date AND LOWER(TRIM(COALESCE(status, ""))) NOT IN ("done", "completed", "completada")';
+        } elseif ($hasDueDate) {
+            $overdueCondition = 'due_date IS NOT NULL AND due_date < :snapshot_date';
+        } else {
+            $overdueCondition = '1 = 0';
+        }
+
         $row = $this->db->fetchOne(
             'SELECT
                 COUNT(*) AS total_tasks,
-                SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ""))) IN ("done", "completed", "completada") THEN 1 ELSE 0 END) AS done_tasks,
-                SUM(CASE WHEN due_date IS NOT NULL AND due_date < :snapshot_date AND LOWER(TRIM(COALESCE(status, ""))) NOT IN ("done", "completed", "completada") THEN 1 ELSE 0 END) AS overdue_tasks
+                SUM(CASE WHEN ' . $doneCondition . ' THEN 1 ELSE 0 END) AS done_tasks,
+                SUM(CASE WHEN ' . $overdueCondition . ' THEN 1 ELSE 0 END) AS overdue_tasks
              FROM tasks
              WHERE project_id = :project',
             [
@@ -331,15 +384,24 @@ class PmoAutomationService
 
     private function blockerMetrics(int $projectId, string $snapshotDate): array
     {
-        if (!$this->db->tableExists('project_stoppers')) {
+        if (
+            !$this->db->tableExists('project_stoppers')
+            || !$this->db->columnExists('project_stoppers', 'status')
+            || !$this->db->columnExists('project_stoppers', 'impact_level')
+        ) {
             return ['open_blockers' => 0, 'critical_blockers' => 0, 'aged_blockers' => 0];
         }
+
+        $hasDetectedAt = $this->db->columnExists('project_stoppers', 'detected_at');
+        $agedCondition = $hasDetectedAt
+            ? 'status IN ("abierto", "en_gestion", "escalado", "resuelto") AND DATEDIFF(:snapshot_date, detected_at) > 7'
+            : '1 = 0';
 
         $row = $this->db->fetchOne(
             'SELECT
                 SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") THEN 1 ELSE 0 END) AS open_blockers,
                 SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND impact_level = "critico" THEN 1 ELSE 0 END) AS critical_blockers,
-                SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND DATEDIFF(:snapshot_date, detected_at) > 7 THEN 1 ELSE 0 END) AS aged_blockers
+                SUM(CASE WHEN ' . $agedCondition . ' THEN 1 ELSE 0 END) AS aged_blockers
              FROM project_stoppers
              WHERE project_id = :project',
             [
