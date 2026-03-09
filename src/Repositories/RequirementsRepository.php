@@ -4,8 +4,33 @@ declare(strict_types=1);
 
 class RequirementsRepository
 {
+    private const STATUS_BORRADOR = 'borrador';
+    private const STATUS_DEFINIDO = 'definido';
+    private const STATUS_EN_REVISION = 'en_revision';
+    private const STATUS_APROBADO = 'aprobado';
+    private const STATUS_RECHAZADO = 'rechazado';
+    private const STATUS_ENTREGADO = 'entregado';
+
+    /**
+     * Flujo principal: borrador -> definido -> en_revision -> aprobado -> entregado
+     * Rama de reproceso: en_revision -> rechazado -> en_revision
+     */
+    private const WORKFLOW_TRANSITIONS = [
+        self::STATUS_BORRADOR => [self::STATUS_DEFINIDO],
+        self::STATUS_DEFINIDO => [self::STATUS_EN_REVISION],
+        self::STATUS_EN_REVISION => [self::STATUS_APROBADO, self::STATUS_RECHAZADO],
+        self::STATUS_RECHAZADO => [self::STATUS_EN_REVISION],
+        self::STATUS_APROBADO => [self::STATUS_ENTREGADO],
+        self::STATUS_ENTREGADO => [],
+    ];
+
     public function __construct(private Database $db)
     {
+    }
+
+    public static function allowedStatuses(): array
+    {
+        return array_keys(self::WORKFLOW_TRANSITIONS);
     }
 
     public function listByProject(int $projectId): array
@@ -26,6 +51,8 @@ class RequirementsRepository
 
     public function create(array $payload): int
     {
+        $status = $this->normalizeStatus((string) ($payload['status'] ?? self::STATUS_BORRADOR));
+
         return $this->db->insert(
             'INSERT INTO project_requirements
             (project_id, client_id, created_by, name, description, version, delivery_date, status, approved_first_delivery, reprocess_count)
@@ -38,7 +65,7 @@ class RequirementsRepository
                 ':description' => trim((string) ($payload['description'] ?? '')),
                 ':version' => trim((string) ($payload['version'] ?? '1.0')),
                 ':delivery_date' => $payload['delivery_date'] ?: null,
-                ':status' => (string) ($payload['status'] ?? 'borrador'),
+                ':status' => $status,
                 ':approved_first_delivery' => !empty($payload['approved_first_delivery']) ? 1 : 0,
             ]
         );
@@ -51,19 +78,27 @@ class RequirementsRepository
             throw new \RuntimeException('Requisito no encontrado.');
         }
 
+        $fromStatus = $this->normalizeStatus((string) ($current['status'] ?? self::STATUS_BORRADOR));
+        $toStatus = $this->normalizeStatus($status);
+        if (!$this->canTransition($fromStatus, $toStatus)) {
+            throw new \RuntimeException(sprintf('Transición no permitida: %s -> %s', $fromStatus, $toStatus));
+        }
+
         $reprocessCount = (int) ($current['reprocess_count'] ?? 0);
-        if (($current['status'] ?? '') === 'rechazado' && $status === 'entregado') {
+        if ($fromStatus === self::STATUS_RECHAZADO && $toStatus === self::STATUS_EN_REVISION) {
             $reprocessCount++;
         }
 
         $approvalDate = $current['approval_date'] ?? null;
-        if ($status === 'aprobado') {
+        if ($toStatus === self::STATUS_APROBADO) {
             $approvalDate = date('Y-m-d');
         }
 
         $approvedFirstDelivery = (int) ($current['approved_first_delivery'] ?? 0);
-        if ($status === 'aprobado' && $reprocessCount === 0) {
-            $approvedFirstDelivery = 1;
+        if ($toStatus === self::STATUS_APROBADO) {
+            $approvedFirstDelivery = $reprocessCount === 0 ? 1 : 0;
+        } elseif ($toStatus === self::STATUS_RECHAZADO) {
+            $approvedFirstDelivery = 0;
         }
 
         $this->db->execute(
@@ -75,13 +110,20 @@ class RequirementsRepository
                  updated_at = NOW()
              WHERE id = :id',
             [
-                ':status' => $status,
+                ':status' => $toStatus,
                 ':approval_date' => $approvalDate,
                 ':reprocess_count' => $reprocessCount,
                 ':approved_first_delivery' => $approvedFirstDelivery,
                 ':id' => $requirementId,
             ]
         );
+
+        $notes = null;
+        if ($reprocessCount > (int) ($current['reprocess_count'] ?? 0)) {
+            $notes = 'Vuelve a en_revision (reproceso)';
+        } elseif ($toStatus === self::STATUS_APROBADO && $reprocessCount === 0) {
+            $notes = 'Aprobado sin reproceso';
+        }
 
         $this->db->insert(
             'INSERT INTO requirement_audit_log (requirement_id, project_id, changed_by, from_status, to_status, notes)
@@ -90,9 +132,9 @@ class RequirementsRepository
                 ':requirement_id' => $requirementId,
                 ':project_id' => (int) ($current['project_id'] ?? 0),
                 ':changed_by' => $updatedBy,
-                ':from_status' => (string) ($current['status'] ?? ''),
-                ':to_status' => $status,
-                ':notes' => $reprocessCount > (int) ($current['reprocess_count'] ?? 0) ? 'Se incrementa reproceso' : null,
+                ':from_status' => $fromStatus,
+                ':to_status' => $toStatus,
+                ':notes' => $notes,
             ]
         );
     }
@@ -116,12 +158,19 @@ class RequirementsRepository
                 [':project_id' => $projectId, ':start_date' => $periodStart, ':end_date' => $periodEnd]
             );
             if ($snapshot) {
+                $snapshotTotal = (int) ($snapshot['total_requirements'] ?? 0);
+                $snapshotApproved = (int) ($snapshot['approved_without_reprocess'] ?? 0);
+
                 return [
-                    'applicable' => ((int) ($snapshot['total_requirements'] ?? 0)) > 0,
+                    'applicable' => $snapshotTotal > 0,
                     'value' => $snapshot['indicator_value'] !== null ? (float) $snapshot['indicator_value'] : null,
-                    'total_requirements' => (int) ($snapshot['total_requirements'] ?? 0),
-                    'approved_without_reprocess' => (int) ($snapshot['approved_without_reprocess'] ?? 0),
-                    'with_reprocess' => max((int) ($snapshot['total_requirements'] ?? 0) - (int) ($snapshot['approved_without_reprocess'] ?? 0), 0),
+                    'total_requirements' => $snapshotTotal,
+                    'approved_requirements' => $snapshotApproved,
+                    'approved_without_reprocess' => $snapshotApproved,
+                    'in_review_requirements' => 0,
+                    'rejected_requirements' => 0,
+                    'pending_requirements' => max($snapshotTotal - $snapshotApproved, 0),
+                    'with_reprocess' => max($snapshotTotal - $snapshotApproved, 0),
                     'status' => (string) ($snapshot['status'] ?? 'no_aplica'),
                     'avg_reprocess_per_requirement' => 0,
                     'avg_days_to_approval' => 0,
@@ -133,8 +182,11 @@ class RequirementsRepository
         $rows = $this->db->fetchAll(
             'SELECT * FROM project_requirements
              WHERE project_id = :project_id
-               AND delivery_date BETWEEN :start_date AND :end_date
-               AND is_final_version = 1',
+               AND is_final_version = 1
+               AND (
+                   (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
+                   OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)
+               )',
             [':project_id' => $projectId, ':start_date' => $periodStart, ':end_date' => $periodEnd]
         );
 
@@ -148,7 +200,7 @@ class RequirementsRepository
                     ':period_start' => $periodStart,
                     ':period_end' => $periodEnd,
                     ':total_requirements' => (int) ($indicator['total_requirements'] ?? 0),
-                    ':approved_without_reprocess' => (int) ($indicator['approved_without_reprocess'] ?? 0),
+                    ':approved_without_reprocess' => (int) ($indicator['approved_requirements'] ?? 0),
                     ':indicator_value' => $indicator['value'],
                     ':status' => (string) ($indicator['status'] ?? 'no_aplica'),
                 ]
@@ -167,7 +219,7 @@ class RequirementsRepository
         $where = ['r.is_final_version = 1'];
         $params = [];
         if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $where[] = 'r.delivery_date BETWEEN :start_date AND :end_date';
+            $where[] = '(r.delivery_date BETWEEN :start_date AND :end_date OR (r.delivery_date IS NULL AND DATE(r.created_at) BETWEEN :start_date AND :end_date))';
             $params[':start_date'] = $filters['start_date'];
             $params[':end_date'] = $filters['end_date'];
         }
@@ -182,8 +234,10 @@ class RequirementsRepository
 
         $rows = $this->db->fetchAll(
             'SELECT p.id AS project_id, p.name AS project_name, c.name AS client_name,
-                    SUM(CASE WHEN r.status IN (\'entregado\',\'aprobado\',\'rechazado\') THEN 1 ELSE 0 END) AS total,
-                    SUM(CASE WHEN r.status = \'' . "aprobado" . '\' AND (r.reprocess_count = 0 OR r.approved_first_delivery = 1) THEN 1 ELSE 0 END) AS approved_no_reprocess,
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN r.status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_count,
+                    SUM(CASE WHEN r.status = \'' . self::STATUS_EN_REVISION . '\' THEN 1 ELSE 0 END) AS in_review_count,
+                    SUM(CASE WHEN r.status = \'' . self::STATUS_RECHAZADO . '\' THEN 1 ELSE 0 END) AS rejected_count,
                     AVG(r.reprocess_count) AS avg_reprocess
              FROM project_requirements r
              JOIN projects p ON p.id = r.project_id
@@ -196,7 +250,10 @@ class RequirementsRepository
 
         return array_map(function (array $row): array {
             $total = (int) ($row['total'] ?? 0);
-            $approved = (int) ($row['approved_no_reprocess'] ?? 0);
+            $approved = (int) ($row['approved_count'] ?? 0);
+            $inReview = (int) ($row['in_review_count'] ?? 0);
+            $rejected = (int) ($row['rejected_count'] ?? 0);
+            $pending = max($total - $approved - $inReview - $rejected, 0);
             $isApplicable = $total > 0;
             $percent = $isApplicable ? round(($approved / $total) * 100, 2) : null;
 
@@ -205,7 +262,11 @@ class RequirementsRepository
                 'project' => (string) ($row['project_name'] ?? ''),
                 'client' => (string) ($row['client_name'] ?? ''),
                 'total' => $total,
+                'approved_requirements' => $approved,
                 'approved_without_reprocess' => $approved,
+                'in_review_requirements' => $inReview,
+                'rejected_requirements' => $rejected,
+                'pending_requirements' => $pending,
                 'with_reprocess' => max($total - $approved, 0),
                 'indicator' => $percent,
                 'status' => $this->statusFromValue($percent, $isApplicable),
@@ -221,14 +282,14 @@ class RequirementsRepository
         }
 
         return $this->db->fetchAll(
-            'SELECT DATE_FORMAT(delivery_date, "%Y-%m") AS period,
-                    SUM(CASE WHEN status IN (\'entregado\',\'aprobado\',\'rechazado\') THEN 1 ELSE 0 END) AS total,
-                    SUM(CASE WHEN status = \'' . "aprobado" . '\' AND (reprocess_count = 0 OR approved_first_delivery = 1) THEN 1 ELSE 0 END) AS approved_no_reprocess
+            'SELECT DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m") AS period,
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_no_reprocess
              FROM project_requirements
              WHERE project_id = :project_id
                AND is_final_version = 1
-               AND delivery_date >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
-             GROUP BY DATE_FORMAT(delivery_date, "%Y-%m")
+               AND COALESCE(delivery_date, DATE(created_at)) >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
+             GROUP BY DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m")
              ORDER BY period ASC',
             [':project_id' => $projectId, ':months' => max(1, $months)]
         );
@@ -277,19 +338,23 @@ class RequirementsRepository
     {
         $total = 0;
         $approved = 0;
+        $inReview = 0;
+        $rejected = 0;
         $reprocessTotal = 0;
         $approvalLeadTimes = [];
 
         foreach ($rows as $row) {
-            if (!in_array($row['status'] ?? '', ['entregado', 'aprobado', 'rechazado'], true)) {
-                continue;
-            }
-
+            $status = $this->normalizeStatus((string) ($row['status'] ?? self::STATUS_BORRADOR));
             $total++;
             $reprocessCount = (int) ($row['reprocess_count'] ?? 0);
             $reprocessTotal += $reprocessCount;
-            if (($row['status'] ?? '') === 'aprobado' && ($reprocessCount === 0 || (int) ($row['approved_first_delivery'] ?? 0) === 1)) {
+
+            if (in_array($status, [self::STATUS_APROBADO, self::STATUS_ENTREGADO], true)) {
                 $approved++;
+            } elseif ($status === self::STATUS_EN_REVISION) {
+                $inReview++;
+            } elseif ($status === self::STATUS_RECHAZADO) {
+                $rejected++;
             }
 
             if (!empty($row['delivery_date']) && !empty($row['approval_date'])) {
@@ -303,6 +368,7 @@ class RequirementsRepository
 
         $applicable = $total > 0;
         $value = $applicable ? round(($approved / $total) * 100, 2) : null;
+        $pending = max($total - $approved - $inReview - $rejected, 0);
         $moreThanTwo = 0;
         foreach ($rows as $row) {
             if ((int) ($row['reprocess_count'] ?? 0) > 2) {
@@ -314,7 +380,11 @@ class RequirementsRepository
             'applicable' => $applicable,
             'value' => $value,
             'total_requirements' => $total,
+            'approved_requirements' => $approved,
             'approved_without_reprocess' => $approved,
+            'in_review_requirements' => $inReview,
+            'rejected_requirements' => $rejected,
+            'pending_requirements' => $pending,
             'with_reprocess' => max($total - $approved, 0),
             'status' => $this->statusFromValue($value, $applicable),
             'avg_reprocess_per_requirement' => $total > 0 ? round($reprocessTotal / $total, 2) : 0,
@@ -346,12 +416,37 @@ class RequirementsRepository
             'applicable' => false,
             'value' => null,
             'total_requirements' => 0,
+            'approved_requirements' => 0,
             'approved_without_reprocess' => 0,
+            'in_review_requirements' => 0,
+            'rejected_requirements' => 0,
+            'pending_requirements' => 0,
             'with_reprocess' => 0,
             'status' => 'no_aplica',
             'avg_reprocess_per_requirement' => 0,
             'avg_days_to_approval' => 0,
             'percent_over_two_reprocess' => 0,
         ];
+    }
+
+    private function normalizeStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+        if (in_array($normalized, self::allowedStatuses(), true)) {
+            return $normalized;
+        }
+
+        return self::STATUS_BORRADOR;
+    }
+
+    private function canTransition(string $fromStatus, string $toStatus): bool
+    {
+        if ($fromStatus === $toStatus) {
+            return true;
+        }
+
+        $allowedTransitions = self::WORKFLOW_TRANSITIONS[$fromStatus] ?? [];
+
+        return in_array($toStatus, $allowedTransitions, true);
     }
 }

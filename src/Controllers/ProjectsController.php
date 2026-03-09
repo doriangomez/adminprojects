@@ -3815,7 +3815,6 @@ POST crudo:
     {
         $data = $this->projectDetailData($id);
         $repo = new RequirementsRepository($this->db);
-        $config = (new ConfigService($this->db))->getConfig();
 
         $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
         $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
@@ -3827,7 +3826,7 @@ POST crudo:
         $data['requirementsIndicator'] = $indicator;
         $data['requirementsAudit'] = $history;
         $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
-        $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
+        $data['requirementsStatuses'] = RequirementsRepository::allowedStatuses();
 
         $this->render('projects/requirements', $data);
     }
@@ -3842,6 +3841,11 @@ POST crudo:
         }
 
         $repo = new RequirementsRepository($this->db);
+        $status = strtolower(trim((string) ($_POST['status'] ?? 'borrador')));
+        $allowedStatuses = RequirementsRepository::allowedStatuses();
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = 'borrador';
+        }
         $repo->create([
             'project_id' => $projectId,
             'client_id' => (int) ($project['client_id'] ?? 0),
@@ -3850,7 +3854,7 @@ POST crudo:
             'description' => $_POST['description'] ?? '',
             'version' => $_POST['version'] ?? '1.0',
             'delivery_date' => $_POST['delivery_date'] ?? null,
-            'status' => $_POST['status'] ?? 'borrador',
+            'status' => $status,
             'approved_first_delivery' => ($_POST['approved_first_delivery'] ?? '0') === '1',
         ]);
 
@@ -3861,14 +3865,18 @@ POST crudo:
     public function updateRequirementStatus(int $projectId, int $requirementId): void
     {
         $user = $this->auth->user() ?? [];
-        $status = (string) ($_POST['status'] ?? 'borrador');
-        $allowed = ['borrador', 'entregado', 'aprobado', 'rechazado'];
+        $status = strtolower(trim((string) ($_POST['status'] ?? 'borrador')));
+        $allowed = RequirementsRepository::allowedStatuses();
         if (!in_array($status, $allowed, true)) {
             $status = 'borrador';
         }
 
-        (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
-        header('Location: /projects/' . $projectId . '/requirements?updated=1');
+        try {
+            (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
+            header('Location: /projects/' . $projectId . '/requirements?updated=1');
+        } catch (\RuntimeException $e) {
+            header('Location: /projects/' . $projectId . '/requirements?error=' . urlencode($e->getMessage()));
+        }
         exit;
     }
 
