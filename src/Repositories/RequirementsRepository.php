@@ -5,19 +5,17 @@ declare(strict_types=1);
 class RequirementsRepository
 {
     private const STATUS_BORRADOR = 'borrador';
-    private const STATUS_DEFINIDO = 'definido';
     private const STATUS_EN_REVISION = 'en_revision';
     private const STATUS_APROBADO = 'aprobado';
     private const STATUS_RECHAZADO = 'rechazado';
     private const STATUS_ENTREGADO = 'entregado';
 
     /**
-     * Flujo principal: borrador -> definido -> en_revision -> aprobado -> entregado
+     * Flujo principal: borrador -> en_revision -> aprobado -> entregado
      * Rama de reproceso: en_revision -> rechazado -> en_revision
      */
     private const WORKFLOW_TRANSITIONS = [
-        self::STATUS_BORRADOR => [self::STATUS_DEFINIDO],
-        self::STATUS_DEFINIDO => [self::STATUS_EN_REVISION],
+        self::STATUS_BORRADOR => [self::STATUS_EN_REVISION],
         self::STATUS_EN_REVISION => [self::STATUS_APROBADO, self::STATUS_RECHAZADO],
         self::STATUS_RECHAZADO => [self::STATUS_EN_REVISION],
         self::STATUS_APROBADO => [self::STATUS_ENTREGADO],
@@ -399,17 +397,17 @@ class RequirementsRepository
         ];
     }
 
-    private function statusFromValue(?float $value, bool $applicable): string
+    private function statusFromValue(?float $value, bool $applicable, float $greenMin = 95.0, float $yellowMin = 85.0): string
     {
         if (!$applicable || $value === null) {
             return 'no_aplica';
         }
 
-        if ($value >= 95) {
+        if ($value >= $greenMin) {
             return 'verde';
         }
 
-        if ($value >= 85) {
+        if ($value >= $yellowMin) {
             return 'amarillo';
         }
 
@@ -438,6 +436,11 @@ class RequirementsRepository
     private function normalizeStatus(string $status): string
     {
         $normalized = strtolower(trim($status));
+
+        if ($normalized === 'definido') {
+            return self::STATUS_EN_REVISION;
+        }
+
         if (in_array($normalized, self::allowedStatuses(), true)) {
             return $normalized;
         }

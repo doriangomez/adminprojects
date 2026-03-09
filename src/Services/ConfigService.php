@@ -357,6 +357,10 @@ class ConfigService
                     ),
                     'max_days_without_followup' => (int) ($stored['operational_rules']['health_scoring']['max_days_without_followup'] ?? $this->defaults['operational_rules']['health_scoring']['max_days_without_followup']),
                     'max_pending_hours_ratio' => (float) ($stored['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? $this->defaults['operational_rules']['health_scoring']['max_pending_hours_ratio']),
+                    'requirements_indicator' => array_merge(
+                        $this->defaults['operational_rules']['health_scoring']['requirements_indicator'],
+                        $stored['operational_rules']['health_scoring']['requirements_indicator'] ?? []
+                    ),
                 ],
             ],
             'notifications' => $this->mergeNotifications(
@@ -446,6 +450,10 @@ class ConfigService
                     ),
                     'max_days_without_followup' => (int) ($payload['operational_rules']['health_scoring']['max_days_without_followup'] ?? ($current['operational_rules']['health_scoring']['max_days_without_followup'] ?? 14)),
                     'max_pending_hours_ratio' => (float) ($payload['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? ($current['operational_rules']['health_scoring']['max_pending_hours_ratio'] ?? 0.20)),
+                    'requirements_indicator' => array_merge(
+                        $current['operational_rules']['health_scoring']['requirements_indicator'] ?? [],
+                        $payload['operational_rules']['health_scoring']['requirements_indicator'] ?? []
+                    ),
                 ],
             ],
             'notifications' => $this->mergeNotifications(
