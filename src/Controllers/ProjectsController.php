@@ -3823,11 +3823,14 @@ POST crudo:
             $indicator = $repo->indicatorForProject($id, $start, $end);
             $history = $repo->auditByProject($id);
 
+            $reqConfig = (new ConfigService($this->db))->getConfig()['operational_rules']['health_scoring']['requirements_indicator'] ?? [];
+
             $data['requirements'] = $repo->listByProject($id);
             $data['requirementsIndicator'] = $indicator;
             $data['requirementsAudit'] = $history;
             $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
-            $data['requirementsStatuses'] = RequirementsRepository::allowedStatuses();
+            $data['requirementsStatuses'] = RequirementsRepository::visibleStatuses();
+            $data['requirementsTarget'] = (int) ($reqConfig['target'] ?? 90);
 
             $this->render('projects/requirements', $data);
         } catch (\Throwable $e) {

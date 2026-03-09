@@ -12,16 +12,26 @@ class RequirementsRepository
     private const STATUS_ENTREGADO = 'entregado';
 
     /**
-     * Flujo principal: borrador -> definido -> en_revision -> aprobado -> entregado
+     * Flujo principal: borrador -> en_revision -> aprobado -> entregado
      * Rama de reproceso: en_revision -> rechazado -> en_revision
+     * 'definido' mantenido solo para compatibilidad con registros existentes.
      */
     private const WORKFLOW_TRANSITIONS = [
-        self::STATUS_BORRADOR => [self::STATUS_DEFINIDO],
+        self::STATUS_BORRADOR => [self::STATUS_EN_REVISION],
         self::STATUS_DEFINIDO => [self::STATUS_EN_REVISION],
         self::STATUS_EN_REVISION => [self::STATUS_APROBADO, self::STATUS_RECHAZADO],
         self::STATUS_RECHAZADO => [self::STATUS_EN_REVISION],
         self::STATUS_APROBADO => [self::STATUS_ENTREGADO],
         self::STATUS_ENTREGADO => [],
+    ];
+
+    /** Statuses visible in UI forms (excludes legacy 'definido'). */
+    private const VISIBLE_STATUSES = [
+        self::STATUS_BORRADOR,
+        self::STATUS_EN_REVISION,
+        self::STATUS_APROBADO,
+        self::STATUS_RECHAZADO,
+        self::STATUS_ENTREGADO,
     ];
 
     public function __construct(private Database $db)
@@ -31,6 +41,11 @@ class RequirementsRepository
     public static function allowedStatuses(): array
     {
         return array_keys(self::WORKFLOW_TRANSITIONS);
+    }
+
+    public static function visibleStatuses(): array
+    {
+        return self::VISIBLE_STATUSES;
     }
 
     public function listByProject(int $projectId): array
