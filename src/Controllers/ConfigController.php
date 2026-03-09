@@ -173,6 +173,7 @@ class ConfigController extends Controller
         $logoFromUpload = $configService->storeLogo($_FILES['logo_file'] ?? null);
         $logoUrl = trim($_POST['logo'] ?? '');
         $logoValue = $logoFromUpload ?: ($logoUrl !== '' ? $logoUrl : ($currentTheme['logo'] ?? ''));
+        $metaCumplimientoRequisitos = (int) ($_POST['meta_cumplimiento_requisitos'] ?? ($_POST['requirements_target'] ?? 95));
         $disabled = $_POST['disabled']
             ?? $_POST['text_disabled']
             ?? $_POST['text_soft']
@@ -299,8 +300,9 @@ class ConfigController extends Controller
                     ],
                     'max_days_without_followup' => (int) ($_POST['health_max_days_without_followup'] ?? 14),
                     'max_pending_hours_ratio' => $this->toFloat($_POST['health_max_pending_hours_ratio'] ?? '0.20'),
+                    'meta_cumplimiento_requisitos' => $metaCumplimientoRequisitos,
                     'requirements_indicator' => [
-                        'target' => (int) ($_POST['requirements_target'] ?? 95),
+                        'target' => $metaCumplimientoRequisitos,
                         'yellow_min' => (int) ($_POST['requirements_yellow_min'] ?? 85),
                     ],
                 ],
