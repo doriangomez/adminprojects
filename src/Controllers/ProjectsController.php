@@ -3813,22 +3813,28 @@ POST crudo:
 
     public function requirements(int $id): void
     {
-        $data = $this->projectDetailData($id);
-        $repo = new RequirementsRepository($this->db);
+        try {
+            $data = $this->projectDetailData($id);
+            $repo = new RequirementsRepository($this->db);
 
-        $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
-        $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
+            $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
+            $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
 
-        $indicator = $repo->indicatorForProject($id, $start, $end);
-        $history = $repo->auditByProject($id);
+            $indicator = $repo->indicatorForProject($id, $start, $end);
+            $history = $repo->auditByProject($id);
 
-        $data['requirements'] = $repo->listByProject($id);
-        $data['requirementsIndicator'] = $indicator;
-        $data['requirementsAudit'] = $history;
-        $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
-        $data['requirementsStatuses'] = RequirementsRepository::allowedStatuses();
+            $data['requirements'] = $repo->listByProject($id);
+            $data['requirementsIndicator'] = $indicator;
+            $data['requirementsAudit'] = $history;
+            $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
+            $data['requirementsStatuses'] = RequirementsRepository::allowedStatuses();
 
-        $this->render('projects/requirements', $data);
+            $this->render('projects/requirements', $data);
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.requirements] Error en proyecto %d: %s', $id, $e->getMessage()));
+            header('Location: /projects/' . $id . '?requirements_error=1');
+            exit;
+        }
     }
 
     public function storeRequirement(int $projectId): void

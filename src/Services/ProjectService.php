@@ -271,16 +271,22 @@ class ProjectService
             return 100;
         }
 
-        $repo = new RequirementsRepository($this->db);
-        $start = date('Y-m-01');
-        $end = date('Y-m-t');
-        $indicator = $repo->indicatorForProject($projectId, $start, $end);
+        try {
+            $repo = new RequirementsRepository($this->db);
+            $start = date('Y-m-01');
+            $end = date('Y-m-t');
+            $indicator = $repo->indicatorForProject($projectId, $start, $end);
 
-        if (!(bool) ($indicator['applicable'] ?? false)) {
+            if (!(bool) ($indicator['applicable'] ?? false)) {
+                return 100;
+            }
+
+            return $this->clampScore((int) round((float) ($indicator['value'] ?? 0)));
+        } catch (\Throwable $e) {
+            error_log(sprintf('[ProjectService] Error calculando requisitos para proyecto %d: %s', $projectId, $e->getMessage()));
+
             return 100;
         }
-
-        return $this->clampScore((int) round((float) ($indicator['value'] ?? 0)));
     }
 
     private function stopperPenalty(int $projectId): array
