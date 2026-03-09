@@ -3873,13 +3873,19 @@ POST crudo:
     {
         $user = $this->auth->user() ?? [];
         $status = strtolower(trim((string) ($_POST['status'] ?? 'borrador')));
+        $forceReset = isset($_POST['force_reset']) && ((int) ($user['can_delete_requirement_history'] ?? 0)) === 1;
         $allowed = RequirementsRepository::allowedStatuses();
         if (!in_array($status, $allowed, true)) {
             $status = 'borrador';
         }
 
         try {
-            (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
+            $repo = new RequirementsRepository($this->db);
+            if ($forceReset) {
+                $repo->forceSetStatus($requirementId, $status, (int) ($user['id'] ?? 0));
+            } else {
+                $repo->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
+            }
             header('Location: /projects/' . $projectId . '/requirements?updated=1');
         } catch (\RuntimeException $e) {
             header('Location: /projects/' . $projectId . '/requirements?error=' . urlencode($e->getMessage()));

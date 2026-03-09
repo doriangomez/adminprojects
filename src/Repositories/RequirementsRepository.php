@@ -124,18 +124,57 @@ class RequirementsRepository
             $notes = 'Aprobado sin reproceso';
         }
 
-        $this->db->insert(
-            'INSERT INTO requirement_audit_log (requirement_id, project_id, changed_by, from_status, to_status, notes)
-             VALUES (:requirement_id, :project_id, :changed_by, :from_status, :to_status, :notes)',
-            [
-                ':requirement_id' => $requirementId,
-                ':project_id' => (int) ($current['project_id'] ?? 0),
-                ':changed_by' => $updatedBy,
-                ':from_status' => $fromStatus,
-                ':to_status' => $toStatus,
-                ':notes' => $notes,
-            ]
+        if ($this->db->tableExists('requirement_audit_log')) {
+            $this->db->insert(
+                'INSERT INTO requirement_audit_log (requirement_id, project_id, changed_by, from_status, to_status, notes)
+                 VALUES (:requirement_id, :project_id, :changed_by, :from_status, :to_status, :notes)',
+                [
+                    ':requirement_id' => $requirementId,
+                    ':project_id' => (int) ($current['project_id'] ?? 0),
+                    ':changed_by' => $updatedBy,
+                    ':from_status' => $fromStatus,
+                    ':to_status' => $toStatus,
+                    ':notes' => $notes,
+                ]
+            );
+        }
+    }
+
+    public function forceSetStatus(int $requirementId, string $status, int $updatedBy): void
+    {
+        $current = $this->db->fetchOne('SELECT * FROM project_requirements WHERE id = :id LIMIT 1', [':id' => $requirementId]);
+        if (!$current) {
+            throw new \RuntimeException('Requisito no encontrado.');
+        }
+
+        $toStatus = $this->normalizeStatus($status);
+        $fromStatus = $this->normalizeStatus((string) ($current['status'] ?? self::STATUS_BORRADOR));
+
+        $this->db->execute(
+            'UPDATE project_requirements
+             SET status = :status,
+                 reprocess_count = 0,
+                 approved_first_delivery = 0,
+                 approval_date = NULL,
+                 updated_at = NOW()
+             WHERE id = :id',
+            [':status' => $toStatus, ':id' => $requirementId]
         );
+
+        if ($this->db->tableExists('requirement_audit_log')) {
+            $this->db->insert(
+                'INSERT INTO requirement_audit_log (requirement_id, project_id, changed_by, from_status, to_status, notes)
+                 VALUES (:requirement_id, :project_id, :changed_by, :from_status, :to_status, :notes)',
+                [
+                    ':requirement_id' => $requirementId,
+                    ':project_id' => (int) ($current['project_id'] ?? 0),
+                    ':changed_by' => $updatedBy,
+                    ':from_status' => $fromStatus,
+                    ':to_status' => $toStatus,
+                    ':notes' => 'Reinicio administrativo de estado',
+                ]
+            );
+        }
     }
 
     public function delete(int $requirementId): void

@@ -238,6 +238,13 @@ require __DIR__ . '/_tabs.php';
                 <td>
                     <?php if ($isTerminal): ?>
                         <span class="req-note">Estado final</span>
+                        <?php if ($canDelete): ?>
+                        <form method="POST" action="/projects/<?= (int) ($project['id'] ?? 0) ?>/requirements/<?= (int) ($row['id'] ?? 0) ?>/status" style="display:inline;margin-left:6px;">
+                            <input type="hidden" name="status" value="borrador">
+                            <input type="hidden" name="force_reset" value="1">
+                            <button class="action-btn" type="submit" style="padding:3px 8px;font-size:11px;" onclick="return confirm('¿Reiniciar este requisito a Borrador para reabrir el flujo?')">Reiniciar</button>
+                        </form>
+                        <?php endif; ?>
                     <?php else: ?>
                         <form method="POST" action="/projects/<?= (int) ($project['id'] ?? 0) ?>/requirements/<?= (int) ($row['id'] ?? 0) ?>/status" style="display:flex;gap:5px;align-items:center;">
                             <select name="status" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-primary);font-size:13px;">
