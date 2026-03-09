@@ -3852,20 +3852,24 @@ POST crudo:
             exit('Proyecto no encontrado');
         }
 
-        $repo = new RequirementsRepository($this->db);
-        $repo->create([
-            'project_id' => $projectId,
-            'client_id' => (int) ($project['client_id'] ?? 0),
-            'created_by' => (int) ($user['id'] ?? 0),
-            'name' => $_POST['name'] ?? '',
-            'description' => $_POST['description'] ?? '',
-            'version' => $_POST['version'] ?? '1.0',
-            'delivery_date' => $_POST['delivery_date'] ?? null,
-            'status' => 'borrador',
-            'approved_first_delivery' => ($_POST['approved_first_delivery'] ?? '0') === '1',
-        ]);
-
-        header('Location: /projects/' . $projectId . '/requirements?saved=1');
+        try {
+            $repo = new RequirementsRepository($this->db);
+            $repo->create([
+                'project_id' => $projectId,
+                'client_id' => (int) ($project['client_id'] ?? 0),
+                'created_by' => (int) ($user['id'] ?? 0),
+                'name' => trim($_POST['name'] ?? ''),
+                'description' => trim($_POST['description'] ?? ''),
+                'version' => trim($_POST['version'] ?? '1.0'),
+                'delivery_date' => !empty($_POST['delivery_date']) ? $_POST['delivery_date'] : null,
+                'status' => 'borrador',
+                'approved_first_delivery' => ($_POST['approved_first_delivery'] ?? '0') === '1',
+            ]);
+            header('Location: /projects/' . $projectId . '/requirements?saved=1');
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.storeRequirement] Error creando requisito para proyecto %d: %s', $projectId, $e->getMessage()));
+            header('Location: /projects/' . $projectId . '/requirements?error=' . urlencode('Error al crear el requisito. Verifica los datos e intenta de nuevo.'));
+        }
         exit;
     }
 
