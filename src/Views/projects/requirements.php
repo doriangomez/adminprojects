@@ -4,11 +4,9 @@ $requirements = $requirements ?? [];
 $indicator = $requirementsIndicator ?? ['applicable' => false, 'value' => null, 'status' => 'no_aplica'];
 $period = $requirementsPeriod ?? ['start_date' => date('Y-m-01'), 'end_date' => date('Y-m-t')];
 $audit = $requirementsAudit ?? [];
-$statusMap = ['verde' => '🟢', 'amarillo' => '🟡', 'rojo' => '🔴', 'no_aplica' => '⚪'];
-$workflowStatuses = $requirementsStatuses ?? ['borrador', 'definido', 'en_revision', 'aprobado', 'rechazado', 'entregado'];
+$workflowStatuses = $requirementsStatuses ?? ['borrador', 'en_revision', 'aprobado', 'entregado', 'rechazado'];
 $workflowTransitions = [
-    'borrador' => ['definido'],
-    'definido' => ['en_revision'],
+    'borrador' => ['en_revision'],
     'en_revision' => ['aprobado', 'rechazado'],
     'rechazado' => ['en_revision'],
     'aprobado' => ['entregado'],
@@ -16,21 +14,24 @@ $workflowTransitions = [
 ];
 $statusLabels = [
     'borrador' => 'Borrador',
-    'definido' => 'Definido',
     'en_revision' => 'En revisión',
     'aprobado' => 'Aprobado',
-    'rechazado' => 'Rechazado',
     'entregado' => 'Entregado',
+    'rechazado' => 'Rechazado',
 ];
 $statusBadges = [
     'borrador' => '⚪',
-    'definido' => '🟣',
     'en_revision' => '🟡',
     'aprobado' => '🟢',
-    'rechazado' => '🔴',
     'entregado' => '🔵',
+    'rechazado' => '🔴',
 ];
-$compliance = ($indicator['applicable'] ?? false) ? (float) ($indicator['value'] ?? 0) : 0.0;
+$totalRequirements = (int) ($indicator['total_requirements'] ?? 0);
+$approvedRequirements = (int) ($indicator['approved_requirements'] ?? 0);
+$inReviewRequirements = (int) ($indicator['in_review_requirements'] ?? 0);
+$rejectedRequirements = (int) ($indicator['rejected_requirements'] ?? 0);
+$compliance = $totalRequirements > 0 ? (float) ($indicator['value'] ?? 0) : 0.0;
+$targetMeta = max(0.0, min(100.0, (float) ($requirementsTargetMeta ?? 95)));
 $saved = isset($_GET['saved']);
 $updated = isset($_GET['updated']);
 $deleted = isset($_GET['deleted']);
@@ -40,7 +41,7 @@ require __DIR__ . '/_tabs.php';
 ?>
 
 <style>
-    .requirements-kpi-grid { display:grid; grid-template-columns:repeat(5,minmax(140px,1fr)); gap:10px; margin-top:12px; }
+    .requirements-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)); gap:10px; margin-top:12px; }
     .requirements-kpi { border:1px solid var(--border); border-radius:12px; padding:10px; background:color-mix(in srgb, var(--surface) 92%, var(--background)); }
     .requirements-kpi span { display:block; font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; }
     .requirements-kpi strong { font-size:26px; color:var(--text-primary); }
@@ -55,28 +56,25 @@ require __DIR__ . '/_tabs.php';
 </style>
 
 <section class="card" style="padding:16px;margin-bottom:16px;">
-    <h3>Indicador: Cumplimiento de requisitos del cliente</h3>
+    <h3>Cumplimiento requisitos cliente</h3>
     <form method="GET" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
         <label>Inicio <input type="date" name="start_date" value="<?= htmlspecialchars((string) $period['start_date']) ?>"></label>
         <label>Fin <input type="date" name="end_date" value="<?= htmlspecialchars((string) $period['end_date']) ?>"></label>
         <button class="action-btn">Filtrar</button>
     </form>
-    <p><strong><?= $statusMap[$indicator['status'] ?? 'no_aplica'] ?? '⚪' ?>
-        <?= ($indicator['applicable'] ?? false) ? number_format((float) ($indicator['value'] ?? 0), 2) . '%' : 'No aplica' ?></strong></p>
     <div class="requirements-kpi-grid">
-        <article class="requirements-kpi"><span>Requisitos totales</span><strong><?= (int) ($indicator['total_requirements'] ?? 0) ?></strong></article>
-        <article class="requirements-kpi"><span>Aprobados</span><strong><?= (int) ($indicator['approved_requirements'] ?? 0) ?></strong></article>
-        <article class="requirements-kpi"><span>En revisión</span><strong><?= (int) ($indicator['in_review_requirements'] ?? 0) ?></strong></article>
-        <article class="requirements-kpi"><span>Rechazados</span><strong><?= (int) ($indicator['rejected_requirements'] ?? 0) ?></strong></article>
-        <article class="requirements-kpi"><span>Pendientes</span><strong><?= (int) ($indicator['pending_requirements'] ?? 0) ?></strong></article>
+        <article class="requirements-kpi"><span>Total</span><strong><?= $totalRequirements ?></strong></article>
+        <article class="requirements-kpi"><span>Aprobados</span><strong><?= $approvedRequirements ?></strong></article>
+        <article class="requirements-kpi"><span>En revisión</span><strong><?= $inReviewRequirements ?></strong></article>
+        <article class="requirements-kpi"><span>Rechazados</span><strong><?= $rejectedRequirements ?></strong></article>
     </div>
     <div class="requirements-progress">
         <div class="requirements-progress-track">
             <div class="requirements-progress-fill" style="width: <?= max(0, min(100, $compliance)) ?>%;"></div>
         </div>
-        <div class="requirements-progress-label"><span>Cumplimiento real</span><strong><?= number_format($compliance, 2) ?>%</strong></div>
+        <div class="requirements-progress-label"><span>Cumplimiento actual</span><strong><?= number_format($compliance, 2) ?>%</strong></div>
     </div>
-    <p>Promedio reprocesos: <?= number_format((float) ($indicator['avg_reprocess_per_requirement'] ?? 0), 2) ?> · Días promedio aprobación: <?= number_format((float) ($indicator['avg_days_to_approval'] ?? 0), 1) ?> · % &gt;2 reprocesos: <?= number_format((float) ($indicator['percent_over_two_reprocess'] ?? 0), 2) ?>%</p>
+    <p><strong>Meta:</strong> <?= number_format($targetMeta, 0) ?>%</p>
 </section>
 
 <section class="card" style="padding:16px;margin-bottom:16px;">
@@ -97,11 +95,8 @@ require __DIR__ . '/_tabs.php';
         <input name="name" placeholder="Nombre" required>
         <input name="version" placeholder="Versión" value="1.0" required>
         <input type="date" name="delivery_date">
-        <select name="status">
-            <?php foreach ($workflowStatuses as $status): ?>
-                <option value="<?= htmlspecialchars($status) ?>" <?= $status === 'borrador' ? 'selected' : '' ?>><?= htmlspecialchars($statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $status))) ?></option>
-            <?php endforeach; ?>
-        </select>
+        <input type="hidden" name="status" value="borrador">
+        <div style="display:flex;align-items:center;"><span class="status-badge"><?= $statusBadges['borrador'] ?> <?= $statusLabels['borrador'] ?></span></div>
         <select name="approved_first_delivery"><option value="1">Aprobado 1ra entrega: Sí</option><option value="0">Aprobado 1ra entrega: No</option></select>
         <input name="description" style="grid-column: span 3" placeholder="Descripción">
         <button class="action-btn primary" type="submit">Guardar</button>
@@ -111,19 +106,24 @@ require __DIR__ . '/_tabs.php';
 <section class="card" style="padding:16px;margin-bottom:16px;">
     <h4>Listado de requisitos</h4>
     <table>
-        <thead><tr><th>Nombre</th><th>Versión</th><th>Entrega</th><th>Estado</th><th>Descripción</th><th>Reprocesos</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Requisito</th><th>Estado</th><th>Entrega</th><th>Descripción</th><th>Reprocesos</th><th>Acciones</th></tr></thead>
         <tbody>
         <?php foreach ($requirements as $row): ?>
             <?php
                 $rowStatus = strtolower(trim((string) ($row['status'] ?? 'borrador')));
+                if ($rowStatus === 'definido') {
+                    $rowStatus = 'en_revision';
+                }
+                if (!in_array($rowStatus, $workflowStatuses, true)) {
+                    $rowStatus = 'borrador';
+                }
                 $nextStatuses = $workflowTransitions[$rowStatus] ?? [];
                 $statusOptions = array_values(array_unique(array_merge([$rowStatus], $nextStatuses)));
             ?>
             <tr>
                 <td><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></td>
-                <td><?= htmlspecialchars((string) ($row['version'] ?? '')) ?></td>
-                <td><?= htmlspecialchars((string) ($row['delivery_date'] ?? '')) ?></td>
                 <td><span class="status-badge"><?= $statusBadges[$rowStatus] ?? '⚪' ?> <?= htmlspecialchars($statusLabels[$rowStatus] ?? ucfirst(str_replace('_', ' ', $rowStatus))) ?></span></td>
+                <td><?= htmlspecialchars((string) ($row['delivery_date'] ?? '')) ?></td>
                 <td><?= htmlspecialchars((string) ($row['description'] ?? '')) ?></td>
                 <td><?= (int) ($row['reprocess_count'] ?? 0) ?></td>
                 <td>
@@ -138,6 +138,9 @@ require __DIR__ . '/_tabs.php';
                 </td>
             </tr>
         <?php endforeach; ?>
+        <?php if ($requirements === []): ?>
+            <tr><td colspan="6">Sin requisitos registrados.</td></tr>
+        <?php endif; ?>
         </tbody>
     </table>
 </section>
