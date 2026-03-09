@@ -932,6 +932,7 @@ class DatabaseMigrator
     {
         try {
             $this->createProjectRequirementsTable();
+            $this->ensureRequirementsTableColumns();
             $this->ensureRequirementStatusWorkflowEnum();
             $this->createRequirementAuditLogTable();
             $this->createRequirementIndicatorSnapshotsTable();
@@ -2526,16 +2527,47 @@ class DatabaseMigrator
         );
     }
 
+    private function ensureRequirementsTableColumns(): void
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return;
+        }
+
+        $columns = [
+            'description' => 'TEXT NULL AFTER name',
+            'approval_date' => 'DATE NULL AFTER delivery_date',
+            'approved_first_delivery' => 'TINYINT(1) NOT NULL DEFAULT 0 AFTER status',
+            'reprocess_count' => 'INT NOT NULL DEFAULT 0 AFTER approved_first_delivery',
+            'is_final_version' => 'TINYINT(1) NOT NULL DEFAULT 1 AFTER reprocess_count',
+            'active' => 'TINYINT(1) NOT NULL DEFAULT 1 AFTER is_final_version',
+        ];
+
+        foreach ($columns as $column => $definition) {
+            if (!$this->db->columnExists('project_requirements', $column)) {
+                $this->db->execute(sprintf(
+                    'ALTER TABLE project_requirements ADD COLUMN %s %s',
+                    $column,
+                    $definition
+                ));
+                $this->db->clearColumnCache();
+            }
+        }
+    }
+
     private function ensureRequirementStatusWorkflowEnum(): void
     {
         if (!$this->db->tableExists('project_requirements')) {
             return;
         }
 
-        $this->db->execute(
-            'ALTER TABLE project_requirements
-             MODIFY COLUMN status ENUM("borrador","definido","en_revision","aprobado","rechazado","entregado") NOT NULL DEFAULT "borrador"'
-        );
+        try {
+            $this->db->execute(
+                'ALTER TABLE project_requirements
+                 MODIFY COLUMN status ENUM("borrador","definido","en_revision","aprobado","rechazado","entregado") NOT NULL DEFAULT "borrador"'
+            );
+        } catch (\PDOException $e) {
+            error_log('Error actualizando ENUM de status en project_requirements: ' . $e->getMessage());
+        }
     }
 
     private function createRequirementAuditLogTable(): void
@@ -2890,10 +2922,21 @@ class DatabaseMigrator
         }
 
         if (!$this->db->indexExists('project_pmo_snapshots', 'uq_project_pmo_snapshot_date')) {
-            $this->db->execute(
-                'ALTER TABLE project_pmo_snapshots
-                 ADD UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date)'
-            );
+            try {
+                $this->db->execute(
+                    'DELETE s1 FROM project_pmo_snapshots s1
+                     INNER JOIN project_pmo_snapshots s2
+                     WHERE s1.project_id = s2.project_id
+                       AND s1.snapshot_date = s2.snapshot_date
+                       AND s1.id < s2.id'
+                );
+                $this->db->execute(
+                    'ALTER TABLE project_pmo_snapshots
+                     ADD UNIQUE KEY uq_project_pmo_snapshot_date (project_id, snapshot_date)'
+                );
+            } catch (\PDOException $e) {
+                error_log('Error añadiendo unique key a project_pmo_snapshots: ' . $e->getMessage());
+            }
         }
 
         if (!$this->db->indexExists('project_pmo_snapshots', 'idx_project_pmo_snapshots_project_date')) {
