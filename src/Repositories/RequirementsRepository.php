@@ -52,7 +52,7 @@ class RequirementsRepository
         }
 
         $reprocessCount = (int) ($current['reprocess_count'] ?? 0);
-        if (($current['status'] ?? '') === 'rechazado' && $status === 'entregado') {
+        if (($current['status'] ?? '') === 'rechazado' && in_array($status, ['entregado', 'en_revision'], true)) {
             $reprocessCount++;
         }
 
@@ -100,6 +100,40 @@ class RequirementsRepository
     public function delete(int $requirementId): void
     {
         $this->db->execute('DELETE FROM project_requirements WHERE id = :id', [':id' => $requirementId]);
+    }
+
+    public function summaryByStatus(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return ['total' => 0, 'aprobados' => 0, 'en_revision' => 0, 'rechazados' => 0, 'cumplimiento' => null];
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT status, COUNT(*) AS cnt
+             FROM project_requirements
+             WHERE project_id = :project_id AND active = 1
+             GROUP BY status',
+            [':project_id' => $projectId]
+        );
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['status']] = (int) $row['cnt'];
+        }
+
+        $total = array_sum($counts);
+        $aprobados = (int) ($counts['aprobado'] ?? 0);
+        $enRevision = (int) ($counts['en_revision'] ?? 0);
+        $rechazados = (int) ($counts['rechazado'] ?? 0);
+        $cumplimiento = $total > 0 ? round(($aprobados / $total) * 100, 1) : null;
+
+        return [
+            'total' => $total,
+            'aprobados' => $aprobados,
+            'en_revision' => $enRevision,
+            'rechazados' => $rechazados,
+            'cumplimiento' => $cumplimiento,
+        ];
     }
 
     public function indicatorForProject(int $projectId, string $periodStart, string $periodEnd): array

@@ -3828,6 +3828,7 @@ POST crudo:
         $data['requirementsAudit'] = $history;
         $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
         $data['requirementsTarget'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 95);
+        $data['requirementsSummary'] = $repo->summaryByStatus($id);
 
         $this->render('projects/requirements', $data);
     }
@@ -3850,7 +3851,7 @@ POST crudo:
             'description' => $_POST['description'] ?? '',
             'version' => $_POST['version'] ?? '1.0',
             'delivery_date' => $_POST['delivery_date'] ?? null,
-            'status' => $_POST['status'] ?? 'borrador',
+            'status' => in_array($_POST['status'] ?? '', ['borrador', 'definido', 'en_revision', 'aprobado', 'rechazado', 'entregado'], true) ? $_POST['status'] : 'borrador',
             'approved_first_delivery' => ($_POST['approved_first_delivery'] ?? '0') === '1',
         ]);
 
@@ -3862,7 +3863,7 @@ POST crudo:
     {
         $user = $this->auth->user() ?? [];
         $status = (string) ($_POST['status'] ?? 'borrador');
-        $allowed = ['borrador', 'entregado', 'aprobado', 'rechazado'];
+        $allowed = ['borrador', 'definido', 'en_revision', 'aprobado', 'rechazado', 'entregado'];
         if (!in_array($status, $allowed, true)) {
             $status = 'borrador';
         }

@@ -935,9 +935,22 @@ class DatabaseMigrator
             $this->createRequirementAuditLogTable();
             $this->createRequirementIndicatorSnapshotsTable();
             $this->ensureRequirementMetaPermissions();
+            $this->ensureRequirementStatusEnum();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de requisitos: ' . $e->getMessage());
         }
+    }
+
+    private function ensureRequirementStatusEnum(): void
+    {
+        if (!$this->db->tableExists('project_requirements')) {
+            return;
+        }
+
+        $this->db->execute(
+            'ALTER TABLE project_requirements
+             MODIFY COLUMN status ENUM("borrador","definido","en_revision","aprobado","rechazado","entregado") NOT NULL DEFAULT "borrador"'
+        );
     }
 
     public function ensureProjectBillingModule(): void
