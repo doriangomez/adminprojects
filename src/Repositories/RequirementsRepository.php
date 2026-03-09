@@ -12,11 +12,13 @@ class RequirementsRepository
     private const STATUS_ENTREGADO = 'entregado';
 
     /**
-     * Flujo principal: borrador -> definido -> en_revision -> aprobado -> entregado
+     * Flujo principal: borrador -> en_revision -> aprobado -> entregado
      * Rama de reproceso: en_revision -> rechazado -> en_revision
+     * No se puede marcar entregado sin aprobación previa.
+     * definido se mantiene solo para compatibilidad (definido -> en_revision).
      */
     private const WORKFLOW_TRANSITIONS = [
-        self::STATUS_BORRADOR => [self::STATUS_DEFINIDO],
+        self::STATUS_BORRADOR => [self::STATUS_EN_REVISION],
         self::STATUS_DEFINIDO => [self::STATUS_EN_REVISION],
         self::STATUS_EN_REVISION => [self::STATUS_APROBADO, self::STATUS_RECHAZADO],
         self::STATUS_RECHAZADO => [self::STATUS_EN_REVISION],
@@ -33,19 +35,30 @@ class RequirementsRepository
         return array_keys(self::WORKFLOW_TRANSITIONS);
     }
 
-    public function listByProject(int $projectId): array
+    public function listByProject(int $projectId, ?string $periodStart = null, ?string $periodEnd = null): array
     {
         if (!$this->db->tableExists('project_requirements')) {
             return [];
+        }
+
+        $where = 'r.project_id = :project_id';
+        $params = [':project_id' => $projectId];
+        if ($periodStart !== null && $periodEnd !== null) {
+            $where .= ' AND (
+                (r.delivery_date IS NOT NULL AND r.delivery_date BETWEEN :start_date AND :end_date)
+                OR (r.delivery_date IS NULL AND DATE(r.created_at) BETWEEN :start_date AND :end_date)
+            )';
+            $params[':start_date'] = $periodStart;
+            $params[':end_date'] = $periodEnd;
         }
 
         return $this->db->fetchAll(
             'SELECT r.*, c.name AS client_name
              FROM project_requirements r
              JOIN clients c ON c.id = r.client_id
-             WHERE r.project_id = :project_id
+             WHERE ' . $where . '
              ORDER BY r.created_at DESC',
-            [':project_id' => $projectId]
+            $params
         );
     }
 
@@ -183,7 +196,6 @@ class RequirementsRepository
             $rows = $this->db->fetchAll(
                 'SELECT * FROM project_requirements
                  WHERE project_id = :project_id
-                   AND is_final_version = 1
                    AND (
                        (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
                        OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)

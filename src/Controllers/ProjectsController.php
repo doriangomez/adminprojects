@@ -3816,6 +3816,7 @@ POST crudo:
         try {
             $data = $this->projectDetailData($id);
             $repo = new RequirementsRepository($this->db);
+            $config = (new ConfigService($this->db))->getConfig();
 
             $start = (string) ($_GET['start_date'] ?? date('Y-m-01'));
             $end = (string) ($_GET['end_date'] ?? date('Y-m-t'));
@@ -3823,11 +3824,12 @@ POST crudo:
             $indicator = $repo->indicatorForProject($id, $start, $end);
             $history = $repo->auditByProject($id);
 
-            $data['requirements'] = $repo->listByProject($id);
+            $data['requirements'] = $repo->listByProject($id, $start, $end);
             $data['requirementsIndicator'] = $indicator;
             $data['requirementsAudit'] = $history;
             $data['requirementsPeriod'] = ['start_date' => $start, 'end_date' => $end];
             $data['requirementsStatuses'] = RequirementsRepository::allowedStatuses();
+            $data['metaCumplimientoRequisitos'] = (int) ($config['operational_rules']['health_scoring']['requirements_indicator']['target'] ?? 90);
 
             $this->render('projects/requirements', $data);
         } catch (\Throwable $e) {
@@ -3864,7 +3866,11 @@ POST crudo:
             'approved_first_delivery' => ($_POST['approved_first_delivery'] ?? '0') === '1',
         ]);
 
-        header('Location: /projects/' . $projectId . '/requirements?saved=1');
+        $qs = 'saved=1';
+        if (!empty($_POST['start_date']) && !empty($_POST['end_date'])) {
+            $qs .= '&start_date=' . urlencode((string) $_POST['start_date']) . '&end_date=' . urlencode((string) $_POST['end_date']);
+        }
+        header('Location: /projects/' . $projectId . '/requirements?' . $qs);
         exit;
     }
 
@@ -3879,9 +3885,17 @@ POST crudo:
 
         try {
             (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
-            header('Location: /projects/' . $projectId . '/requirements?updated=1');
+            $qs = 'updated=1';
+            if (!empty($_POST['start_date']) && !empty($_POST['end_date'])) {
+                $qs .= '&start_date=' . urlencode((string) $_POST['start_date']) . '&end_date=' . urlencode((string) $_POST['end_date']);
+            }
+            header('Location: /projects/' . $projectId . '/requirements?' . $qs);
         } catch (\RuntimeException $e) {
-            header('Location: /projects/' . $projectId . '/requirements?error=' . urlencode($e->getMessage()));
+            $qs = 'error=' . urlencode($e->getMessage());
+            if (!empty($_POST['start_date']) && !empty($_POST['end_date'])) {
+                $qs .= '&start_date=' . urlencode((string) $_POST['start_date']) . '&end_date=' . urlencode((string) $_POST['end_date']);
+            }
+            header('Location: /projects/' . $projectId . '/requirements?' . $qs);
         }
         exit;
     }
