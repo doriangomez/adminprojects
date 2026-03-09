@@ -146,68 +146,74 @@ class RequirementsRepository
 
     public function indicatorForProject(int $projectId, string $periodStart, string $periodEnd): array
     {
-        if (!$this->db->tableExists('project_requirements')) {
-            return $this->emptyIndicator();
-        }
+        try {
+            if (!$this->db->tableExists('project_requirements')) {
+                return $this->emptyIndicator();
+            }
 
-        $project = $this->db->fetchOne('SELECT status FROM projects WHERE id = :id LIMIT 1', [':id' => $projectId]) ?: [];
-        $isClosed = in_array(strtolower((string) ($project['status'] ?? '')), ['closed', 'archived', 'cancelled', 'cerrado'], true);
-        if ($isClosed && $this->db->tableExists('requirement_indicator_snapshots')) {
-            $snapshot = $this->db->fetchOne(
-                'SELECT * FROM requirement_indicator_snapshots WHERE project_id = :project_id AND period_start = :start_date AND period_end = :end_date ORDER BY calculated_at DESC LIMIT 1',
+            $project = $this->db->fetchOne('SELECT status FROM projects WHERE id = :id LIMIT 1', [':id' => $projectId]) ?: [];
+            $isClosed = in_array(strtolower((string) ($project['status'] ?? '')), ['closed', 'archived', 'cancelled', 'cerrado'], true);
+            if ($isClosed && $this->db->tableExists('requirement_indicator_snapshots')) {
+                $snapshot = $this->db->fetchOne(
+                    'SELECT * FROM requirement_indicator_snapshots WHERE project_id = :project_id AND period_start = :start_date AND period_end = :end_date ORDER BY calculated_at DESC LIMIT 1',
+                    [':project_id' => $projectId, ':start_date' => $periodStart, ':end_date' => $periodEnd]
+                );
+                if ($snapshot) {
+                    $snapshotTotal = (int) ($snapshot['total_requirements'] ?? 0);
+                    $snapshotApproved = (int) ($snapshot['approved_without_reprocess'] ?? 0);
+
+                    return [
+                        'applicable' => $snapshotTotal > 0,
+                        'value' => $snapshot['indicator_value'] !== null ? (float) $snapshot['indicator_value'] : null,
+                        'total_requirements' => $snapshotTotal,
+                        'approved_requirements' => $snapshotApproved,
+                        'approved_without_reprocess' => $snapshotApproved,
+                        'in_review_requirements' => 0,
+                        'rejected_requirements' => 0,
+                        'pending_requirements' => max($snapshotTotal - $snapshotApproved, 0),
+                        'with_reprocess' => max($snapshotTotal - $snapshotApproved, 0),
+                        'status' => (string) ($snapshot['status'] ?? 'no_aplica'),
+                        'avg_reprocess_per_requirement' => 0,
+                        'avg_days_to_approval' => 0,
+                        'percent_over_two_reprocess' => 0,
+                    ];
+                }
+            }
+
+            $rows = $this->db->fetchAll(
+                'SELECT * FROM project_requirements
+                 WHERE project_id = :project_id
+                   AND is_final_version = 1
+                   AND (
+                       (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
+                       OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)
+                   )',
                 [':project_id' => $projectId, ':start_date' => $periodStart, ':end_date' => $periodEnd]
             );
-            if ($snapshot) {
-                $snapshotTotal = (int) ($snapshot['total_requirements'] ?? 0);
-                $snapshotApproved = (int) ($snapshot['approved_without_reprocess'] ?? 0);
 
-                return [
-                    'applicable' => $snapshotTotal > 0,
-                    'value' => $snapshot['indicator_value'] !== null ? (float) $snapshot['indicator_value'] : null,
-                    'total_requirements' => $snapshotTotal,
-                    'approved_requirements' => $snapshotApproved,
-                    'approved_without_reprocess' => $snapshotApproved,
-                    'in_review_requirements' => 0,
-                    'rejected_requirements' => 0,
-                    'pending_requirements' => max($snapshotTotal - $snapshotApproved, 0),
-                    'with_reprocess' => max($snapshotTotal - $snapshotApproved, 0),
-                    'status' => (string) ($snapshot['status'] ?? 'no_aplica'),
-                    'avg_reprocess_per_requirement' => 0,
-                    'avg_days_to_approval' => 0,
-                    'percent_over_two_reprocess' => 0,
-                ];
+            $indicator = $this->buildIndicator($rows);
+
+            if ($isClosed && $this->db->tableExists('requirement_indicator_snapshots')) {
+                $this->db->insert(
+                    'INSERT INTO requirement_indicator_snapshots (project_id, period_start, period_end, total_requirements, approved_without_reprocess, indicator_value, status, frozen_at, calculated_at) VALUES (:project_id, :period_start, :period_end, :total_requirements, :approved_without_reprocess, :indicator_value, :status, NOW(), NOW())',
+                    [
+                        ':project_id' => $projectId,
+                        ':period_start' => $periodStart,
+                        ':period_end' => $periodEnd,
+                        ':total_requirements' => (int) ($indicator['total_requirements'] ?? 0),
+                        ':approved_without_reprocess' => (int) ($indicator['approved_requirements'] ?? 0),
+                        ':indicator_value' => $indicator['value'],
+                        ':status' => (string) ($indicator['status'] ?? 'no_aplica'),
+                    ]
+                );
             }
+
+            return $indicator;
+        } catch (\Throwable $e) {
+            error_log(sprintf('[RequirementsRepository] Error calculando indicador proyecto %d: %s', $projectId, $e->getMessage()));
+
+            return $this->emptyIndicator();
         }
-
-        $rows = $this->db->fetchAll(
-            'SELECT * FROM project_requirements
-             WHERE project_id = :project_id
-               AND is_final_version = 1
-               AND (
-                   (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
-                   OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)
-               )',
-            [':project_id' => $projectId, ':start_date' => $periodStart, ':end_date' => $periodEnd]
-        );
-
-        $indicator = $this->buildIndicator($rows);
-
-        if ($isClosed && $this->db->tableExists('requirement_indicator_snapshots')) {
-            $this->db->insert(
-                'INSERT INTO requirement_indicator_snapshots (project_id, period_start, period_end, total_requirements, approved_without_reprocess, indicator_value, status, frozen_at, calculated_at) VALUES (:project_id, :period_start, :period_end, :total_requirements, :approved_without_reprocess, :indicator_value, :status, NOW(), NOW())',
-                [
-                    ':project_id' => $projectId,
-                    ':period_start' => $periodStart,
-                    ':period_end' => $periodEnd,
-                    ':total_requirements' => (int) ($indicator['total_requirements'] ?? 0),
-                    ':approved_without_reprocess' => (int) ($indicator['approved_requirements'] ?? 0),
-                    ':indicator_value' => $indicator['value'],
-                    ':status' => (string) ($indicator['status'] ?? 'no_aplica'),
-                ]
-            );
-        }
-
-        return $indicator;
     }
 
     public function indicatorByProject(array $filters = []): array
