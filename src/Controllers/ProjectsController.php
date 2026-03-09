@@ -3881,7 +3881,8 @@ POST crudo:
         try {
             (new RequirementsRepository($this->db))->updateStatus($requirementId, $status, (int) ($user['id'] ?? 0));
             header('Location: /projects/' . $projectId . '/requirements?updated=1');
-        } catch (\RuntimeException $e) {
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.requirements] Error actualizando estado requisito %d: %s', $requirementId, $e->getMessage()));
             header('Location: /projects/' . $projectId . '/requirements?error=' . urlencode($e->getMessage()));
         }
         exit;

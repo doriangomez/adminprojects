@@ -38,14 +38,20 @@ class RequirementsRepository
             return [];
         }
 
-        return $this->db->fetchAll(
-            'SELECT r.*, c.name AS client_name
-             FROM project_requirements r
-             JOIN clients c ON c.id = r.client_id
-             WHERE r.project_id = :project_id
-             ORDER BY r.created_at DESC',
-            [':project_id' => $projectId]
-        );
+        try {
+            return $this->db->fetchAll(
+                'SELECT r.*, c.name AS client_name
+                 FROM project_requirements r
+                 JOIN clients c ON c.id = r.client_id
+                 WHERE r.project_id = :project_id
+                 ORDER BY r.created_at DESC',
+                [':project_id' => $projectId]
+            );
+        } catch (\Throwable $e) {
+            error_log(sprintf('[RequirementsRepository] Error listando requisitos proyecto %d: %s', $projectId, $e->getMessage()));
+
+            return [];
+        }
     }
 
     public function create(array $payload): int
@@ -179,10 +185,14 @@ class RequirementsRepository
                 }
             }
 
+            $versionFilter = $this->db->columnExists('project_requirements', 'is_final_version')
+                ? 'AND is_final_version = 1'
+                : '';
+
             $rows = $this->db->fetchAll(
                 'SELECT * FROM project_requirements
                  WHERE project_id = :project_id
-                   AND is_final_version = 1
+                   ' . $versionFilter . '
                    AND (
                        (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
                        OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)
@@ -221,63 +231,77 @@ class RequirementsRepository
             return [];
         }
 
-        $where = ['r.is_final_version = 1'];
-        $params = [];
-        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $where[] = '(r.delivery_date BETWEEN :start_date AND :end_date OR (r.delivery_date IS NULL AND DATE(r.created_at) BETWEEN :start_date AND :end_date))';
-            $params[':start_date'] = $filters['start_date'];
-            $params[':end_date'] = $filters['end_date'];
-        }
-        if (!empty($filters['client_id'])) {
-            $where[] = 'r.client_id = :client_id';
-            $params[':client_id'] = (int) $filters['client_id'];
-        }
-        if (!empty($filters['pm_id'])) {
-            $where[] = 'p.pm_id = :pm_id';
-            $params[':pm_id'] = (int) $filters['pm_id'];
-        }
+        try {
+            $where = ['1 = 1'];
+            $params = [];
 
-        $rows = $this->db->fetchAll(
-            'SELECT p.id AS project_id, p.name AS project_name, c.name AS client_name,
-                    COUNT(*) AS total,
-                    SUM(CASE WHEN r.status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_count,
-                    SUM(CASE WHEN r.status = \'' . self::STATUS_EN_REVISION . '\' THEN 1 ELSE 0 END) AS in_review_count,
-                    SUM(CASE WHEN r.status = \'' . self::STATUS_RECHAZADO . '\' THEN 1 ELSE 0 END) AS rejected_count,
-                    AVG(r.reprocess_count) AS avg_reprocess
-             FROM project_requirements r
-             JOIN projects p ON p.id = r.project_id
-             JOIN clients c ON c.id = r.client_id
-             WHERE ' . implode(' AND ', $where) . '
-             GROUP BY p.id, p.name, c.name
-             ORDER BY project_name ASC',
-            $params
-        );
+            if ($this->db->columnExists('project_requirements', 'is_final_version')) {
+                $where[] = 'r.is_final_version = 1';
+            }
+            if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+                $where[] = '(r.delivery_date BETWEEN :start_date AND :end_date OR (r.delivery_date IS NULL AND DATE(r.created_at) BETWEEN :start_date AND :end_date))';
+                $params[':start_date'] = $filters['start_date'];
+                $params[':end_date'] = $filters['end_date'];
+            }
+            if (!empty($filters['client_id'])) {
+                $where[] = 'r.client_id = :client_id';
+                $params[':client_id'] = (int) $filters['client_id'];
+            }
+            if (!empty($filters['pm_id']) && $this->db->columnExists('projects', 'pm_id')) {
+                $where[] = 'p.pm_id = :pm_id';
+                $params[':pm_id'] = (int) $filters['pm_id'];
+            }
 
-        return array_map(function (array $row): array {
-            $total = (int) ($row['total'] ?? 0);
-            $approved = (int) ($row['approved_count'] ?? 0);
-            $inReview = (int) ($row['in_review_count'] ?? 0);
-            $rejected = (int) ($row['rejected_count'] ?? 0);
-            $pending = max($total - $approved - $inReview - $rejected, 0);
-            $isApplicable = $total > 0;
-            $percent = $isApplicable ? round(($approved / $total) * 100, 2) : null;
+            $reprocessExpr = $this->db->columnExists('project_requirements', 'reprocess_count')
+                ? 'AVG(r.reprocess_count)'
+                : '0';
 
-            return [
-                'project_id' => (int) ($row['project_id'] ?? 0),
-                'project' => (string) ($row['project_name'] ?? ''),
-                'client' => (string) ($row['client_name'] ?? ''),
-                'total' => $total,
-                'approved_requirements' => $approved,
-                'approved_without_reprocess' => $approved,
-                'in_review_requirements' => $inReview,
-                'rejected_requirements' => $rejected,
-                'pending_requirements' => $pending,
-                'with_reprocess' => max($total - $approved, 0),
-                'indicator' => $percent,
-                'status' => $this->statusFromValue($percent, $isApplicable),
-                'avg_reprocess' => round((float) ($row['avg_reprocess'] ?? 0), 2),
-            ];
-        }, $rows);
+            $rows = $this->db->fetchAll(
+                'SELECT p.id AS project_id, p.name AS project_name, c.name AS client_name,
+                        COUNT(*) AS total,
+                        SUM(CASE WHEN r.status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_count,
+                        SUM(CASE WHEN r.status = \'' . self::STATUS_EN_REVISION . '\' THEN 1 ELSE 0 END) AS in_review_count,
+                        SUM(CASE WHEN r.status = \'' . self::STATUS_RECHAZADO . '\' THEN 1 ELSE 0 END) AS rejected_count,
+                        ' . $reprocessExpr . ' AS avg_reprocess
+                 FROM project_requirements r
+                 JOIN projects p ON p.id = r.project_id
+                 JOIN clients c ON c.id = r.client_id
+                 WHERE ' . implode(' AND ', $where) . '
+                 GROUP BY p.id, p.name, c.name
+                 ORDER BY project_name ASC',
+                $params
+            );
+
+            return array_map(function (array $row): array {
+                $total = (int) ($row['total'] ?? 0);
+                $approved = (int) ($row['approved_count'] ?? 0);
+                $inReview = (int) ($row['in_review_count'] ?? 0);
+                $rejected = (int) ($row['rejected_count'] ?? 0);
+                $pending = max($total - $approved - $inReview - $rejected, 0);
+                $isApplicable = $total > 0;
+                $percent = $isApplicable ? round(($approved / $total) * 100, 2) : null;
+
+                return [
+                    'project_id' => (int) ($row['project_id'] ?? 0),
+                    'project' => (string) ($row['project_name'] ?? ''),
+                    'client' => (string) ($row['client_name'] ?? ''),
+                    'total' => $total,
+                    'approved_requirements' => $approved,
+                    'approved_without_reprocess' => $approved,
+                    'in_review_requirements' => $inReview,
+                    'rejected_requirements' => $rejected,
+                    'pending_requirements' => $pending,
+                    'with_reprocess' => max($total - $approved, 0),
+                    'indicator' => $percent,
+                    'status' => $this->statusFromValue($percent, $isApplicable),
+                    'avg_reprocess' => round((float) ($row['avg_reprocess'] ?? 0), 2),
+                ];
+            }, $rows);
+        } catch (\Throwable $e) {
+            error_log(sprintf('[RequirementsRepository] Error en indicatorByProject: %s', $e->getMessage()));
+
+            return [];
+        }
     }
 
     public function trendForProject(int $projectId, int $months = 6): array
@@ -286,18 +310,28 @@ class RequirementsRepository
             return [];
         }
 
-        return $this->db->fetchAll(
-            'SELECT DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m") AS period,
-                    COUNT(*) AS total,
-                    SUM(CASE WHEN status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_no_reprocess
-             FROM project_requirements
-             WHERE project_id = :project_id
-               AND is_final_version = 1
-               AND COALESCE(delivery_date, DATE(created_at)) >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
-             GROUP BY DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m")
-             ORDER BY period ASC',
-            [':project_id' => $projectId, ':months' => max(1, $months)]
-        );
+        try {
+            $versionFilter = $this->db->columnExists('project_requirements', 'is_final_version')
+                ? 'AND is_final_version = 1'
+                : '';
+
+            return $this->db->fetchAll(
+                'SELECT DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m") AS period,
+                        COUNT(*) AS total,
+                        SUM(CASE WHEN status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_no_reprocess
+                 FROM project_requirements
+                 WHERE project_id = :project_id
+                   ' . $versionFilter . '
+                   AND COALESCE(delivery_date, DATE(created_at)) >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
+                 GROUP BY DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m")
+                 ORDER BY period ASC',
+                [':project_id' => $projectId, ':months' => max(1, $months)]
+            );
+        } catch (\Throwable $e) {
+            error_log(sprintf('[RequirementsRepository] Error en trendForProject %d: %s', $projectId, $e->getMessage()));
+
+            return [];
+        }
     }
 
     public function auditByProject(int $projectId): array
@@ -306,26 +340,32 @@ class RequirementsRepository
             return [];
         }
 
-        $changedByNameSelect = 'NULL AS changed_by_name';
-        $usersJoin = '';
-        if ($this->db->tableExists('users')) {
-            $usersJoin = 'LEFT JOIN users u ON u.id = l.changed_by';
-            $userDisplayColumn = $this->resolveUserDisplayColumn();
-            if ($userDisplayColumn !== null) {
-                $changedByNameSelect = sprintf('u.%s AS changed_by_name', $userDisplayColumn);
+        try {
+            $changedByNameSelect = 'NULL AS changed_by_name';
+            $usersJoin = '';
+            if ($this->db->tableExists('users')) {
+                $usersJoin = 'LEFT JOIN users u ON u.id = l.changed_by';
+                $userDisplayColumn = $this->resolveUserDisplayColumn();
+                if ($userDisplayColumn !== null) {
+                    $changedByNameSelect = sprintf('u.%s AS changed_by_name', $userDisplayColumn);
+                }
             }
-        }
 
-        return $this->db->fetchAll(
-            'SELECT l.*, ' . $changedByNameSelect . ', r.name AS requirement_name
-             FROM requirement_audit_log l
-             ' . $usersJoin . '
-             LEFT JOIN project_requirements r ON r.id = l.requirement_id
-             WHERE l.project_id = :project_id
-             ORDER BY l.changed_at DESC
-             LIMIT 100',
-            [':project_id' => $projectId]
-        );
+            return $this->db->fetchAll(
+                'SELECT l.*, ' . $changedByNameSelect . ', r.name AS requirement_name
+                 FROM requirement_audit_log l
+                 ' . $usersJoin . '
+                 LEFT JOIN project_requirements r ON r.id = l.requirement_id
+                 WHERE l.project_id = :project_id
+                 ORDER BY l.changed_at DESC
+                 LIMIT 100',
+                [':project_id' => $projectId]
+            );
+        } catch (\Throwable $e) {
+            error_log(sprintf('[RequirementsRepository] Error en auditByProject %d: %s', $projectId, $e->getMessage()));
+
+            return [];
+        }
     }
 
     private function resolveUserDisplayColumn(): ?string

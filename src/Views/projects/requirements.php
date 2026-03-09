@@ -26,11 +26,27 @@ $statusBadges = [
     'entregado' => '🔵',
     'rechazado' => '🔴',
 ];
-$totalRequirements = (int) ($indicator['total_requirements'] ?? 0);
-$approvedRequirements = (int) ($indicator['approved_requirements'] ?? 0);
-$inReviewRequirements = (int) ($indicator['in_review_requirements'] ?? 0);
-$rejectedRequirements = (int) ($indicator['rejected_requirements'] ?? 0);
-$compliance = $totalRequirements > 0 ? (float) ($indicator['value'] ?? 0) : 0.0;
+
+$countTotal = 0;
+$countApproved = 0;
+$countInReview = 0;
+$countRejected = 0;
+$countBorrador = 0;
+foreach ($requirements as $r) {
+    $s = strtolower(trim((string) ($r['status'] ?? 'borrador')));
+    if ($s === 'definido') { $s = 'en_revision'; }
+    $countTotal++;
+    if (in_array($s, ['aprobado', 'entregado'], true)) { $countApproved++; }
+    elseif ($s === 'en_revision') { $countInReview++; }
+    elseif ($s === 'rechazado') { $countRejected++; }
+    else { $countBorrador++; }
+}
+
+$totalRequirements = $countTotal;
+$approvedRequirements = $countApproved;
+$inReviewRequirements = $countInReview;
+$rejectedRequirements = $countRejected;
+$compliance = $totalRequirements > 0 ? round(($approvedRequirements / $totalRequirements) * 100, 2) : 0.0;
 $targetMeta = max(0.0, min(100.0, (float) ($requirementsTargetMeta ?? 95)));
 $saved = isset($_GET['saved']);
 $updated = isset($_GET['updated']);
@@ -55,6 +71,10 @@ require __DIR__ . '/_tabs.php';
     .status-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); font-size:12px; font-weight:700; white-space:nowrap; }
 </style>
 
+<?php
+$complianceMet = $compliance >= $targetMeta;
+$complianceColor = $complianceMet ? '#16a34a' : ($compliance >= ($targetMeta * 0.85) ? '#ca8a04' : '#dc2626');
+?>
 <section class="card" style="padding:16px;margin-bottom:16px;">
     <h3>Cumplimiento requisitos cliente</h3>
     <form method="GET" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
@@ -64,17 +84,33 @@ require __DIR__ . '/_tabs.php';
     </form>
     <div class="requirements-kpi-grid">
         <article class="requirements-kpi"><span>Total</span><strong><?= $totalRequirements ?></strong></article>
-        <article class="requirements-kpi"><span>Aprobados</span><strong><?= $approvedRequirements ?></strong></article>
-        <article class="requirements-kpi"><span>En revisión</span><strong><?= $inReviewRequirements ?></strong></article>
-        <article class="requirements-kpi"><span>Rechazados</span><strong><?= $rejectedRequirements ?></strong></article>
+        <article class="requirements-kpi"><span>Aprobados</span><strong style="color:#16a34a"><?= $approvedRequirements ?></strong></article>
+        <article class="requirements-kpi"><span>En revisión</span><strong style="color:#ca8a04"><?= $inReviewRequirements ?></strong></article>
+        <article class="requirements-kpi"><span>Rechazados</span><strong style="color:#dc2626"><?= $rejectedRequirements ?></strong></article>
     </div>
     <div class="requirements-progress">
-        <div class="requirements-progress-track">
-            <div class="requirements-progress-fill" style="width: <?= max(0, min(100, $compliance)) ?>%;"></div>
+        <div class="requirements-progress-track" style="position:relative;">
+            <div class="requirements-progress-fill" style="width: <?= max(0, min(100, $compliance)) ?>%; background:linear-gradient(90deg, <?= $complianceColor ?>, <?= $complianceColor ?>cc);"></div>
+            <?php if ($targetMeta > 0 && $targetMeta < 100): ?>
+                <div style="position:absolute;left:<?= $targetMeta ?>%;top:0;bottom:0;width:2px;background:#1e293b;opacity:.6;" title="Meta: <?= number_format($targetMeta, 0) ?>%"></div>
+            <?php endif; ?>
         </div>
-        <div class="requirements-progress-label"><span>Cumplimiento actual</span><strong><?= number_format($compliance, 2) ?>%</strong></div>
+        <div class="requirements-progress-label">
+            <span>Cumplimiento actual</span>
+            <strong style="color:<?= $complianceColor ?>"><?= number_format($compliance, 2) ?>%</strong>
+        </div>
     </div>
-    <p><strong>Meta:</strong> <?= number_format($targetMeta, 0) ?>%</p>
+    <p>
+        <strong>Meta:</strong> <?= number_format($targetMeta, 0) ?>%
+        <?php if ($totalRequirements > 0): ?>
+            &mdash;
+            <?php if ($complianceMet): ?>
+                <span style="color:#16a34a;font-weight:700;">Meta cumplida</span>
+            <?php else: ?>
+                <span style="color:#dc2626;font-weight:700;">Faltan <?= max(0, (int) ceil(($targetMeta / 100) * $totalRequirements) - $approvedRequirements) ?> aprobaciones para alcanzar la meta</span>
+            <?php endif; ?>
+        <?php endif; ?>
+    </p>
 </section>
 
 <section class="card" style="padding:16px;margin-bottom:16px;">

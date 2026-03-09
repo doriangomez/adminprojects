@@ -25,72 +25,78 @@ class PmoAutomationService
             return [];
         }
 
-        $date = ($snapshotDate ?? new DateTimeImmutable('today'))->setTime(0, 0);
-        $dateStr = $date->format('Y-m-d');
-        $project = $this->db->fetchOne(
-            'SELECT id, name, progress, planned_hours, start_date
-             FROM projects
-             WHERE id = :id
-             LIMIT 1',
-            [':id' => $projectId]
-        );
-        if (!$project) {
+        try {
+            $date = ($snapshotDate ?? new DateTimeImmutable('today'))->setTime(0, 0);
+            $dateStr = $date->format('Y-m-d');
+            $project = $this->db->fetchOne(
+                'SELECT id, name, progress, planned_hours, start_date
+                 FROM projects
+                 WHERE id = :id
+                 LIMIT 1',
+                [':id' => $projectId]
+            );
+            if (!$project) {
+                return [];
+            }
+
+            $plannedHours = (float) ($project['planned_hours'] ?? 0);
+            $manualProgress = (float) ($project['progress'] ?? 0);
+            $approvedHours = $this->approvedHours($projectId, $dateStr);
+            $estimatedHours = $this->estimatedHours($projectId, $plannedHours);
+            $taskMetrics = $this->taskMetrics($projectId, $dateStr);
+            $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
+            $blockerMentions = $this->blockerMentions($projectId, $dateStr);
+            $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
+
+            $hoursConsumption = $estimatedHours > 0 ? round(($approvedHours / $estimatedHours) * 100, 2) : null;
+            $progressHours = $estimatedHours > 0 ? min(100.0, $hoursConsumption) : null;
+            $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
+                ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
+                : null;
+
+            $riskScore = $this->riskScore([
+                'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
+                'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
+                'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
+                'blocker_mentions' => $blockerMentions,
+                'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
+                'hours_consumption_percent' => $hoursConsumption,
+                'stale_business_days' => $staleBusinessDays,
+            ]);
+
+            $snapshot = [
+                'project_id' => $projectId,
+                'snapshot_date' => $dateStr,
+                'project_name' => (string) ($project['name'] ?? 'Proyecto'),
+                'progress_manual' => round($manualProgress, 2),
+                'progress_hours' => $progressHours,
+                'progress_tasks' => $progressTasks,
+                'risk_score' => $riskScore,
+                'planned_hours' => $estimatedHours,
+                'approved_hours' => round($approvedHours, 2),
+                'hours_consumption_percent' => $hoursConsumption,
+                'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
+                'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
+                'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
+                'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
+                'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
+                'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
+                'blocker_mentions' => $blockerMentions,
+                'stale_business_days' => $staleBusinessDays,
+            ];
+
+            $snapshotId = $this->persistSnapshot($snapshot);
+            if ($snapshotId > 0) {
+                $snapshot['id'] = $snapshotId;
+                $this->syncAlerts($snapshotId, $snapshot);
+            }
+
+            return $snapshot;
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] Error capturando snapshot proyecto %d: %s', $projectId, $e->getMessage()));
+
             return [];
         }
-
-        $plannedHours = (float) ($project['planned_hours'] ?? 0);
-        $manualProgress = (float) ($project['progress'] ?? 0);
-        $approvedHours = $this->approvedHours($projectId, $dateStr);
-        $estimatedHours = $this->estimatedHours($projectId, $plannedHours);
-        $taskMetrics = $this->taskMetrics($projectId, $dateStr);
-        $blockerMetrics = $this->blockerMetrics($projectId, $dateStr);
-        $blockerMentions = $this->blockerMentions($projectId, $dateStr);
-        $staleBusinessDays = $this->staleBusinessDays($projectId, $project, $date);
-
-        $hoursConsumption = $estimatedHours > 0 ? round(($approvedHours / $estimatedHours) * 100, 2) : null;
-        $progressHours = $estimatedHours > 0 ? min(100.0, $hoursConsumption) : null;
-        $progressTasks = (int) ($taskMetrics['total_tasks'] ?? 0) > 0
-            ? round((((int) ($taskMetrics['done_tasks'] ?? 0)) / ((int) ($taskMetrics['total_tasks'] ?? 1))) * 100, 2)
-            : null;
-
-        $riskScore = $this->riskScore([
-            'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
-            'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
-            'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
-            'blocker_mentions' => $blockerMentions,
-            'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
-            'hours_consumption_percent' => $hoursConsumption,
-            'stale_business_days' => $staleBusinessDays,
-        ]);
-
-        $snapshot = [
-            'project_id' => $projectId,
-            'snapshot_date' => $dateStr,
-            'project_name' => (string) ($project['name'] ?? 'Proyecto'),
-            'progress_manual' => round($manualProgress, 2),
-            'progress_hours' => $progressHours,
-            'progress_tasks' => $progressTasks,
-            'risk_score' => $riskScore,
-            'planned_hours' => $estimatedHours,
-            'approved_hours' => round($approvedHours, 2),
-            'hours_consumption_percent' => $hoursConsumption,
-            'total_tasks' => (int) ($taskMetrics['total_tasks'] ?? 0),
-            'done_tasks' => (int) ($taskMetrics['done_tasks'] ?? 0),
-            'overdue_tasks' => (int) ($taskMetrics['overdue_tasks'] ?? 0),
-            'open_blockers' => (int) ($blockerMetrics['open_blockers'] ?? 0),
-            'critical_blockers' => (int) ($blockerMetrics['critical_blockers'] ?? 0),
-            'aged_blockers' => (int) ($blockerMetrics['aged_blockers'] ?? 0),
-            'blocker_mentions' => $blockerMentions,
-            'stale_business_days' => $staleBusinessDays,
-        ];
-
-        $snapshotId = $this->persistSnapshot($snapshot);
-        if ($snapshotId > 0) {
-            $snapshot['id'] = $snapshotId;
-            $this->syncAlerts($snapshotId, $snapshot);
-        }
-
-        return $snapshot;
     }
 
     public function latestSnapshotForProject(int $projectId): ?array
