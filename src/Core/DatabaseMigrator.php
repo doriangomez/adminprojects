@@ -2763,6 +2763,7 @@ class DatabaseMigrator
     {
         if ($this->db->tableExists('project_stoppers')) {
             $this->ensureProjectStoppersTaskColumn();
+            $this->ensureProjectStoppersDetectedAtColumn();
             return;
         }
 
@@ -2797,6 +2798,27 @@ class DatabaseMigrator
         );
 
         $this->ensureProjectStoppersTaskColumn();
+        $this->ensureProjectStoppersDetectedAtColumn();
+    }
+
+    private function ensureProjectStoppersDetectedAtColumn(): void
+    {
+        if (!$this->db->tableExists('project_stoppers')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('project_stoppers', 'detected_at')) {
+            $this->db->execute(
+                'ALTER TABLE project_stoppers ADD COLUMN detected_at DATE NULL'
+            );
+            $this->db->execute(
+                'UPDATE project_stoppers SET detected_at = DATE(created_at) WHERE detected_at IS NULL'
+            );
+            $this->db->execute(
+                'ALTER TABLE project_stoppers MODIFY detected_at DATE NOT NULL'
+            );
+            $this->db->clearColumnCache();
+        }
     }
 
     private function ensureProjectStoppersTaskColumn(): void

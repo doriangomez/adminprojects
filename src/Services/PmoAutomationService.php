@@ -184,13 +184,17 @@ class PmoAutomationService
             return [];
         }
 
+        $hasDetectedAt = $this->db->columnExists('project_stoppers', 'detected_at');
+        $dateSelect = $hasDetectedAt ? 'detected_at' : 'created_at AS detected_at';
+        $dateOrder = $hasDetectedAt ? 'detected_at' : 'created_at';
+
         $safeLimit = max(1, (int) $limit);
         return $this->db->fetchAll(
-            'SELECT id, title, description, impact_level, status, detected_at
+            'SELECT id, title, description, impact_level, status, ' . $dateSelect . '
              FROM project_stoppers
              WHERE project_id = :project
                AND status IN ("abierto", "en_gestion", "escalado", "resuelto")
-             ORDER BY FIELD(impact_level, "critico", "alto", "medio", "bajo"), detected_at ASC, id ASC
+             ORDER BY FIELD(impact_level, "critico", "alto", "medio", "bajo"), ' . $dateOrder . ' ASC, id ASC
              LIMIT ' . $safeLimit,
             [
                 ':project' => $projectId,
@@ -335,11 +339,15 @@ class PmoAutomationService
             return ['open_blockers' => 0, 'critical_blockers' => 0, 'aged_blockers' => 0];
         }
 
+        $dateColumn = $this->db->columnExists('project_stoppers', 'detected_at')
+            ? 'COALESCE(detected_at, DATE(created_at))'
+            : 'DATE(created_at)';
+
         $row = $this->db->fetchOne(
             'SELECT
                 SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") THEN 1 ELSE 0 END) AS open_blockers,
                 SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND impact_level = "critico" THEN 1 ELSE 0 END) AS critical_blockers,
-                SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND DATEDIFF(:snapshot_date, detected_at) > 7 THEN 1 ELSE 0 END) AS aged_blockers
+                SUM(CASE WHEN status IN ("abierto", "en_gestion", "escalado", "resuelto") AND DATEDIFF(:snapshot_date, ' . $dateColumn . ') > 7 THEN 1 ELSE 0 END) AS aged_blockers
              FROM project_stoppers
              WHERE project_id = :project',
             [

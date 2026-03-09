@@ -232,7 +232,7 @@ class RequirementsRepository
             $where[] = 'r.client_id = :client_id';
             $params[':client_id'] = (int) $filters['client_id'];
         }
-        if (!empty($filters['pm_id'])) {
+        if (!empty($filters['pm_id']) && $this->db->columnExists('projects', 'pm_id')) {
             $where[] = 'p.pm_id = :pm_id';
             $params[':pm_id'] = (int) $filters['pm_id'];
         }

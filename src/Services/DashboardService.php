@@ -941,28 +941,44 @@ class DashboardService
 
     public function requirementsOverview(array $user): array
     {
-        $repo = new RequirementsRepository($this->db);
-        $filters = [
-            'start_date' => $_GET['start_date'] ?? date('Y-m-01'),
-            'end_date' => $_GET['end_date'] ?? date('Y-m-t'),
-            'client_id' => $_GET['client_id'] ?? null,
-            'pm_id' => $_GET['pm_id'] ?? null,
-        ];
+        try {
+            $repo = new RequirementsRepository($this->db);
+            $filters = [
+                'start_date' => $_GET['start_date'] ?? date('Y-m-01'),
+                'end_date' => $_GET['end_date'] ?? date('Y-m-t'),
+                'client_id' => $_GET['client_id'] ?? null,
+                'pm_id' => $_GET['pm_id'] ?? null,
+            ];
 
-        $projects = $repo->indicatorByProject($filters);
-        usort($projects, static fn (array $a, array $b): int => (float) ($b['indicator'] ?? -1) <=> (float) ($a['indicator'] ?? -1));
+            $projects = $repo->indicatorByProject($filters);
+            usort($projects, static fn (array $a, array $b): int => (float) ($b['indicator'] ?? -1) <=> (float) ($a['indicator'] ?? -1));
 
-        $trend = [];
-        foreach ($projects as $project) {
-            $trend[(string) ($project['project'] ?? '')] = $repo->trendForProject((int) ($project['project_id'] ?? 0), 6);
+            $trend = [];
+            foreach ($projects as $project) {
+                $trend[(string) ($project['project'] ?? '')] = $repo->trendForProject((int) ($project['project_id'] ?? 0), 6);
+            }
+
+            return [
+                'filters' => $filters,
+                'projects' => $projects,
+                'ranking' => $projects,
+                'trend' => $trend,
+            ];
+        } catch (\Throwable $e) {
+            error_log(sprintf('[DashboardService] Error en requirementsOverview: %s', $e->getMessage()));
+
+            return [
+                'filters' => [
+                    'start_date' => $_GET['start_date'] ?? date('Y-m-01'),
+                    'end_date' => $_GET['end_date'] ?? date('Y-m-t'),
+                    'client_id' => $_GET['client_id'] ?? null,
+                    'pm_id' => $_GET['pm_id'] ?? null,
+                ],
+                'projects' => [],
+                'ranking' => [],
+                'trend' => [],
+            ];
         }
-
-        return [
-            'filters' => $filters,
-            'projects' => $projects,
-            'ranking' => $projects,
-            'trend' => $trend,
-        ];
     }
 
     public function governanceOverview(array $user): array
