@@ -10,7 +10,7 @@ $workflowTransitions = [
     'en_revision' => ['aprobado', 'rechazado'],
     'rechazado' => ['en_revision'],
     'aprobado' => ['entregado'],
-    'entregado' => [],
+    'entregado' => ['en_revision'],
 ];
 $statusLabels = [
     'borrador' => 'Borrador',

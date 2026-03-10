@@ -14,12 +14,13 @@ class RequirementsRepository
     /**
      * Flujo principal: borrador -> en_revision -> aprobado -> entregado
      * Rama de reproceso: en_revision -> rechazado -> en_revision
+     * Reapertura controlada: entregado -> en_revision
      */
     private const WORKFLOW_TRANSITIONS = [
         self::STATUS_BORRADOR => [self::STATUS_EN_REVISION],
         self::STATUS_EN_REVISION => [self::STATUS_APROBADO, self::STATUS_RECHAZADO],
         self::STATUS_APROBADO => [self::STATUS_ENTREGADO],
-        self::STATUS_ENTREGADO => [],
+        self::STATUS_ENTREGADO => [self::STATUS_EN_REVISION],
         self::STATUS_RECHAZADO => [self::STATUS_EN_REVISION],
     ];
 
@@ -150,6 +151,10 @@ class RequirementsRepository
                 return $this->emptyIndicator();
             }
 
+            $hasFinalVersion = $this->db->columnExists('project_requirements', 'is_final_version');
+            $hasDeliveryDate = $this->db->columnExists('project_requirements', 'delivery_date');
+            $hasCreatedAt = $this->db->columnExists('project_requirements', 'created_at');
+
             $project = $this->db->fetchOne('SELECT status FROM projects WHERE id = :id LIMIT 1', [':id' => $projectId]) ?: [];
             $isClosed = in_array(strtolower((string) ($project['status'] ?? '')), ['closed', 'archived', 'cancelled', 'cerrado'], true);
             if ($isClosed && $this->db->tableExists('requirement_indicator_snapshots')) {
@@ -179,14 +184,24 @@ class RequirementsRepository
                 }
             }
 
+            $where = ['project_id = :project_id'];
+            if ($hasFinalVersion) {
+                $where[] = 'is_final_version = 1';
+            }
+            if ($hasDeliveryDate && $hasCreatedAt) {
+                $where[] = '(
+                    (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
+                    OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)
+                )';
+            } elseif ($hasDeliveryDate) {
+                $where[] = 'delivery_date BETWEEN :start_date AND :end_date';
+            } elseif ($hasCreatedAt) {
+                $where[] = 'DATE(created_at) BETWEEN :start_date AND :end_date';
+            }
+
             $rows = $this->db->fetchAll(
                 'SELECT * FROM project_requirements
-                 WHERE project_id = :project_id
-                   AND is_final_version = 1
-                   AND (
-                       (delivery_date IS NOT NULL AND delivery_date BETWEEN :start_date AND :end_date)
-                       OR (delivery_date IS NULL AND DATE(created_at) BETWEEN :start_date AND :end_date)
-                   )',
+                 WHERE ' . implode(' AND ', $where),
                 [':project_id' => $projectId, ':start_date' => $periodStart, ':end_date' => $periodEnd]
             );
 
@@ -221,12 +236,31 @@ class RequirementsRepository
             return [];
         }
 
-        $where = ['r.is_final_version = 1'];
+        $hasFinalVersion = $this->db->columnExists('project_requirements', 'is_final_version');
+        $hasDeliveryDate = $this->db->columnExists('project_requirements', 'delivery_date');
+        $hasCreatedAt = $this->db->columnExists('project_requirements', 'created_at');
+        $hasStatus = $this->db->columnExists('project_requirements', 'status');
+        $hasReprocessCount = $this->db->columnExists('project_requirements', 'reprocess_count');
+
+        $where = [];
+        if ($hasFinalVersion) {
+            $where[] = 'r.is_final_version = 1';
+        }
         $params = [];
         if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $where[] = '(r.delivery_date BETWEEN :start_date AND :end_date OR (r.delivery_date IS NULL AND DATE(r.created_at) BETWEEN :start_date AND :end_date))';
-            $params[':start_date'] = $filters['start_date'];
-            $params[':end_date'] = $filters['end_date'];
+            if ($hasDeliveryDate && $hasCreatedAt) {
+                $where[] = '(r.delivery_date BETWEEN :start_date AND :end_date OR (r.delivery_date IS NULL AND DATE(r.created_at) BETWEEN :start_date AND :end_date))';
+                $params[':start_date'] = $filters['start_date'];
+                $params[':end_date'] = $filters['end_date'];
+            } elseif ($hasDeliveryDate) {
+                $where[] = 'r.delivery_date BETWEEN :start_date AND :end_date';
+                $params[':start_date'] = $filters['start_date'];
+                $params[':end_date'] = $filters['end_date'];
+            } elseif ($hasCreatedAt) {
+                $where[] = 'DATE(r.created_at) BETWEEN :start_date AND :end_date';
+                $params[':start_date'] = $filters['start_date'];
+                $params[':end_date'] = $filters['end_date'];
+            }
         }
         if (!empty($filters['client_id'])) {
             $where[] = 'r.client_id = :client_id';
@@ -237,17 +271,21 @@ class RequirementsRepository
             $params[':pm_id'] = (int) $filters['pm_id'];
         }
 
+        $whereSql = $where === [] ? '1=1' : implode(' AND ', $where);
+        $statusExpr = $hasStatus ? 'LOWER(TRIM(COALESCE(r.status, "")))' : "''";
+        $reprocessExpr = $hasReprocessCount ? 'COALESCE(r.reprocess_count, 0)' : '0';
+
         $rows = $this->db->fetchAll(
             'SELECT p.id AS project_id, p.name AS project_name, c.name AS client_name,
                     COUNT(*) AS total,
-                    SUM(CASE WHEN r.status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_count,
-                    SUM(CASE WHEN r.status = \'' . self::STATUS_EN_REVISION . '\' THEN 1 ELSE 0 END) AS in_review_count,
-                    SUM(CASE WHEN r.status = \'' . self::STATUS_RECHAZADO . '\' THEN 1 ELSE 0 END) AS rejected_count,
-                    AVG(r.reprocess_count) AS avg_reprocess
+                    SUM(CASE WHEN ' . $statusExpr . ' IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_count,
+                    SUM(CASE WHEN ' . $statusExpr . ' = \'' . self::STATUS_EN_REVISION . '\' THEN 1 ELSE 0 END) AS in_review_count,
+                    SUM(CASE WHEN ' . $statusExpr . ' = \'' . self::STATUS_RECHAZADO . '\' THEN 1 ELSE 0 END) AS rejected_count,
+                    AVG(' . $reprocessExpr . ') AS avg_reprocess
              FROM project_requirements r
              JOIN projects p ON p.id = r.project_id
              JOIN clients c ON c.id = r.client_id
-             WHERE ' . implode(' AND ', $where) . '
+             WHERE ' . $whereSql . '
              GROUP BY p.id, p.name, c.name
              ORDER BY project_name ASC',
             $params
@@ -286,15 +324,32 @@ class RequirementsRepository
             return [];
         }
 
+        $hasFinalVersion = $this->db->columnExists('project_requirements', 'is_final_version');
+        $hasDeliveryDate = $this->db->columnExists('project_requirements', 'delivery_date');
+        $hasCreatedAt = $this->db->columnExists('project_requirements', 'created_at');
+        $hasStatus = $this->db->columnExists('project_requirements', 'status');
+
+        if (!$hasDeliveryDate && !$hasCreatedAt) {
+            return [];
+        }
+
+        $periodExpr = $hasDeliveryDate
+            ? ($hasCreatedAt ? 'COALESCE(delivery_date, DATE(created_at))' : 'delivery_date')
+            : 'DATE(created_at)';
+        $statusExpr = $hasStatus ? 'LOWER(TRIM(COALESCE(status, "")))' : "''";
+        $where = ['project_id = :project_id'];
+        if ($hasFinalVersion) {
+            $where[] = 'is_final_version = 1';
+        }
+
         return $this->db->fetchAll(
-            'SELECT DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m") AS period,
+            'SELECT DATE_FORMAT(' . $periodExpr . ', "%Y-%m") AS period,
                     COUNT(*) AS total,
-                    SUM(CASE WHEN status IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_no_reprocess
+                    SUM(CASE WHEN ' . $statusExpr . ' IN (\'' . self::STATUS_APROBADO . '\',\'' . self::STATUS_ENTREGADO . '\') THEN 1 ELSE 0 END) AS approved_no_reprocess
              FROM project_requirements
-             WHERE project_id = :project_id
-               AND is_final_version = 1
-               AND COALESCE(delivery_date, DATE(created_at)) >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
-             GROUP BY DATE_FORMAT(COALESCE(delivery_date, DATE(created_at)), "%Y-%m")
+             WHERE ' . implode(' AND ', $where) . '
+               AND ' . $periodExpr . ' >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
+             GROUP BY DATE_FORMAT(' . $periodExpr . ', "%Y-%m")
              ORDER BY period ASC',
             [':project_id' => $projectId, ':months' => max(1, $months)]
         );
