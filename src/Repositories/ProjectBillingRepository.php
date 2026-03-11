@@ -25,6 +25,10 @@ class ProjectBillingRepository
             'billing_start_date' => $row['billing_start_date'] ?? null,
             'billing_end_date' => $row['billing_end_date'] ?? null,
             'hourly_rate' => (float) ($row['hourly_rate'] ?? 0),
+            'billing_matrix_type' => in_array((string) ($row['billing_matrix_type'] ?? 'unico'), ['unico', 'recurrente'], true)
+                ? (string) ($row['billing_matrix_type'] ?? 'unico')
+                : 'unico',
+            'billing_grace_months' => max(0, (int) ($row['billing_grace_months'] ?? 0)),
         ];
     }
 
@@ -40,6 +44,8 @@ class ProjectBillingRepository
                  billing_start_date = :billing_start_date,
                  billing_end_date = :billing_end_date,
                  hourly_rate = :hourly_rate,
+                 billing_matrix_type = :billing_matrix_type,
+                 billing_grace_months = :billing_grace_months,
                  updated_at = NOW()
              WHERE id = :project_id',
             [
@@ -52,6 +58,10 @@ class ProjectBillingRepository
                 ':billing_start_date' => $payload['billing_start_date'] ?? null,
                 ':billing_end_date' => $payload['billing_end_date'] ?? null,
                 ':hourly_rate' => (float) ($payload['hourly_rate'] ?? 0),
+                ':billing_matrix_type' => in_array(($payload['billing_matrix_type'] ?? 'unico'), ['unico', 'recurrente'], true)
+                    ? $payload['billing_matrix_type']
+                    : 'unico',
+                ':billing_grace_months' => max(0, (int) ($payload['billing_grace_months'] ?? 0)),
             ]
         );
     }
@@ -164,7 +174,7 @@ class ProjectBillingRepository
             'SELECT
                 COALESCE(SUM(amount), 0) AS total_invoiced,
                 COALESCE(SUM(CASE WHEN status = "paid" THEN amount ELSE 0 END), 0) AS total_paid,
-                COALESCE(SUM(CASE WHEN status = "issued" THEN amount ELSE 0 END), 0) AS total_due
+                COALESCE(SUM(CASE WHEN status IN ("issued", "draft") THEN amount ELSE 0 END), 0) AS total_due
              FROM project_invoices
              WHERE project_id = :project_id
                AND status <> "cancelled"',
@@ -253,6 +263,106 @@ class ProjectBillingRepository
 
         return $missing;
     }
+
+    public function syncBillingMatrix(int $projectId, array $payload, int $userId): void
+    {
+        if (!$this->db->tableExists('project_invoices')) {
+            return;
+        }
+
+        $matrixType = in_array((string) ($payload['billing_matrix_type'] ?? 'unico'), ['unico', 'recurrente'], true)
+            ? (string) ($payload['billing_matrix_type'] ?? 'unico')
+            : 'unico';
+        $amount = max(0, (float) ($payload['contract_value'] ?? 0));
+        $periodStart = $payload['billing_start_date'] ?? null;
+        $periodEnd = $payload['billing_end_date'] ?? null;
+        $graceMonths = max(0, (int) ($payload['billing_grace_months'] ?? 0));
+
+        $this->db->execute(
+            'DELETE FROM project_invoices
+             WHERE project_id = :project_id
+               AND invoice_number LIKE "AUTO-%"',
+            [':project_id' => $projectId]
+        );
+
+        if ($amount <= 0 || !$periodStart) {
+            return;
+        }
+
+        if ($matrixType === 'unico') {
+            $this->db->insert(
+                'INSERT INTO project_invoices (
+                    project_id, invoice_number, issued_at, period_start, period_end,
+                    amount, status, paid_at, notes, attachment_path, created_by
+                ) VALUES (
+                    :project_id, :invoice_number, :issued_at, :period_start, :period_end,
+                    :amount, "draft", NULL, :notes, NULL, :created_by
+                )',
+                [
+                    ':project_id' => $projectId,
+                    ':invoice_number' => 'AUTO-UNICO-' . date('YmdHis'),
+                    ':issued_at' => $periodStart,
+                    ':period_start' => $periodStart,
+                    ':period_end' => $periodEnd ?: $periodStart,
+                    ':amount' => $amount,
+                    ':notes' => 'Evento único',
+                    ':created_by' => $userId,
+                ]
+            );
+
+            return;
+        }
+
+        if (!$periodEnd) {
+            return;
+        }
+
+        $start = new \DateTimeImmutable(date('Y-m-01', strtotime((string) $periodStart)));
+        $end = new \DateTimeImmutable(date('Y-m-01', strtotime((string) $periodEnd)));
+        $billableMonths = [];
+        $cursor = $start;
+        $index = 0;
+        while ($cursor <= $end) {
+            if ($index >= $graceMonths) {
+                $billableMonths[] = $cursor;
+            }
+            $index++;
+            $cursor = $cursor->modify('+1 month');
+        }
+
+        $count = count($billableMonths);
+        if ($count === 0) {
+            return;
+        }
+
+        $monthlyAmount = round($amount / $count, 2);
+        $running = 0.0;
+        foreach ($billableMonths as $idx => $monthStart) {
+            $value = ($idx === $count - 1) ? round($amount - $running, 2) : $monthlyAmount;
+            $running += $value;
+            $periodMonth = $monthStart->format('Y-m');
+            $this->db->insert(
+                'INSERT INTO project_invoices (
+                    project_id, invoice_number, issued_at, period_start, period_end,
+                    amount, status, paid_at, notes, attachment_path, created_by
+                ) VALUES (
+                    :project_id, :invoice_number, :issued_at, :period_start, :period_end,
+                    :amount, "draft", NULL, :notes, NULL, :created_by
+                )',
+                [
+                    ':project_id' => $projectId,
+                    ':invoice_number' => 'AUTO-' . str_replace('-', '', $periodMonth),
+                    ':issued_at' => $monthStart->format('Y-m-d'),
+                    ':period_start' => $monthStart->format('Y-m-d'),
+                    ':period_end' => $monthStart->format('Y-m-t'),
+                    ':amount' => $value,
+                    ':notes' => 'Evento recurrente ' . $periodMonth,
+                    ':created_by' => $userId,
+                ]
+            );
+        }
+    }
+
 
     public function updateInvoice(int $projectId, int $invoiceId, array $payload): void
     {

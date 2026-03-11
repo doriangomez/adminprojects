@@ -57,6 +57,7 @@ class ProjectsController extends Controller
     private const BILLING_TYPES = ['fixed', 'hours', 'milestones', 'mixed'];
     private const BILLING_PERIODICITIES = ['monthly', 'biweekly', 'deliverable', 'one_time', 'custom'];
     private const INVOICE_STATUSES = ['issued', 'paid', 'draft', 'cancelled'];
+    private const BILLING_MATRIX_TYPES = ['unico', 'recurrente'];
     private const STOPPER_TYPES = ['cliente', 'tecnico', 'interno', 'proveedor', 'financiero', 'legal'];
     private const STOPPER_IMPACT_LEVELS = ['bajo', 'medio', 'alto', 'critico'];
     private const STOPPER_AFFECTED_AREAS = ['tiempo', 'alcance', 'costo', 'calidad'];
@@ -1920,9 +1921,7 @@ class ProjectsController extends Controller
         $invoiceTotals = $billingRepo->invoiceTotals($id);
         $approvedHoursPendingInvoicing = $billingRepo->approvedHoursNotInvoiced($id);
         $approvedHoursTotal = $billingRepo->approvedHoursTotal($id);
-        $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
-            ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
-            : [];
+        $missingMonthlyPeriods = [];
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
         $pmoSnapshot = [];
@@ -1979,6 +1978,7 @@ class ProjectsController extends Controller
             'canVoidInvoice' => $this->auth->can('project.billing.void'),
             'billingTypes' => self::BILLING_TYPES,
             'billingPeriodicities' => self::BILLING_PERIODICITIES,
+            'billingMatrixTypes' => self::BILLING_MATRIX_TYPES,
             'invoiceStatuses' => self::INVOICE_STATUSES,
             'stoppers' => $stoppersRepo->forProject($id),
             'stopperMetrics' => $stopperMetrics,
@@ -2059,7 +2059,9 @@ class ProjectsController extends Controller
         }
 
         $payload = $this->billingPayloadFromRequest($project);
-        (new ProjectBillingRepository($this->db))->updateConfig($projectId, $payload);
+        $billingRepo = new ProjectBillingRepository($this->db);
+        $billingRepo->updateConfig($projectId, $payload);
+        $billingRepo->syncBillingMatrix($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
         (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_config', $projectId, 'updated', $payload);
 
         $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
@@ -2272,17 +2274,23 @@ class ProjectsController extends Controller
                 'billing_start_date' => null,
                 'billing_end_date' => null,
                 'hourly_rate' => 0,
+                'billing_matrix_type' => 'unico',
+                'billing_grace_months' => 0,
             ];
         }
 
         $type = (string) ($_POST['billing_type'] ?? ($current['billing_type'] ?? 'fixed'));
         $periodicity = (string) ($_POST['billing_periodicity'] ?? ($current['billing_periodicity'] ?? 'monthly'));
+        $matrixType = (string) ($_POST['billing_matrix_type'] ?? ($current['billing_matrix_type'] ?? 'unico'));
 
         if (!in_array($type, self::BILLING_TYPES, true)) {
             $type = 'fixed';
         }
         if (!in_array($periodicity, self::BILLING_PERIODICITIES, true)) {
             $periodicity = 'monthly';
+        }
+        if (!in_array($matrixType, self::BILLING_MATRIX_TYPES, true)) {
+            $matrixType = 'unico';
         }
 
         return [
@@ -2296,25 +2304,38 @@ class ProjectsController extends Controller
             'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
             'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
             'hourly_rate' => (float) ($_POST['hourly_rate'] ?? ($current['hourly_rate'] ?? 0)),
+            'billing_matrix_type' => $matrixType,
+            'billing_grace_months' => max(0, (int) ($_POST['billing_grace_months'] ?? ($current['billing_grace_months'] ?? 0))),
         ];
     }
 
     private function invoicePayloadFromRequest(): array
     {
-        $status = (string) ($_POST['status'] ?? 'issued');
-        if (!in_array($status, self::INVOICE_STATUSES, true)) {
-            $status = 'issued';
+        $requestedStatus = strtolower(trim((string) ($_POST['status'] ?? 'pendiente')));
+        $status = match ($requestedStatus) {
+            'pendiente' => 'draft',
+            'facturado' => 'issued',
+            'pagado' => 'paid',
+            default => in_array($requestedStatus, self::INVOICE_STATUSES, true) ? $requestedStatus : 'draft',
+        };
+
+        $period = trim((string) ($_POST['period'] ?? ''));
+        $periodStart = $this->nullableDate($_POST['period_start'] ?? null);
+        $periodEnd = $this->nullableDate($_POST['period_end'] ?? null);
+        if ($period !== '' && preg_match('/^\d{4}-\d{2}$/', $period) === 1) {
+            $periodStart = $period . '-01';
+            $periodEnd = date('Y-m-t', strtotime($periodStart));
         }
 
         return [
             'invoice_number' => trim((string) ($_POST['invoice_number'] ?? '')),
             'issued_at' => $this->nullableDate($_POST['issued_at'] ?? date('Y-m-d')),
-            'period_start' => $this->nullableDate($_POST['period_start'] ?? null),
-            'period_end' => $this->nullableDate($_POST['period_end'] ?? null),
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
             'amount' => (float) ($_POST['amount'] ?? 0),
             'status' => $status,
             'paid_at' => $status === 'paid' ? $this->nullableDate($_POST['paid_at'] ?? date('Y-m-d')) : null,
-            'notes' => trim((string) ($_POST['notes'] ?? '')),
+            'notes' => trim((string) ($_POST['concept'] ?? $_POST['notes'] ?? '')),
             'attachment_path' => trim((string) ($_POST['attachment_path'] ?? '')),
             'timesheet_ids' => is_array($_POST['timesheet_ids'] ?? null) ? $_POST['timesheet_ids'] : [],
         ];
@@ -3004,6 +3025,8 @@ class ProjectsController extends Controller
             'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
             'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
             'hourly_rate' => (float) ($_POST['hourly_rate'] ?? ($current['hourly_rate'] ?? 0)),
+            'billing_matrix_type' => $matrixType,
+            'billing_grace_months' => max(0, (int) ($_POST['billing_grace_months'] ?? ($current['billing_grace_months'] ?? 0))),
         ];
     }
 
