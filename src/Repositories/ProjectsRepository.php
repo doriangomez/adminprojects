@@ -616,6 +616,71 @@ class ProjectsRepository
         return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
     }
 
+    public function panelProjects(array $user, array $filters = []): array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $hasBillableColumn = $this->db->columnExists('projects', 'is_billable');
+        $hasActiveColumn = $this->db->columnExists('projects', 'active');
+
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'c.id = :clientId';
+            $params[':clientId'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'p.status = :status';
+            $params[':status'] = (string) $filters['status'];
+        }
+
+        if (!empty($filters['project_stage'])) {
+            $conditions[] = 'p.project_stage = :projectStage';
+            $params[':projectStage'] = (string) $filters['project_stage'];
+        }
+
+        if (!empty($filters['methodology'])) {
+            $conditions[] = 'p.methodology = :methodology';
+            $params[':methodology'] = (string) $filters['methodology'];
+        }
+
+        if (!empty($filters['start_date'])) {
+            $conditions[] = 'p.start_date >= :startDate';
+            $params[':startDate'] = (string) $filters['start_date'];
+        }
+
+        if (!empty($filters['end_date'])) {
+            $conditions[] = 'p.end_date <= :endDate';
+            $params[':endDate'] = (string) $filters['end_date'];
+        }
+
+        if (($filters['billable'] ?? '') === 'yes' && $hasBillableColumn) {
+            $conditions[] = 'p.is_billable = 1';
+        }
+
+        if (($filters['billable'] ?? '') === 'no' && $hasBillableColumn) {
+            $conditions[] = 'p.is_billable = 0';
+        }
+
+        if ($hasActiveColumn) {
+            $conditions[] = 'p.active = 1';
+        }
+
+        $whereClause = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
+
+        $sql = sprintf(
+            'SELECT p.*, c.id AS client_id, c.name AS client_name, u.name AS pm_name
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             LEFT JOIN users u ON u.id = p.pm_id
+             %s
+             ORDER BY c.name ASC, p.created_at DESC',
+            $whereClause
+        );
+
+        $projects = $this->db->fetchAll($sql, $params);
+
+        return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+    }
+
     public function clientGroups(array $user, array $filters = []): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');

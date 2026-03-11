@@ -666,7 +666,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .compact-project span { color: var(--text-secondary); }
 
     .badge.status-execution { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--background)); }
-    .badge.status-risk { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
+    .badge.status-risk {
+        background: #fee2e2;
+        color: #b91c1c;
+        border-color: #fca5a5;
+    }
 
     .project-card {
         background: var(--surface);
