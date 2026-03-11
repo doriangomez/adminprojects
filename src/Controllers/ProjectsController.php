@@ -83,7 +83,7 @@ class ProjectsController extends Controller
         $clientsRepo = new ClientsRepository($this->db);
         $this->render('projects/index', [
             'title' => 'Panel de Proyectos',
-            'projects' => [],
+            'projects' => $repo->panelProjects($user, $filters),
             'filters' => $filters,
             'clients' => $clientsRepo->listForUser($user),
             'clientGroups' => $repo->clientGroups($user, $filters),
