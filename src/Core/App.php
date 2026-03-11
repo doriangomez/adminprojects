@@ -330,7 +330,11 @@ class App
                 $controller->billing((int) $matches[1]);
                 return;
             }
-            if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
+            if (preg_match('#^/projects/client/(\d+)/items$#', $path, $matches) && $method === 'GET') {
+                $controller->clientProjects((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)$#', $path, $matches) && $method === 'GET') {
                 $controller->show((int) $matches[1]);
                 return;
             }
