@@ -173,6 +173,21 @@ foreach ($projectsList as $project) {
     $projectsGroupedByClient[$groupKey]['projects'][] = $project;
 }
 
+uasort($projectsGroupedByClient, static function (array $left, array $right): int {
+    $leftName = trim((string) ($left['client_name'] ?? ''));
+    $rightName = trim((string) ($right['client_name'] ?? ''));
+
+    if (function_exists('mb_strtolower')) {
+        $leftName = mb_strtolower($leftName, 'UTF-8');
+        $rightName = mb_strtolower($rightName, 'UTF-8');
+    } else {
+        $leftName = strtolower($leftName);
+        $rightName = strtolower($rightName);
+    }
+
+    return $leftName <=> $rightName;
+});
+
 $stopperSeverityLabel = static function (string $impactLevel): string {
     return match (strtolower(trim($impactLevel))) {
         'critico' => 'Crítico',
