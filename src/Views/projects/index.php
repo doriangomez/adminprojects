@@ -122,25 +122,66 @@ $normalizeClientKey = static function (string $value): string {
         : strtolower($trimmed);
 };
 
-$projectsGroupedByClient = [];
+$clientMetadataById = [];
 foreach ($clientGroupsList as $clientGroup) {
-    $clientName = trim((string) ($clientGroup['name'] ?? ''));
-    if ($clientName === '') {
+    $id = (int) ($clientGroup['id'] ?? 0);
+    if ($id <= 0) {
         continue;
     }
 
-    $groupKey = $normalizeClientKey($clientName);
-    if ($groupKey === '') {
-        continue;
-    }
-
-    $projectsGroupedByClient[$groupKey] = [
-        'client_id' => (int) ($clientGroup['id'] ?? 0),
-        'client_name' => $clientName,
+    $clientMetadataById[$id] = [
+        'name' => trim((string) ($clientGroup['name'] ?? '')),
         'logo_path' => trim((string) ($clientGroup['logo_path'] ?? '')),
-        'project_count' => (int) ($clientGroup['project_count'] ?? 0),
     ];
 }
+
+$projectsGroupedByClient = [];
+foreach ($projectsList as $project) {
+    $clientId = (int) ($project['client_id'] ?? 0);
+    $clientName = trim((string) ($project['client_name'] ?? ''));
+    if ($clientName === '' && $clientId > 0) {
+        $clientName = trim((string) ($clientMetadataById[$clientId]['name'] ?? ''));
+    }
+    if ($clientName === '') {
+        $clientName = 'Cliente sin nombre';
+    }
+
+    $groupKey = $clientId > 0 ? 'id_' . $clientId : $normalizeClientKey($clientName);
+    if (!isset($projectsGroupedByClient[$groupKey])) {
+        $projectsGroupedByClient[$groupKey] = [
+            'client_id' => $clientId,
+            'client_name' => $clientName,
+            'logo_path' => $clientId > 0 ? trim((string) ($clientMetadataById[$clientId]['logo_path'] ?? '')) : '',
+            'project_count' => 0,
+            'projects' => [],
+        ];
+    }
+
+    $projectsGroupedByClient[$groupKey]['projects'][] = $project;
+    $projectsGroupedByClient[$groupKey]['project_count']++;
+}
+
+$compactStatus = static function (array $project): array {
+    $status = strtolower(trim((string) ($project['status'] ?? '')));
+    $health = strtolower(trim((string) ($project['health'] ?? '')));
+
+    if (
+        in_array($health, ['at_risk', 'riesgo', 'risk', 'yellow', 'red', 'warning', 'critical', 'alto', 'medio'], true)
+        || str_contains($status, 'riesgo')
+    ) {
+        return ['label' => 'En riesgo', 'class' => 'status-risk'];
+    }
+
+    if (in_array($status, ['completed', 'completado', 'cerrado', 'closed', 'finalizado', 'archivado', 'archived'], true)) {
+        return ['label' => 'Completado', 'class' => 'status-completed'];
+    }
+
+    if (in_array($status, ['active', 'activo', 'en_ejecucion', 'en_progreso', 'in_progress', 'running', 'ejecucion'], true)) {
+        return ['label' => 'Ejecución', 'class' => 'status-execution'];
+    }
+
+    return ['label' => 'Planificación', 'class' => 'status-planning'];
+};
 
 $stopperSeverityLabel = static function (string $impactLevel): string {
     return match (strtolower(trim($impactLevel))) {
@@ -536,11 +577,21 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         gap: 14px;
     }
 
-    .client-group {
+    .clients-grid {
         margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .client-group {
         display: flex;
         flex-direction: column;
         gap: 10px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 12px;
     }
 
     .client-group-header {
@@ -592,6 +643,30 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         font-size: 12px;
         font-weight: 600;
     }
+
+    .client-project-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .compact-project {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 88px;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: color-mix(in srgb, var(--text-secondary) 8%, var(--background));
+        font-size: 13px;
+    }
+
+    .compact-project strong { color: var(--text-primary); }
+    .compact-project span { color: var(--text-secondary); }
+
+    .badge.status-execution { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--background)); }
+    .badge.status-risk { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
 
     .project-card {
         background: var(--surface);
@@ -702,6 +777,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         .project-cell { min-width: 240px; }
         .progress-track { width: 80px; }
         .client-group-header { align-items: flex-start; }
+        .clients-grid { grid-template-columns: 1fr; }
+        .compact-project { grid-template-columns: minmax(0, 1fr); }
     }
 </style>
 
@@ -863,45 +940,61 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 <?php if (empty($projectsGroupedByClient)): ?>
     <div class="empty-state">No hay proyectos con estos filtros.</div>
 <?php else: ?>
-    <?php foreach ($projectsGroupedByClient as $clientGroup): ?>
-        <?php
-            $clientNameGroup = (string) ($clientGroup['client_name'] ?? 'Cliente');
-            $clientLogoPath = trim((string) ($clientGroup['logo_path'] ?? ''));
-            $clientLogoUrl = '';
-            if ($clientLogoPath !== '') {
-                $clientLogoUrl = str_starts_with($clientLogoPath, 'http://') || str_starts_with($clientLogoPath, 'https://')
-                    ? $clientLogoPath
-                    : $basePath . $clientLogoPath;
-            }
+    <div class="clients-grid">
+        <?php foreach ($projectsGroupedByClient as $clientGroup): ?>
+            <?php
+                $clientNameGroup = (string) ($clientGroup['client_name'] ?? 'Cliente');
+                $clientLogoPath = trim((string) ($clientGroup['logo_path'] ?? ''));
+                $clientLogoUrl = '';
+                if ($clientLogoPath !== '') {
+                    $clientLogoUrl = str_starts_with($clientLogoPath, 'http://') || str_starts_with($clientLogoPath, 'https://')
+                        ? $clientLogoPath
+                        : $basePath . $clientLogoPath;
+                }
 
-            $clientInitial = function_exists('mb_substr')
-                ? mb_substr($clientNameGroup, 0, 1, 'UTF-8')
-                : substr($clientNameGroup, 0, 1);
-            if ($clientInitial === '' || $clientInitial === false) {
-                $clientInitial = '?';
-            }
-            $clientInitial = function_exists('mb_strtoupper')
-                ? mb_strtoupper((string) $clientInitial, 'UTF-8')
-                : strtoupper((string) $clientInitial);
-        ?>
-        <section class="client-group" data-client-group data-client-id="<?= (int) ($clientGroup['client_id'] ?? 0) ?>">
-            <header class="client-group-header">
-                <div class="client-brand">
-                    <?php if ($clientLogoUrl !== ''): ?>
-                        <img class="client-brand-logo" src="<?= htmlspecialchars($clientLogoUrl) ?>" alt="Logo de <?= htmlspecialchars($clientNameGroup) ?>">
-                    <?php else: ?>
-                        <span class="client-brand-avatar" aria-hidden="true"><?= htmlspecialchars($clientInitial) ?></span>
-                    <?php endif; ?>
-                    <div>
-                        <h3 class="client-group-title"><?= htmlspecialchars($clientNameGroup) ?></h3>
-                        <p class="client-group-subtitle"><?= (int) ($clientGroup['project_count'] ?? 0) ?> proyecto(s)</p>
+                $clientInitial = function_exists('mb_substr')
+                    ? mb_substr($clientNameGroup, 0, 1, 'UTF-8')
+                    : substr($clientNameGroup, 0, 1);
+                if ($clientInitial === '' || $clientInitial === false) {
+                    $clientInitial = '?';
+                }
+                $clientInitial = function_exists('mb_strtoupper')
+                    ? mb_strtoupper((string) $clientInitial, 'UTF-8')
+                    : strtoupper((string) $clientInitial);
+            ?>
+            <section class="client-group">
+                <header class="client-group-header">
+                    <div class="client-brand">
+                        <?php if ($clientLogoUrl !== ''): ?>
+                            <img class="client-brand-logo" src="<?= htmlspecialchars($clientLogoUrl) ?>" alt="Logo de <?= htmlspecialchars($clientNameGroup) ?>">
+                        <?php else: ?>
+                            <span class="client-brand-avatar" aria-hidden="true"><?= htmlspecialchars($clientInitial) ?></span>
+                        <?php endif; ?>
+                        <div>
+                            <h3 class="client-group-title"><?= htmlspecialchars($clientNameGroup) ?></h3>
+                            <p class="client-group-subtitle"><?= (int) ($clientGroup['project_count'] ?? 0) ?> proyecto(s)</p>
+                        </div>
                     </div>
+                </header>
+                <div class="client-project-list">
+                    <?php foreach (($clientGroup['projects'] ?? []) as $project): ?>
+                        <?php
+                            $compact = $compactStatus(is_array($project) ? $project : []);
+                            $projectName = (string) ($project['name'] ?? 'Proyecto');
+                            $pmName = (string) ($project['pm_name'] ?? 'Sin PM asignado');
+                            $progress = max(0, min(100, (int) ($project['progress'] ?? 0)));
+                        ?>
+                        <a class="compact-project" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>">
+                            <strong><?= htmlspecialchars($projectName) ?></strong>
+                            <span>PM: <?= htmlspecialchars($pmName) ?></span>
+                            <span class="badge <?= htmlspecialchars((string) $compact['class']) ?>"><?= htmlspecialchars((string) $compact['label']) ?></span>
+                            <span><?= $progress ?>%</span>
+                        </a>
+                    <?php endforeach; ?>
                 </div>
-                <button type="button" class="button ghost" data-client-toggle>Expandir</button>
-            </header>
-            <div data-client-content hidden></div>
-        </section>
-    <?php endforeach; ?>
+            </section>
+        <?php endforeach; ?>
+    </div>
 <?php endif; ?>
 
 
@@ -971,72 +1064,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     });
 
     
-    const escapeHtml = (value) => {
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return String(value ?? '').replace(/[&<>"']/g, (char) => map[char]);
-    };
 
-    const buildProjectCard = (project, basePath) => {
-        const projectId = Number(project.id || 0);
-        const name = escapeHtml(project.name || 'Proyecto');
-        const client = escapeHtml(project.client || 'Cliente no registrado');
-        const pmName = escapeHtml(project.pm_name || 'Sin PM asignado');
-        const progress = Math.max(0, Math.min(100, Number(project.progress || 0)));
-        const status = escapeHtml(project.status_label || project.status || 'Estado no registrado');
-        return `<article class="project-card"><header><div><h3 class="project-title">${name}</h3><p class="project-client">${client}</p><p class="project-client">PM: ${pmName}</p></div></header><div style="display:flex; gap:6px;"><span class="badge neutral">${status}</span></div><div><div class="progress-track"><div class="progress-bar" style="width:${progress}%;"></div></div><span style="font-size:12px; color: var(--text-secondary);">Avance ${progress}%</span></div><div class="card-metrics"><div class="metric"><span>Horas</span><strong>${Number(project.actual_hours || 0)}h</strong></div><div class="metric"><span>Costo</span><strong>$${Number(project.actual_cost || 0)}</strong></div><div class="metric"><a href="${basePath}/projects/${projectId}">Ver detalle</a></div></div></article>`;
-    };
-
-    document.querySelectorAll('[data-client-group]').forEach((group) => {
-        const toggle = group.querySelector('[data-client-toggle]');
-        const content = group.querySelector('[data-client-content]');
-        const clientId = group.getAttribute('data-client-id');
-        if (!toggle || !content || !clientId) {
-            return;
-        }
-
-        toggle.addEventListener('click', async () => {
-            const expanded = group.getAttribute('data-expanded') === 'true';
-            if (expanded) {
-                group.setAttribute('data-expanded', 'false');
-                content.hidden = true;
-                toggle.textContent = 'Expandir';
-                return;
-            }
-
-            group.setAttribute('data-expanded', 'true');
-            content.hidden = false;
-            toggle.textContent = 'Colapsar';
-
-            if (group.getAttribute('data-loaded') === 'true') {
-                return;
-            }
-
-            const params = new URLSearchParams(window.location.search);
-            const status = params.get('status') || '';
-            const projectStage = params.get('project_stage') || '';
-            const methodology = params.get('methodology') || '';
-            const url = `<?= $basePath ?>/projects/client/${clientId}/items?status=${encodeURIComponent(status)}&project_stage=${encodeURIComponent(projectStage)}&methodology=${encodeURIComponent(methodology)}`;
-            content.innerHTML = '<p class="muted">Cargando proyectos...</p>';
-            try {
-                const response = await fetch(url);
-                const payload = await response.json();
-                const projects = Array.isArray(payload.projects) ? payload.projects : [];
-                if (projects.length === 0) {
-                    content.innerHTML = '<div class="empty-state">No hay proyectos para este cliente con el filtro actual.</div>';
-                } else if ('<?= $viewMode ?>' === 'table') {
-                    const rows = projects.map((project) => `<tr><td>${escapeHtml(project.name || '')}</td><td>${escapeHtml(project.pm_name || 'Sin PM asignado')}</td><td>${escapeHtml(project.status_label || project.status || '')}</td><td>${Number(project.progress || 0)}%</td><td><a href="<?= $basePath ?>/projects/${Number(project.id || 0)}">Ver</a></td></tr>`).join('');
-                    content.innerHTML = `<table class="project-table"><thead><tr><th>Proyecto</th><th>PM</th><th>Estado</th><th>Avance</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
-                } else {
-                    content.innerHTML = `<div class="project-grid">${projects.map((project) => buildProjectCard(project, '<?= $basePath ?>')).join('')}</div>`;
-                }
-                group.setAttribute('data-loaded', 'true');
-            } catch (error) {
-                content.innerHTML = '<div class="empty-state">No se pudieron cargar los proyectos.</div>';
-            }
-        });
-    });
-
-document.querySelectorAll('.project-row').forEach((row) => {
+    document.querySelectorAll('.project-row').forEach((row) => {
         row.addEventListener('click', (event) => {
             if (event.target.closest('[data-no-row]')) {
                 return;
