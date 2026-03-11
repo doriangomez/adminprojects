@@ -516,11 +516,26 @@ class ProjectsRepository
         ];
     }
 
-    public function projectsForClient(int $clientId, array $user): array
+    public function projectsForClient(int $clientId, array $user, array $filters = []): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
         $conditions[] = 'c.id = :clientId';
         $params[':clientId'] = $clientId;
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'p.status = :status';
+            $params[':status'] = (string) $filters['status'];
+        }
+
+        if (!empty($filters['project_stage'])) {
+            $conditions[] = 'p.project_stage = :projectStage';
+            $params[':projectStage'] = (string) $filters['project_stage'];
+        }
+
+        if (!empty($filters['methodology'])) {
+            $conditions[] = 'p.methodology = :methodology';
+            $params[':methodology'] = (string) $filters['methodology'];
+        }
         $hasStatusColumn = $this->db->columnExists('projects', 'status_code');
         $hasHealthColumn = $this->db->columnExists('projects', 'health_code');
         $hasPriorityColumn = $this->db->columnExists('projects', 'priority_code');
@@ -599,6 +614,85 @@ class ProjectsRepository
         $projects = $this->db->fetchAll($sql, $params);
 
         return array_map(fn (array $project) => $this->attachProjectSignal($project), $projects);
+    }
+
+    public function clientGroups(array $user, array $filters = []): array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $hasBillableColumn = $this->db->columnExists('projects', 'is_billable');
+        $hasActiveColumn = $this->db->columnExists('projects', 'active');
+        $hasClientLogoColumn = $this->db->columnExists('clients', 'logo_path');
+
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'c.id = :clientId';
+            $params[':clientId'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $conditions[] = 'p.status = :status';
+            $params[':status'] = (string) $filters['status'];
+        }
+
+        if (!empty($filters['project_stage'])) {
+            $conditions[] = 'p.project_stage = :projectStage';
+            $params[':projectStage'] = (string) $filters['project_stage'];
+        }
+
+        if (($filters['billable'] ?? '') === 'yes' && $hasBillableColumn) {
+            $conditions[] = 'p.is_billable = 1';
+        }
+
+        if (($filters['billable'] ?? '') === 'no' && $hasBillableColumn) {
+            $conditions[] = 'p.is_billable = 0';
+        }
+
+        if ($hasActiveColumn) {
+            $conditions[] = 'p.active = 1';
+        }
+
+        $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        return $this->db->fetchAll(
+            sprintf(
+                'SELECT c.id, c.name %s, COUNT(*) AS project_count
+                 FROM projects p
+                 JOIN clients c ON c.id = p.client_id
+                 %s
+                 GROUP BY c.id, c.name
+                 ORDER BY c.name ASC',
+                $hasClientLogoColumn ? ', c.logo_path' : ', NULL AS logo_path',
+                $whereClause
+            ),
+            $params
+        );
+    }
+
+    public function statusOptions(array $user, array $filters = []): array
+    {
+        [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
+        $hasActiveColumn = $this->db->columnExists('projects', 'active');
+
+        if (!empty($filters['client_id'])) {
+            $conditions[] = 'c.id = :clientId';
+            $params[':clientId'] = (int) $filters['client_id'];
+        }
+
+        if (!empty($filters['project_stage'])) {
+            $conditions[] = 'p.project_stage = :projectStage';
+            $params[':projectStage'] = (string) $filters['project_stage'];
+        }
+
+        if ($hasActiveColumn) {
+            $conditions[] = 'p.active = 1';
+        }
+
+        $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        $rows = $this->db->fetchAll(
+            'SELECT DISTINCT p.status AS status FROM projects p JOIN clients c ON c.id = p.client_id ' . $whereClause . ' ORDER BY p.status ASC',
+            $params
+        );
+
+        return array_values(array_filter(array_map(static fn (array $row): string => trim((string) ($row['status'] ?? '')), $rows)));
     }
 
     public function dependencySummary(int $projectId): array

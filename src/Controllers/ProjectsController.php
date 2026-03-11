@@ -80,21 +80,42 @@ class ProjectsController extends Controller
         $repo = new ProjectsRepository($this->db);
         $config = (new ConfigService($this->db))->getConfig();
         $clientsRepo = new ClientsRepository($this->db);
-        $projectService = new ProjectService($this->db);
-        $projects = $repo->summary($user, $filters);
-        foreach ($projects as &$project) {
-            $project['health_score'] = $projectService->calculateProjectHealthScore((int) ($project['id'] ?? 0));
-        }
-        unset($project);
-
         $this->render('projects/index', [
             'title' => 'Panel de Proyectos',
-            'projects' => $projects,
+            'projects' => [],
             'filters' => $filters,
             'clients' => $clientsRepo->listForUser($user),
+            'clientGroups' => $repo->clientGroups($user, $filters),
+            'availableStatuses' => $repo->statusOptions($user, $filters),
             'delivery' => $config['delivery'] ?? [],
             'stageOptions' => self::STAGE_GATES,
         ]);
+    }
+
+
+    public function clientProjects(int $clientId): void
+    {
+        $this->requirePermission('projects.view');
+        $user = $this->auth->user() ?? [];
+        $filters = [
+            'status' => trim((string) ($_GET['status'] ?? '')),
+            'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
+            'methodology' => trim((string) ($_GET['methodology'] ?? '')),
+        ];
+
+        $repo = new ProjectsRepository($this->db);
+        $service = new ProjectService($this->db);
+        $projects = $repo->projectsForClient($clientId, $user, $filters);
+        foreach ($projects as &$project) {
+            $project['health_score'] = $service->calculateProjectHealthScore((int) ($project['id'] ?? 0));
+        }
+        unset($project);
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'ok',
+            'projects' => $projects,
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     public function show(int $id): void
