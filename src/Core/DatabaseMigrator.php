@@ -2630,6 +2630,8 @@ class DatabaseMigrator
             'billing_start_date' => 'ALTER TABLE projects ADD COLUMN billing_start_date DATE NULL AFTER currency_code',
             'billing_end_date' => 'ALTER TABLE projects ADD COLUMN billing_end_date DATE NULL AFTER billing_start_date',
             'hourly_rate' => 'ALTER TABLE projects ADD COLUMN hourly_rate DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER billing_end_date',
+            'billing_matrix_type' => 'ALTER TABLE projects ADD COLUMN billing_matrix_type ENUM("unico","recurrente") NOT NULL DEFAULT "unico" AFTER hourly_rate',
+            'billing_grace_months' => 'ALTER TABLE projects ADD COLUMN billing_grace_months INT NOT NULL DEFAULT 0 AFTER billing_matrix_type',
         ];
 
         foreach ($columns as $column => $sql) {
@@ -2654,7 +2656,7 @@ class DatabaseMigrator
                 period_start DATE NULL,
                 period_end DATE NULL,
                 amount DECIMAL(14,2) NOT NULL,
-                status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued",
+                status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "draft",
                 paid_at DATE NULL,
                 notes TEXT NULL,
                 attachment_path VARCHAR(255) NULL,
@@ -2697,7 +2699,7 @@ class DatabaseMigrator
 
         $this->db->execute(
             'ALTER TABLE project_invoices
-             MODIFY COLUMN status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued"'
+             MODIFY COLUMN status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "draft"'
         );
     }
 
