@@ -380,13 +380,13 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         width: 100%;
         table-layout: auto;
         border-collapse: separate;
-        border-spacing: 0 9px;
+        border-spacing: 0 6px;
         background: transparent;
     }
 
     .project-table th,
     .project-table td {
-        padding: 11px 10px;
+        padding: 12px 10px;
         text-align: left;
         vertical-align: middle;
         font-size: 13px;
@@ -421,7 +421,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .project-table tbody td {
-        background: var(--surface);
+        background: #ffffff;
         border-top: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
         border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
     }
@@ -438,27 +438,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         border-bottom-right-radius: 12px;
     }
 
-    .project-table tbody tr:nth-child(even) {
-        background: transparent;
-    }
-
     .project-table tbody tr:nth-child(even) td {
-        background: color-mix(in srgb, var(--text-secondary) 4%, var(--surface));
-    }
-
-    .project-table tbody tr + tr td {
-        position: relative;
-    }
-
-    .project-table tbody tr + tr td::before {
-        content: '';
-        position: absolute;
-        top: -5px;
-        left: 10px;
-        right: 10px;
-        height: 1px;
-        background: color-mix(in srgb, var(--border) 55%, transparent);
-        pointer-events: none;
+        background: #f8fafc;
     }
 
     .project-row { cursor: pointer; }
