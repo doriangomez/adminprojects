@@ -413,6 +413,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         border-bottom: none;
     }
 
+    .project-table tbody tr:nth-child(even) {
+        background: color-mix(in srgb, var(--text-secondary) 6%, var(--background));
+    }
+
+    .project-table tbody tr + tr td {
+        border-top: 6px solid color-mix(in srgb, var(--background) 92%, transparent);
+    }
+
     .project-row { cursor: pointer; }
     .project-row:hover { background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
 
