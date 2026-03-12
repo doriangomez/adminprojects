@@ -3,6 +3,7 @@ $projectsList = is_array($projects ?? null) ? $projects : [];
 $basePath = $basePath ?? '';
 $filters = is_array($filters ?? null) ? $filters : [];
 $clientsList = is_array($clients ?? null) ? $clients : [];
+$clientsFilterOptions = $clientsList;
 $deliveryConfig = is_array($delivery ?? null) ? $delivery : ['methodologies' => [], 'phases' => [], 'risks' => []];
 $stageOptions = is_array($stageOptions ?? null) ? $stageOptions : [];
 
@@ -121,6 +122,14 @@ $normalizeClientKey = static function (string $value): string {
 
 $clientMetaByName = [];
 $clientMetaById = [];
+
+usort($clientsFilterOptions, static function (array $left, array $right): int {
+    $leftName = trim((string) ($left['name'] ?? ''));
+    $rightName = trim((string) ($right['name'] ?? ''));
+
+    return strcasecmp($leftName, $rightName);
+});
+
 foreach ($clientsList as $clientItem) {
     $clientName = trim((string) ($clientItem['name'] ?? ''));
     if ($clientName === '') {
@@ -172,6 +181,13 @@ foreach ($projectsList as $project) {
 
     $projectsGroupedByClient[$groupKey]['projects'][] = $project;
 }
+
+uasort($projectsGroupedByClient, static function (array $left, array $right): int {
+    $leftName = trim((string) ($left['client_name'] ?? ''));
+    $rightName = trim((string) ($right['client_name'] ?? ''));
+
+    return strcasecmp($leftName, $rightName);
+});
 
 $stopperSeverityLabel = static function (string $impactLevel): string {
     return match (strtolower(trim($impactLevel))) {
@@ -572,6 +588,13 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         display: flex;
         flex-direction: column;
         gap: 10px;
+        padding-top: 10px;
+        border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    }
+
+    .client-group:first-of-type {
+        padding-top: 0;
+        border-top: none;
     }
 
     .client-group-header {
@@ -773,7 +796,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             Cliente
             <select name="client_id">
                 <option value="">Todos</option>
-                <?php foreach ($clientsList as $client): ?>
+                <?php foreach ($clientsFilterOptions as $client): ?>
                     <option value="<?= (int) $client['id'] ?>" <?= isset($filters['client_id']) && (int) $filters['client_id'] === (int) $client['id'] ? 'selected' : '' ?>>
                         <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
                     </option>
