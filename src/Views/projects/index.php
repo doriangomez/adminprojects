@@ -635,17 +635,18 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .client-group {
-        margin-top: 14px;
+        margin-bottom: 20px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        padding-top: 10px;
-        border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+        gap: 0;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
     }
 
     .client-group:first-of-type {
-        padding-top: 0;
-        border-top: none;
+        margin-top: 0;
     }
 
     .client-group-header {
@@ -653,6 +654,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        background: #f5f7fa;
+        padding: 12px 14px;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     .client-brand {
@@ -696,6 +700,10 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         color: var(--text-secondary);
         font-size: 12px;
         font-weight: 600;
+    }
+
+    .client-group .project-table {
+        margin: 0;
     }
 
     .project-card {
