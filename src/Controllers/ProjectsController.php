@@ -1902,6 +1902,7 @@ class ProjectsController extends Controller
         $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
             ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
             : [];
+        $billingPlanSummary = $billingRepo->financialControlSummary($id, $billingConfig, $invoiceTotals, $approvedHoursTotal);
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
         $pmoSnapshot = [];
@@ -1951,6 +1952,8 @@ class ProjectsController extends Controller
             'approvedHoursPendingInvoicing' => $approvedHoursPendingInvoicing,
             'approvedHoursTotal' => $approvedHoursTotal,
             'missingMonthlyPeriods' => $missingMonthlyPeriods,
+            'billingPlanItems' => $billingPlanSummary['items'] ?? [],
+            'billingFinancialControl' => $billingPlanSummary,
             'canViewBilling' => $this->canViewBilling(),
             'canManageBilling' => $this->canRegisterBilling(),
             'canDeleteInvoice' => $this->auth->hasRole('Administrador'),
@@ -2080,6 +2083,33 @@ class ProjectsController extends Controller
 
         $invoiceId = (new ProjectBillingRepository($this->db))->createInvoice($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
         (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_invoice', $invoiceId, 'created', ['project_id' => $projectId] + $payload);
+        header('Location: /projects/' . $projectId . '/billing');
+    }
+
+    public function createBillingPlanItem(int $projectId): void
+    {
+        $this->requirePermission('project.billing.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado.');
+        }
+
+        $payload = [
+            'billing_model' => strtolower(trim((string) ($_POST['billing_model'] ?? 'milestones'))),
+            'concept' => trim((string) ($_POST['concept'] ?? '')),
+            'milestone_name' => trim((string) ($_POST['milestone_name'] ?? '')),
+            'percentage' => $_POST['percentage'] ?? null,
+            'amount' => $_POST['amount'] ?? null,
+            'billing_frequency' => trim((string) ($_POST['billing_frequency'] ?? '')),
+            'expected_trigger' => trim((string) ($_POST['expected_trigger'] ?? '')),
+            'expected_date' => $this->nullableDate($_POST['expected_date'] ?? null),
+            'status' => trim((string) ($_POST['status'] ?? 'pendiente')),
+        ];
+
+        (new ProjectBillingRepository($this->db))->createPlanItem($projectId, $payload);
+        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_plan', $projectId, 'created', $payload);
         header('Location: /projects/' . $projectId . '/billing');
     }
 

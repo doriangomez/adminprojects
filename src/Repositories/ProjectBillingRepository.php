@@ -8,6 +8,8 @@ use Database;
 
 class ProjectBillingRepository
 {
+    private const PLAN_STATUSES = ['pendiente', 'listo_para_facturar', 'facturado', 'pagado', 'atrasado'];
+
     public function __construct(private Database $db)
     {
     }
@@ -219,6 +221,13 @@ class ProjectBillingRepository
             );
         }
 
+        $this->matchPlanItemsWithInvoice($projectId, $invoiceId, [
+            'amount' => (float) ($payload['amount'] ?? 0),
+            'period_start' => $payload['period_start'] ?? null,
+            'period_end' => $payload['period_end'] ?? null,
+            'status' => $payload['status'] ?? 'issued',
+        ]);
+
         return $invoiceId;
     }
 
@@ -283,6 +292,13 @@ class ProjectBillingRepository
                 ':attachment_path' => trim((string) ($payload['attachment_path'] ?? '')) ?: null,
             ]
         );
+
+        $this->matchPlanItemsWithInvoice($projectId, $invoiceId, [
+            'amount' => (float) ($payload['amount'] ?? 0),
+            'period_start' => $payload['period_start'] ?? null,
+            'period_end' => $payload['period_end'] ?? null,
+            'status' => $payload['status'] ?? 'issued',
+        ]);
     }
 
     public function updateInvoiceStatus(int $projectId, int $invoiceId, string $status, ?string $paidAt = null): void
@@ -300,13 +316,197 @@ class ProjectBillingRepository
                 ':project_id' => $projectId,
             ]
         );
+
+        if ($this->db->tableExists('project_billing_plan') && in_array($status, ['issued', 'paid'], true)) {
+            $planStatus = $status === 'paid' ? 'pagado' : 'facturado';
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET status = :plan_status,
+                     updated_at = NOW()
+                 WHERE project_id = :project_id
+                   AND invoice_id = :invoice_id',
+                [
+                    ':plan_status' => $planStatus,
+                    ':project_id' => $projectId,
+                    ':invoice_id' => $invoiceId,
+                ]
+            );
+        }
     }
 
     public function deleteInvoice(int $projectId, int $invoiceId): void
     {
+        if ($this->db->tableExists('project_billing_plan')) {
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET status = CASE WHEN status = "pagado" THEN "pagado" ELSE "pendiente" END,
+                     invoice_id = NULL,
+                     updated_at = NOW()
+                 WHERE project_id = :project_id
+                   AND invoice_id = :invoice_id',
+                [
+                    ':project_id' => $projectId,
+                    ':invoice_id' => $invoiceId,
+                ]
+            );
+        }
+
         $this->db->execute('DELETE FROM project_invoices WHERE id = :invoice_id AND project_id = :project_id', [
             ':invoice_id' => $invoiceId,
             ':project_id' => $projectId,
         ]);
+    }
+
+    public function billingPlan(int $projectId): array
+    {
+        if (!$this->db->tableExists('project_billing_plan')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT *
+             FROM project_billing_plan
+             WHERE project_id = :project_id
+             ORDER BY COALESCE(expected_date, DATE(created_at)) ASC, id ASC',
+            [':project_id' => $projectId]
+        );
+    }
+
+    public function createPlanItem(int $projectId, array $payload): int
+    {
+        if (!$this->db->tableExists('project_billing_plan')) {
+            return 0;
+        }
+
+        return $this->db->insert(
+            'INSERT INTO project_billing_plan (
+                project_id, billing_model, concept, milestone_name, percentage, amount,
+                billing_frequency, expected_trigger, expected_date, status, invoice_id
+            ) VALUES (
+                :project_id, :billing_model, :concept, :milestone_name, :percentage, :amount,
+                :billing_frequency, :expected_trigger, :expected_date, :status, :invoice_id
+            )',
+            [
+                ':project_id' => $projectId,
+                ':billing_model' => $payload['billing_model'] ?? 'milestones',
+                ':concept' => trim((string) ($payload['concept'] ?? '')),
+                ':milestone_name' => trim((string) ($payload['milestone_name'] ?? '')),
+                ':percentage' => isset($payload['percentage']) && $payload['percentage'] !== '' ? (float) $payload['percentage'] : null,
+                ':amount' => isset($payload['amount']) && $payload['amount'] !== '' ? (float) $payload['amount'] : null,
+                ':billing_frequency' => trim((string) ($payload['billing_frequency'] ?? '')) ?: null,
+                ':expected_trigger' => trim((string) ($payload['expected_trigger'] ?? '')) ?: null,
+                ':expected_date' => $payload['expected_date'] ?? null,
+                ':status' => in_array($payload['status'] ?? '', self::PLAN_STATUSES, true) ? $payload['status'] : 'pendiente',
+                ':invoice_id' => isset($payload['invoice_id']) ? (int) $payload['invoice_id'] : null,
+            ]
+        );
+    }
+
+    public function financialControlSummary(int $projectId, array $billingConfig, array $invoiceTotals, float $approvedHoursTotal): array
+    {
+        $items = $this->billingPlan($projectId);
+        $today = date('Y-m-d');
+        $contractValue = (float) ($billingConfig['contract_value'] ?? 0);
+        $totalIssued = (float) ($invoiceTotals['total_invoiced'] ?? 0);
+        $totalPaid = (float) ($invoiceTotals['total_paid'] ?? 0);
+        $expected = 0.0;
+        $overdue = 0.0;
+
+        foreach ($items as &$item) {
+            $itemAmount = $this->resolvePlanItemAmount($item, $contractValue);
+            $item['resolved_amount'] = $itemAmount;
+            $expectedDate = (string) ($item['expected_date'] ?? '');
+            $status = (string) ($item['status'] ?? 'pendiente');
+            $isDue = $expectedDate !== '' && $expectedDate <= $today;
+            $considerExpected = $isDue || in_array($status, ['listo_para_facturar', 'facturado', 'pagado', 'atrasado'], true);
+            if ($considerExpected) {
+                $expected += $itemAmount;
+            }
+            if ($isDue && !in_array($status, ['facturado', 'pagado'], true)) {
+                $overdue += $itemAmount;
+                if ($status !== 'atrasado') {
+                    $item['status'] = 'atrasado';
+                }
+            }
+        }
+        unset($item);
+
+        $forecast = (($billingConfig['billing_type'] ?? 'fixed') === 'fixed')
+            ? max(0.0, $contractValue - $totalIssued)
+            : max(0.0, $approvedHoursTotal * (float) ($billingConfig['hourly_rate'] ?? 0));
+
+        return [
+            'items' => $items,
+            'expected_billing' => $expected,
+            'issued_billing' => $totalIssued,
+            'pending_billing' => max(0.0, $expected - $totalIssued),
+            'overdue_billing' => $overdue,
+            'total_paid' => $totalPaid,
+            'forecast_revenue' => $forecast,
+        ];
+    }
+
+    private function resolvePlanItemAmount(array $item, float $contractValue): float
+    {
+        $amount = isset($item['amount']) ? (float) $item['amount'] : 0.0;
+        $percentage = isset($item['percentage']) ? (float) $item['percentage'] : 0.0;
+        if ($amount > 0) {
+            return $amount;
+        }
+
+        if ($percentage > 0) {
+            return ($percentage / 100) * $contractValue;
+        }
+
+        return 0.0;
+    }
+
+    private function matchPlanItemsWithInvoice(int $projectId, int $invoiceId, array $invoiceData): void
+    {
+        if (!$this->db->tableExists('project_billing_plan')) {
+            return;
+        }
+
+        $invoiceAmount = (float) ($invoiceData['amount'] ?? 0);
+        $periodStart = $invoiceData['period_start'] ?? null;
+        $periodEnd = $invoiceData['period_end'] ?? null;
+        $status = (string) ($invoiceData['status'] ?? 'issued');
+        $planStatus = $status === 'paid' ? 'pagado' : 'facturado';
+
+        $rows = $this->db->fetchAll(
+            'SELECT id, expected_date, amount
+             FROM project_billing_plan
+             WHERE project_id = :project_id
+               AND invoice_id IS NULL',
+            [':project_id' => $projectId]
+        );
+
+        foreach ($rows as $row) {
+            $expectedDate = $row['expected_date'] ?? null;
+            $amount = (float) ($row['amount'] ?? 0);
+            $dateMatches = $expectedDate === null || $expectedDate === '' || (
+                ($periodStart !== null && $periodStart !== '' && $expectedDate >= $periodStart)
+                && ($periodEnd === null || $periodEnd === '' || $expectedDate <= $periodEnd)
+            );
+            $amountMatches = $amount <= 0.0 || abs($amount - $invoiceAmount) <= 0.01;
+
+            if (!$dateMatches || !$amountMatches) {
+                continue;
+            }
+
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET status = :status,
+                     invoice_id = :invoice_id,
+                     updated_at = NOW()
+                 WHERE id = :id',
+                [
+                    ':status' => $planStatus,
+                    ':invoice_id' => $invoiceId,
+                    ':id' => (int) ($row['id'] ?? 0),
+                ]
+            );
+            break;
+        }
     }
 }

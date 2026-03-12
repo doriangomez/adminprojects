@@ -952,6 +952,7 @@ class DatabaseMigrator
             $this->ensureProjectInvoicesTable();
             $this->ensureProjectInvoiceStatusEnum();
             $this->ensureProjectInvoiceTimesheetsTable();
+            $this->ensureProjectBillingPlanTable();
             $this->ensureBillingPermissions();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de facturación por proyecto: ' . $e->getMessage());
@@ -2698,6 +2699,36 @@ class DatabaseMigrator
         $this->db->execute(
             'ALTER TABLE project_invoices
              MODIFY COLUMN status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued"'
+        );
+    }
+
+    private function ensureProjectBillingPlanTable(): void
+    {
+        if ($this->db->tableExists('project_billing_plan')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE project_billing_plan (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                billing_model ENUM("milestones","advance_balance","recurring","consumption") NOT NULL,
+                concept VARCHAR(140) NULL,
+                milestone_name VARCHAR(160) NULL,
+                percentage DECIMAL(7,2) NULL,
+                amount DECIMAL(14,2) NULL,
+                billing_frequency ENUM("weekly","monthly","quarterly","yearly","custom") NULL,
+                expected_trigger VARCHAR(190) NULL,
+                expected_date DATE NULL,
+                status ENUM("pendiente","listo_para_facturar","facturado","pagado","atrasado") NOT NULL DEFAULT "pendiente",
+                invoice_id BIGINT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_project_billing_plan_project_date (project_id, expected_date),
+                INDEX idx_project_billing_plan_status (project_id, status),
+                CONSTRAINT fk_project_billing_plan_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_project_billing_plan_invoice FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }
 
