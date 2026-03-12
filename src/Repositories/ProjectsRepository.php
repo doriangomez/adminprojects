@@ -263,7 +263,7 @@ class ProjectsRepository
         }
 
         $sql = sprintf(
-            'SELECT %s FROM projects p %s %s ORDER BY p.created_at DESC',
+            'SELECT %s FROM projects p %s %s ORDER BY c.name ASC, p.created_at DESC',
             implode(', ', $select),
             implode(' ', $joins),
             $whereClause
