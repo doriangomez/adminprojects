@@ -24,12 +24,12 @@ $statusLabels = ['issued' => 'Emitida', 'paid' => 'Pagada', 'draft' => 'Borrador
 $totalInvoiced = (float) ($billingTotals['total_invoiced'] ?? 0);
 $hoursBillableAmount = (($billingConfig['billing_type'] ?? '') === 'hours') ? ($approvedHoursTotal * (float) ($billingConfig['hourly_rate'] ?? 0)) : null;
 $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvoiced) : null;
-$controlStatusColors = [
-    'pendiente' => '#9ca3af',
-    'listo_para_facturar' => '#f59e0b',
-    'atrasado' => '#ef4444',
-    'facturado' => '#22c55e',
-    'pagado' => '#3b82f6',
+$controlStatusLabels = [
+    'pendiente' => 'Pendiente',
+    'listo_para_facturar' => 'Listo para facturar',
+    'facturado' => 'Facturado',
+    'pagado' => 'Pagado',
+    'atrasado' => 'Atrasado',
 ];
 ?>
 <section class="project-shell">
@@ -47,7 +47,7 @@ $controlStatusColors = [
     <?php $activeTab = 'facturacion'; require __DIR__ . '/_tabs.php'; ?>
 
     <section class="billing-layout">
-        <article class="card">
+        <article class="card billing-card">
             <h3>A. Configuración contractual</h3>
             <?php if ($canManageBilling): ?>
             <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form" id="billing-config-form">
@@ -106,14 +106,16 @@ $controlStatusColors = [
             <?php endif; ?>
         </article>
 
-        <article class="card">
+        <article class="card billing-card">
             <h3>B. Resumen financiero</h3>
-            <div class="kpi-grid">
-                <article><span>Total contratado</span><strong><?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></strong></article>
-                <article><span>Total facturado</span><strong><?= $fmtMoney($totalInvoiced) ?></strong></article>
-                <article><span>Total pagado</span><strong><?= $fmtMoney((float) ($billingTotals['total_paid'] ?? 0)) ?></strong></article>
-                <article><span>Saldo por cobrar</span><strong><?= $fmtMoney((float) ($billingTotals['total_due'] ?? 0)) ?></strong></article>
-                <article><span>Horas aprobadas sin facturar</span><strong><?= number_format($approvedHoursPendingInvoicing, 2) ?></strong></article>
+            <div class="kpi-grid finance-kpi-grid">
+                <article class="kpi-card"><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></strong></article>
+                <article class="kpi-card"><span>Total esperado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['expected_billing'] ?? 0)) ?></strong></article>
+                <article class="kpi-card"><span>Total facturado</span><strong><?= $fmtMoney($totalInvoiced) ?></strong></article>
+                <article class="kpi-card"><span>Total pagado</span><strong><?= $fmtMoney((float) ($billingTotals['total_paid'] ?? 0)) ?></strong></article>
+                <article class="kpi-card"><span>Saldo por facturar</span><strong><?= $fmtMoney((float) ($billingFinancialControl['pending_billing'] ?? 0)) ?></strong></article>
+                <article class="kpi-card"><span>Facturación atrasada</span><strong><?= $fmtMoney((float) ($billingFinancialControl['overdue_billing'] ?? 0)) ?></strong></article>
+                <article class="kpi-card"><span>Revenue forecast</span><strong><?= $fmtMoney((float) ($billingFinancialControl['forecast_revenue'] ?? 0)) ?></strong></article>
             </div>
             <?php if (($billingConfig['billing_type'] ?? '') === 'fixed' && $totalInvoiced > (float) ($billingConfig['contract_value'] ?? 0)): ?>
                 <p class="alert">⚠ Se superó el valor del contrato para facturación de tipo Fijo.</p>
@@ -126,7 +128,7 @@ $controlStatusColors = [
             </div>
         </article>
 
-        <article class="card">
+        <article class="card billing-card">
             <h3>C. Gestión de facturas</h3>
             <div class="table-wrapper">
                 <table>
@@ -153,20 +155,12 @@ $controlStatusColors = [
             </div>
         </article>
 
-        <article class="card" style="grid-column:1/-1;">
+        <article class="card billing-card" style="grid-column:1/-1;">
             <h3>Control financiero del proyecto</h3>
-            <div class="kpi-grid" style="margin-bottom:14px;">
-                <article><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></strong></article>
-                <article><span>Total esperado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['expected_billing'] ?? 0)) ?></strong></article>
-                <article><span>Total facturado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['issued_billing'] ?? 0)) ?></strong></article>
-                <article><span>Total pagado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['total_paid'] ?? 0)) ?></strong></article>
-                <article><span>Saldo por facturar</span><strong><?= $fmtMoney((float) ($billingFinancialControl['pending_billing'] ?? 0)) ?></strong></article>
-                <article><span>Facturación atrasada</span><strong><?= $fmtMoney((float) ($billingFinancialControl['overdue_billing'] ?? 0)) ?></strong></article>
-                <article><span>Revenue forecast</span><strong><?= $fmtMoney((float) ($billingFinancialControl['forecast_revenue'] ?? 0)) ?></strong></article>
-            </div>
+            <h4 class="billing-subtitle">A) Configuración de modelo de facturación</h4>
 
             <?php if ($canManageBilling): ?>
-            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form" style="margin-bottom:14px;">
+            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form billing-model-form" style="margin-bottom:14px;">
                 <label>Tipo de facturación
                     <select name="billing_model" required>
                         <option value="milestones">Por hitos</option>
@@ -198,13 +192,14 @@ $controlStatusColors = [
                         <option value="atrasado">Atrasado</option>
                     </select>
                 </label>
-                <div><button class="action-btn primary" type="submit">Agregar a matriz</button></div>
+                <div><button class="action-btn primary billing-primary-cta" type="submit">Agregar a matriz</button></div>
             </form>
             <?php endif; ?>
 
+            <h4 class="billing-subtitle">B) Matriz de facturación</h4>
             <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>Concepto</th><th>Fecha</th><th>Valor</th><th>Estado</th><th>Factura</th></tr></thead>
+                <table class="billing-matrix-table">
+                    <thead><tr><th>Concepto</th><th>Fecha esperada</th><th>Valor</th><th>Estado</th><th>Factura asociada</th></tr></thead>
                     <tbody>
                     <?php foreach ($billingPlanItems as $item): ?>
                         <?php
@@ -216,7 +211,7 @@ $controlStatusColors = [
                             <td><?= htmlspecialchars((string) ($item['concept'] ?: ($item['milestone_name'] ?? '-'))) ?></td>
                             <td><?= htmlspecialchars((string) ($item['expected_date'] ?? '-')) ?></td>
                             <td><?= $percentText !== '' ? htmlspecialchars($percentText) . ' · ' : '' ?><?= $fmtMoney($resolved) ?></td>
-                            <td><span class="pill" style="background: <?= htmlspecialchars($controlStatusColors[$status] ?? '#9ca3af') ?>22; color: <?= htmlspecialchars($controlStatusColors[$status] ?? '#9ca3af') ?>;"><?= htmlspecialchars(str_replace('_', ' ', $status)) ?></span></td>
+                            <td><span class="pill status-badge status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($controlStatusLabels[$status] ?? str_replace('_', ' ', $status)) ?></span></td>
                             <td><?= !empty($item['invoice_id']) ? '#' . (int) $item['invoice_id'] : '-' ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -398,6 +393,79 @@ if (billingForm) {
 </script>
 
 <style>
+.billing-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.billing-layout > .billing-card + .billing-card { margin-top: 24px; }
+.billing-layout .grid-form label { margin-bottom: 10px; }
+
+.finance-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  gap: 12px;
+}
+.finance-kpi-grid .kpi-card {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.finance-kpi-grid .kpi-card span {
+  color: #6b7280;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.finance-kpi-grid .kpi-card strong {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.billing-subtitle {
+  margin: 24px 0 12px;
+  font-size: 1rem;
+  color: #1f2937;
+}
+.billing-subtitle:first-of-type { margin-top: 8px; }
+
+.billing-primary-cta {
+  background: var(--primary, #2563eb);
+  border-color: var(--primary, #2563eb);
+  color: #fff;
+  font-weight: 700;
+}
+
+.billing-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.billing-matrix-table thead th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+.billing-matrix-table th,
+.billing-matrix-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.status-badge { border-radius: 999px; font-weight: 600; }
+.status-pendiente { background: #9ca3af22 !important; color: #9ca3af !important; }
+.status-listo_para_facturar { background: #f59e0b22 !important; color: #f59e0b !important; }
+.status-facturado { background: #22c55e22 !important; color: #22c55e !important; }
+.status-pagado { background: #3b82f622 !important; color: #3b82f6 !important; }
+.status-atrasado { background: #ef444422 !important; color: #ef4444 !important; }
+
 .contract-switch-row { grid-column: 1 / -1; display:flex; align-items:center; gap:12px; }
 .contract-title { font-weight:700; }
 .contract-switch-row .toggle-switch { width:52px; height:30px; border-radius:999px; border:1px solid rgba(0,0,0,.14); background:#b8bec8; padding:2px; display:inline-flex; align-items:center; justify-content:flex-start; cursor:pointer; transition:background-color .2s ease, border-color .2s ease; box-sizing:border-box; }
