@@ -379,17 +379,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .project-table {
         width: 100%;
         table-layout: auto;
-        border-collapse: collapse;
-        background: var(--surface);
-        border-radius: 14px;
-        overflow: visible;
-        border: 1px solid var(--border);
+        border-collapse: separate;
+        border-spacing: 0 9px;
+        background: transparent;
     }
 
     .project-table th,
     .project-table td {
         padding: 11px 10px;
-        border-bottom: 1px solid var(--border);
         text-align: left;
         vertical-align: middle;
         font-size: 13px;
@@ -403,26 +400,72 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         background: color-mix(in srgb, var(--text-secondary) 14%, var(--background));
         font-weight: 700;
         white-space: nowrap;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .project-table th:first-child {
+        border-left: 1px solid var(--border);
+        border-top-left-radius: 10px;
+        border-bottom-left-radius: 10px;
+    }
+
+    .project-table th:last-child {
+        border-right: 1px solid var(--border);
+        border-top-right-radius: 10px;
+        border-bottom-right-radius: 10px;
     }
 
     .project-table td {
         white-space: normal;
     }
 
-    .project-table tbody tr:last-child td {
-        border-bottom: none;
+    .project-table tbody td {
+        background: var(--surface);
+        border-top: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
+        border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
+    }
+
+    .project-table tbody tr td:first-child {
+        border-left: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
+        border-top-left-radius: 12px;
+        border-bottom-left-radius: 12px;
+    }
+
+    .project-table tbody tr td:last-child {
+        border-right: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
+        border-top-right-radius: 12px;
+        border-bottom-right-radius: 12px;
     }
 
     .project-table tbody tr:nth-child(even) {
-        background: color-mix(in srgb, var(--text-secondary) 6%, var(--background));
+        background: transparent;
+    }
+
+    .project-table tbody tr:nth-child(even) td {
+        background: color-mix(in srgb, var(--text-secondary) 4%, var(--surface));
     }
 
     .project-table tbody tr + tr td {
-        border-top: 6px solid color-mix(in srgb, var(--background) 92%, transparent);
+        position: relative;
+    }
+
+    .project-table tbody tr + tr td::before {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: 10px;
+        right: 10px;
+        height: 1px;
+        background: color-mix(in srgb, var(--border) 55%, transparent);
+        pointer-events: none;
     }
 
     .project-row { cursor: pointer; }
-    .project-row:hover { background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); }
+    .project-row:hover td {
+        background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+        border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+    }
 
     .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
     .project-client { color: var(--text-secondary); font-size: 12px; margin: 2px 0 0; }
