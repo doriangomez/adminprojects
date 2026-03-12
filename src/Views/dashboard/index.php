@@ -462,11 +462,14 @@
     <section>
         <div class="card alerts-critical" style="padding:10px 14px;">
             <h3 style="margin-bottom:6px;">Centro de alertas</h3>
-            <div class="gov-grid" style="grid-template-columns:repeat(4,minmax(170px,1fr));">
+            <div class="gov-grid" style="grid-template-columns:repeat(7,minmax(170px,1fr));">
                 <div class="gov-item"><div class="metric-label">⚠ Sin actualización &gt; 7 días</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['stale_projects'] ?? 0) ?></strong></div>
                 <div class="gov-item"><div class="metric-label">🔴 Proyectos con riesgo alto</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['high_risk_projects'] ?? 0) ?></strong></div>
                 <div class="gov-item"><div class="metric-label">⛔ Bloqueos críticos abiertos</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['critical_blockers'] ?? 0) ?></strong></div>
                 <div class="gov-item"><div class="metric-label">💰 Facturación pendiente</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['billing_pending'] ?? 0) ?></strong></div>
+                <div class="gov-item"><div class="metric-label">📌 Facturación PMO pendiente</div><strong style="color:var(--warning)">$<?= number_format((float) ($alertStrip['billing_plan_pending'] ?? 0), 0, ',', '.') ?></strong></div>
+                <div class="gov-item"><div class="metric-label">🚨 Facturación PMO atrasada</div><strong style="color:var(--danger)">$<?= number_format((float) ($alertStrip['billing_plan_overdue'] ?? 0), 0, ',', '.') ?></strong></div>
+                <div class="gov-item"><div class="metric-label">📈 Facturación PMO proyectada</div><strong style="color:var(--success)">$<?= number_format((float) ($alertStrip['billing_plan_projected'] ?? 0), 0, ',', '.') ?></strong></div>
             </div>
         </div>
     </section>

@@ -306,6 +306,10 @@ class App
                 $controller->createInvoice((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\d+)/billing-plan$#', $path, $matches) && $method === 'POST') {
+                $controller->createBillingPlanItem((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\d+)/invoices/(\d+)/update$#', $path, $matches) && $method === 'POST') {
                 $controller->updateInvoice((int) $matches[1], (int) $matches[2]);
                 return;

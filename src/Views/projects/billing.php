@@ -4,6 +4,8 @@ $project = $project ?? [];
 $billingConfig = is_array($billingConfig ?? null) ? $billingConfig : [];
 $billingTotals = is_array($billingTotals ?? null) ? $billingTotals : [];
 $projectInvoices = is_array($projectInvoices ?? null) ? $projectInvoices : [];
+$billingPlanItems = is_array($billingPlanItems ?? null) ? $billingPlanItems : [];
+$billingFinancialControl = is_array($billingFinancialControl ?? null) ? $billingFinancialControl : [];
 $canManageBilling = !empty($canManageBilling);
 $canMarkInvoicePaid = !empty($canMarkInvoicePaid);
 $canVoidInvoice = !empty($canVoidInvoice);
@@ -22,6 +24,13 @@ $statusLabels = ['issued' => 'Emitida', 'paid' => 'Pagada', 'draft' => 'Borrador
 $totalInvoiced = (float) ($billingTotals['total_invoiced'] ?? 0);
 $hoursBillableAmount = (($billingConfig['billing_type'] ?? '') === 'hours') ? ($approvedHoursTotal * (float) ($billingConfig['hourly_rate'] ?? 0)) : null;
 $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvoiced) : null;
+$controlStatusColors = [
+    'pendiente' => '#9ca3af',
+    'listo_para_facturar' => '#f59e0b',
+    'atrasado' => '#ef4444',
+    'facturado' => '#22c55e',
+    'pagado' => '#3b82f6',
+];
 ?>
 <section class="project-shell">
     <header class="project-header">
@@ -137,6 +146,78 @@ $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvo
                                 <?php if ($canVoidInvoice && ($inv['status'] ?? '') !== 'cancelled'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/cancel"><button class="action-btn small" type="submit">Anular</button></form><?php endif; ?>
                                 <?php if ($canDeleteInvoice): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar factura?');"><button class="action-btn small danger" type="submit">Eliminar</button></form><?php endif; ?>
                             </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <article class="card" style="grid-column:1/-1;">
+            <h3>Control financiero del proyecto</h3>
+            <div class="kpi-grid" style="margin-bottom:14px;">
+                <article><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></strong></article>
+                <article><span>Total esperado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['expected_billing'] ?? 0)) ?></strong></article>
+                <article><span>Total facturado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['issued_billing'] ?? 0)) ?></strong></article>
+                <article><span>Total pagado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['total_paid'] ?? 0)) ?></strong></article>
+                <article><span>Saldo por facturar</span><strong><?= $fmtMoney((float) ($billingFinancialControl['pending_billing'] ?? 0)) ?></strong></article>
+                <article><span>Facturación atrasada</span><strong><?= $fmtMoney((float) ($billingFinancialControl['overdue_billing'] ?? 0)) ?></strong></article>
+                <article><span>Revenue forecast</span><strong><?= $fmtMoney((float) ($billingFinancialControl['forecast_revenue'] ?? 0)) ?></strong></article>
+            </div>
+
+            <?php if ($canManageBilling): ?>
+            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form" style="margin-bottom:14px;">
+                <label>Tipo de facturación
+                    <select name="billing_model" required>
+                        <option value="milestones">Por hitos</option>
+                        <option value="advance_balance">Anticipo + saldo</option>
+                        <option value="recurring">Recurrente</option>
+                        <option value="consumption">Por consumo</option>
+                    </select>
+                </label>
+                <label>Concepto<input type="text" name="concept" placeholder="Anticipo, soporte, fase 1"></label>
+                <label>Nombre hito<input type="text" name="milestone_name" placeholder="Entrega fase 1"></label>
+                <label>%<input type="number" name="percentage" step="0.01" min="0" max="100"></label>
+                <label>Valor<input type="number" name="amount" step="0.01" min="0"></label>
+                <label>Frecuencia
+                    <select name="billing_frequency">
+                        <option value="">-</option>
+                        <option value="monthly">Mensual</option>
+                        <option value="quarterly">Trimestral</option>
+                        <option value="custom">Personalizada</option>
+                    </select>
+                </label>
+                <label>Condición esperada<input type="text" name="expected_trigger" placeholder="Aprobación cliente"></label>
+                <label>Fecha esperada<input type="date" name="expected_date"></label>
+                <label>Estado
+                    <select name="status" required>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="listo_para_facturar">Listo para facturar</option>
+                        <option value="facturado">Facturado</option>
+                        <option value="pagado">Pagado</option>
+                        <option value="atrasado">Atrasado</option>
+                    </select>
+                </label>
+                <div><button class="action-btn primary" type="submit">Agregar a matriz</button></div>
+            </form>
+            <?php endif; ?>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Concepto</th><th>Fecha</th><th>Valor</th><th>Estado</th><th>Factura</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($billingPlanItems as $item): ?>
+                        <?php
+                            $status = (string) ($item['status'] ?? 'pendiente');
+                            $resolved = isset($item['resolved_amount']) ? (float) $item['resolved_amount'] : (float) ($item['amount'] ?? 0);
+                            $percentText = isset($item['percentage']) && $item['percentage'] !== null ? rtrim(rtrim(number_format((float) $item['percentage'], 2, '.', ''), '0'), '.') . '%' : '';
+                        ?>
+                        <tr>
+                            <td><?= htmlspecialchars((string) ($item['concept'] ?: ($item['milestone_name'] ?? '-'))) ?></td>
+                            <td><?= htmlspecialchars((string) ($item['expected_date'] ?? '-')) ?></td>
+                            <td><?= $percentText !== '' ? htmlspecialchars($percentText) . ' · ' : '' ?><?= $fmtMoney($resolved) ?></td>
+                            <td><span class="pill" style="background: <?= htmlspecialchars($controlStatusColors[$status] ?? '#9ca3af') ?>22; color: <?= htmlspecialchars($controlStatusColors[$status] ?? '#9ca3af') ?>;"><?= htmlspecialchars(str_replace('_', ' ', $status)) ?></span></td>
+                            <td><?= !empty($item['invoice_id']) ? '#' . (int) $item['invoice_id'] : '-' ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

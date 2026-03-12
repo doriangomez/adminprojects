@@ -234,6 +234,9 @@ class DashboardService
         }
 
         $billingPending = 0;
+        $billingPlanPending = 0.0;
+        $billingPlanOverdue = 0.0;
+        $billingPlanProjected = 0.0;
         $totalInvoiced = 0.0;
         $totalCollected = 0.0;
         if ($this->db->tableExists('project_invoices')) {
@@ -258,6 +261,52 @@ class DashboardService
                     $totalCollected += $amount;
                 }
             }
+        }
+
+        if ($this->db->tableExists('project_billing_plan')) {
+            $today = date('Y-m-d');
+            $planRows = $this->db->fetchAll(
+                "SELECT bp.status, bp.amount, bp.percentage, p.contract_value
+                 FROM project_billing_plan bp
+                 JOIN projects p ON p.id = bp.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}",
+                $params
+            );
+
+            foreach ($planRows as $row) {
+                $amount = (float) ($row['amount'] ?? 0);
+                if ($amount <= 0 && (float) ($row['percentage'] ?? 0) > 0) {
+                    $amount = ((float) ($row['percentage'] ?? 0) / 100) * (float) ($row['contract_value'] ?? 0);
+                }
+                $status = (string) ($row['status'] ?? 'pendiente');
+                if (in_array($status, ['pendiente', 'listo_para_facturar', 'atrasado'], true)) {
+                    $billingPlanPending += $amount;
+                }
+                if ($status === 'atrasado') {
+                    $billingPlanOverdue += $amount;
+                }
+                if (!in_array($status, ['facturado', 'pagado'], true)) {
+                    $billingPlanProjected += $amount;
+                }
+            }
+
+            $lateRow = $this->db->fetchOne(
+                "SELECT COALESCE(SUM(CASE
+                            WHEN bp.amount IS NOT NULL AND bp.amount > 0 THEN bp.amount
+                            WHEN bp.percentage IS NOT NULL AND bp.percentage > 0 THEN (bp.percentage / 100) * p.contract_value
+                            ELSE 0
+                        END), 0) AS overdue_total
+                 FROM project_billing_plan bp
+                 JOIN projects p ON p.id = bp.project_id
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND bp.expected_date IS NOT NULL
+                 AND bp.expected_date < :billing_today
+                 AND bp.status NOT IN ('facturado','pagado')",
+                $params + [':billing_today' => $today]
+            );
+            $billingPlanOverdue = max($billingPlanOverdue, (float) ($lateRow['overdue_total'] ?? 0));
         }
 
         $totalContracted = (float) (($this->db->fetchOne(
@@ -519,6 +568,9 @@ class DashboardService
                 'high_risk_projects' => (int) ($highRiskRow['total'] ?? 0),
                 'critical_blockers' => $criticalBlockers,
                 'billing_pending' => $billingPending,
+                'billing_plan_pending' => $billingPlanPending,
+                'billing_plan_overdue' => $billingPlanOverdue,
+                'billing_plan_projected' => $billingPlanProjected,
             ],
             'movement' => [
                 'score' => $scoreMovement,
