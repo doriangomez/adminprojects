@@ -48,7 +48,7 @@ class ClientsRepository
              LEFT JOIN client_areas area ON area.code = c.area_code
              ' . $pmJoin . '
              ' . $where . '
-             ORDER BY c.created_at DESC',
+             ORDER BY c.name ASC, c.id ASC',
             $params
         );
     }
