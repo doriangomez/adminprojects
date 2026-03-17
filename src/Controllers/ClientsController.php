@@ -462,12 +462,25 @@ class ClientsController extends Controller
     private function formData(): array
     {
         $usersRepo = new UsersRepository($this->db);
+        $projectManagers = array_values(array_filter(
+            $usersRepo->all(),
+            fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
+        ));
+
+        usort($projectManagers, static function (array $left, array $right): int {
+            $leftName = trim((string) ($left['name'] ?? ''));
+            $rightName = trim((string) ($right['name'] ?? ''));
+            $comparison = strcasecmp($leftName, $rightName);
+
+            if ($comparison !== 0) {
+                return $comparison;
+            }
+
+            return ((int) ($left['id'] ?? 0)) <=> ((int) ($right['id'] ?? 0));
+        });
 
         return array_merge($this->catalogData(), [
-            'projectManagers' => array_filter(
-                $usersRepo->all(),
-                fn ($candidate) => ($candidate['active'] ?? 0) == 1 && in_array($candidate['role_name'] ?? '', ['Administrador', 'PMO', 'Líder de Proyecto'], true)
-            ),
+            'projectManagers' => $projectManagers,
         ]);
     }
 
@@ -476,13 +489,33 @@ class ClientsController extends Controller
         $masterRepo = new MasterFilesRepository($this->db);
 
         return [
-            'sectors' => $masterRepo->list('client_sectors'),
-            'categories' => $masterRepo->list('client_categories'),
-            'priorities' => $masterRepo->list('priorities'),
-            'statuses' => $masterRepo->list('client_status'),
-            'risks' => $masterRepo->list('client_risk'),
-            'areas' => $masterRepo->list('client_areas'),
+            'sectors' => $this->sortedCatalog($masterRepo->list('client_sectors')),
+            'categories' => $this->sortedCatalog($masterRepo->list('client_categories')),
+            'priorities' => $this->sortedCatalog($masterRepo->list('priorities')),
+            'statuses' => $this->sortedCatalog($masterRepo->list('client_status')),
+            'risks' => $this->sortedCatalog($masterRepo->list('client_risk')),
+            'areas' => $this->sortedCatalog($masterRepo->list('client_areas')),
         ];
+    }
+
+    private function sortedCatalog(array $items): array
+    {
+        usort($items, static function (array $left, array $right): int {
+            $leftLabel = trim((string) ($left['label'] ?? ''));
+            $rightLabel = trim((string) ($right['label'] ?? ''));
+            $comparison = strcasecmp($leftLabel, $rightLabel);
+
+            if ($comparison !== 0) {
+                return $comparison;
+            }
+
+            $leftCode = trim((string) ($left['code'] ?? ''));
+            $rightCode = trim((string) ($right['code'] ?? ''));
+
+            return strcasecmp($leftCode, $rightCode);
+        });
+
+        return $items;
     }
 
     private function validatedPmId(): int
