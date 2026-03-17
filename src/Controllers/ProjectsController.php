@@ -69,6 +69,7 @@ class ProjectsController extends Controller
 
         $filters = [
             'client_id' => isset($_GET['client_id']) ? (int) $_GET['client_id'] : null,
+            'client_name' => trim((string) ($_GET['client_name'] ?? '')),
             'status' => trim((string) ($_GET['status'] ?? '')),
             'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
             'methodology' => trim((string) ($_GET['methodology'] ?? '')),

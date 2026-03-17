@@ -63,6 +63,11 @@ class ProjectsRepository
             $params[':clientId'] = (int) $filters['client_id'];
         }
 
+        if (!empty($filters['client_name'])) {
+            $conditions[] = 'LOWER(TRIM(c.name)) LIKE :clientName';
+            $params[':clientName'] = '%' . strtolower(trim((string) $filters['client_name'])) . '%';
+        }
+
         if (!empty($filters['status'])) {
             $conditions[] = 'p.status = :status';
             $params[':status'] = $filters['status'];
