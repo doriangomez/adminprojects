@@ -109,6 +109,10 @@ $buildQuery = static function (array $overrides) use ($rawQuery): string {
     return http_build_query($params);
 };
 
+$selectedClientNameFilter = trim((string) ($filters['client_name'] ?? ''));
+$selectedClientIdFilter = (int) ($filters['client_id'] ?? 0);
+$selectedClientNameById = [];
+
 $normalizeClientKey = static function (string $value): string {
     $trimmed = trim($value);
     if ($trimmed === '') {
@@ -146,7 +150,12 @@ foreach ($clientsList as $clientItem) {
     $clientId = (int) ($clientItem['id'] ?? 0);
     if ($clientId > 0) {
         $clientMetaById[$clientId] = $meta;
+        $selectedClientNameById[$clientId] = $clientName;
     }
+}
+
+if ($selectedClientNameFilter === '' && $selectedClientIdFilter > 0 && isset($selectedClientNameById[$selectedClientIdFilter])) {
+    $selectedClientNameFilter = $selectedClientNameById[$selectedClientIdFilter];
 }
 
 $projectsGroupedByClient = [];
@@ -321,6 +330,47 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .filter-shell.is-open .filter-extra { display: grid; }
+
+    .autocomplete-shell {
+        position: relative;
+    }
+
+    .autocomplete-results {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 220px;
+        overflow-y: auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 12px 24px color-mix(in srgb, var(--text-primary) 12%, transparent);
+        z-index: 20;
+        padding: 4px;
+    }
+
+    .autocomplete-option {
+        width: 100%;
+        text-align: left;
+        border: none;
+        background: transparent;
+        color: var(--text-primary);
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+    }
+
+    .autocomplete-option:hover,
+    .autocomplete-option.is-active {
+        background: color-mix(in srgb, var(--primary) 16%, transparent);
+    }
+
+    .autocomplete-empty {
+        color: var(--text-secondary);
+        font-size: 12px;
+        padding: 8px 10px;
+    }
 
     .kpi-grid {
         display: grid;
@@ -834,14 +884,16 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         </label>
         <label>
             Cliente
-            <select name="client_id">
-                <option value="">Todos</option>
-                <?php foreach ($clientsFilterOptions as $client): ?>
-                    <option value="<?= (int) $client['id'] ?>" <?= isset($filters['client_id']) && (int) $filters['client_id'] === (int) $client['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($client['name'] ?? 'Cliente') ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <div class="autocomplete-shell" data-client-autocomplete>
+                <input type="search"
+                       name="client_name"
+                       value="<?= htmlspecialchars($selectedClientNameFilter) ?>"
+                       placeholder="Buscar cliente"
+                       autocomplete="off"
+                       data-client-search>
+                <input type="hidden" name="client_id" value="<?= $selectedClientIdFilter > 0 ? $selectedClientIdFilter : '' ?>" data-client-id>
+                <div class="autocomplete-results" data-client-results hidden></div>
+            </div>
         </label>
         <label>
             Estado
@@ -1314,6 +1366,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     <iframe class="notes-panel-frame" data-notes-frame title="Historial de notas del proyecto" loading="lazy"></iframe>
 </aside>
 
+<script id="clients-filter-data" type="application/json"><?= json_encode(array_values(array_map(static fn (array $client): array => [
+    'id' => (int) ($client['id'] ?? 0),
+    'name' => trim((string) ($client['name'] ?? '')),
+], array_filter($clientsFilterOptions, static fn (array $client): bool => trim((string) ($client['name'] ?? '')) !== ''))), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+
 <script>
     const filterShell = document.querySelector('[data-filter-shell]');
     const filterToggle = document.querySelector('[data-filter-toggle]');
@@ -1324,7 +1381,95 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         });
     }
 
+    const clientAutocomplete = document.querySelector('[data-client-autocomplete]');
+    if (clientAutocomplete) {
+        const searchInput = clientAutocomplete.querySelector('[data-client-search]');
+        const clientIdInput = clientAutocomplete.querySelector('[data-client-id]');
+        const resultsBox = clientAutocomplete.querySelector('[data-client-results]');
+        const clientsDataElement = document.querySelector('#clients-filter-data');
+        const clientsData = (() => {
+            if (!clientsDataElement) {
+                return [];
+            }
 
+            try {
+                const parsed = JSON.parse(clientsDataElement.textContent || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                return [];
+            }
+        })();
+
+        const normalizeValue = (value) => (value || '').toString().trim().toLowerCase();
+
+        const clearResults = () => {
+            if (!resultsBox) {
+                return;
+            }
+            resultsBox.innerHTML = '';
+            resultsBox.hidden = true;
+        };
+
+        const renderResults = (query) => {
+            if (!resultsBox || !searchInput || !clientIdInput) {
+                return;
+            }
+
+            const normalizedQuery = normalizeValue(query);
+            if (normalizedQuery.length === 0) {
+                clearResults();
+                return;
+            }
+
+            const matches = clientsData
+                .filter((client) => normalizeValue(client.name).includes(normalizedQuery))
+                .slice(0, 8);
+
+            resultsBox.innerHTML = '';
+            if (matches.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'autocomplete-empty';
+                emptyState.textContent = 'Sin coincidencias';
+                resultsBox.appendChild(emptyState);
+                resultsBox.hidden = false;
+                return;
+            }
+
+            matches.forEach((client) => {
+                const option = document.createElement('button');
+                option.type = 'button';
+                option.className = 'autocomplete-option';
+                option.textContent = client.name;
+                option.dataset.clientId = `${client.id}`;
+                option.addEventListener('click', () => {
+                    searchInput.value = client.name;
+                    clientIdInput.value = client.id;
+                    clearResults();
+                });
+                resultsBox.appendChild(option);
+            });
+            resultsBox.hidden = false;
+        };
+
+        searchInput?.addEventListener('input', (event) => {
+            const query = event.target.value || '';
+            const exactMatch = clientsData.find((client) => normalizeValue(client.name) === normalizeValue(query));
+            clientIdInput.value = exactMatch ? exactMatch.id : '';
+            renderResults(query);
+        });
+
+        searchInput?.addEventListener('focus', () => {
+            if ((searchInput.value || '').trim() !== '') {
+                renderResults(searchInput.value);
+            }
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!clientAutocomplete.contains(event.target)) {
+                clearResults();
+            }
+        });
+    }
 
     const notesOverlay = document.querySelector('[data-notes-overlay]');
     const notesPanel = document.querySelector('[data-notes-panel]');
