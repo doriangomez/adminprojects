@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador funcional omnicanal de cotizaciones - Medinistros</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #0d1b2f;
+      --panel: rgba(11, 25, 43, 0.88);
+      --panel-strong: #10243d;
+      --panel-muted: #122a47;
+      --line: rgba(127, 163, 204, 0.18);
+      --text: #ecf4ff;
+      --muted: #8fa6c4;
+      --accent: #33c2ff;
+      --accent-2: #1477c9;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #fb7185;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --radius: 24px;
+      --radius-sm: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(51, 194, 255, 0.12), transparent 35%),
+        radial-gradient(circle at top right, rgba(20, 119, 201, 0.18), transparent 30%),
+        linear-gradient(180deg, #07111f 0%, #091423 60%, #050d18 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(1500px, calc(100vw - 32px));
+      margin: 20px auto 32px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .topbar, .panel, .metric, .quote-card, .compare-card, .channel-card, .detail-card {
+      backdrop-filter: blur(14px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      border-radius: 28px;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 220px;
+      max-width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,.18));
+      background: rgba(255,255,255,0.02);
+      border-radius: 16px;
+    }
+
+    .headline h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .headline p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 720px;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 20px rgba(0,0,0,0.25);
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    .btn-secondary { background: linear-gradient(135deg, #1d3657, #14263f); }
+    .btn-danger { background: linear-gradient(135deg, #40233d, #2a1830); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .metric {
+      border-radius: 20px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      inset: auto -15% -55% auto;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(51,194,255,0.16), transparent 70%);
+    }
+
+    .metric span { color: var(--muted); font-size: .83rem; display: block; }
+    .metric strong { display: block; margin-top: 8px; font-size: 1.8rem; }
+    .metric small { color: #bfd1ea; display: block; margin-top: 6px; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(390px, 0.95fr) minmax(500px, 1.15fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .column {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      padding: 22px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      font-size: .72rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .panel h2, .panel h3 {
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    .panel p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; }
+
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .channel-card, .detail-card {
+      border-radius: 20px;
+      padding: 16px;
+      min-height: 240px;
+    }
+
+    .channel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .channel-head strong { font-size: 1rem; }
+    .badge {
+      font-size: .72rem;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #d6e6ff;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .empty {
+      border: 1px dashed rgba(143,166,196,0.2);
+      border-radius: 18px;
+      padding: 18px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.02);
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .mail-item, .call-item, .internal-item {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.05);
+      transition: .18s ease;
+    }
+
+    .mail-item { cursor: pointer; }
+    .mail-item:hover, .mail-item.active { border-color: rgba(51,194,255,0.35); background: rgba(20,119,201,0.12); }
+    .mail-item-top, .call-top, .internal-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .mail-item strong, .call-item strong, .internal-item strong { font-size: .92rem; }
+    .mail-item p, .call-item p, .internal-item p { margin: 0; color: #d6e6ff; line-height: 1.35; }
+    .mail-item small, .call-item small, .internal-item small { color: var(--muted); }
+
+    .mail-detail {
+      display: grid;
+      gap: 12px;
+      min-height: 238px;
+      align-content: start;
+    }
+
+    .mail-detail-header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+    }
+
+    .mail-detail-body {
+      white-space: pre-wrap;
+      color: #dcebff;
+      line-height: 1.65;
+      font-size: .95rem;
+    }
+
+    .whatsapp-feed {
+      background: linear-gradient(180deg, rgba(9,25,40,0.9), rgba(5,17,28,0.92));
+      border-radius: 18px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      max-height: 290px;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .bubble {
+      max-width: 82%;
+      padding: 10px 12px;
+      border-radius: 16px;
+      line-height: 1.4;
+      font-size: .93rem;
+      position: relative;
+      animation: popIn .28s ease;
+    }
+
+    .bubble.incoming {
+      justify-self: start;
+      background: rgba(255,255,255,0.08);
+      border-top-left-radius: 4px;
+    }
+
+    .bubble.outgoing {
+      justify-self: end;
+      background: linear-gradient(135deg, rgba(19,168,110,0.85), rgba(13,128,86,0.88));
+      border-top-right-radius: 4px;
+    }
+
+    .bubble small { display: block; opacity: .75; margin-top: 4px; }
+
+    .status-pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 700;
+      width: fit-content;
+      border: 1px solid transparent;
+    }
+    .status-pending { color: #ffd877; background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.24); }
+    .status-alert { color: #ffb5c3; background: rgba(251,113,133,0.12); border-color: rgba(251,113,133,0.24); }
+    .status-ok { color: #9ef0bb; background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.24); }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+      max-height: 430px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      animation: slideIn .25s ease;
+    }
+
+    .timeline-time {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: .95rem;
+    }
+
+    .timeline-body strong { display: block; margin-bottom: 6px; }
+    .timeline-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .interpret-grid, .rules-grid, .alert-list, .observations {
+      display: grid;
+      gap: 10px;
+    }
+
+    .interpret-item, .rule-item, .alert-item, .obs-item {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .interpret-item strong, .rule-item strong { display: block; font-size: .84rem; color: var(--muted); margin-bottom: 6px; }
+    .interpret-item span { font-size: 1rem; font-weight: 700; }
+
+    .alert-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .alert-item.severity-high { border-color: rgba(251,113,133,0.28); background: rgba(251,113,133,0.08); }
+    .alert-item.severity-medium { border-color: rgba(251,191,36,0.28); background: rgba(251,191,36,0.08); }
+    .alert-item.severity-low { border-color: rgba(74,222,128,0.28); background: rgba(74,222,128,0.08); }
+
+    .quote-card {
+      border-radius: 24px;
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(13,27,47,0.96), rgba(9,20,35,0.92));
+    }
+
+    .quote-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .quote-field {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .quote-field strong { display: block; color: var(--muted); font-size: .8rem; margin-bottom: 6px; }
+    .quote-field span { font-size: 1.02rem; font-weight: 700; }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .compare-card {
+      border-radius: 20px;
+      padding: 18px;
+    }
+
+    .compare-card h4 { margin: 0 0 12px; font-size: 1rem; }
+    .compare-card ul { margin: 0; padding-left: 18px; color: #dce9fb; line-height: 1.6; }
+    .compare-card.risk { background: rgba(86,19,38,0.25); }
+    .compare-card.solution { background: rgba(12,71,80,0.22); }
+
+    .footer-note {
+      text-align: center;
+      color: var(--muted);
+      font-size: .88rem;
+      padding-bottom: 8px;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 1220px) {
+      .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .workspace { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 860px) {
+      .topbar { flex-direction: column; align-items: stretch; }
+      .controls { justify-content: stretch; }
+      .controls button { flex: 1 1 220px; }
+      .channels-grid, .quote-grid, .compare-grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .timeline-item { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 560px) {
+      .shell { width: min(100vw - 18px, 100%); margin: 10px auto 22px; }
+      .panel, .topbar { padding: 18px; border-radius: 22px; }
+      .metrics { grid-template-columns: 1fr; }
+      .brand { flex-direction: column; align-items: flex-start; }
+      .brand-logo { width: 190px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="topbar">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 530 104" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Logo Medinistros">
+          <rect width="530" height="104" rx="18" fill="white" fill-opacity="0.98"/>
+          <path d="M23 15C14 15 7 22 7 31V72C7 81 14 88 23 88C32 88 39 81 39 72V47L63 71C69 77 78 77 84 71L108 47V72C108 81 115 88 124 88C133 88 140 81 140 72V31C140 22 133 15 124 15C119 15 114 17 111 21L74 59L36 21C33 17 28 15 23 15Z" fill="#86D8FF" stroke="#0C4F7A" stroke-width="8" stroke-linejoin="round"/>
+          <path d="M171 24H187.6L211.8 68.9L236 24H252.6V86H237.9V48.9L221.6 78.9H201.5L185.2 48.9V86H171V24Z" fill="#133F63"/>
+          <path d="M270.5 24H286.1V39.3H270.5V24ZM270.5 46.2H286.1V86H270.5V46.2Z" fill="#133F63"/>
+          <path d="M304.2 24H319.8V86H304.2V24Z" fill="#133F63"/>
+          <path d="M337.1 24H352.7V39.3H337.1V24ZM337.1 46.2H352.7V86H337.1V46.2Z" fill="#133F63"/>
+          <path d="M367.8 46.2H382.7V51.4C387.8 47.3 394.2 44.6 401.9 44.6C418.9 44.6 430.7 56.4 430.7 73.2V86H415.2V74.8C415.2 66 409.9 60.5 401.6 60.5C393.2 60.5 383.4 66.8 383.4 76.6V86H367.8V46.2Z" fill="#133F63"/>
+          <path d="M447.1 24H462.7V58.2L478.1 46.2H498.8L477.8 62L500.5 86H480.7L462.7 66.5V86H447.1V24Z" fill="#133F63"/>
+          <path d="M192 95H436" stroke="#1189D6" stroke-width="2" stroke-linecap="round"/>
+          <text x="188" y="85" fill="#1189D6" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">Equipos y dispositivos médicos</text>
+        </svg>
+        <div class="headline">
+          <div class="eyebrow">Centro de operación comercial</div>
+          <h1>Simulador funcional omnicanal de cotizaciones - Medinistros</h1>
+          <p>Visualiza cómo una cotización crítica se distorsiona al llegar por correo, WhatsApp, llamadas y ajustes internos, y cómo una capa central de interpretación logra consolidar una versión trazable, consistente y lista para revisión comercial.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="loadCaseBtn" class="btn-primary">Cargar caso base</button>
+        <button id="nextEventBtn" class="btn-secondary" disabled>Simular siguiente entrada</button>
+        <button id="runFlowBtn" class="btn-secondary" disabled>Ejecutar flujo completo</button>
+        <button id="resetBtn" class="btn-danger">Reiniciar</button>
+      </div>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="workspace">
+      <div class="column">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="eyebrow">Operación actual / entradas</div>
+              <h2>Entradas multicanal del caso</h2>
+              <p>La información se mueve en paralelo por varios frentes y genera decisiones difíciles de sostener si no existe una lectura unificada.</p>
+            </div>
+            <div id="caseStatus" class="status-pill status-pending">Pendiente de cargar caso</div>
+          </div>
+          <div class="channels-grid">
+            <div class="channel-card">
+              <div class="channel-head"><strong>📧 Bandeja de correo</strong><span class="badge" id="emailCount">0 mensajes</span></div>
+              <div class="list" id="emailList"><div class="empty">Cargue el caso base para activar la bandeja y revisar correos con detalle.</div></div>
+            </div>
+            <div class="detail-card">
+              <div class="channel-head"><strong>Detalle del correo</strong><span class="badge">Vista activa</span></div>
+              <div id="mailDetail" class="mail-detail"><div class="empty">Seleccione un correo para visualizar remitente, asunto y ajuste solicitado.</div></div>
+            </div>
+            <div class="channel-card">
+              <div class="channel-head"><strong>💬 WhatsApp comercial</strong><span class="badge" id="whatsappCount">0 mensajes</span></div>
+              <div id="whatsappFeed" class="whatsapp-feed"><div class="empty">La conversación aparecerá aquí conforme lleguen mensajes ambiguos o urgentes.</div></div>
+            </div>
+            <div class="channel-card">
+              <div class="channel-head"><strong>📞 Registro de llamadas</strong><span class="badge" id="callCount">0 llamadas</span></div>
+              <div class="list" id="callList"><div class="empty">Los acuerdos verbales y su nivel de soporte quedarán visibles en este log operativo.</div></div>
+            </div>
+            <div class="channel-card" style="grid-column: 1 / -1; min-height: 220px;">
+              <div class="channel-head"><strong>🛠️ Ajustes internos</strong><span class="badge" id="internalCount">0 movimientos</span></div>
+              <div class="list" id="internalList"><div class="empty">Se mostrarán ajustes manuales del equipo comercial, junto con posibles errores o cambios sin soporte.</div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="column">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="eyebrow">Motor de solución</div>
+              <h2>Resumen del caso y timeline unificado</h2>
+              <p>La plataforma central interpreta el origen de cada cambio, mide su calidad y propone una secuencia gobernable para revisión.</p>
+            </div>
+          </div>
+          <div class="quote-card" id="caseSummary"></div>
+          <div style="height:16px"></div>
+          <div class="timeline" id="timeline"><div class="empty">Sin eventos aún. Cargue el caso base y simule entradas para ver el timeline unificado.</div></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="eyebrow">Interpretación del sistema</div>
+              <h3>Lectura operativa de cambios</h3>
+              <p>Se detectan campos impactados, calidad del soporte y foco de validación para evitar reprocesos.</p>
+            </div>
+          </div>
+          <div class="interpret-grid" id="interpretation"></div>
+          <div style="height:16px"></div>
+          <div class="rules-grid" id="rules"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="eyebrow">Riesgos e inconsistencias</div>
+              <h3>Alertas que requieren atención</h3>
+              <p>Solo aparecen cuando hay contradicción, ambigüedad o decisiones sin soporte suficiente.</p>
+            </div>
+          </div>
+          <div class="alert-list" id="alerts"></div>
+        </section>
+
+        <section class="quote-card">
+          <div class="panel-header" style="margin-bottom:0;">
+            <div>
+              <div class="eyebrow">Cotización consolidada sugerida</div>
+              <h3>Versión final propuesta para revisión</h3>
+              <p>Consolida lo confirmado, separa lo ambiguo y deja rastro visible de lo que aún necesita validación.</p>
+            </div>
+            <div id="reviewStatus" class="status-pill status-pending">Esperando caso</div>
+          </div>
+          <div class="quote-grid" id="quoteGrid"></div>
+          <div style="height:16px"></div>
+          <div class="observations" id="observations"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="eyebrow">Antes vs después</div>
+              <h3>Comparación de operación sin solución y con solución</h3>
+              <p>El valor se hace visible al contrastar la versión dispersa frente al consolidado guiado por reglas.</p>
+            </div>
+          </div>
+          <div class="compare-grid" id="comparison"></div>
+        </section>
+      </div>
+    </section>
+
+    <div class="footer-note">Demo operativa diseñada para presentaciones ejecutivas de Medinistros. Todo el flujo corre en una sola página, sin dependencias de base de datos.</div>
+  </div>
+
+  <script>
+    const baseQuoteTemplate = {
+      cliente: 'Clínica XYZ',
+      referencia: 'Monitor multiparámetro M-900',
+      cantidad: 10,
+      moneda: 'COP',
+      descuento: '3%',
+      condiciones: 'Entrega 12 días / pago a 30 días',
+      prioridad: 'Media',
+      referenciaAdicional: 'No incluida',
+      observaciones: ['Caso inicial cargado desde solicitud base del cliente.'],
+      estadoRevision: 'Base cargada'
+    };
+
+    const eventCatalog = [
+      {
+        channel: 'email',
+        sender: 'Andrea Rojas · Compras Clínica XYZ',
+        subject: 'Ajustar cantidades a 20 para comité de compra',
+        preview: 'Por favor validar si la propuesta puede quedar por 20 unidades.',
+        body: 'Buen día equipo Medinistros,\n\nEl comité nos pide revisar la cotización del Monitor multiparámetro M-900 para 20 unidades. Mantengamos las condiciones si es posible.\n\nQuedo atenta para cierre hoy.\nAndrea Rojas',
+        time: '09:12',
+        effects: { cantidad: 20 },
+        confidence: 'alta',
+        ambiguous: false,
+        support: 'formal',
+        risk: 'low'
+      },
+      {
+        channel: 'whatsapp',
+        author: 'Dra. Paula · Clínica XYZ',
+        text: 'súbele eso a 20 y urge hoy',
+        time: '09:16',
+        effects: { cantidad: 20, prioridad: 'Alta' },
+        confidence: 'media',
+        ambiguous: true,
+        support: 'informal',
+        risk: 'medium'
+      },
+      {
+        channel: 'call',
+        caller: 'Julián Méndez · Dirección administrativa',
+        summary: 'Cliente aprueba 5% de descuento verbal para acelerar orden.',
+        time: '09:24',
+        effects: { descuento: '5%' },
+        confidence: 'media',
+        ambiguous: false,
+        support: 'verbal',
+        risk: 'high'
+      },
+      {
+        channel: 'internal',
+        user: 'Laura Gómez · Ejecutiva comercial',
+        summary: 'Ejecutivo ajusta moneda a USD para “alinear con solicitud del cliente”.',
+        time: '09:31',
+        effects: { moneda: 'USD' },
+        confidence: 'media',
+        ambiguous: false,
+        support: 'manual',
+        risk: 'high'
+      },
+      {
+        channel: 'email',
+        sender: 'Andrea Rojas · Compras Clínica XYZ',
+        subject: 'Cambiar cotización a USD y revisar condiciones',
+        preview: 'Finanzas solicita versión en dólares para comparación regional.',
+        body: 'Equipo,\n\nAdemás del ajuste de unidades, finanzas pide recibir la cotización en USD para compararla con otra propuesta internacional. Revisar también si pueden ofrecer entrega parcial.\n\nSaludos,\nAndrea',
+        time: '09:48',
+        effects: { moneda: 'USD', condiciones: 'Entrega parcial habilitada / pago a 30 días' },
+        confidence: 'alta',
+        ambiguous: false,
+        support: 'formal',
+        risk: 'low'
+      },
+      {
+        channel: 'whatsapp',
+        author: 'Dra. Paula · Clínica XYZ',
+        text: 'quita una referencia y déjale el descuento',
+        time: '10:02',
+        effects: { referencia: 'Monitor multiparámetro M-900', descuento: '5%' },
+        confidence: 'baja',
+        ambiguous: true,
+        support: 'informal',
+        risk: 'high'
+      },
+      {
+        channel: 'call',
+        caller: 'Julián Méndez · Dirección administrativa',
+        summary: 'Solicita prioridad alta y confirma entregar parcial para no frenar apertura.',
+        time: '10:11',
+        effects: { prioridad: 'Alta', condiciones: 'Entrega parcial habilitada / pago a 30 días' },
+        confidence: 'media',
+        ambiguous: false,
+        support: 'verbal',
+        risk: 'medium'
+      },
+      {
+        channel: 'internal',
+        user: 'Camilo Torres · Analista comercial',
+        summary: 'Error en digitación de cantidad detectado en pre-cotización anterior.',
+        time: '10:19',
+        effects: { cantidad: 12 },
+        confidence: 'baja',
+        ambiguous: false,
+        support: 'manual',
+        risk: 'high'
+      },
+      {
+        channel: 'email',
+        sender: 'Andrea Rojas · Compras Clínica XYZ',
+        subject: 'Incluir referencia adicional para UCI',
+        preview: 'Se requiere sumar una referencia complementaria para el proyecto.',
+        body: 'Por favor incluir adicionalmente 2 bombas de infusión BI-200 para la fase de UCI. Mantener la referencia principal del monitor M-900 y dejar observación de despacho parcial si aplica.\n\nGracias,\nAndrea',
+        time: '10:33',
+        effects: { referenciaAdicional: '2 bombas de infusión BI-200' },
+        confidence: 'alta',
+        ambiguous: false,
+        support: 'formal',
+        risk: 'low'
+      },
+      {
+        channel: 'internal',
+        user: 'Laura Gómez · Ejecutiva comercial',
+        summary: 'Comercial cambia condiciones y deja ajuste manual sin soporte formal.',
+        time: '10:47',
+        effects: { condiciones: 'Entrega 8 días / pago anticipado' },
+        confidence: 'baja',
+        ambiguous: false,
+        support: 'manual',
+        risk: 'high'
+      }
+    ];
+
+    const state = {
+      caseLoaded: false,
+      currentIndex: 0,
+      events: [],
+      alerts: [],
+      metrics: {},
+      selectedMailId: null,
+      quoteBase: null,
+      quoteConsolidated: null,
+      withoutSolution: null,
+      withSolution: null,
+      interpretations: {},
+      autoRunTimer: null
+    };
+
+    const metricsEl = document.getElementById('metrics');
+    const emailListEl = document.getElementById('emailList');
+    const mailDetailEl = document.getElementById('mailDetail');
+    const whatsappFeedEl = document.getElementById('whatsappFeed');
+    const callListEl = document.getElementById('callList');
+    const internalListEl = document.getElementById('internalList');
+    const timelineEl = document.getElementById('timeline');
+    const alertsEl = document.getElementById('alerts');
+    const interpretationEl = document.getElementById('interpretation');
+    const quoteGridEl = document.getElementById('quoteGrid');
+    const observationsEl = document.getElementById('observations');
+    const comparisonEl = document.getElementById('comparison');
+    const rulesEl = document.getElementById('rules');
+    const reviewStatusEl = document.getElementById('reviewStatus');
+    const caseStatusEl = document.getElementById('caseStatus');
+    const caseSummaryEl = document.getElementById('caseSummary');
+
+    const buttons = {
+      load: document.getElementById('loadCaseBtn'),
+      next: document.getElementById('nextEventBtn'),
+      run: document.getElementById('runFlowBtn'),
+      reset: document.getElementById('resetBtn')
+    };
+
+    const makeClone = (obj) => JSON.parse(JSON.stringify(obj));
+
+    function formatChannel(channel) {
+      return {
+        email: 'Correo',
+        whatsapp: 'WhatsApp',
+        call: 'Llamada',
+        internal: 'Interno'
+      }[channel] || channel;
+    }
+
+    function statusClass(level) {
+      return level === 'high' ? 'status-alert' : level === 'medium' ? 'status-pending' : 'status-ok';
+    }
+
+    function renderCaseSummary() {
+      const quote = state.quoteConsolidated || state.quoteBase;
+      if (!quote) {
+        caseSummaryEl.innerHTML = '<div class="empty">Aún no hay una cotización cargada para resumir el caso.</div>';
+        return;
+      }
+
+      caseSummaryEl.innerHTML = `
+        <div style="display:flex; justify-content:space-between; gap:14px; align-items:flex-start; flex-wrap:wrap;">
+          <div>
+            <div class="eyebrow" style="margin-bottom:6px;">Resumen ejecutivo del caso</div>
+            <h3 style="margin:0; font-size:1.4rem;">${quote.cliente}</h3>
+            <p style="margin-top:8px;">Solicitud activa para ${quote.referencia} con foco en velocidad de respuesta, trazabilidad y control comercial.</p>
+          </div>
+          <div class="status-pill ${statusClass(state.metrics.riskLevelKey || 'low')}">${state.metrics.caseStatus || 'Sin actividad'}</div>
+        </div>
+        <div class="quote-grid">
+          <div class="quote-field"><strong>Referencia principal</strong><span>${quote.referencia}</span></div>
+          <div class="quote-field"><strong>Cantidad objetivo</strong><span>${quote.cantidad} unidades</span></div>
+          <div class="quote-field"><strong>Moneda</strong><span>${quote.moneda}</span></div>
+          <div class="quote-field"><strong>Prioridad</strong><span>${quote.prioridad}</span></div>
+        </div>
+      `;
+    }
+
+    function renderMetrics() {
+      const items = [
+        ['Eventos procesados', state.metrics.eventsProcessed || 0, 'Lectura centralizada de la solicitud'],
+        ['Canales involucrados', state.metrics.channelsInvolved || 0, 'Correo, WhatsApp, llamada e interno'],
+        ['Eventos ambiguos', state.metrics.ambiguousEvents || 0, 'Mensajes con interpretación parcial'],
+        ['Inconsistencias', state.metrics.inconsistencies || 0, 'Cruces con riesgo o contradicción'],
+        ['Nivel de riesgo', state.metrics.riskLevel || 'Bajo', 'Se ajusta por soporte y conflicto'],
+        ['Estado del caso', state.metrics.caseStatus || 'En espera', 'Listo para revisión o validación']
+      ];
+
+      metricsEl.innerHTML = items.map(([label, value, note]) => `
+        <div class="metric">
+          <span>${label}</span>
+          <strong>${value}</strong>
+          <small>${note}</small>
+        </div>
+      `).join('');
+    }
+
+    function renderEmailList() {
+      const emails = state.events.filter(event => event.channel === 'email');
+      document.getElementById('emailCount').textContent = `${emails.length} mensajes`;
+      if (!emails.length) {
+        emailListEl.innerHTML = '<div class="empty">No hay correos cargados todavía.</div>';
+        renderMailDetail();
+        return;
+      }
+
+      emailListEl.innerHTML = emails.map(event => `
+        <div class="mail-item ${state.selectedMailId === event.id ? 'active' : ''}" data-id="${event.id}">
+          <div class="mail-item-top"><strong>${event.sender}</strong><small>${event.time}</small></div>
+          <p>${event.subject}</p>
+          <small>${event.preview}</small>
+        </div>
+      `).join('');
+
+      emailListEl.querySelectorAll('.mail-item').forEach(item => {
+        item.addEventListener('click', () => {
+          state.selectedMailId = Number(item.dataset.id);
+          renderEmailList();
+          renderMailDetail();
+        });
+      });
+
+      if (!state.selectedMailId && emails[0]) {
+        state.selectedMailId = emails[emails.length - 1].id;
+        renderEmailList();
+      }
+    }
+
+    function renderMailDetail() {
+      const selected = state.events.find(event => event.id === state.selectedMailId && event.channel === 'email');
+      if (!selected) {
+        mailDetailEl.innerHTML = '<div class="empty">Seleccione un correo para visualizar remitente, asunto y ajuste solicitado.</div>';
+        return;
+      }
+
+      mailDetailEl.innerHTML = `
+        <div class="mail-detail-header">
+          <strong style="font-size:1rem; display:block;">${selected.subject}</strong>
+          <p style="margin:8px 0 0; color:var(--muted);">De: ${selected.sender} · ${selected.time}</p>
+        </div>
+        <div class="mail-detail-body">${selected.body}</div>
+        <div class="status-pill ${selected.ambiguous ? 'status-pending' : 'status-ok'}">${selected.ambiguous ? 'Requiere interpretación adicional' : 'Solicitud formal utilizable'}</div>
+      `;
+    }
+
+    function renderWhatsapp() {
+      const messages = state.events.filter(event => event.channel === 'whatsapp');
+      document.getElementById('whatsappCount').textContent = `${messages.length} mensajes`;
+      if (!messages.length) {
+        whatsappFeedEl.innerHTML = '<div class="empty">La conversación aparecerá aquí conforme lleguen mensajes ambiguos o urgentes.</div>';
+        return;
+      }
+
+      whatsappFeedEl.innerHTML = messages.map((event, index) => `
+        <div class="bubble ${index % 2 === 0 ? 'incoming' : 'outgoing'}">
+          <strong style="display:block; margin-bottom:4px;">${event.author}</strong>
+          ${event.text}
+          <small>${event.time} · ${event.ambiguous ? 'lectura parcial' : 'lectura clara'}</small>
+        </div>
+      `).join('');
+    }
+
+    function renderCalls() {
+      const calls = state.events.filter(event => event.channel === 'call');
+      document.getElementById('callCount').textContent = `${calls.length} llamadas`;
+      if (!calls.length) {
+        callListEl.innerHTML = '<div class="empty">Los acuerdos verbales y su nivel de soporte quedarán visibles en este log operativo.</div>';
+        return;
+      }
+
+      callListEl.innerHTML = calls.map(event => `
+        <div class="call-item">
+          <div class="call-top"><strong>${event.caller}</strong><small>${event.time}</small></div>
+          <p>${event.summary}</p>
+          <small>${event.support === 'verbal' ? 'Sin soporte documental inmediato' : 'Con soporte suficiente'}</small>
+        </div>
+      `).join('');
+    }
+
+    function renderInternal() {
+      const items = state.events.filter(event => event.channel === 'internal');
+      document.getElementById('internalCount').textContent = `${items.length} movimientos`;
+      if (!items.length) {
+        internalListEl.innerHTML = '<div class="empty">Se mostrarán ajustes manuales del equipo comercial, junto con posibles errores o cambios sin soporte.</div>';
+        return;
+      }
+
+      internalListEl.innerHTML = items.map(event => `
+        <div class="internal-item">
+          <div class="internal-top"><strong>${event.user}</strong><small>${event.time}</small></div>
+          <p>${event.summary}</p>
+          <small>${event.support === 'manual' ? 'Ajuste manual pendiente de sustento' : 'Movimiento respaldado'}</small>
+        </div>
+      `).join('');
+    }
+
+    function renderTimeline() {
+      if (!state.events.length) {
+        timelineEl.innerHTML = '<div class="empty">Sin eventos aún. Cargue el caso base y simule entradas para ver el timeline unificado.</div>';
+        return;
+      }
+
+      timelineEl.innerHTML = state.events.map(event => `
+        <div class="timeline-item">
+          <div class="timeline-time">${event.time}</div>
+          <div class="timeline-body">
+            <strong>${formatChannel(event.channel)} · ${event.original}</strong>
+            <div style="color:#dce9fb; line-height:1.55;">${event.interpretation}</div>
+            <div class="timeline-meta">
+              <span class="badge">Estado: ${event.stateLabel}</span>
+              <span class="badge">Soporte: ${event.support}</span>
+              <span class="badge">Confianza: ${event.confidence}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderInterpretation() {
+      const fields = [
+        ['Cantidad detectada', state.interpretations.cantidad || 'Sin cambios'],
+        ['Moneda detectada', state.interpretations.moneda || 'Sin cambios'],
+        ['Descuento detectado', state.interpretations.descuento || 'Sin cambios'],
+        ['Referencia principal', state.interpretations.referencia || baseQuoteTemplate.referencia],
+        ['Referencia adicional', state.interpretations.referenciaAdicional || 'No incluida'],
+        ['Condiciones detectadas', state.interpretations.condiciones || baseQuoteTemplate.condiciones],
+        ['Prioridad', state.interpretations.prioridad || baseQuoteTemplate.prioridad],
+        ['Último soporte sólido', state.interpretations.soporteClave || 'Pendiente de actividad']
+      ];
+
+      interpretationEl.innerHTML = fields.map(([label, value]) => `
+        <div class="interpret-item">
+          <strong>${label}</strong>
+          <span>${value}</span>
+        </div>
+      `).join('');
+
+      const rules = [
+        ['Regla de cantidad', state.interpretations.cantidadRule || 'Sin conflictos sobre cantidad.'],
+        ['Regla de moneda', state.interpretations.monedaRule || 'Sin solicitudes de cambio de moneda.'],
+        ['Regla de descuento', state.interpretations.descuentoRule || 'No hay descuentos adicionales detectados.'],
+        ['Regla de soporte', state.interpretations.supportRule || 'Sin acciones que exijan formalización.']
+      ];
+
+      rulesEl.innerHTML = rules.map(([title, detail]) => `
+        <div class="rule-item">
+          <strong>${title}</strong>
+          <span>${detail}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderAlerts() {
+      if (!state.alerts.length) {
+        alertsEl.innerHTML = '<div class="alert-item severity-low"><div><strong>Operación bajo control</strong><div style="color:#dce9fb; margin-top:6px;">Sin inconsistencias relevantes. La lectura consolidada está alineada con el caso base.</div></div><span class="badge">Sin alertas</span></div>';
+        return;
+      }
+
+      alertsEl.innerHTML = state.alerts.map(alert => `
+        <div class="alert-item severity-${alert.severity}">
+          <div>
+            <strong>${alert.title}</strong>
+            <div style="color:#dce9fb; margin-top:6px;">${alert.detail}</div>
+          </div>
+          <span class="badge">${alert.tag}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderQuote() {
+      const quote = state.quoteConsolidated;
+      if (!quote) {
+        quoteGridEl.innerHTML = '<div class="empty">La cotización consolidada aparecerá después de cargar el caso base.</div>';
+        observationsEl.innerHTML = '';
+        return;
+      }
+
+      const fields = [
+        ['Cliente', quote.cliente],
+        ['Referencia', quote.referencia],
+        ['Cantidad', `${quote.cantidad} unidades`],
+        ['Moneda', quote.moneda],
+        ['Descuento', quote.descuento],
+        ['Condiciones', quote.condiciones],
+        ['Prioridad', quote.prioridad],
+        ['Estado de revisión', quote.estadoRevision]
+      ];
+
+      quoteGridEl.innerHTML = fields.map(([label, value]) => `
+        <div class="quote-field">
+          <strong>${label}</strong>
+          <span>${value}</span>
+        </div>
+      `).join('');
+
+      observationsEl.innerHTML = [
+        `Referencia adicional: ${quote.referenciaAdicional}`,
+        ...quote.observaciones
+      ].map(item => `<div class="obs-item">${item}</div>`).join('');
+
+      reviewStatusEl.className = `status-pill ${state.alerts.length ? 'status-pending' : 'status-ok'}`;
+      reviewStatusEl.textContent = state.alerts.length ? 'Revisión con alertas' : 'Lista para revisión';
+    }
+
+    function renderComparison() {
+      const withoutSolution = state.withoutSolution || {
+        bullets: ['Mensajes dispersos sin rastro único.', 'Versión final dependiente de memoria operativa.', 'Riesgo alto de enviar una cotización equivocada.']
+      };
+      const withSolution = state.withSolution || {
+        bullets: ['Cambios estructurados por canal.', 'Trazabilidad completa del caso.', 'Consolidado central listo para revisión.']
+      };
+
+      comparisonEl.innerHTML = `
+        <div class="compare-card risk">
+          <h4>Sin solución</h4>
+          <ul>${withoutSolution.bullets.map(item => `<li>${item}</li>`).join('')}</ul>
+        </div>
+        <div class="compare-card solution">
+          <h4>Con solución</h4>
+          <ul>${withSolution.bullets.map(item => `<li>${item}</li>`).join('')}</ul>
+        </div>
+      `;
+    }
+
+    function evaluateEvent(event) {
+      const effectKeys = Object.keys(event.effects || {});
+      const labels = {
+        cantidad: 'ajuste de cantidad',
+        moneda: 'cambio de moneda',
+        descuento: 'actualización de descuento',
+        referencia: 'cambio de referencia',
+        referenciaAdicional: 'referencia adicional',
+        condiciones: 'modificación de condiciones',
+        prioridad: 'cambio de prioridad'
+      };
+
+      const interpretation = effectKeys.length
+        ? effectKeys.map(key => `${labels[key]}: ${event.effects[key]}`).join(' · ')
+        : 'Sin impacto estructural detectado';
+
+      let stateLabel = 'Interpretado y aplicado';
+      if (event.ambiguous) stateLabel = 'Pendiente de validación';
+      if (event.support === 'verbal' || event.support === 'manual') stateLabel = 'Aplicado con alerta';
+      if (event.ambiguous && (event.support === 'verbal' || event.support === 'manual')) stateLabel = 'Pendiente y riesgoso';
+
+      return {
+        interpretation,
+        stateLabel
+      };
+    }
+
+    function recalculateState() {
+      if (!state.quoteBase) {
+        state.metrics = {};
+        state.quoteConsolidated = null;
+        return;
+      }
+
+      const consolidated = makeClone(state.quoteBase);
+      const interpretations = {
+        cantidad: `${consolidated.cantidad} unidades`,
+        moneda: consolidated.moneda,
+        descuento: consolidated.descuento,
+        referencia: consolidated.referencia,
+        referenciaAdicional: consolidated.referenciaAdicional,
+        condiciones: consolidated.condiciones,
+        prioridad: consolidated.prioridad,
+        soporteClave: 'Caso base cargado'
+      };
+      const alerts = [];
+      const withoutBullets = [
+        'Caso base distribuido entre varios canales y actores.',
+        'Alta dependencia de seguimiento manual para reconstruir la versión vigente.'
+      ];
+      const withBullets = [
+        'Caso base estructurado en una única vista operativa.',
+        'Cada evento queda interpretado y vinculado al consolidado sugerido.'
+      ];
+
+      let lastFormalCurrency = consolidated.moneda;
+      let lastFormalQuantity = consolidated.cantidad;
+      let lastFormalSupport = 'Caso base cargado';
+      let ambiguousEvents = 0;
+      let inconsistencies = 0;
+      const channelSet = new Set();
+
+      state.events.forEach(event => {
+        channelSet.add(event.channel);
+        const effectEntries = Object.entries(event.effects || {});
+        if (event.ambiguous) ambiguousEvents += 1;
+
+        if (event.channel === 'email' && effectEntries.length) {
+          lastFormalSupport = `Correo ${event.time}`;
+        }
+
+        effectEntries.forEach(([key, value]) => {
+          if (key === 'cantidad') {
+            if (event.support === 'formal') {
+              lastFormalQuantity = value;
+            }
+            if (event.ambiguous) {
+              alerts.push({
+                title: 'Cantidad mencionada con ambigüedad',
+                detail: `El mensaje "${event.original}" sugiere ${value} unidades, pero no especifica explícitamente el campo afectado.`,
+                severity: 'medium',
+                tag: formatChannel(event.channel)
+              });
+              inconsistencies += 1;
+            }
+            if (event.support === 'manual' && value !== lastFormalQuantity) {
+              alerts.push({
+                title: 'Conflicto de cantidad entre canales',
+                detail: `El ajuste interno propone ${value} unidades, mientras el último soporte formal sostiene ${lastFormalQuantity}.`,
+                severity: 'high',
+                tag: 'Cantidad'
+              });
+              inconsistencies += 1;
+            } else {
+              consolidated.cantidad = value;
+              interpretations.cantidad = `${value} unidades`;
+            }
+          }
+
+          if (key === 'moneda') {
+            if (event.support === 'manual' && value !== lastFormalCurrency) {
+              alerts.push({
+                title: 'Cambio de moneda no confirmado formalmente',
+                detail: `Se detectó un ajuste a ${value} desde actividad interna antes de contar con soporte formal del cliente.`,
+                severity: 'high',
+                tag: 'Moneda'
+              });
+              inconsistencies += 1;
+            }
+            if (event.support === 'formal') {
+              lastFormalCurrency = value;
+              lastFormalSupport = `Correo ${event.time}`;
+            }
+            consolidated.moneda = value;
+            interpretations.moneda = value;
+          }
+
+          if (key === 'descuento') {
+            if (event.support === 'verbal') {
+              alerts.push({
+                title: 'Descuento verbal sin soporte',
+                detail: `La llamada registra ${value} de descuento, pero aún no existe confirmación escrita del cliente.`,
+                severity: 'high',
+                tag: 'Descuento'
+              });
+              inconsistencies += 1;
+            }
+            consolidated.descuento = value;
+            interpretations.descuento = value;
+          }
+
+          if (key === 'referencia') {
+            if (event.ambiguous) {
+              alerts.push({
+                title: 'Referencia modificada sin detalle suficiente',
+                detail: `El cambio solicitado por ${formatChannel(event.channel)} no indica claramente cuál referencia debe retirarse o sustituirse.`,
+                severity: 'high',
+                tag: 'Referencia'
+              });
+              inconsistencies += 1;
+            } else {
+              consolidated.referencia = value;
+              interpretations.referencia = value;
+            }
+          }
+
+          if (key === 'referenciaAdicional') {
+            consolidated.referenciaAdicional = value;
+            interpretations.referenciaAdicional = value;
+          }
+
+          if (key === 'condiciones') {
+            if (event.support === 'manual') {
+              alerts.push({
+                title: 'Condiciones comerciales ajustadas sin soporte',
+                detail: `El movimiento interno propone "${value}" sin evidencia formal asociada.`,
+                severity: 'medium',
+                tag: 'Condiciones'
+              });
+              inconsistencies += 1;
+            } else {
+              consolidated.condiciones = value;
+              interpretations.condiciones = value;
+            }
+          }
+
+          if (key === 'prioridad') {
+            consolidated.prioridad = value;
+            interpretations.prioridad = value;
+          }
+        });
+
+        if (event.support === 'formal') {
+          lastFormalSupport = `${formatChannel(event.channel)} ${event.time}`;
+        }
+
+        withoutBullets.push(`${formatChannel(event.channel)} ${event.time}: ${event.original}.`);
+        withBullets.push(`${formatChannel(event.channel)} ${event.time}: ${event.interpretation} (${event.stateLabel.toLowerCase()}).`);
+      });
+
+      consolidated.estadoRevision = alerts.length ? 'Requiere validación comercial' : 'Lista para emisión';
+      consolidated.observaciones = [
+        `Último soporte considerado confiable: ${lastFormalSupport}.`,
+        alerts.length ? `Existen ${alerts.length} alertas activas antes de emitir.` : 'No se detectan alertas críticas para emitir.',
+        state.events.length ? 'El consolidado propuesto prioriza cambios formales y deja señalados los movimientos ambiguos.' : 'Aún sin movimientos posteriores al caso base.'
+      ];
+
+      interpretations.soporteClave = lastFormalSupport;
+      interpretations.cantidadRule = alerts.some(item => item.tag === 'Cantidad')
+        ? 'Se mantiene la última cantidad consistente y se separa el ajuste interno conflictivo para validación.'
+        : 'La cantidad sigue el último soporte confiable detectado.';
+      interpretations.monedaRule = alerts.some(item => item.tag === 'Moneda')
+        ? 'Los cambios internos de moneda se aceptan, pero quedan alertados hasta contar con confirmación formal.'
+        : 'La moneda sigue el último requerimiento formal del cliente.';
+      interpretations.descuentoRule = alerts.some(item => item.tag === 'Descuento')
+        ? 'El descuento verbal se refleja como sugerido, no como definitivo, hasta recibir respaldo escrito.'
+        : 'Los descuentos se consolidan sin alertas.';
+      interpretations.supportRule = alerts.length
+        ? 'Toda instrucción verbal, ambigua o manual queda visible antes de emitir la versión final.'
+        : 'No hay señales de soporte débil en el flujo actual.';
+
+      const riskScore = Math.min(100, alerts.length * 18 + ambiguousEvents * 12 + channelSet.size * 6);
+      const riskLevel = riskScore >= 55 ? 'Alto' : riskScore >= 25 ? 'Medio' : 'Bajo';
+      const caseStatus = !state.events.length
+        ? 'Caso base listo'
+        : alerts.length
+          ? 'Revisión prioritaria'
+          : 'Consolidado estable';
+
+      state.metrics = {
+        eventsProcessed: state.events.length,
+        channelsInvolved: channelSet.size,
+        ambiguousEvents,
+        inconsistencies,
+        riskLevel,
+        riskLevelKey: riskLevel === 'Alto' ? 'high' : riskLevel === 'Medio' ? 'medium' : 'low',
+        caseStatus
+      };
+      state.alerts = alerts;
+      state.quoteConsolidated = consolidated;
+      state.withoutSolution = {
+        bullets: [
+          'Mensajes dispersos entre correo, chat, llamadas y notas internas.',
+          `Riesgo ${riskLevel.toLowerCase()} de emitir una versión dudosa sin trazabilidad clara.`,
+          ...withoutBullets.slice(-4)
+        ]
+      };
+      state.withSolution = {
+        bullets: [
+          'Cambios estructurados por campo y fuente de origen.',
+          `Alertas visibles: ${alerts.length} · Eventos ambiguos: ${ambiguousEvents}.`,
+          `Versión sugerida: ${consolidated.cantidad} unidades en ${consolidated.moneda} con ${consolidated.descuento} de descuento.`,
+          ...withBullets.slice(-3)
+        ]
+      };
+      state.interpretations = interpretations;
+    }
+
+    function renderAll() {
+      recalculateState();
+      renderMetrics();
+      renderEmailList();
+      renderMailDetail();
+      renderWhatsapp();
+      renderCalls();
+      renderInternal();
+      renderTimeline();
+      renderInterpretation();
+      renderAlerts();
+      renderQuote();
+      renderComparison();
+      renderCaseSummary();
+
+      caseStatusEl.className = `status-pill ${statusClass(state.metrics.riskLevelKey || 'medium')}`;
+      caseStatusEl.textContent = state.caseLoaded ? (state.metrics.caseStatus || 'Caso base listo') : 'Pendiente de cargar caso';
+    }
+
+    function loadBaseCase() {
+      clearTimeout(state.autoRunTimer);
+      state.caseLoaded = true;
+      state.currentIndex = 0;
+      state.events = [];
+      state.alerts = [];
+      state.selectedMailId = null;
+      state.quoteBase = makeClone(baseQuoteTemplate);
+      state.quoteConsolidated = makeClone(baseQuoteTemplate);
+      state.withoutSolution = null;
+      state.withSolution = null;
+      state.interpretations = {};
+      buttons.next.disabled = false;
+      buttons.run.disabled = false;
+      renderAll();
+    }
+
+    function addNextEvent() {
+      if (!state.caseLoaded || state.currentIndex >= eventCatalog.length) return;
+      const source = eventCatalog[state.currentIndex];
+      const evaluated = evaluateEvent({ ...source, original: source.subject || source.text || source.summary });
+      const event = {
+        id: Date.now() + state.currentIndex,
+        ...source,
+        original: source.subject || source.text || source.summary,
+        interpretation: evaluated.interpretation,
+        stateLabel: evaluated.stateLabel
+      };
+      state.events.push(event);
+      state.currentIndex += 1;
+      if (event.channel === 'email') state.selectedMailId = event.id;
+      renderAll();
+      if (state.currentIndex >= eventCatalog.length) {
+        buttons.next.disabled = true;
+        buttons.run.disabled = true;
+      }
+    }
+
+    function runFullFlow() {
+      if (!state.caseLoaded) loadBaseCase();
+      buttons.run.disabled = true;
+      const step = () => {
+        if (state.currentIndex >= eventCatalog.length) {
+          buttons.next.disabled = true;
+          return;
+        }
+        addNextEvent();
+        if (state.currentIndex < eventCatalog.length) {
+          state.autoRunTimer = setTimeout(step, 650);
+        }
+      };
+      step();
+    }
+
+    function resetAll() {
+      clearTimeout(state.autoRunTimer);
+      state.caseLoaded = false;
+      state.currentIndex = 0;
+      state.events = [];
+      state.alerts = [];
+      state.metrics = {};
+      state.selectedMailId = null;
+      state.quoteBase = null;
+      state.quoteConsolidated = null;
+      state.withoutSolution = null;
+      state.withSolution = null;
+      state.interpretations = {};
+      buttons.next.disabled = true;
+      buttons.run.disabled = true;
+      reviewStatusEl.className = 'status-pill status-pending';
+      reviewStatusEl.textContent = 'Esperando caso';
+      renderAll();
+    }
+
+    buttons.load.addEventListener('click', loadBaseCase);
+    buttons.next.addEventListener('click', addNextEvent);
+    buttons.run.addEventListener('click', runFullFlow);
+    buttons.reset.addEventListener('click', resetAll);
+
+    resetAll();
+  </script>
+</body>
+</html>
