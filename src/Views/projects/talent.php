@@ -77,19 +77,27 @@ $assignmentBadge = static function (string $status): string {
                     }
                     $workloadTotalHours = (float) ($assignment['workload_total_weekly_hours'] ?? 0);
                     $workloadBreakdown = is_array($assignment['workload_breakdown'] ?? null) ? $assignment['workload_breakdown'] : [];
-                    $workloadExplanation = sprintf(
-                        'Capacidad base: %sh/sem | Ocupación total: %sh/sem (%s%%) | Total: %sh/sem -> %s%% ocupado',
-                        number_format($workloadBaseCapacity, 1, '.', ''),
-                        number_format($workloadTotalHours, 1, '.', ''),
-                        number_format($totalAllocationPercent, 1, '.', ''),
-                        number_format($workloadTotalHours, 1, '.', ''),
-                        number_format($totalAllocationPercent, 1, '.', '')
-                    );
+                    usort($workloadBreakdown, static function (array $left, array $right): int {
+                        $leftHours = (float) ($left['weekly_hours'] ?? 0);
+                        $rightHours = (float) ($right['weekly_hours'] ?? 0);
+
+                        return $rightHours <=> $leftHours;
+                    });
+                    $remainingHours = max(0.0, $workloadBaseCapacity - $workloadTotalHours);
+                    $occupancyPercent = $workloadBaseCapacity > 0
+                        ? ($workloadTotalHours / $workloadBaseCapacity) * 100
+                        : 0.0;
                     $allocationSemaphore = 'green';
                     if ($totalAllocationPercent > 120.0) {
                         $allocationSemaphore = 'red';
                     } elseif ($totalAllocationPercent > 100.0) {
                         $allocationSemaphore = 'yellow';
+                    }
+                    $tooltipProgressState = 'ok';
+                    if ($occupancyPercent > 100.0) {
+                        $tooltipProgressState = 'overload';
+                    } elseif ($occupancyPercent > 85.0) {
+                        $tooltipProgressState = 'high';
                     }
                     $workloadEndpoint = $basePath
                         . '/projects/' . (int) ($project['id'] ?? 0)
@@ -128,39 +136,58 @@ $assignmentBadge = static function (string $status): string {
                             </small>
                             <small class="section-muted">
                                 Capacidad estándar: <?= htmlspecialchars(number_format($capacityWeek, 1, '.', '')) ?>h/sem ·
-                                <span class="allocation-value allocation-<?= htmlspecialchars($allocationSemaphore) ?>">
-                                    <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado
+                                <span class="workload-tooltip-wrap">
+                                    <button type="button"
+                                            class="workload-trigger allocation-value allocation-<?= htmlspecialchars($allocationSemaphore) ?>"
+                                            data-tooltip-trigger
+                                            aria-expanded="false">
+                                        <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado
+                                    </button>
+                                    <button type="button"
+                                            class="workload-tooltip-icon"
+                                            data-tooltip-trigger
+                                            aria-label="Ver carga del recurso"
+                                            aria-expanded="false">ⓘ</button>
+                                    <div class="workload-enterprise-tooltip" role="dialog" aria-hidden="true">
+                                        <div class="workload-enterprise-header">Carga del recurso</div>
+                                        <?php if ($workloadBreakdown !== []): ?>
+                                            <ul class="workload-enterprise-list">
+                                                <?php foreach ($workloadBreakdown as $workloadProject): ?>
+                                                    <?php
+                                                    $projectLabel = (string) ($workloadProject['project_name'] ?? 'Proyecto');
+                                                    $projectHours = (float) ($workloadProject['weekly_hours'] ?? 0);
+                                                    ?>
+                                                    <li class="workload-enterprise-item">
+                                                        <span><?= htmlspecialchars($projectLabel) ?></span>
+                                                        <strong><?= htmlspecialchars(number_format($projectHours, 1, '.', '')) ?>h/sem</strong>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <p class="workload-enterprise-empty">Sin carga activa registrada para este recurso.</p>
+                                        <?php endif; ?>
+                                        <div class="workload-enterprise-separator"></div>
+                                        <div class="workload-enterprise-totals">
+                                            <div><span>Total horas</span><strong><?= htmlspecialchars(number_format($workloadTotalHours, 1, '.', '')) ?>h/sem</strong></div>
+                                            <div><span>Capacidad base</span><strong><?= htmlspecialchars(number_format($workloadBaseCapacity, 1, '.', '')) ?>h/sem</strong></div>
+                                            <div><span>Ocupación</span><strong><?= htmlspecialchars(number_format($occupancyPercent, 1, '.', '')) ?>%</strong></div>
+                                            <div><span>Disponibilidad</span><strong><?= htmlspecialchars(number_format($remainingHours, 1, '.', '')) ?>h libres</strong></div>
+                                        </div>
+                                        <div class="workload-enterprise-progress">
+                                            <div class="workload-enterprise-progress-track">
+                                                <span class="workload-enterprise-progress-fill is-<?= htmlspecialchars($tooltipProgressState) ?>"
+                                                      style="width: <?= htmlspecialchars(number_format(min(100.0, max(0.0, $occupancyPercent)), 1, '.', '')) ?>%;"></span>
+                                            </div>
+                                            <?php if ($occupancyPercent > 100.0): ?>
+                                                <small class="workload-enterprise-alert">⚠️ El recurso supera el 100% de capacidad.</small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
                                 </span> ·
                                 <span class="allocation-availability <?= $availableAllocationPercent < 0 ? 'is-negative' : '' ?>">
                                     <?= htmlspecialchars(number_format($availableAllocationPercent, 1, '.', '')) ?>% disponible
                                 </span>
                             </small>
-                            <div class="workload-breakdown">
-                                <small class="section-muted workload-title">👉 Carga actual del recurso:
-                                    <span class="workload-tooltip" title="<?= htmlspecialchars($workloadExplanation) ?>" aria-label="Detalle de cálculo de ocupación">ⓘ</span>
-                                </small>
-                                <?php if ($workloadBreakdown !== []): ?>
-                                    <ul class="workload-list">
-                                        <?php foreach ($workloadBreakdown as $workloadProject): ?>
-                                            <?php
-                                            $isCurrentProject = !empty($workloadProject['is_current_project']);
-                                            $projectLabel = (string) ($workloadProject['project_name'] ?? 'Proyecto');
-                                            $projectHours = (float) ($workloadProject['weekly_hours'] ?? 0);
-                                            $projectContext = $isCurrentProject ? 'Este proyecto' : 'Otros proyectos';
-                                            ?>
-                                            <li class="workload-item <?= $isCurrentProject ? 'is-current' : 'is-other' ?>" title="<?= htmlspecialchars($projectContext) ?>">
-                                                <span>
-                                                    <?= htmlspecialchars($projectLabel) ?>
-                                                </span>
-                                                <strong><?= htmlspecialchars(number_format($projectHours, 1, '.', '')) ?>h/sem</strong>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php else: ?>
-                                    <small class="section-muted">Sin carga activa registrada para este recurso.</small>
-                                <?php endif; ?>
-                                <small class="section-muted"><em>“El porcentaje de ocupación no puede ser una caja negra, debe ser explicable por proyecto.”</em></small>
-                            </div>
                             <?php if ($overAllocationPercent > 0): ?>
                                 <small class="section-muted allocation-warning">
                                     🚦 Semáforo <?= strtoupper($allocationSemaphore) ?> · Sobreasignación <?= htmlspecialchars(number_format($overAllocationPercent, 1, '.', '')) ?>%.
@@ -315,13 +342,26 @@ $assignmentBadge = static function (string $status): string {
     .allocation-red { color: var(--danger); }
     .allocation-availability.is-negative { color: var(--danger); font-weight:700; }
     .allocation-warning { color: var(--warning); font-weight:600; }
-    .workload-breakdown { display:flex; flex-direction:column; gap:4px; padding:8px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--text-secondary) 6%, var(--background)); }
-    .workload-title { font-weight:700; color: var(--text-primary); }
-    .workload-list { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px; }
-    .workload-item { display:flex; justify-content:space-between; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
-    .workload-item.is-current { border-color: color-mix(in srgb, var(--primary) 45%, var(--border) 55%); background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%); }
-    .workload-item.is-other { background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface) 92%); }
-    .workload-tooltip { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; border:1px solid var(--border); font-size:11px; font-weight:700; margin-left:6px; cursor:help; color: var(--text-secondary); }
+    .workload-tooltip-wrap { position:relative; display:inline-flex; align-items:center; gap:6px; }
+    .workload-trigger { border:none; background:transparent; cursor:pointer; padding:0; font:inherit; }
+    .workload-trigger:focus-visible, .workload-tooltip-icon:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 70%, white); outline-offset:2px; border-radius:8px; }
+    .workload-tooltip-icon { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; border:1px solid var(--border); font-size:11px; font-weight:700; cursor:pointer; color:var(--text-secondary); background:var(--surface); padding:0; }
+    .workload-enterprise-tooltip { position:absolute; top:calc(100% + 10px); left:0; width:min(390px, 88vw); max-height:330px; overflow:hidden; background:color-mix(in srgb, var(--surface) 95%, #fff 5%); border:1px solid color-mix(in srgb, var(--border) 85%, #fff 15%); border-radius:14px; box-shadow:0 14px 32px rgba(15, 23, 42, 0.14); padding:14px; display:flex; flex-direction:column; gap:10px; opacity:0; transform:translateY(8px); pointer-events:none; visibility:hidden; transition:opacity .16s ease, transform .18s ease, visibility .18s linear; z-index:15; }
+    .workload-tooltip-wrap.is-open .workload-enterprise-tooltip { opacity:1; transform:translateY(0); pointer-events:auto; visibility:visible; }
+    .workload-enterprise-header { font-size:13px; letter-spacing:.02em; text-transform:uppercase; font-weight:700; color:var(--text-secondary); }
+    .workload-enterprise-list { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; max-height:130px; overflow:auto; }
+    .workload-enterprise-item { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; padding:6px 8px; border-radius:8px; background:color-mix(in srgb, var(--text-secondary) 8%, var(--surface) 92%); }
+    .workload-enterprise-empty { margin:0; font-size:13px; color:var(--text-secondary); }
+    .workload-enterprise-separator { height:1px; background:color-mix(in srgb, var(--border) 88%, transparent); }
+    .workload-enterprise-totals { display:grid; gap:6px; font-size:12px; }
+    .workload-enterprise-totals > div { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .workload-enterprise-progress { display:flex; flex-direction:column; gap:6px; }
+    .workload-enterprise-progress-track { height:8px; border-radius:999px; background:color-mix(in srgb, var(--text-secondary) 12%, var(--surface) 88%); overflow:hidden; }
+    .workload-enterprise-progress-fill { display:block; height:100%; border-radius:inherit; transition:width .28s ease; }
+    .workload-enterprise-progress-fill.is-ok { background:color-mix(in srgb, var(--success) 74%, #7dd3fc 26%); }
+    .workload-enterprise-progress-fill.is-high { background:color-mix(in srgb, var(--warning) 80%, #facc15 20%); }
+    .workload-enterprise-progress-fill.is-overload { background:color-mix(in srgb, var(--danger) 82%, #ef4444 18%); }
+    .workload-enterprise-alert { color:var(--danger); font-weight:600; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
@@ -345,6 +385,91 @@ $assignmentBadge = static function (string $status): string {
     };
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const tooltipWrappers = document.querySelectorAll('.workload-tooltip-wrap');
+    let activeTooltip = null;
+
+    const closeTooltip = (wrapper) => {
+        if (!wrapper) {
+            return;
+        }
+        wrapper.classList.remove('is-open');
+        wrapper.querySelectorAll('[data-tooltip-trigger]').forEach((trigger) => {
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+        const panel = wrapper.querySelector('.workload-enterprise-tooltip');
+        if (panel) {
+            panel.setAttribute('aria-hidden', 'true');
+        }
+        if (activeTooltip === wrapper) {
+            activeTooltip = null;
+        }
+    };
+
+    const openTooltip = (wrapper) => {
+        if (!wrapper) {
+            return;
+        }
+        if (activeTooltip && activeTooltip !== wrapper) {
+            closeTooltip(activeTooltip);
+        }
+        wrapper.classList.add('is-open');
+        wrapper.querySelectorAll('[data-tooltip-trigger]').forEach((trigger) => {
+            trigger.setAttribute('aria-expanded', 'true');
+        });
+        const panel = wrapper.querySelector('.workload-enterprise-tooltip');
+        if (panel) {
+            panel.setAttribute('aria-hidden', 'false');
+        }
+        activeTooltip = wrapper;
+    };
+
+    tooltipWrappers.forEach((wrapper) => {
+        const triggers = wrapper.querySelectorAll('[data-tooltip-trigger]');
+        if (triggers.length === 0) {
+            return;
+        }
+        let hoverTimeout = null;
+
+        wrapper.addEventListener('mouseenter', () => {
+            if (hoverTimeout) {
+                window.clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+            openTooltip(wrapper);
+        });
+        wrapper.addEventListener('mouseleave', () => {
+            hoverTimeout = window.setTimeout(() => closeTooltip(wrapper), 90);
+        });
+
+        triggers.forEach((trigger) => {
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (wrapper.classList.contains('is-open')) {
+                    closeTooltip(wrapper);
+                    return;
+                }
+                openTooltip(wrapper);
+            });
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!activeTooltip) {
+            return;
+        }
+        if (event.target instanceof Element && activeTooltip.contains(event.target)) {
+            return;
+        }
+        closeTooltip(activeTooltip);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && activeTooltip) {
+            closeTooltip(activeTooltip);
+        }
+    });
+
     const semaphoreState = (percent) => {
         if (percent > 120) {
             return 'rojo';
