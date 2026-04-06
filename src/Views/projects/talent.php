@@ -69,7 +69,14 @@ $assignmentBadge = static function (string $status): string {
                         $capacityWeek = 40.0;
                     }
                     $totalAllocationPercent = (float) ($assignment['total_allocation_percent'] ?? $allocationPercent);
-                    $availableAllocationPercent = max(0.0, 100.0 - $totalAllocationPercent);
+                    $availableAllocationPercent = (float) ($assignment['available_allocation_percent'] ?? (100.0 - $totalAllocationPercent));
+                    $overAllocationPercent = max(0.0, $totalAllocationPercent - 100.0);
+                    $allocationSemaphore = 'green';
+                    if ($totalAllocationPercent > 120.0) {
+                        $allocationSemaphore = 'red';
+                    } elseif ($totalAllocationPercent > 100.0) {
+                        $allocationSemaphore = 'yellow';
+                    }
                     $workloadEndpoint = $basePath
                         . '/projects/' . (int) ($project['id'] ?? 0)
                         . '/talent/assignments/' . $assignmentId
@@ -88,7 +95,7 @@ $assignmentBadge = static function (string $status): string {
                             <input type="range"
                                    class="dedication-slider js-dedication-slider"
                                    min="0"
-                                   max="100"
+                                   max="200"
                                    step="0.1"
                                    value="<?= htmlspecialchars(number_format($allocationPercent, 2, '.', '')) ?>"
                                    <?= $isEditable ? '' : 'disabled' ?>>
@@ -107,9 +114,19 @@ $assignmentBadge = static function (string $status): string {
                             </small>
                             <small class="section-muted">
                                 Capacidad estándar: <?= htmlspecialchars(number_format($capacityWeek, 1, '.', '')) ?>h/sem ·
-                                <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado ·
-                                <?= htmlspecialchars(number_format($availableAllocationPercent, 1, '.', '')) ?>% disponible
+                                <span class="allocation-value allocation-<?= htmlspecialchars($allocationSemaphore) ?>">
+                                    <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado
+                                </span> ·
+                                <span class="allocation-availability <?= $availableAllocationPercent < 0 ? 'is-negative' : '' ?>">
+                                    <?= htmlspecialchars(number_format($availableAllocationPercent, 1, '.', '')) ?>% disponible
+                                </span>
                             </small>
+                            <?php if ($overAllocationPercent > 0): ?>
+                                <small class="section-muted allocation-warning">
+                                    🚦 Semáforo <?= strtoupper($allocationSemaphore) ?> · Sobreasignación <?= htmlspecialchars(number_format($overAllocationPercent, 1, '.', '')) ?>%.
+                                    El recurso está sobreasignado, pero se permite continuar bajo responsabilidad del PM.
+                                </small>
+                            <?php endif; ?>
                             <div class="dedication-actions">
                                 <button type="button" class="action-btn primary small js-save-dedication" <?= $isEditable ? '' : 'disabled' ?>>Guardar</button>
                                 <small class="section-muted js-dedication-feedback" aria-live="polite">
@@ -252,6 +269,12 @@ $assignmentBadge = static function (string $status): string {
     .dedication-editor.has-error .dedication-hours-input { border-color: var(--danger); }
     .dedication-editor.has-error .js-dedication-feedback { color: var(--danger); font-weight:600; }
     .dedication-editor.is-success .js-dedication-feedback { color: var(--success); font-weight:600; }
+    .allocation-value { font-weight:700; }
+    .allocation-green { color: var(--success); }
+    .allocation-yellow { color: var(--warning); }
+    .allocation-red { color: var(--danger); }
+    .allocation-availability.is-negative { color: var(--danger); font-weight:700; }
+    .allocation-warning { color: var(--warning); font-weight:600; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
@@ -275,6 +298,15 @@ $assignmentBadge = static function (string $status): string {
     };
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const semaphoreState = (percent) => {
+        if (percent > 120) {
+            return 'rojo';
+        }
+        if (percent > 100) {
+            return 'amarillo';
+        }
+        return 'verde';
+    };
 
     editors.forEach((editor) => {
         const slider = editor.querySelector('.js-dedication-slider');
@@ -285,6 +317,7 @@ $assignmentBadge = static function (string $status): string {
         const feedback = editor.querySelector('.js-dedication-feedback');
         const endpoint = editor.dataset.endpoint || '';
         const capacityWeek = parseFloat(editor.dataset.capacityWeek || '40') || 40;
+        const baseSliderMax = parseFloat(slider?.max || '200') || 200;
 
         if (!slider || !hoursInput || !percentLabel || !equationLabel || !saveButton || endpoint === '') {
             return;
@@ -324,6 +357,12 @@ $assignmentBadge = static function (string $status): string {
             };
         };
 
+        const syncSliderRange = (percent) => {
+            const safePercent = Number.isFinite(percent) ? Math.max(0, percent) : 0;
+            const nextMax = Math.max(baseSliderMax, Math.ceil(safePercent / 10) * 10);
+            slider.max = String(nextMax);
+        };
+
         const renderValues = (percent, hours) => {
             percentLabel.textContent = `${formatValue(percent, 1)}%`;
             hoursInput.value = round(hours, 2).toFixed(2);
@@ -337,8 +376,8 @@ $assignmentBadge = static function (string $status): string {
                 saveButton.disabled = true;
                 return false;
             }
-            if (percent < 0 || percent > 100) {
-                setFeedback('El porcentaje debe estar entre 0 y 100.', 'error');
+            if (percent < 0) {
+                setFeedback('El porcentaje no puede ser negativo.', 'error');
                 saveButton.disabled = true;
                 return false;
             }
@@ -349,7 +388,13 @@ $assignmentBadge = static function (string $status): string {
                 editor.classList.remove('is-success');
             }
             if (!saving && changed && !editor.classList.contains('has-error')) {
-                setFeedback('Cambios pendientes por guardar.');
+                if (percent > 100) {
+                    const over = percent - 100;
+                    const semaphore = semaphoreState(percent);
+                    setFeedback(`⚠️ Sobreasignación ${formatValue(over, 1)}% (semáforo ${semaphore}). El recurso está sobreasignado, pero se permite continuar bajo responsabilidad del PM.`);
+                } else {
+                    setFeedback('Cambios pendientes por guardar.');
+                }
             }
             if (!changed && !saving && !isReadOnly && !editor.classList.contains('has-error')) {
                 setFeedback('');
@@ -359,8 +404,9 @@ $assignmentBadge = static function (string $status): string {
 
         const syncFromPercent = () => {
             const rawPercent = parseFloat(slider.value || '0');
-            const percent = clamp(Number.isFinite(rawPercent) ? rawPercent : 0, 0, 100);
+            const percent = Math.max(0, Number.isFinite(rawPercent) ? rawPercent : 0);
             const hours = capacityWeek * (percent / 100);
+            syncSliderRange(percent);
             renderValues(percent, hours);
             validate();
         };
@@ -369,7 +415,8 @@ $assignmentBadge = static function (string $status): string {
             const rawHours = parseFloat(hoursInput.value || '0');
             const hours = Number.isFinite(rawHours) ? rawHours : 0;
             const percent = capacityWeek > 0 ? (hours / capacityWeek) * 100 : 0;
-            slider.value = String(clamp(percent, 0, 100));
+            syncSliderRange(percent);
+            slider.value = String(clamp(percent, 0, Number(slider.max)));
             renderValues(percent, hours);
             validate();
         };
@@ -435,9 +482,16 @@ $assignmentBadge = static function (string $status): string {
 
                 initialPercent = round(finalPercent, 2);
                 initialHours = round(finalHours, 2);
-                slider.value = String(clamp(finalPercent, 0, 100));
+                syncSliderRange(finalPercent);
+                slider.value = String(clamp(finalPercent, 0, Number(slider.max)));
                 renderValues(finalPercent, finalHours);
-                setFeedback('Dedicación actualizada correctamente.', 'success');
+                if (finalPercent > 100) {
+                    const over = finalPercent - 100;
+                    const semaphore = semaphoreState(finalPercent);
+                    setFeedback(`Guardado con sobreasignación ${formatValue(over, 1)}% (semáforo ${semaphore}). El recurso está sobreasignado, pero se permite continuar bajo responsabilidad del PM.`, 'success');
+                } else {
+                    setFeedback('Dedicación actualizada correctamente.', 'success');
+                }
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'No se pudo guardar la dedicación.';
                 setFeedback(message, 'error');

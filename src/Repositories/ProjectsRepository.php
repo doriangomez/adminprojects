@@ -795,7 +795,7 @@ class ProjectsRepository
             $select[] = 't.requiere_aprobacion_horas';
             $select[] = 't.tipo_talento';
             $select[] = 'COALESCE(tload.total_allocation_percent, 0) AS total_allocation_percent';
-            $select[] = 'GREATEST(0, 100 - COALESCE(tload.total_allocation_percent, 0)) AS available_allocation_percent';
+            $select[] = '(100 - COALESCE(tload.total_allocation_percent, 0)) AS available_allocation_percent';
             $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
             $joins[] = 'LEFT JOIN (
                 SELECT talent_id, SUM(allocation_percent) AS total_allocation_percent
@@ -930,13 +930,7 @@ class ProjectsRepository
         $newPercentTotal = (float) ($totalPercent['total_percent'] ?? 0) + (float) ($payload['allocation_percent'] ?? 0);
         $newHoursTotal = (float) ($totalHours['total_hours'] ?? 0) + (float) ($payload['weekly_hours'] ?? 0);
 
-        if ($payload['allocation_percent'] !== null && $newPercentTotal > 100.0) {
-            throw new InvalidArgumentException('La asignación supera el 100% de disponibilidad del talento.');
-        }
-
-        if ($effectiveWeeklyCapacity > 0 && $payload['weekly_hours'] !== null && $newHoursTotal > $effectiveWeeklyCapacity) {
-            throw new InvalidArgumentException('Las horas asignadas exceden la capacidad semanal del talento.');
-        }
+        // Se permite sobreasignación (>100%) como advertencia operativa, no como bloqueo.
 
         $talentTimesheetConfig = [];
         if ($this->db->tableExists('talents') && $talentId > 0) {
@@ -1155,8 +1149,8 @@ class ProjectsRepository
             if ($allocationPercent === null) {
                 throw new \InvalidArgumentException('El porcentaje de dedicación es obligatorio.');
             }
-            if ($allocationPercent < 0 || $allocationPercent > 100) {
-                throw new \InvalidArgumentException('El porcentaje de dedicación debe estar entre 0 y 100.');
+            if ($allocationPercent < 0) {
+                throw new \InvalidArgumentException('El porcentaje de dedicación no puede ser negativo.');
             }
             $weeklyHours = $weeklyCapacity * ($allocationPercent / 100);
         }
@@ -1164,8 +1158,8 @@ class ProjectsRepository
         $allocationPercent = round((float) $allocationPercent, 2);
         $weeklyHours = round((float) $weeklyHours, 2);
 
-        if ($allocationPercent < 0 || $allocationPercent > 100) {
-            throw new \InvalidArgumentException('El porcentaje de dedicación debe estar entre 0 y 100.');
+        if ($allocationPercent < 0) {
+            throw new \InvalidArgumentException('El porcentaje de dedicación no puede ser negativo.');
         }
         if ($weeklyHours < 0) {
             throw new \InvalidArgumentException('Las horas semanales no pueden ser negativas.');
@@ -1196,13 +1190,8 @@ class ProjectsRepository
         $newPercentTotal = (float) ($totals['total_percent'] ?? 0.0) + $allocationPercent;
         $newHoursTotal = (float) ($totals['total_hours'] ?? 0.0) + $weeklyHours;
 
-        if ($newPercentTotal > 100.0) {
-            throw new \InvalidArgumentException('La dedicación total del talento supera el 100% con este ajuste.');
-        }
-
-        if ($effectiveWeeklyCapacity > 0 && $newHoursTotal > $effectiveWeeklyCapacity) {
-            throw new \InvalidArgumentException('Las horas semanales totales del talento exceden su capacidad estándar.');
-        }
+        $overAllocationPercent = max(0.0, $newPercentTotal - 100.0);
+        $availablePercent = 100.0 - $newPercentTotal;
 
         $conflicts = $this->weeklyTimesheetOveragesForAssignment($projectId, $talentId, $userId, $weeklyHours);
         if ($conflicts !== [] && !$forceUpdate) {
@@ -1216,6 +1205,9 @@ class ProjectsRepository
                 'conflict_weeks' => $conflicts,
                 'capacity_week' => round($effectiveWeeklyCapacity, 2),
                 'allocation_percent' => $allocationPercent,
+                'total_allocation_percent' => round($newPercentTotal, 2),
+                'available_allocation_percent' => round($availablePercent, 2),
+                'over_allocation_percent' => round($overAllocationPercent, 2),
             ];
         }
 
@@ -1248,6 +1240,9 @@ class ProjectsRepository
             ],
             'capacity_week' => round($effectiveWeeklyCapacity, 2),
             'timesheet_conflicts' => $conflicts,
+            'total_allocation_percent' => round($newPercentTotal, 2),
+            'available_allocation_percent' => round($availablePercent, 2),
+            'over_allocation_percent' => round($overAllocationPercent, 2),
         ];
     }
 
