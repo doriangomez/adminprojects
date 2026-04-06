@@ -195,15 +195,18 @@ if ($isSubphase && $activeSubphaseSuffix) {
 }
 
 $statusLabels = [
-    'pendiente' => 'Pendiente',
-    'en_progreso' => 'En progreso',
-    'completado' => 'Completo',
+    'sin_actividad' => 'Sin actividad',
+    'en_ejecucion' => 'En ejecución',
+    'cerrado' => 'Cerrado',
+    'pendiente' => 'Sin actividad',
+    'en_progreso' => 'En ejecución',
+    'completado' => 'Cerrado',
 ];
 
 $statusBadgeClass = static function (string $status): string {
     return match ($status) {
-        'completado' => 'status-success',
-        'en_progreso' => 'status-info',
+        'cerrado', 'completado' => 'status-success',
+        'en_ejecucion', 'en_progreso' => 'status-info',
         default => 'status-muted',
     };
 };
@@ -290,8 +293,22 @@ $computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpe
         }
     }
 
+    $countEvidence = static function (array $node) use (&$countEvidence): int {
+        $count = count($node['files'] ?? []);
+        foreach ($node['children'] ?? [] as $childNode) {
+            if (!is_array($childNode)) {
+                continue;
+            }
+            $count += $countEvidence($childNode);
+        }
+
+        return $count;
+    };
+
     $progress = $totalRequired > 0 ? round(($approvedRequired / $totalRequired) * 100, 1) : 0;
-    $status = $totalRequired > 0 && $approvedRequired >= $totalRequired ? 'completado' : ($approvedRequired > 0 ? 'en_progreso' : 'pendiente');
+    $evidenceCount = $countEvidence($phaseNode);
+    $isClosed = in_array((string) ($phaseNode['status'] ?? ''), ['completado', 'cerrado'], true) || !empty($phaseNode['completed_at']);
+    $status = $isClosed ? 'cerrado' : ($evidenceCount > 0 ? 'en_ejecucion' : 'sin_actividad');
 
     return [
         'status' => $status,
@@ -327,7 +344,7 @@ $riskClass = match ($projectRiskLevel) {
     default => 'status-muted',
 };
 $activePhaseName = $activePhaseNode['name'] ?? $activePhaseNode['title'] ?? $activePhaseNode['code'] ?? 'Fase';
-$activePhaseMetrics = ['status' => 'pendiente', 'progress' => 0, 'approved_required' => 0, 'total_required' => 0];
+$activePhaseMetrics = ['status' => 'sin_actividad', 'progress' => 0, 'approved_required' => 0, 'total_required' => 0];
 if ($activePhaseNode) {
     $phaseCode = (string) ($activePhaseNode['code'] ?? '');
     $activePhaseMetrics = $phaseProgressByCode[$phaseCode] ?? $computePhaseMetrics($activePhaseNode);
