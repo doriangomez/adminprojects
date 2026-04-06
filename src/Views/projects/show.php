@@ -240,7 +240,19 @@ foreach ($progressPhases as $phaseProgress) {
     }
 }
 
-$computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpectedDocs, $methodology, $standardSubphaseSuffixes, $normalizeExpectedDoc): array {
+$countNodeDocuments = static function (array $node) use (&$countNodeDocuments): int {
+    $count = count($node['files'] ?? []);
+    foreach ($node['children'] ?? [] as $childNode) {
+        if (!is_array($childNode)) {
+            continue;
+        }
+        $count += $countNodeDocuments($childNode);
+    }
+
+    return $count;
+};
+
+$computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpectedDocs, $methodology, $standardSubphaseSuffixes, $normalizeExpectedDoc, $countNodeDocuments): array {
     $methodDocs = is_array($documentFlowExpectedDocs[$methodology] ?? null) ? $documentFlowExpectedDocs[$methodology] : [];
     $phaseCode = (string) ($phaseNode['code'] ?? '');
     $phaseDocs = is_array($methodDocs[$phaseCode] ?? null) ? $methodDocs[$phaseCode] : ($methodDocs['default'] ?? []);
@@ -293,20 +305,8 @@ $computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpe
         }
     }
 
-    $countEvidence = static function (array $node) use (&$countEvidence): int {
-        $count = count($node['files'] ?? []);
-        foreach ($node['children'] ?? [] as $childNode) {
-            if (!is_array($childNode)) {
-                continue;
-            }
-            $count += $countEvidence($childNode);
-        }
-
-        return $count;
-    };
-
     $progress = $totalRequired > 0 ? round(($approvedRequired / $totalRequired) * 100, 1) : 0;
-    $evidenceCount = $countEvidence($phaseNode);
+    $evidenceCount = $countNodeDocuments($phaseNode);
     $isClosed = in_array((string) ($phaseNode['status'] ?? ''), ['completado', 'cerrado'], true) || !empty($phaseNode['completed_at']);
     $status = $isClosed ? 'cerrado' : ($evidenceCount > 0 ? 'en_ejecucion' : 'sin_actividad');
 
@@ -315,6 +315,7 @@ $computePhaseMetrics = static function (array $phaseNode) use ($documentFlowExpe
         'progress' => $progress,
         'approved_required' => $approvedRequired,
         'total_required' => $totalRequired,
+        'document_count' => $evidenceCount,
     ];
 };
 
@@ -1036,12 +1037,8 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                             <?php
                             $phaseCode = (string) ($phase['code'] ?? '');
                             $phaseMetrics = $phaseProgressByCode[$phaseCode] ?? $computePhaseMetrics($phase);
-                            $phaseStatusLabel = $statusLabels[$phaseMetrics['status']] ?? $phaseMetrics['status'];
-                            $phaseProgressLabel = ($methodology === 'scrum' && ($phase['code'] ?? '') === '03-SPRINTS')
-                                ? count($sprintNodes) . ' sprints activos'
-                                : ($phaseMetrics['total_required'] > 0
-                                    ? $phaseMetrics['approved_required'] . ' de ' . $phaseMetrics['total_required'] . ' documentos clave'
-                                    : 'Sin documentos clave configurados');
+                            $phaseDocumentCount = isset($phaseMetrics['document_count']) ? (int) $phaseMetrics['document_count'] : $countNodeDocuments($phase);
+                            $phaseDocumentLabel = $phaseDocumentCount === 1 ? '1 documento' : $phaseDocumentCount . ' documentos';
                             $isPhaseActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($phase['id'] ?? 0);
                             $phaseLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?view=documentos&node=' . (int) ($phase['id'] ?? 0);
                             ?>
@@ -1053,19 +1050,18 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                                                 <span class="phase-icon">📁</span>
                                                 <div>
                                                     <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? 'Sprints') ?></strong>
-                                                    <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
                                                 </div>
                                             </div>
-                                            <span class="badge status-badge <?= $statusBadgeClass($phaseMetrics['status']) ?>"><?= htmlspecialchars($phaseStatusLabel) ?></span>
+                                            <?php if ($phaseDocumentCount > 0): ?>
+                                                <span class="phase-doc-badge"><?= htmlspecialchars($phaseDocumentLabel) ?></span>
+                                            <?php endif; ?>
                                         </summary>
                                         <ul class="phase-sublist">
                                             <?php foreach ($sprintNodes as $sprint): ?>
                                                 <?php
                                                 $sprintMetrics = $computePhaseMetrics($sprint);
-                                                $sprintStatusLabel = $statusLabels[$sprintMetrics['status']] ?? $sprintMetrics['status'];
-                                                $sprintProgressLabel = $sprintMetrics['total_required'] > 0
-                                                    ? $sprintMetrics['approved_required'] . ' de ' . $sprintMetrics['total_required'] . ' documentos clave'
-                                                    : 'Sin documentos clave configurados';
+                                                $sprintDocumentCount = isset($sprintMetrics['document_count']) ? (int) $sprintMetrics['document_count'] : $countNodeDocuments($sprint);
+                                                $sprintDocumentLabel = $sprintDocumentCount === 1 ? '1 documento' : $sprintDocumentCount . ' documentos';
                                                 $isSprintActive = $activePhaseNode && (int) ($activePhaseNode['id'] ?? 0) === (int) ($sprint['id'] ?? 0);
                                                 $sprintLink = $basePath . '/projects/' . (int) ($project['id'] ?? 0) . '?view=documentos&node=' . (int) ($sprint['id'] ?? 0);
                                                 ?>
@@ -1075,10 +1071,11 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                                                             <span class="phase-icon">📁</span>
                                                             <div>
                                                                 <strong><?= htmlspecialchars($sprint['name'] ?? $sprint['title'] ?? '') ?></strong>
-                                                                <small class="section-muted"><?= htmlspecialchars($sprintProgressLabel) ?></small>
                                                             </div>
                                                         </div>
-                                                        <span class="badge status-badge <?= $statusBadgeClass($sprintMetrics['status']) ?>"><?= htmlspecialchars($sprintStatusLabel) ?></span>
+                                                        <?php if ($sprintDocumentCount > 0): ?>
+                                                            <span class="phase-doc-badge"><?= htmlspecialchars($sprintDocumentLabel) ?></span>
+                                                        <?php endif; ?>
                                                     </a>
                                                 </li>
                                             <?php endforeach; ?>
@@ -1092,14 +1089,12 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
                                             <span class="phase-icon">📁</span>
                                             <div>
                                                 <strong><?= htmlspecialchars($phase['name'] ?? $phase['title'] ?? $phase['code'] ?? '') ?></strong>
-                                                <small class="section-muted"><?= htmlspecialchars($phaseProgressLabel) ?></small>
                                             </div>
                                         </div>
-                                        <span class="badge status-badge <?= $statusBadgeClass($phaseMetrics['status']) ?>"><?= htmlspecialchars($phaseStatusLabel) ?></span>
+                                        <?php if ($phaseDocumentCount > 0): ?>
+                                            <span class="phase-doc-badge"><?= htmlspecialchars($phaseDocumentLabel) ?></span>
+                                        <?php endif; ?>
                                     </a>
-                                    <div class="phase-progress-bar" role="progressbar" aria-valuenow="<?= $phaseMetrics['progress'] ?>" aria-valuemin="0" aria-valuemax="100">
-                                        <div style="width: <?= $phaseMetrics['progress'] ?>%;"></div>
-                                    </div>
                                 </li>
                             <?php endif; ?>
                         <?php endforeach; ?>
@@ -1445,11 +1440,21 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
     .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-primary); border:1px solid var(--background); background: var(--surface); }
     .phase-link:hover { border-color: var(--border); }
     .phase-link.active { background: var(--secondary); color: var(--text-primary); border-color: var(--secondary); font-weight:700; }
-    .phase-link.active .section-muted { color: color-mix(in srgb, var(--text-primary) 82%, var(--background)); }
     .phase-link__title { display:flex; gap:10px; align-items:center; }
     .phase-icon { font-size:18px; }
-    .phase-progress-bar { height:6px; background: color-mix(in srgb, var(--text-secondary) 22%, var(--background)); border-radius:999px; overflow:hidden; }
-    .phase-progress-bar div { height:100%; background: var(--primary); }
+    .phase-doc-badge {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        white-space:nowrap;
+        font-size:11px;
+        font-weight:600;
+        color: var(--text-secondary);
+        background: color-mix(in srgb, var(--text-secondary) 11%, var(--background));
+        border:1px solid color-mix(in srgb, var(--text-secondary) 18%, var(--background));
+        border-radius:999px;
+        padding:3px 8px;
+    }
     .phase-group { border:1px solid var(--border); border-radius:12px; padding:8px; background: var(--surface); }
     .phase-group summary { list-style:none; cursor:pointer; }
     .phase-group summary::-webkit-details-marker { display:none; }
