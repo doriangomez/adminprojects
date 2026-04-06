@@ -339,6 +339,37 @@ class ProjectsController extends Controller
         }
 
         $assignments = $repo->assignmentsForProject($id, $user);
+        $talentIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $assignment): int => (int) ($assignment['talent_id'] ?? 0),
+            $assignments
+        ))));
+        $workloadByTalent = $repo->talentWorkloadBreakdown($talentIds, $id);
+        foreach ($assignments as &$assignment) {
+            $talentId = (int) ($assignment['talent_id'] ?? 0);
+            $breakdown = $workloadByTalent[$talentId] ?? [
+                'total_weekly_hours' => 0.0,
+                'projects' => [],
+            ];
+
+            $capacityWeek = (float) ($assignment['capacidad_horaria'] ?? 0);
+            if ($capacityWeek <= 0) {
+                $capacityWeek = (float) ($assignment['talent_weekly_capacity'] ?? 0);
+            }
+            if ($capacityWeek <= 0) {
+                $capacityWeek = 40.0;
+            }
+
+            $totalWeeklyHours = (float) ($breakdown['total_weekly_hours'] ?? 0);
+            $totalAllocationPercent = $capacityWeek > 0 ? ($totalWeeklyHours / $capacityWeek) * 100 : 0.0;
+            $availableAllocationPercent = 100.0 - $totalAllocationPercent;
+
+            $assignment['workload_breakdown'] = $breakdown['projects'] ?? [];
+            $assignment['workload_base_capacity_weekly_hours'] = $capacityWeek;
+            $assignment['workload_total_weekly_hours'] = round($totalWeeklyHours, 2);
+            $assignment['total_allocation_percent'] = round($totalAllocationPercent, 2);
+            $assignment['available_allocation_percent'] = round($availableAllocationPercent, 2);
+        }
+        unset($assignment);
         $talents = (new TalentsRepository($this->db))->assignmentOptions();
 
         $this->render('projects/talent', [

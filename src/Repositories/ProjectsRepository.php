@@ -866,6 +866,79 @@ class ProjectsRepository
         );
     }
 
+    /**
+     * @param array<int, int|string> $talentIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function talentWorkloadBreakdown(array $talentIds, int $currentProjectId): array
+    {
+        if (!$this->db->tableExists('project_talent_assignments')
+            || !$this->db->columnExists('project_talent_assignments', 'talent_id')
+            || !$this->db->tableExists('projects')
+        ) {
+            return [];
+        }
+
+        $normalizedTalentIds = array_values(array_unique(array_filter(array_map(
+            static fn ($id): int => (int) $id,
+            $talentIds
+        ), static fn (int $id): bool => $id > 0)));
+
+        if ($normalizedTalentIds === []) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [':current_project_id' => $currentProjectId];
+        foreach ($normalizedTalentIds as $index => $talentId) {
+            $placeholder = ':talent_' . $index;
+            $placeholders[] = $placeholder;
+            $params[$placeholder] = $talentId;
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT a.talent_id,
+                    a.project_id,
+                    p.name AS project_name,
+                    SUM(COALESCE(a.weekly_hours, 0)) AS weekly_hours
+             FROM project_talent_assignments a
+             JOIN projects p ON p.id = a.project_id
+             WHERE a.talent_id IN (' . implode(', ', $placeholders) . ')
+               AND (a.assignment_status = "active" OR (a.assignment_status IS NULL AND a.active = 1))
+             GROUP BY a.talent_id, a.project_id, p.name
+             ORDER BY a.talent_id ASC, (a.project_id = :current_project_id) DESC, p.name ASC',
+            $params
+        );
+
+        $workloads = [];
+        foreach ($rows as $row) {
+            $talentId = (int) ($row['talent_id'] ?? 0);
+            if ($talentId <= 0) {
+                continue;
+            }
+
+            $projectId = (int) ($row['project_id'] ?? 0);
+            $projectHours = (float) ($row['weekly_hours'] ?? 0);
+            if (!isset($workloads[$talentId])) {
+                $workloads[$talentId] = [
+                    'total_weekly_hours' => 0.0,
+                    'projects' => [],
+                ];
+            }
+
+            $workloads[$talentId]['total_weekly_hours'] += $projectHours;
+            $workloads[$talentId]['projects'][] = [
+                'project_id' => $projectId,
+                'project_name' => (string) ($row['project_name'] ?? 'Proyecto'),
+                'weekly_hours' => $projectHours,
+                'is_current_project' => $projectId === $currentProjectId,
+                'is_other_project' => $projectId !== $currentProjectId,
+            ];
+        }
+
+        return $workloads;
+    }
+
     public function assignTalent(array $payload): void
     {
         $assignmentStatus = strtolower(trim((string) ($payload['assignment_status'] ?? 'active')));

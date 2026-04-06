@@ -71,6 +71,12 @@ $assignmentBadge = static function (string $status): string {
                     $totalAllocationPercent = (float) ($assignment['total_allocation_percent'] ?? $allocationPercent);
                     $availableAllocationPercent = (float) ($assignment['available_allocation_percent'] ?? (100.0 - $totalAllocationPercent));
                     $overAllocationPercent = max(0.0, $totalAllocationPercent - 100.0);
+                    $workloadBaseCapacity = (float) ($assignment['workload_base_capacity_weekly_hours'] ?? $capacityWeek);
+                    if ($workloadBaseCapacity <= 0) {
+                        $workloadBaseCapacity = $capacityWeek > 0 ? $capacityWeek : 40.0;
+                    }
+                    $workloadTotalHours = (float) ($assignment['workload_total_weekly_hours'] ?? 0);
+                    $workloadBreakdown = is_array($assignment['workload_breakdown'] ?? null) ? $assignment['workload_breakdown'] : [];
                     $allocationSemaphore = 'green';
                     if ($totalAllocationPercent > 120.0) {
                         $allocationSemaphore = 'red';
@@ -121,6 +127,41 @@ $assignmentBadge = static function (string $status): string {
                                     <?= htmlspecialchars(number_format($availableAllocationPercent, 1, '.', '')) ?>% disponible
                                 </span>
                             </small>
+                            <div class="workload-breakdown">
+                                <small class="section-muted workload-title">👉 Carga actual del recurso:</small>
+                                <?php if ($workloadBreakdown !== []): ?>
+                                    <ul class="workload-list">
+                                        <?php foreach ($workloadBreakdown as $workloadProject): ?>
+                                            <?php
+                                            $isCurrentProject = !empty($workloadProject['is_current_project']);
+                                            $isOtherProject = !empty($workloadProject['is_other_project']);
+                                            $projectLabel = (string) ($workloadProject['project_name'] ?? 'Proyecto');
+                                            $projectHours = (float) ($workloadProject['weekly_hours'] ?? 0);
+                                            ?>
+                                            <li class="workload-item <?= $isCurrentProject ? 'is-current' : 'is-other' ?>">
+                                                <span>
+                                                    <?= htmlspecialchars($projectLabel) ?>
+                                                    <?php if ($isCurrentProject): ?>
+                                                        <strong class="workload-tag">(este proyecto)</strong>
+                                                    <?php elseif ($isOtherProject): ?>
+                                                        <span class="workload-tag">(otros proyectos)</span>
+                                                    <?php endif; ?>
+                                                </span>
+                                                <strong><?= htmlspecialchars(number_format($projectHours, 1, '.', '')) ?>h/sem</strong>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else: ?>
+                                    <small class="section-muted">Sin carga activa registrada para este recurso.</small>
+                                <?php endif; ?>
+                                <small class="section-muted">👉 Capacidad base: <?= htmlspecialchars(number_format($workloadBaseCapacity, 1, '.', '')) ?>h/sem</small>
+                                <small class="section-muted">
+                                    👉 Ocupación total: <?= htmlspecialchars(number_format($workloadTotalHours, 1, '.', '')) ?>h/sem
+                                    (<?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>%)
+                                </small>
+                                <small class="section-muted">Total: <?= htmlspecialchars(number_format($workloadTotalHours, 1, '.', '')) ?>h/sem → <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado</small>
+                                <small class="section-muted"><em>“El porcentaje de ocupación no puede ser una caja negra, debe ser explicable por proyecto.”</em></small>
+                            </div>
                             <?php if ($overAllocationPercent > 0): ?>
                                 <small class="section-muted allocation-warning">
                                     🚦 Semáforo <?= strtoupper($allocationSemaphore) ?> · Sobreasignación <?= htmlspecialchars(number_format($overAllocationPercent, 1, '.', '')) ?>%.
@@ -275,6 +316,13 @@ $assignmentBadge = static function (string $status): string {
     .allocation-red { color: var(--danger); }
     .allocation-availability.is-negative { color: var(--danger); font-weight:700; }
     .allocation-warning { color: var(--warning); font-weight:600; }
+    .workload-breakdown { display:flex; flex-direction:column; gap:4px; padding:8px; border:1px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--text-secondary) 6%, var(--background)); }
+    .workload-title { font-weight:700; color: var(--text-primary); }
+    .workload-list { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px; }
+    .workload-item { display:flex; justify-content:space-between; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
+    .workload-item.is-current { border-color: color-mix(in srgb, var(--primary) 45%, var(--border) 55%); background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%); }
+    .workload-item.is-other { background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface) 92%); }
+    .workload-tag { font-size:11px; color: var(--text-secondary); margin-left:4px; }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
