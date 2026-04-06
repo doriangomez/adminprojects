@@ -77,6 +77,14 @@ $assignmentBadge = static function (string $status): string {
                     }
                     $workloadTotalHours = (float) ($assignment['workload_total_weekly_hours'] ?? 0);
                     $workloadBreakdown = is_array($assignment['workload_breakdown'] ?? null) ? $assignment['workload_breakdown'] : [];
+                    $workloadExplanation = sprintf(
+                        'Capacidad base: %sh/sem | Ocupación total: %sh/sem (%s%%) | Total: %sh/sem -> %s%% ocupado',
+                        number_format($workloadBaseCapacity, 1, '.', ''),
+                        number_format($workloadTotalHours, 1, '.', ''),
+                        number_format($totalAllocationPercent, 1, '.', ''),
+                        number_format($workloadTotalHours, 1, '.', ''),
+                        number_format($totalAllocationPercent, 1, '.', '')
+                    );
                     $allocationSemaphore = 'green';
                     if ($totalAllocationPercent > 120.0) {
                         $allocationSemaphore = 'red';
@@ -128,24 +136,21 @@ $assignmentBadge = static function (string $status): string {
                                 </span>
                             </small>
                             <div class="workload-breakdown">
-                                <small class="section-muted workload-title">👉 Carga actual del recurso:</small>
+                                <small class="section-muted workload-title">👉 Carga actual del recurso:
+                                    <span class="workload-tooltip" title="<?= htmlspecialchars($workloadExplanation) ?>" aria-label="Detalle de cálculo de ocupación">ⓘ</span>
+                                </small>
                                 <?php if ($workloadBreakdown !== []): ?>
                                     <ul class="workload-list">
                                         <?php foreach ($workloadBreakdown as $workloadProject): ?>
                                             <?php
                                             $isCurrentProject = !empty($workloadProject['is_current_project']);
-                                            $isOtherProject = !empty($workloadProject['is_other_project']);
                                             $projectLabel = (string) ($workloadProject['project_name'] ?? 'Proyecto');
                                             $projectHours = (float) ($workloadProject['weekly_hours'] ?? 0);
+                                            $projectContext = $isCurrentProject ? 'Este proyecto' : 'Otros proyectos';
                                             ?>
-                                            <li class="workload-item <?= $isCurrentProject ? 'is-current' : 'is-other' ?>">
+                                            <li class="workload-item <?= $isCurrentProject ? 'is-current' : 'is-other' ?>" title="<?= htmlspecialchars($projectContext) ?>">
                                                 <span>
                                                     <?= htmlspecialchars($projectLabel) ?>
-                                                    <?php if ($isCurrentProject): ?>
-                                                        <strong class="workload-tag">(este proyecto)</strong>
-                                                    <?php elseif ($isOtherProject): ?>
-                                                        <span class="workload-tag">(otros proyectos)</span>
-                                                    <?php endif; ?>
                                                 </span>
                                                 <strong><?= htmlspecialchars(number_format($projectHours, 1, '.', '')) ?>h/sem</strong>
                                             </li>
@@ -154,12 +159,6 @@ $assignmentBadge = static function (string $status): string {
                                 <?php else: ?>
                                     <small class="section-muted">Sin carga activa registrada para este recurso.</small>
                                 <?php endif; ?>
-                                <small class="section-muted">👉 Capacidad base: <?= htmlspecialchars(number_format($workloadBaseCapacity, 1, '.', '')) ?>h/sem</small>
-                                <small class="section-muted">
-                                    👉 Ocupación total: <?= htmlspecialchars(number_format($workloadTotalHours, 1, '.', '')) ?>h/sem
-                                    (<?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>%)
-                                </small>
-                                <small class="section-muted">Total: <?= htmlspecialchars(number_format($workloadTotalHours, 1, '.', '')) ?>h/sem → <?= htmlspecialchars(number_format($totalAllocationPercent, 1, '.', '')) ?>% ocupado</small>
                                 <small class="section-muted"><em>“El porcentaje de ocupación no puede ser una caja negra, debe ser explicable por proyecto.”</em></small>
                             </div>
                             <?php if ($overAllocationPercent > 0): ?>
@@ -322,7 +321,7 @@ $assignmentBadge = static function (string $status): string {
     .workload-item { display:flex; justify-content:space-between; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .workload-item.is-current { border-color: color-mix(in srgb, var(--primary) 45%, var(--border) 55%); background: color-mix(in srgb, var(--primary) 12%, var(--surface) 88%); }
     .workload-item.is-other { background: color-mix(in srgb, var(--text-secondary) 8%, var(--surface) 92%); }
-    .workload-tag { font-size:11px; color: var(--text-secondary); margin-left:4px; }
+    .workload-tooltip { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; border:1px solid var(--border); font-size:11px; font-weight:700; margin-left:6px; cursor:help; color: var(--text-secondary); }
     @media (max-width: 900px) {
         .talent-row { grid-template-columns: 1fr; }
         .talent-head { display:none; }
