@@ -242,7 +242,9 @@ class ProjectTreeService
 
         $total = count($subphaseKeys);
         $percent = $totalRequired > 0 ? round(($approvedRequired / $totalRequired) * 100, 1) : 0.0;
-        $status = $totalRequired > 0 && $approvedRequired >= $totalRequired ? 'completado' : ($approvedRequired > 0 ? 'en_progreso' : 'pendiente');
+        $evidenceCount = $this->countNodeEvidence($node);
+        $isClosed = in_array((string) ($node['status'] ?? ''), ['completado', 'cerrado'], true) || !empty($node['completed_at']);
+        $status = $isClosed ? 'cerrado' : ($evidenceCount > 0 ? 'en_ejecucion' : 'sin_actividad');
 
         return [
             'percent' => $percent,
@@ -253,6 +255,20 @@ class ProjectTreeService
             'approved_required' => $approvedRequired,
             'total_required' => $totalRequired,
         ];
+    }
+
+    private function countNodeEvidence(array $node): int
+    {
+        $count = count($node['files'] ?? []);
+
+        foreach ($node['children'] ?? [] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $count += $this->countNodeEvidence($child);
+        }
+
+        return $count;
     }
 
     private function standardSubfolderSuffixes(): array
