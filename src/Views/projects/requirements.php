@@ -1,7 +1,6 @@
 <?php
 $project = $project ?? [];
 $requirements = $requirements ?? [];
-$indicator = $requirementsIndicator ?? ['applicable' => false, 'value' => null, 'status' => 'no_aplica'];
 $period = $requirementsPeriod ?? ['start_date' => date('Y-m-01'), 'end_date' => date('Y-m-t')];
 $audit = $requirementsAudit ?? [];
 $workflowStatuses = $requirementsStatuses ?? ['borrador', 'en_revision', 'aprobado', 'entregado', 'rechazado'];
@@ -26,11 +25,43 @@ $statusBadges = [
     'entregado' => '🔵',
     'rechazado' => '🔴',
 ];
-$totalRequirements = (int) ($indicator['total_requirements'] ?? 0);
-$approvedRequirements = (int) ($indicator['approved_requirements'] ?? 0);
-$inReviewRequirements = (int) ($indicator['in_review_requirements'] ?? 0);
-$rejectedRequirements = (int) ($indicator['rejected_requirements'] ?? 0);
-$compliance = $totalRequirements > 0 ? (float) ($indicator['value'] ?? 0) : 0.0;
+
+$normalizeRequirementStatus = static function (array $row) use ($workflowStatuses): string {
+    $rowStatus = strtolower(trim((string) ($row['status'] ?? 'borrador')));
+    if ($rowStatus === 'definido') {
+        $rowStatus = 'en_revision';
+    }
+
+    if (!in_array($rowStatus, $workflowStatuses, true)) {
+        return 'borrador';
+    }
+
+    return $rowStatus;
+};
+
+$totalRequirements = count($requirements);
+$approvedRequirements = 0;
+$inReviewRequirements = 0;
+$rejectedRequirements = 0;
+
+foreach ($requirements as $requirementRow) {
+    $normalizedStatus = $normalizeRequirementStatus((array) $requirementRow);
+    if ($normalizedStatus === 'aprobado') {
+        $approvedRequirements++;
+        continue;
+    }
+
+    if ($normalizedStatus === 'rechazado') {
+        $rejectedRequirements++;
+        continue;
+    }
+
+    if (in_array($normalizedStatus, ['borrador', 'en_revision', 'entregado'], true)) {
+        $inReviewRequirements++;
+    }
+}
+
+$compliance = $totalRequirements > 0 ? ($approvedRequirements / $totalRequirements) * 100 : 0.0;
 $targetMeta = max(0.0, min(100.0, (float) ($requirementsTargetMeta ?? 95)));
 $saved = isset($_GET['saved']);
 $updated = isset($_GET['updated']);
@@ -110,13 +141,7 @@ require __DIR__ . '/_tabs.php';
         <tbody>
         <?php foreach ($requirements as $row): ?>
             <?php
-                $rowStatus = strtolower(trim((string) ($row['status'] ?? 'borrador')));
-                if ($rowStatus === 'definido') {
-                    $rowStatus = 'en_revision';
-                }
-                if (!in_array($rowStatus, $workflowStatuses, true)) {
-                    $rowStatus = 'borrador';
-                }
+                $rowStatus = $normalizeRequirementStatus((array) $row);
                 $nextStatuses = $workflowTransitions[$rowStatus] ?? [];
                 $statusOptions = array_values(array_unique(array_merge([$rowStatus], $nextStatuses)));
             ?>
