@@ -24,6 +24,9 @@ $statusLabels = ['issued' => 'Emitida', 'paid' => 'Pagada', 'draft' => 'Borrador
 $totalInvoiced = (float) ($billingTotals['total_invoiced'] ?? 0);
 $hoursBillableAmount = (($billingConfig['billing_type'] ?? '') === 'hours') ? ($approvedHoursTotal * (float) ($billingConfig['hourly_rate'] ?? 0)) : null;
 $hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvoiced) : null;
+$contractValue = (float) ($billingConfig['contract_value'] ?? 0);
+$billingProgressRatio = $contractValue > 0 ? min(1, max(0, $totalInvoiced / $contractValue)) : 0;
+$billingProgressPercent = $billingProgressRatio * 100;
 $controlStatusLabels = [
     'pendiente' => 'Pendiente',
     'listo_para_facturar' => 'Listo para facturar',
@@ -47,7 +50,7 @@ $controlStatusLabels = [
     <?php $activeTab = 'facturacion'; require __DIR__ . '/_tabs.php'; ?>
 
     <section class="billing-layout">
-        <article class="card billing-card">
+        <article class="card billing-card billing-contract-card">
             <h3>A. Configuración contractual</h3>
             <?php if ($canManageBilling): ?>
             <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form" id="billing-config-form">
@@ -102,14 +105,23 @@ $controlStatusLabels = [
                         <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
                     </span>
                 </div>
+                <div class="billing-contract-readonly-grid">
+                    <div><span>Tipo de facturación</span><strong><?= htmlspecialchars($billingTypeLabels[$billingConfig['billing_type'] ?? ''] ?? (string) ($billingConfig['billing_type'] ?? '-')) ?></strong></div>
+                    <div><span>Periodicidad</span><strong><?= htmlspecialchars($periodicityLabels[$billingConfig['billing_periodicity'] ?? ''] ?? (string) ($billingConfig['billing_periodicity'] ?? '-')) ?></strong></div>
+                    <div><span>Valor del contrato</span><strong><?= $fmtMoney($contractValue) ?></strong></div>
+                    <div><span>Moneda</span><strong><?= htmlspecialchars($currency) ?></strong></div>
+                    <div><span>Fecha inicio</span><strong><?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '-')) ?></strong></div>
+                    <div><span>Fecha fin</span><strong><?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '-')) ?></strong></div>
+                    <div><span>Tarifa por hora</span><strong><?= $fmtMoney((float) ($billingConfig['hourly_rate'] ?? 0)) ?></strong></div>
+                </div>
                 <p class="section-muted">Solo administradores y PM pueden editar la configuración contractual.</p>
             <?php endif; ?>
         </article>
 
         <article class="card billing-card">
-            <h3>B. Resumen financiero</h3>
+            <h3>B. Indicadores financieros</h3>
             <div class="kpi-grid finance-kpi-grid">
-                <article class="kpi-card"><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></strong></article>
+                <article class="kpi-card"><span>Total contrato</span><strong><?= $fmtMoney($contractValue) ?></strong></article>
                 <article class="kpi-card"><span>Total esperado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['expected_billing'] ?? 0)) ?></strong></article>
                 <article class="kpi-card"><span>Total facturado</span><strong><?= $fmtMoney($totalInvoiced) ?></strong></article>
                 <article class="kpi-card"><span>Total pagado</span><strong><?= $fmtMoney((float) ($billingTotals['total_paid'] ?? 0)) ?></strong></article>
@@ -129,35 +141,22 @@ $controlStatusLabels = [
         </article>
 
         <article class="card billing-card">
-            <h3>C. Gestión de facturas</h3>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>Número</th><th>Emisión</th><th>Periodo</th><th>Valor</th><th>Estado</th><th>Pago</th><th>Acciones</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($projectInvoices as $inv): ?>
-                        <tr>
-                            <td><?= htmlspecialchars((string) ($inv['invoice_number'] ?? '')) ?></td>
-                            <td><?= htmlspecialchars((string) ($inv['issued_at'] ?? '')) ?></td>
-                            <td><?= htmlspecialchars((string) (($inv['period_start'] ?? '-') . ' a ' . ($inv['period_end'] ?? '-'))) ?></td>
-                            <td><?= $fmtMoney((float) ($inv['amount'] ?? 0)) ?></td>
-                            <td><?= htmlspecialchars($statusLabels[$inv['status'] ?? ''] ?? (string) ($inv['status'] ?? '')) ?></td>
-                            <td><?= htmlspecialchars((string) ($inv['paid_at'] ?? '-')) ?></td>
-                            <td class="actions">
-                                <?php if ($canManageBilling): ?><button class="action-btn small" type="button" data-open-modal="invoice-modal" data-prefill='<?= htmlspecialchars(json_encode($inv), ENT_QUOTES, 'UTF-8') ?>'>Editar</button><?php endif; ?>
-                                <?php if ($canMarkInvoicePaid && ($inv['status'] ?? '') !== 'paid'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/mark-paid"><button class="action-btn small" type="submit">Marcar como pagada</button></form><?php endif; ?>
-                                <?php if ($canVoidInvoice && ($inv['status'] ?? '') !== 'cancelled'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/cancel"><button class="action-btn small" type="submit">Anular</button></form><?php endif; ?>
-                                <?php if ($canDeleteInvoice): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar factura?');"><button class="action-btn small danger" type="submit">Eliminar</button></form><?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <h3>C. Avance financiero del contrato</h3>
+            <p class="section-muted">Progreso de facturación respecto al valor contractual.</p>
+            <div class="billing-progress-wrap">
+                <div class="billing-progress-track" role="img" aria-label="Avance de facturación del contrato">
+                    <div class="billing-progress-fill" style="width: <?= number_format($billingProgressPercent, 2, '.', '') ?>%;"></div>
+                </div>
+                <div class="billing-progress-meta">
+                    <strong><?= htmlspecialchars(number_format($billingProgressPercent, 1)) ?>%</strong>
+                    <span><?= $fmtMoney($totalInvoiced) ?> / <?= $fmtMoney($contractValue) ?></span>
+                </div>
             </div>
         </article>
 
         <article class="card billing-card" style="grid-column:1/-1;">
-            <h3>Control financiero del proyecto</h3>
-            <h4 class="billing-subtitle">A) Configuración de modelo de facturación</h4>
+            <h3>D. Plan de facturación del proyecto</h3>
+            <h4 class="billing-subtitle">Matriz de control financiero del contrato</h4>
 
             <?php if ($canManageBilling): ?>
             <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form billing-model-form" style="margin-bottom:14px;">
@@ -196,7 +195,6 @@ $controlStatusLabels = [
             </form>
             <?php endif; ?>
 
-            <h4 class="billing-subtitle">B) Matriz de facturación</h4>
             <div class="table-wrapper">
                 <table class="billing-matrix-table">
                     <thead><tr><th>Concepto</th><th>Fecha esperada</th><th>Valor</th><th>Estado</th><th>Factura asociada</th></tr></thead>
@@ -213,6 +211,33 @@ $controlStatusLabels = [
                             <td><?= $percentText !== '' ? htmlspecialchars($percentText) . ' · ' : '' ?><?= $fmtMoney($resolved) ?></td>
                             <td><span class="pill status-badge status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($controlStatusLabels[$status] ?? str_replace('_', ' ', $status)) ?></span></td>
                             <td><?= !empty($item['invoice_id']) ? '#' . (int) $item['invoice_id'] : '-' ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <article class="card billing-card" style="grid-column:1/-1;">
+            <h3>Gestión de facturas emitidas</h3>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Número</th><th>Emisión</th><th>Periodo</th><th>Valor</th><th>Estado</th><th>Pago</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($projectInvoices as $inv): ?>
+                        <tr>
+                            <td><?= htmlspecialchars((string) ($inv['invoice_number'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars((string) ($inv['issued_at'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars((string) (($inv['period_start'] ?? '-') . ' a ' . ($inv['period_end'] ?? '-'))) ?></td>
+                            <td><?= $fmtMoney((float) ($inv['amount'] ?? 0)) ?></td>
+                            <td><?= htmlspecialchars($statusLabels[$inv['status'] ?? ''] ?? (string) ($inv['status'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars((string) ($inv['paid_at'] ?? '-')) ?></td>
+                            <td class="actions">
+                                <?php if ($canManageBilling): ?><button class="action-btn small" type="button" data-open-modal="invoice-modal" data-prefill='<?= htmlspecialchars(json_encode($inv), ENT_QUOTES, 'UTF-8') ?>'>Editar</button><?php endif; ?>
+                                <?php if ($canMarkInvoicePaid && ($inv['status'] ?? '') !== 'paid'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/mark-paid"><button class="action-btn small" type="submit">Marcar como pagada</button></form><?php endif; ?>
+                                <?php if ($canVoidInvoice && ($inv['status'] ?? '') !== 'cancelled'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/cancel"><button class="action-btn small" type="submit">Anular</button></form><?php endif; ?>
+                                <?php if ($canDeleteInvoice): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar factura?');"><button class="action-btn small danger" type="submit">Eliminar</button></form><?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -402,6 +427,51 @@ if (billingForm) {
 }
 .billing-layout > .billing-card + .billing-card { margin-top: 24px; }
 .billing-layout .grid-form label { margin-bottom: 10px; }
+.billing-contract-card .grid-form { margin-bottom: 0; }
+
+.billing-contract-readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.billing-contract-readonly-grid div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.billing-contract-readonly-grid span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.billing-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.billing-progress-track {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+.billing-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb 0%, #14b8a6 100%);
+}
+.billing-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.billing-progress-meta span { color: #4b5563; }
 
 .finance-kpi-grid {
   display: grid;
@@ -476,4 +546,18 @@ if (billingForm) {
 .billable-badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent; }
 .billable-badge.is-on { background:color-mix(in srgb, var(--success) 18%, var(--background)); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--background)); }
 .billable-badge.is-off { background:color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color:var(--text-secondary); border-color:color-mix(in srgb, var(--text-secondary) 30%, var(--background)); }
+
+@media (max-width: 1024px) {
+  .finance-kpi-grid,
+  .billing-contract-readonly-grid {
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .finance-kpi-grid,
+  .billing-contract-readonly-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
