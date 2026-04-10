@@ -254,10 +254,10 @@ class DashboardService
                 if (in_array($status, ['issued', 'sent', 'overdue'], true)) {
                     $billingPending += 1;
                 }
-                if ($status !== 'void') {
+                if (!in_array($status, ['void', 'cancelled'], true)) {
                     $totalInvoiced += $amount;
                 }
-                if ($status === 'paid') {
+                if ($status === 'paid' || $status === 'emitido' || $status === 'issued') {
                     $totalCollected += $amount;
                 }
             }
@@ -280,13 +280,13 @@ class DashboardService
                     $amount = ((float) ($row['percentage'] ?? 0) / 100) * (float) ($row['contract_value'] ?? 0);
                 }
                 $status = (string) ($row['status'] ?? 'pendiente');
-                if (in_array($status, ['pendiente', 'listo_para_facturar', 'atrasado'], true)) {
+                if (in_array($status, ['pendiente', 'proximo', 'listo_para_facturar', 'listo_para_emitir', 'atrasado'], true)) {
                     $billingPlanPending += $amount;
                 }
                 if ($status === 'atrasado') {
                     $billingPlanOverdue += $amount;
                 }
-                if (!in_array($status, ['facturado', 'pagado'], true)) {
+                if (!in_array($status, ['facturado', 'pagado', 'emitido'], true)) {
                     $billingPlanProjected += $amount;
                 }
             }
@@ -303,7 +303,7 @@ class DashboardService
                  {$projectsCondition}
                  AND bp.expected_date IS NOT NULL
                  AND bp.expected_date < :billing_today
-                 AND bp.status NOT IN ('facturado','pagado')",
+                 AND bp.status NOT IN ('facturado','pagado','emitido')",
                 $params + [':billing_today' => $today]
             );
             $billingPlanOverdue = max($billingPlanOverdue, (float) ($lateRow['overdue_total'] ?? 0));

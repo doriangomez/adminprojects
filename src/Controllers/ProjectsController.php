@@ -55,9 +55,9 @@ class ProjectsController extends Controller
         'Scale',
     ];
 
-    private const BILLING_TYPES = ['fixed', 'hours', 'milestones', 'mixed'];
-    private const BILLING_PERIODICITIES = ['monthly', 'biweekly', 'deliverable', 'one_time', 'custom'];
-    private const INVOICE_STATUSES = ['issued', 'paid', 'draft', 'cancelled'];
+    private const CONTRACT_CURRENCIES = ['COP', 'USD', 'EUR', 'MXN'];
+    private const PLAN_ITEM_TYPES = ['anticipo', 'mensualidad_fija', 'hito_entregable', 'porcentaje_avance'];
+    private const INVOICE_STATUSES = ['issued', 'cancelled'];
     private const STOPPER_TYPES = ['cliente', 'tecnico', 'interno', 'proveedor', 'financiero', 'legal'];
     private const STOPPER_IMPACT_LEVELS = ['bajo', 'medio', 'alto', 'critico'];
     private const STOPPER_AFFECTED_AREAS = ['tiempo', 'alcance', 'costo', 'calidad'];
@@ -2305,16 +2305,11 @@ class ProjectsController extends Controller
         $healthScore = $projectService->calculateProjectHealthReport($id);
         $healthHistory = $projectService->history($id, 30);
         $billingRepo = new ProjectBillingRepository($this->db);
-        $stoppersRepo = new ProjectStoppersRepository($this->db);
         $billingConfig = $billingRepo->config($id);
         $invoices = $billingRepo->invoices($id);
-        $invoiceTotals = $billingRepo->invoiceTotals($id);
-        $approvedHoursPendingInvoicing = $billingRepo->approvedHoursNotInvoiced($id);
-        $approvedHoursTotal = $billingRepo->approvedHoursTotal($id);
-        $missingMonthlyPeriods = ($billingConfig['billing_periodicity'] ?? '') === 'monthly'
-            ? $billingRepo->missingMonthlyPeriods($id, $billingConfig['billing_start_date'] ?? null, $billingConfig['billing_end_date'] ?? null)
-            : [];
-        $billingPlanSummary = $billingRepo->financialControlSummary($id, $billingConfig, $invoiceTotals, $approvedHoursTotal);
+        $billingPlanItems = $billingRepo->billingPlan($id);
+        $billingFinancialSummary = $billingRepo->financialSummary($id, $billingConfig);
+        $availablePlanItemsForInvoice = $billingRepo->availablePlanItemsForInvoicing($id);
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
         $tasksForSchedule = (new TasksRepository($this->db))->forProject($id, $user);
@@ -2388,19 +2383,14 @@ class ProjectsController extends Controller
             'timesheetEntries' => $timesheetEntries,
             'billingConfig' => $billingConfig,
             'projectInvoices' => $invoices,
-            'billingTotals' => $invoiceTotals,
-            'approvedHoursPendingInvoicing' => $approvedHoursPendingInvoicing,
-            'approvedHoursTotal' => $approvedHoursTotal,
-            'missingMonthlyPeriods' => $missingMonthlyPeriods,
-            'billingPlanItems' => $billingPlanSummary['items'] ?? [],
-            'billingFinancialControl' => $billingPlanSummary,
+            'billingPlanItems' => $billingPlanItems,
+            'billingFinancialSummary' => $billingFinancialSummary,
+            'availablePlanItemsForInvoice' => $availablePlanItemsForInvoice,
             'canViewBilling' => $this->canViewBilling(),
             'canManageBilling' => $this->canRegisterBilling(),
             'canDeleteInvoice' => $this->auth->hasRole('Administrador'),
-            'canMarkInvoicePaid' => $this->auth->can('project.billing.mark_paid'),
-            'canVoidInvoice' => $this->auth->can('project.billing.void'),
-            'billingTypes' => self::BILLING_TYPES,
-            'billingPeriodicities' => self::BILLING_PERIODICITIES,
+            'contractCurrencies' => self::CONTRACT_CURRENCIES,
+            'planItemTypes' => self::PLAN_ITEM_TYPES,
             'invoiceStatuses' => self::INVOICE_STATUSES,
             'stoppers' => $stoppersRepo->forProject($id),
             'stopperMetrics' => $stopperMetrics,
@@ -2448,7 +2438,6 @@ class ProjectsController extends Controller
         $isBillable = (int) ($decoded['is_billable'] ?? $_POST['is_billable'] ?? 0) === 1;
 
         $billingRepo = new ProjectBillingRepository($this->db);
-        $stoppersRepo = new ProjectStoppersRepository($this->db);
 
         try {
             $billingRepo->updateBillableStatus($projectId, $isBillable ? 1 : 0);
@@ -2512,23 +2501,19 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
-        $payload = $this->invoicePayloadFromRequest();
-        if ($payload['status'] === 'paid' && !$this->auth->can('project.billing.mark_paid')) {
-            http_response_code(403);
-            exit('No cuentas con permisos para marcar facturas como pagadas.');
-        }
-        if ($payload['status'] === 'cancelled' && !$this->auth->can('project.billing.void')) {
-            http_response_code(403);
-            exit('No cuentas con permisos para anular facturas.');
-        }
+        try {
+            $payload = $this->invoicePayloadFromRequest($projectId);
+            $billingConfig = (new ProjectBillingRepository($this->db))->config($projectId);
+            $invoiceTotals = (new ProjectBillingRepository($this->db))->invoiceTotals($projectId);
+            $this->validateInvoiceAgainstContract($payload, $billingConfig, $invoiceTotals);
 
-        $billingConfig = (new ProjectBillingRepository($this->db))->config($projectId);
-        $invoiceTotals = (new ProjectBillingRepository($this->db))->invoiceTotals($projectId);
-        $this->validateInvoiceAgainstContract($payload, $billingConfig, $invoiceTotals);
-
-        $invoiceId = (new ProjectBillingRepository($this->db))->createInvoice($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
-        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_invoice', $invoiceId, 'created', ['project_id' => $projectId] + $payload);
-        header('Location: /projects/' . $projectId . '/billing');
+            $invoiceId = (new ProjectBillingRepository($this->db))->createInvoice($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
+            (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_invoice', $invoiceId, 'created', ['project_id' => $projectId] + $payload);
+            header('Location: /projects/' . $projectId . '/billing');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(422);
+            exit($e->getMessage());
+        }
     }
 
     public function createBillingPlanItem(int $projectId): void
@@ -2541,20 +2526,61 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado.');
         }
 
-        $payload = [
-            'billing_model' => strtolower(trim((string) ($_POST['billing_model'] ?? 'milestones'))),
-            'concept' => trim((string) ($_POST['concept'] ?? '')),
-            'milestone_name' => trim((string) ($_POST['milestone_name'] ?? '')),
-            'percentage' => $_POST['percentage'] ?? null,
-            'amount' => $_POST['amount'] ?? null,
-            'billing_frequency' => trim((string) ($_POST['billing_frequency'] ?? '')),
-            'expected_trigger' => trim((string) ($_POST['expected_trigger'] ?? '')),
-            'expected_date' => $this->nullableDate($_POST['expected_date'] ?? null),
-            'status' => trim((string) ($_POST['status'] ?? 'pendiente')),
-        ];
+        try {
+            $payload = $this->planItemPayloadFromRequest();
+            $createdIds = (new ProjectBillingRepository($this->db))->createPlanItem($projectId, $payload);
+            (new AuditLogRepository($this->db))->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'project_billing_plan',
+                $projectId,
+                'created',
+                ['created_ids' => $createdIds, 'payload' => $payload]
+            );
+            header('Location: /projects/' . $projectId . '/billing');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(422);
+            exit($e->getMessage());
+        }
+    }
 
-        (new ProjectBillingRepository($this->db))->createPlanItem($projectId, $payload);
-        (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_billing_plan', $projectId, 'created', $payload);
+    public function updateBillingPlanItem(int $projectId, int $itemId): void
+    {
+        $this->requirePermission('project.billing.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($projectId, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado.');
+        }
+
+        try {
+            $payload = $this->planItemPayloadFromRequest();
+            (new ProjectBillingRepository($this->db))->updatePlanItem($projectId, $itemId, $payload);
+            (new AuditLogRepository($this->db))->log(
+                (int) ($this->auth->user()['id'] ?? 0),
+                'project_billing_plan',
+                $itemId,
+                'updated',
+                $payload
+            );
+            header('Location: /projects/' . $projectId . '/billing');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(422);
+            exit($e->getMessage());
+        }
+    }
+
+    public function deleteBillingPlanItem(int $projectId, int $itemId): void
+    {
+        $this->requirePermission('project.billing.manage');
+        (new ProjectBillingRepository($this->db))->deletePlanItem($projectId, $itemId);
+        (new AuditLogRepository($this->db))->log(
+            (int) ($this->auth->user()['id'] ?? 0),
+            'project_billing_plan',
+            $itemId,
+            'deleted',
+            ['project_id' => $projectId]
+        );
         header('Location: /projects/' . $projectId . '/billing');
     }
 
@@ -2564,23 +2590,50 @@ class ProjectsController extends Controller
             http_response_code(403);
             exit('Solo Admin y PM pueden editar facturas.');
         }
-        $payload = $this->invoicePayloadFromRequest();
+        $payload = $this->invoicePayloadFromRequest($projectId);
         (new ProjectBillingRepository($this->db))->updateInvoice($projectId, $invoiceId, $payload);
         header('Location: /projects/' . $projectId . '/billing');
     }
 
-    public function markInvoicePaid(int $projectId, int $invoiceId): void
+    public function downloadInvoicePdf(int $projectId, int $invoiceId): void
     {
-        $this->requirePermission('project.billing.mark_paid');
-        (new ProjectBillingRepository($this->db))->updateInvoiceStatus($projectId, $invoiceId, 'paid', date('Y-m-d'));
-        header('Location: /projects/' . $projectId . '/billing');
-    }
+        $this->requirePermission('project.billing.view');
+        $invoice = (new ProjectBillingRepository($this->db))->findInvoice($projectId, $invoiceId);
+        if (!$invoice) {
+            http_response_code(404);
+            exit('Factura no encontrada.');
+        }
 
-    public function cancelInvoice(int $projectId, int $invoiceId): void
-    {
-        $this->requirePermission('project.billing.void');
-        (new ProjectBillingRepository($this->db))->updateInvoiceStatus($projectId, $invoiceId, 'cancelled');
-        header('Location: /projects/' . $projectId . '/billing');
+        $relativePath = (string) ($invoice['attachment_path'] ?? '');
+        if ($relativePath === '') {
+            http_response_code(404);
+            exit('La factura no tiene PDF adjunto.');
+        }
+        if (!str_starts_with($relativePath, '/storage/projects/')) {
+            http_response_code(400);
+            exit('Ruta de PDF inválida.');
+        }
+
+        $baseStorage = realpath(__DIR__ . '/../../public/storage/projects');
+        if ($baseStorage === false) {
+            http_response_code(500);
+            exit('No se encontró el almacenamiento de archivos.');
+        }
+        $resolvedPath = realpath(__DIR__ . '/../../public' . $relativePath);
+        if ($resolvedPath === false || !str_starts_with($resolvedPath, $baseStorage . DIRECTORY_SEPARATOR)) {
+            http_response_code(404);
+            exit('Archivo de factura no encontrado.');
+        }
+        if (!is_file($resolvedPath) || !is_readable($resolvedPath)) {
+            http_response_code(404);
+            exit('No se puede leer el PDF de la factura.');
+        }
+
+        $downloadName = preg_replace('/[^A-Za-z0-9._-]/', '_', (string) ($invoice['invoice_number'] ?? 'factura')) . '.pdf';
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+        header('Content-Length: ' . (string) filesize($resolvedPath));
+        readfile($resolvedPath);
     }
 
     public function deleteInvoice(int $projectId, int $invoiceId): void
@@ -2602,20 +2655,33 @@ class ProjectsController extends Controller
             exit('project_id es obligatorio');
         }
 
-        $rows = (new ProjectBillingRepository($this->db))->invoices($projectId);
+        $rows = (new ProjectBillingRepository($this->db))->exportCsvRows($projectId);
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="project-billing-' . $projectId . '.csv"');
         $out = fopen('php://output', 'wb');
-        fputcsv($out, ['invoice_number', 'issued_at', 'period_start', 'period_end', 'amount', 'status', 'paid_at', 'notes']);
+        fputcsv($out, [
+            'record_type',
+            'type_or_invoice',
+            'concept_or_date',
+            'value',
+            'currency',
+            'expected_or_issued_date',
+            'condition_or_items',
+            'status',
+            'invoice_number',
+            'notes',
+        ]);
         foreach ($rows as $row) {
             fputcsv($out, [
-                $row['invoice_number'] ?? '',
-                $row['issued_at'] ?? '',
-                $row['period_start'] ?? '',
-                $row['period_end'] ?? '',
-                $row['amount'] ?? '',
+                $row['record_type'] ?? '',
+                $row['type_or_invoice'] ?? '',
+                $row['concept_or_date'] ?? '',
+                $row['value'] ?? '',
+                $row['currency'] ?? '',
+                $row['expected_or_issued_date'] ?? '',
+                $row['condition_or_items'] ?? '',
                 $row['status'] ?? '',
-                $row['paid_at'] ?? '',
+                $row['invoice_number'] ?? '',
                 $row['notes'] ?? '',
             ]);
         }
@@ -2715,75 +2781,201 @@ class ProjectsController extends Controller
     private function billingPayloadFromRequest(array $current): array
     {
         $isBillable = isset($_POST['is_billable']) && $_POST['is_billable'] === '1';
-
         if (!$isBillable) {
             return [
                 'is_billable' => 0,
-                'billing_type' => 'fixed',
-                'billing_periodicity' => 'monthly',
-                'contract_value' => 0,
+                'billing_type' => (string) ($current['billing_type'] ?? 'mixed'),
+                'billing_periodicity' => (string) ($current['billing_periodicity'] ?? 'custom'),
+                'contract_value' => (float) ($_POST['contract_value'] ?? ($current['contract_value'] ?? 0)),
                 'currency_code' => 'USD',
-                'billing_start_date' => null,
-                'billing_end_date' => null,
-                'hourly_rate' => 0,
+                'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
+                'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
+                'hourly_rate' => (float) ($current['hourly_rate'] ?? 0),
+                'contract_notes' => trim((string) ($_POST['contract_notes'] ?? '')),
             ];
         }
 
-        $type = (string) ($_POST['billing_type'] ?? ($current['billing_type'] ?? 'fixed'));
-        $periodicity = (string) ($_POST['billing_periodicity'] ?? ($current['billing_periodicity'] ?? 'monthly'));
-
-        if (!in_array($type, self::BILLING_TYPES, true)) {
-            $type = 'fixed';
-        }
-        if (!in_array($periodicity, self::BILLING_PERIODICITIES, true)) {
-            $periodicity = 'monthly';
+        $currency = strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD'))));
+        if (!in_array($currency, self::CONTRACT_CURRENCIES, true)) {
+            $currency = 'USD';
         }
 
         return [
-            'is_billable' => $isBillable ? 1 : 0,
-            'billing_type' => $type,
-            'billing_periodicity' => $periodicity,
+            'is_billable' => 1,
+            'billing_type' => (string) ($current['billing_type'] ?? 'mixed'),
+            'billing_periodicity' => (string) ($current['billing_periodicity'] ?? 'custom'),
             'contract_value' => (float) ($_POST['contract_value'] ?? ($current['contract_value'] ?? 0)),
-            'currency_code' => in_array(strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD')))), ['USD', 'COP'], true)
-                ? strtoupper(trim((string) ($_POST['currency_code'] ?? ($current['currency_code'] ?? 'USD'))))
-                : 'USD',
+            'currency_code' => $currency,
             'billing_start_date' => $this->nullableDate($_POST['billing_start_date'] ?? ($current['billing_start_date'] ?? null)),
             'billing_end_date' => $this->nullableDate($_POST['billing_end_date'] ?? ($current['billing_end_date'] ?? null)),
-            'hourly_rate' => (float) ($_POST['hourly_rate'] ?? ($current['hourly_rate'] ?? 0)),
+            'hourly_rate' => (float) ($current['hourly_rate'] ?? 0),
+            'contract_notes' => trim((string) ($_POST['contract_notes'] ?? '')),
         ];
     }
 
-    private function invoicePayloadFromRequest(): array
+    private function planItemPayloadFromRequest(): array
     {
-        $status = (string) ($_POST['status'] ?? 'issued');
-        if (!in_array($status, self::INVOICE_STATUSES, true)) {
-            $status = 'issued';
+        $type = strtolower(trim((string) ($_POST['item_type'] ?? '')));
+        if (!in_array($type, self::PLAN_ITEM_TYPES, true)) {
+            throw new \InvalidArgumentException('Selecciona un tipo de ítem de facturación válido.');
+        }
+
+        $concept = trim((string) ($_POST['concept'] ?? ''));
+        $amountRaw = trim((string) ($_POST['amount'] ?? ''));
+        $amount = $amountRaw !== '' ? (float) $amountRaw : null;
+        $percentageRaw = trim((string) ($_POST['percentage'] ?? ''));
+        $percentage = $percentageRaw !== '' ? (float) $percentageRaw : null;
+        $expectedDate = $this->nullableDate($_POST['expected_date'] ?? null);
+        $conditionText = trim((string) ($_POST['condition_text'] ?? ''));
+        $notes = trim((string) ($_POST['notes'] ?? ''));
+        $linkedScheduleActivityId = (int) ($_POST['linked_schedule_activity_id'] ?? 0);
+
+        if ($type === 'anticipo') {
+            if ($concept === '' || $amount === null || $expectedDate === null) {
+                throw new \InvalidArgumentException('El anticipo requiere concepto, valor y fecha esperada.');
+            }
+        }
+
+        if ($type === 'mensualidad_fija') {
+            $startDate = $this->nullableDate($_POST['start_date'] ?? null);
+            $endDate = $this->nullableDate($_POST['end_date'] ?? null);
+            $dayOfMonth = (int) ($_POST['day_of_month'] ?? 0);
+            if ($concept === '' || $amount === null || $startDate === null || $endDate === null || $dayOfMonth < 1 || $dayOfMonth > 28) {
+                throw new \InvalidArgumentException('La mensualidad fija requiere concepto, valor mensual, fechas y día del mes (1-28).');
+            }
+            return [
+                'item_type' => $type,
+                'concept' => $concept,
+                'amount' => $amount,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'day_of_month' => $dayOfMonth,
+                'condition_text' => $conditionText,
+                'notes' => $notes,
+            ];
+        }
+
+        if ($type === 'hito_entregable') {
+            $milestoneName = trim((string) ($_POST['milestone_name'] ?? ''));
+            if ($milestoneName === '' || ($amount === null && $percentage === null) || $expectedDate === null) {
+                throw new \InvalidArgumentException('El hito requiere nombre, valor (monto o porcentaje) y fecha esperada.');
+            }
+            return [
+                'item_type' => $type,
+                'concept' => $concept !== '' ? $concept : $milestoneName,
+                'milestone_name' => $milestoneName,
+                'amount' => $amount,
+                'percentage' => $percentage,
+                'expected_date' => $expectedDate,
+                'condition_text' => $conditionText,
+                'notes' => $notes,
+                'linked_schedule_activity_id' => $linkedScheduleActivityId > 0 ? $linkedScheduleActivityId : null,
+            ];
+        }
+
+        $progressRequiredRaw = trim((string) ($_POST['progress_required_percentage'] ?? ''));
+        $progressRequired = $progressRequiredRaw !== '' ? (float) $progressRequiredRaw : null;
+        if ($concept === '' || $progressRequired === null || $progressRequired < 1 || $progressRequired > 100 || $amount === null) {
+            throw new \InvalidArgumentException('El ítem por porcentaje de avance requiere concepto, porcentaje (1-100) y valor.');
         }
 
         return [
-            'invoice_number' => trim((string) ($_POST['invoice_number'] ?? '')),
-            'issued_at' => $this->nullableDate($_POST['issued_at'] ?? date('Y-m-d')),
-            'period_start' => $this->nullableDate($_POST['period_start'] ?? null),
-            'period_end' => $this->nullableDate($_POST['period_end'] ?? null),
-            'amount' => (float) ($_POST['amount'] ?? 0),
-            'status' => $status,
-            'paid_at' => $status === 'paid' ? $this->nullableDate($_POST['paid_at'] ?? date('Y-m-d')) : null,
-            'notes' => trim((string) ($_POST['notes'] ?? '')),
-            'attachment_path' => trim((string) ($_POST['attachment_path'] ?? '')),
-            'timesheet_ids' => is_array($_POST['timesheet_ids'] ?? null) ? $_POST['timesheet_ids'] : [],
+            'item_type' => $type,
+            'concept' => $concept,
+            'progress_required_percentage' => $progressRequired,
+            'amount' => $amount,
+            'condition_text' => $conditionText,
+            'notes' => $notes,
+            'condition_met' => isset($_POST['condition_met']) ? 1 : 0,
+            'expected_date' => $expectedDate,
         ];
+    }
+
+    private function invoicePayloadFromRequest(int $projectId): array
+    {
+        $invoiceNumber = trim((string) ($_POST['invoice_number'] ?? ''));
+        $issuedAt = $this->nullableDate($_POST['issued_at'] ?? null);
+        $amount = (float) ($_POST['amount'] ?? 0);
+        $notes = trim((string) ($_POST['notes'] ?? ''));
+        $currency = strtoupper(trim((string) ($_POST['currency_code'] ?? '')));
+        if (!in_array($currency, self::CONTRACT_CURRENCIES, true)) {
+            $currency = 'USD';
+        }
+
+        if ($invoiceNumber === '' || $issuedAt === null || $amount <= 0) {
+            throw new \InvalidArgumentException('Número, fecha de emisión y valor de factura son obligatorios.');
+        }
+
+        $planItemIds = is_array($_POST['plan_item_ids'] ?? null)
+            ? array_values(array_unique(array_map('intval', $_POST['plan_item_ids'])))
+            : [];
+        $planItemIds = array_values(array_filter($planItemIds, static fn (int $id): bool => $id > 0));
+        $attachmentPath = $this->invoicePdfPathFromUpload($projectId);
+        if ($attachmentPath === null) {
+            $attachmentPath = trim((string) ($_POST['existing_attachment_path'] ?? '')) ?: null;
+        }
+
+        return [
+            'invoice_number' => $invoiceNumber,
+            'issued_at' => $issuedAt,
+            'period_start' => null,
+            'period_end' => null,
+            'amount' => $amount,
+            'status' => 'issued',
+            'notes' => $notes,
+            'attachment_path' => $attachmentPath,
+            'currency_code' => $currency,
+            'plan_item_ids' => $planItemIds,
+        ];
+    }
+
+    private function invoicePdfPathFromUpload(int $projectId): ?string
+    {
+        $file = $_FILES['invoice_pdf'] ?? null;
+        if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        if ((int) ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            throw new \InvalidArgumentException('No fue posible cargar el PDF de la factura.');
+        }
+
+        $tmpPath = (string) ($file['tmp_name'] ?? '');
+        if ($tmpPath === '' || !is_file($tmpPath)) {
+            throw new \InvalidArgumentException('Archivo PDF inválido.');
+        }
+        $mime = (string) mime_content_type($tmpPath);
+        if ($mime !== 'application/pdf') {
+            throw new \InvalidArgumentException('Solo se permite archivo PDF para la factura.');
+        }
+
+        $targetDir = __DIR__ . '/../../public/storage/projects/' . $projectId . '/billing/invoices';
+        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            throw new \RuntimeException('No se pudo preparar el directorio para facturas PDF.');
+        }
+
+        $baseName = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo((string) ($file['name'] ?? 'factura.pdf'), PATHINFO_FILENAME));
+        $baseName = $baseName !== '' ? $baseName : 'factura';
+        $fileName = $baseName . '-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '.pdf';
+        $destination = rtrim($targetDir, '/') . '/' . $fileName;
+        if (!move_uploaded_file($tmpPath, $destination)) {
+            throw new \RuntimeException('No se pudo guardar el PDF de la factura.');
+        }
+
+        return '/storage/projects/' . $projectId . '/billing/invoices/' . $fileName;
     }
 
     private function validateInvoiceAgainstContract(array $payload, array $billingConfig, array $invoiceTotals): void
     {
         $nextAmount = (float) ($payload['amount'] ?? 0);
-        if (($billingConfig['billing_type'] ?? '') === 'fixed') {
-            $contractValue = (float) ($billingConfig['contract_value'] ?? 0);
-            $alreadyInvoiced = (float) ($invoiceTotals['total_invoiced'] ?? 0);
-            if (($alreadyInvoiced + $nextAmount) > $contractValue) {
-                http_response_code(422);
-                exit('La factura supera el valor contratado para un proyecto de tipo Fijo.');
-            }
+        $contractValue = (float) ($billingConfig['contract_value'] ?? 0);
+        if ($contractValue <= 0) {
+            return;
+        }
+
+        $alreadyInvoiced = (float) ($invoiceTotals['total_invoiced'] ?? 0);
+        if (($alreadyInvoiced + $nextAmount) > $contractValue) {
+            http_response_code(422);
+            exit('La factura supera el valor total del contrato configurado.');
         }
     }
 

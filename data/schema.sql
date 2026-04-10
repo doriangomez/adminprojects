@@ -153,6 +153,7 @@ CREATE TABLE projects (
     billing_start_date DATE NULL,
     billing_end_date DATE NULL,
     hourly_rate DECIMAL(12,2) NOT NULL DEFAULT 0,
+    contract_notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -583,10 +584,10 @@ CREATE TABLE project_invoices (
     period_start DATE NULL,
     period_end DATE NULL,
     amount DECIMAL(14,2) NOT NULL,
-    status ENUM('issued','sent','paid','overdue','void') NOT NULL DEFAULT 'issued',
-    paid_at DATE NULL,
+    status ENUM('issued','cancelled') NOT NULL DEFAULT 'issued',
     notes TEXT NULL,
     attachment_path VARCHAR(255) NULL,
+    currency_code CHAR(3) NOT NULL DEFAULT 'USD',
     created_by INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -605,6 +606,45 @@ CREATE TABLE project_invoice_timesheets (
     UNIQUE KEY uq_invoice_timesheet_unique (timesheet_id),
     FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE CASCADE,
     FOREIGN KEY (timesheet_id) REFERENCES timesheets(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE project_billing_plan (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    billing_model ENUM('milestones','advance_balance','recurring','consumption') NOT NULL,
+    item_type ENUM('anticipo','mensualidad_fija','hito_entregable','porcentaje_avance') NULL,
+    concept VARCHAR(140) NULL,
+    milestone_name VARCHAR(160) NULL,
+    percentage DECIMAL(7,2) NULL,
+    progress_required_percentage DECIMAL(7,2) NULL,
+    amount DECIMAL(14,2) NULL,
+    billing_frequency ENUM('weekly','monthly','quarterly','yearly','custom') NULL,
+    expected_trigger VARCHAR(190) NULL,
+    expected_date DATE NULL,
+    condition_text TEXT NULL,
+    condition_met TINYINT(1) NOT NULL DEFAULT 0,
+    notes TEXT NULL,
+    linked_schedule_activity_id BIGINT NULL,
+    day_of_month TINYINT UNSIGNED NULL,
+    series_key VARCHAR(120) NULL,
+    status ENUM('pendiente','proximo','listo_para_emitir','emitido','atrasado') NOT NULL DEFAULT 'pendiente',
+    invoice_id BIGINT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project_billing_plan_project_date (project_id, expected_date),
+    INDEX idx_project_billing_plan_status (project_id, status),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE project_invoice_plan_items (
+    invoice_id BIGINT NOT NULL,
+    plan_item_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (invoice_id, plan_item_id),
+    UNIQUE KEY uq_project_invoice_plan_item (plan_item_id),
+    FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_item_id) REFERENCES project_billing_plan(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE project_outsourcing_settings (
@@ -749,8 +789,6 @@ INSERT INTO permissions (code, name) VALUES
     ('timesheets.advanced_manage', 'Gestión avanzada de timesheets'),
     ('project.billing.view', 'Ver facturación de proyectos'),
     ('project.billing.manage', 'Registrar y editar facturas de proyecto'),
-    ('project.billing.mark_paid', 'Cambiar estado de facturas a pagado'),
-    ('project.billing.void', 'Anular facturas de proyecto'),
     ('project.stoppers.view', 'Ver bloqueos de proyectos'),
     ('project.stoppers.manage', 'Crear y actualizar bloqueos de proyectos'),
     ('project.stoppers.close', 'Cerrar bloqueos de proyectos'),

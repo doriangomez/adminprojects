@@ -2,45 +2,51 @@
 $basePath = $basePath ?? '';
 $project = $project ?? [];
 $billingConfig = is_array($billingConfig ?? null) ? $billingConfig : [];
-$billingTotals = is_array($billingTotals ?? null) ? $billingTotals : [];
 $projectInvoices = is_array($projectInvoices ?? null) ? $projectInvoices : [];
 $billingPlanItems = is_array($billingPlanItems ?? null) ? $billingPlanItems : [];
-$billingFinancialControl = is_array($billingFinancialControl ?? null) ? $billingFinancialControl : [];
+$billingFinancialSummary = is_array($billingFinancialSummary ?? null) ? $billingFinancialSummary : [];
+$availablePlanItemsForInvoice = is_array($availablePlanItemsForInvoice ?? null) ? $availablePlanItemsForInvoice : [];
 $canManageBilling = !empty($canManageBilling);
-$canMarkInvoicePaid = !empty($canMarkInvoicePaid);
-$canVoidInvoice = !empty($canVoidInvoice);
 $canDeleteInvoice = !empty($canDeleteInvoice);
-$approvedHoursPendingInvoicing = (float) ($approvedHoursPendingInvoicing ?? 0);
-$approvedHoursTotal = (float) ($approvedHoursTotal ?? 0);
-$currency = in_array(($billingConfig['currency_code'] ?? 'USD'), ['USD', 'COP'], true) ? $billingConfig['currency_code'] : 'USD';
-$locale = $currency === 'COP' ? 'es-CO' : 'en-US';
+$contractCurrencies = is_array($contractCurrencies ?? null) ? $contractCurrencies : ['COP', 'USD', 'EUR', 'MXN'];
+$planItemTypes = is_array($planItemTypes ?? null) ? $planItemTypes : ['anticipo', 'mensualidad_fija', 'hito_entregable', 'porcentaje_avance'];
+$isBillable = (int) ($billingConfig['is_billable'] ?? 0) === 1;
+$currency = (string) ($billingConfig['currency_code'] ?? 'USD');
+$currency = in_array($currency, $contractCurrencies, true) ? $currency : 'USD';
+$locale = in_array($currency, ['COP', 'MXN'], true) ? 'es-CO' : 'en-US';
 $fmtMoney = static function (float $amount) use ($currency, $locale): string {
     $formatter = new NumberFormatter($locale, NumberFormatter::CURRENCY);
     return $formatter->formatCurrency($amount, $currency);
 };
-$billingTypeLabels = ['fixed' => 'Fijo', 'hours' => 'Por horas', 'milestones' => 'Por hitos', 'mixed' => 'Mixto'];
-$periodicityLabels = ['monthly' => 'Mensual', 'biweekly' => 'Quincenal', 'deliverable' => 'Por entregable', 'one_time' => 'Único', 'custom' => 'Personalizado'];
-$statusLabels = ['issued' => 'Emitida', 'paid' => 'Pagada', 'draft' => 'Borrador', 'cancelled' => 'Anulada'];
-$totalInvoiced = (float) ($billingTotals['total_invoiced'] ?? 0);
-$hoursBillableAmount = (($billingConfig['billing_type'] ?? '') === 'hours') ? ($approvedHoursTotal * (float) ($billingConfig['hourly_rate'] ?? 0)) : null;
-$hoursDelta = $hoursBillableAmount !== null ? ($hoursBillableAmount - $totalInvoiced) : null;
-$controlStatusLabels = [
+$statusLabels = [
     'pendiente' => 'Pendiente',
-    'listo_para_facturar' => 'Listo para facturar',
-    'facturado' => 'Facturado',
-    'pagado' => 'Pagado',
+    'proximo' => 'Próximo',
+    'listo_para_emitir' => 'Listo para emitir',
+    'emitido' => 'Emitido',
     'atrasado' => 'Atrasado',
 ];
+$typeLabels = [
+    'anticipo' => 'Anticipo',
+    'mensualidad_fija' => 'Mensualidad fija',
+    'hito_entregable' => 'Hito / Entregable',
+    'porcentaje_avance' => 'Por porcentaje de avance',
+];
+$attentionCount = (int) ($billingFinancialSummary['attention_items_count'] ?? 0);
+$counts = is_array($billingFinancialSummary['counts'] ?? null) ? $billingFinancialSummary['counts'] : [];
+$nextItemsCount = (int) ($counts['proximo'] ?? 0);
+$readyItemsCount = (int) ($counts['listo_para_emitir'] ?? 0);
+$overdueItemsCount = (int) ($counts['atrasado'] ?? 0);
+$invoiceAnchorMap = [];
+foreach ($projectInvoices as $invoice) {
+    $invoiceAnchorMap[(string) ($invoice['invoice_number'] ?? '')] = 'invoice-row-' . (int) ($invoice['id'] ?? 0);
+}
 ?>
 <section class="project-shell">
     <header class="project-header">
         <div>
             <p class="eyebrow">Facturación</p>
             <h2><?= htmlspecialchars($project['name'] ?? '') ?></h2>
-            <small class="section-muted">Gestión financiera contractual y de facturas del proyecto.</small>
-        </div>
-        <div class="project-actions">
-            <?php if ($canManageBilling): ?><button class="action-btn primary" type="button" data-open-modal="invoice-modal">Registrar factura</button><?php endif; ?>
+            <small class="section-muted">Definición de acuerdos, facturas emitidas y alertas de emisión.</small>
         </div>
     </header>
 
@@ -48,347 +54,400 @@ $controlStatusLabels = [
 
     <section class="billing-layout">
         <article class="card billing-card">
-            <h3>A. Configuración contractual</h3>
+            <h3>A. Configuración del contrato</h3>
             <?php if ($canManageBilling): ?>
-            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form" id="billing-config-form">
-                <div class="contract-switch-row">
-                    <span class="contract-title">Contrato</span>
-                    <input type="hidden" id="is-billable" name="is_billable" value="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '1' : '0' ?>">
-                    <button
-                        type="button"
-                        id="billable-switch"
-                        class="toggle-switch <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>"
-                        role="switch"
-                        aria-checked="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'true' : 'false' ?>"
-                        aria-label="Toggle de facturación"
-                    >
-                        <svg class="billable-switch-svg" viewBox="0 0 52 30" width="52" height="30" aria-hidden="true">
-                            <rect class="billable-switch-track" x="1" y="1" width="50" height="28" rx="14" fill="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#22a35a' : '#b8bec8' ?>" stroke="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#1d8b4c' : 'rgba(0,0,0,.14)' ?>" stroke-width="1"></rect>
-                            <circle class="billable-switch-thumb" cx="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '36' : '15' ?>" cy="15" r="11" fill="#ffffff"></circle>
-                        </svg>
-                    </button>
-                    <span id="billable-badge" class="billable-badge <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>">
-                        <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
-                    </span>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-config" class="grid-form">
+                    <label>Valor total del contrato
+                        <input type="number" step="0.01" min="0" name="contract_value" value="<?= htmlspecialchars((string) ($billingConfig['contract_value'] ?? '0')) ?>" required>
+                    </label>
+                    <label>Moneda
+                        <select name="currency_code" required>
+                            <?php foreach ($contractCurrencies as $code): ?>
+                                <option value="<?= htmlspecialchars((string) $code) ?>" <?= $currency === $code ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars((string) $code) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>Fecha de inicio del contrato
+                        <input type="date" name="billing_start_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '')) ?>">
+                    </label>
+                    <label>Fecha de fin del contrato
+                        <input type="date" name="billing_end_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '')) ?>">
+                    </label>
+                    <label class="contract-billable-toggle">
+                        ¿El proyecto es facturable?
+                        <select name="is_billable">
+                            <option value="1" <?= $isBillable ? 'selected' : '' ?>>Sí</option>
+                            <option value="0" <?= !$isBillable ? 'selected' : '' ?>>No</option>
+                        </select>
+                    </label>
+                    <label style="grid-column:1/-1;">Notas del contrato
+                        <textarea name="contract_notes" rows="3" placeholder="Notas opcionales del contrato"><?= htmlspecialchars((string) ($billingConfig['contract_notes'] ?? '')) ?></textarea>
+                    </label>
+                    <div><button class="action-btn primary" type="submit">Guardar configuración</button></div>
+                </form>
+            <?php else: ?>
+                <div class="readonly-grid">
+                    <p><strong>Valor total:</strong> <?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></p>
+                    <p><strong>Moneda:</strong> <?= htmlspecialchars($currency) ?></p>
+                    <p><strong>Inicio:</strong> <?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '-')) ?></p>
+                    <p><strong>Fin:</strong> <?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '-')) ?></p>
+                    <p><strong>Facturable:</strong> <?= $isBillable ? 'Sí' : 'No' ?></p>
+                    <p style="grid-column:1/-1;"><strong>Notas:</strong> <?= htmlspecialchars((string) ($billingConfig['contract_notes'] ?? '-')) ?></p>
                 </div>
-                <p id="billable-off-message" class="section-muted" style="display:none;">Este proyecto no genera facturación.</p>
-                <div id="billable-config-fields" class="grid-form-inner" style="display:<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'contents' : 'none' ?>;">
-                    <label>Tipo de facturación<select name="billing_type" id="billing-type"><?php foreach (($billingTypes ?? []) as $t): ?><option value="<?= htmlspecialchars($t) ?>" <?= (($billingConfig['billing_type'] ?? '') === $t) ? 'selected' : '' ?>><?= htmlspecialchars($billingTypeLabels[$t] ?? $t) ?></option><?php endforeach; ?></select></label>
-                    <label>Periodicidad<select name="billing_periodicity"><?php foreach (($billingPeriodicities ?? []) as $p): ?><option value="<?= htmlspecialchars($p) ?>" <?= (($billingConfig['billing_periodicity'] ?? '') === $p) ? 'selected' : '' ?>><?= htmlspecialchars($periodicityLabels[$p] ?? $p) ?></option><?php endforeach; ?></select></label>
-                    <label>Valor del contrato<input type="number" step="0.01" min="0" name="contract_value" value="<?= htmlspecialchars((string) ($billingConfig['contract_value'] ?? '0')) ?>"></label>
-                    <label>Moneda<select name="currency_code"><option value="USD" <?= $currency === 'USD' ? 'selected' : '' ?>>USD</option><option value="COP" <?= $currency === 'COP' ? 'selected' : '' ?>>COP</option></select></label>
-                    <label>Fecha inicio facturación<input type="date" name="billing_start_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_start_date'] ?? '')) ?>"></label>
-                    <label>Fecha fin facturación<input type="date" name="billing_end_date" value="<?= htmlspecialchars((string) ($billingConfig['billing_end_date'] ?? '')) ?>"></label>
-                    <label id="hourly-rate-field" style="display:<?= (($billingConfig['billing_type'] ?? '') === 'hours') ? 'block' : 'none' ?>;">Tarifa por hora<input type="number" step="0.01" min="0" name="hourly_rate" value="<?= htmlspecialchars((string) ($billingConfig['hourly_rate'] ?? '0')) ?>"></label>
+            <?php endif; ?>
+        </article>
+
+        <?php if (!$isBillable): ?>
+            <article class="card billing-card">
+                <p class="empty-note">Este proyecto no genera facturación.</p>
+            </article>
+        <?php else: ?>
+            <article class="card billing-card" id="plan-section">
+                <div class="billing-section-head">
+                    <h3>B. Plan de facturación</h3>
+                    <?php if ($canManageBilling): ?>
+                        <button class="action-btn primary" type="button" data-toggle-inline-form="new-plan-item">＋ Agregar ítem de facturación</button>
+                    <?php endif; ?>
                 </div>
-            </form>
-<?php else: ?>
-                <div class="contract-switch-row">
-                    <span class="contract-title">Contrato</span>
-                    <button
-                        type="button"
-                        class="toggle-switch <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?> is-disabled"
-                        role="switch"
-                        aria-checked="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'true' : 'false' ?>"
-                        aria-label="Estado de facturación (solo lectura)"
-                        disabled
-                    >
-                        <svg class="billable-switch-svg" viewBox="0 0 52 30" width="52" height="30" aria-hidden="true">
-                            <rect class="billable-switch-track" x="1" y="1" width="50" height="28" rx="14" fill="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#22a35a' : '#b8bec8' ?>" stroke="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '#1d8b4c' : 'rgba(0,0,0,.14)' ?>" stroke-width="1"></rect>
-                            <circle class="billable-switch-thumb" cx="<?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? '36' : '15' ?>" cy="15" r="11" fill="#ffffff"></circle>
-                        </svg>
-                    </button>
-                    <span class="billable-badge <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'is-on' : 'is-off' ?>">
-                        <?= ((int) ($billingConfig['is_billable'] ?? 0) === 1) ? 'Facturable' : 'No facturable' ?>
-                    </span>
+
+                <?php if ($attentionCount > 0): ?>
+                    <div class="attention-banner">
+                        <span>Tienes <?= $attentionCount ?> ítems que requieren atención.</span>
+                        <a href="#plan-items-table">Ver ítems</a>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($canManageBilling): ?>
+                    <form id="new-plan-item" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form inline-form" hidden>
+                        <label>Tipo de facturación
+                            <select name="item_type" required data-plan-type="true">
+                                <?php foreach ($planItemTypes as $planType): ?>
+                                    <option value="<?= htmlspecialchars((string) $planType) ?>"><?= htmlspecialchars($typeLabels[$planType] ?? (string) $planType) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+
+                        <div class="plan-type-fields" data-plan-fields="anticipo">
+                            <label>Concepto<input type="text" name="concept"></label>
+                            <label>Valor<input type="number" step="0.01" min="0" name="amount"></label>
+                            <label>Fecha esperada de emisión<input type="date" name="expected_date"></label>
+                            <label>Condición<input type="text" name="condition_text"></label>
+                        </div>
+
+                        <div class="plan-type-fields" data-plan-fields="mensualidad_fija" hidden>
+                            <label>Concepto<input type="text" name="concept"></label>
+                            <label>Valor mensual<input type="number" step="0.01" min="0" name="amount"></label>
+                            <label>Fecha de inicio<input type="date" name="start_date"></label>
+                            <label>Fecha de fin<input type="date" name="end_date"></label>
+                            <label>Día del mes (1-28)<input type="number" min="1" max="28" name="day_of_month"></label>
+                        </div>
+
+                        <div class="plan-type-fields" data-plan-fields="hito_entregable" hidden>
+                            <label>Nombre del hito<input type="text" name="milestone_name"></label>
+                            <label>Concepto<input type="text" name="concept"></label>
+                            <label>Valor (monto)<input type="number" step="0.01" min="0" name="amount"></label>
+                            <label>Porcentaje del contrato<input type="number" step="0.01" min="0" max="100" name="percentage"></label>
+                            <label>Fecha esperada de emisión<input type="date" name="expected_date"></label>
+                            <label>Condición de emisión<input type="text" name="condition_text"></label>
+                            <label>Hito vinculado al cronograma (opcional)<input type="number" min="1" name="linked_schedule_activity_id"></label>
+                        </div>
+
+                        <div class="plan-type-fields" data-plan-fields="porcentaje_avance" hidden>
+                            <label>Concepto<input type="text" name="concept"></label>
+                            <label>Porcentaje de avance requerido (1-100)<input type="number" min="1" max="100" step="0.01" name="progress_required_percentage"></label>
+                            <label>Valor a facturar<input type="number" step="0.01" min="0" name="amount"></label>
+                            <label>Condición adicional<input type="text" name="condition_text"></label>
+                        </div>
+
+                        <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"></textarea></label>
+                        <div><button class="action-btn primary" type="submit">Guardar ítem</button></div>
+                    </form>
+                <?php endif; ?>
+
+                <div class="table-wrapper">
+                    <table id="plan-items-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Concepto</th>
+                                <th>Valor</th>
+                                <th>Fecha esperada emisión</th>
+                                <th>Condición</th>
+                                <th>Estado</th>
+                                <th>Factura asociada</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($billingPlanItems === []): ?>
+                                <tr><td colspan="8" class="empty-row">No hay ítems de plan de facturación registrados.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($billingPlanItems as $item): ?>
+                                    <?php
+                                        $itemId = (int) ($item['id'] ?? 0);
+                                        $status = (string) ($item['status'] ?? 'pendiente');
+                                        $invoiceNumber = (string) ($item['linked_invoice_number'] ?? '');
+                                        $invoiceAnchor = $invoiceNumber !== '' ? ($invoiceAnchorMap[$invoiceNumber] ?? null) : null;
+                                    ?>
+                                    <tr id="plan-item-<?= $itemId ?>">
+                                        <td><?= htmlspecialchars((string) ($item['type_label'] ?? ($typeLabels[$item['item_type'] ?? ''] ?? '-'))) ?></td>
+                                        <td><?= htmlspecialchars((string) ($item['concept'] ?? '-')) ?></td>
+                                        <td><?= $fmtMoney((float) ($item['resolved_amount'] ?? 0)) ?></td>
+                                        <td><?= htmlspecialchars((string) ($item['expected_date'] ?? '-')) ?></td>
+                                        <td><?= htmlspecialchars((string) ($item['condition_text'] ?? '-')) ?></td>
+                                        <td><span class="status-pill status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $status))) ?></span></td>
+                                        <td>
+                                            <?php if ($invoiceNumber !== '' && $invoiceAnchor): ?>
+                                                <a href="#<?= htmlspecialchars($invoiceAnchor) ?>"><?= htmlspecialchars($invoiceNumber) ?></a>
+                                            <?php elseif ($invoiceNumber !== ''): ?>
+                                                <?= htmlspecialchars($invoiceNumber) ?>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="actions">
+                                            <?php if ($canManageBilling): ?>
+                                                <button class="action-btn small" type="button" data-toggle-inline-form="edit-plan-<?= $itemId ?>">✎</button>
+                                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan/<?= $itemId ?>/delete" onsubmit="return confirm('¿Eliminar ítem de facturación?');">
+                                                    <button class="action-btn small danger" type="submit">🗑</button>
+                                                </form>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                    <?php if ($canManageBilling): ?>
+                                        <tr class="inline-edit-row" id="edit-plan-<?= $itemId ?>" hidden>
+                                            <td colspan="8">
+                                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan/<?= $itemId ?>/update" class="grid-form inline-form">
+                                                    <label>Tipo
+                                                        <select name="item_type" required>
+                                                            <?php foreach ($planItemTypes as $planType): ?>
+                                                                <option value="<?= htmlspecialchars((string) $planType) ?>" <?= ($item['item_type'] ?? '') === $planType ? 'selected' : '' ?>>
+                                                                    <?= htmlspecialchars($typeLabels[$planType] ?? (string) $planType) ?>
+                                                                </option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </label>
+                                                    <label>Concepto<input type="text" name="concept" value="<?= htmlspecialchars((string) ($item['concept'] ?? '')) ?>"></label>
+                                                    <label>Nombre hito<input type="text" name="milestone_name" value="<?= htmlspecialchars((string) ($item['milestone_name'] ?? '')) ?>"></label>
+                                                    <label>Valor<input type="number" step="0.01" min="0" name="amount" value="<?= htmlspecialchars((string) ($item['amount'] ?? '')) ?>"></label>
+                                                    <label>Porcentaje<input type="number" step="0.01" min="0" max="100" name="percentage" value="<?= htmlspecialchars((string) ($item['percentage'] ?? '')) ?>"></label>
+                                                    <label>% avance requerido<input type="number" step="0.01" min="1" max="100" name="progress_required_percentage" value="<?= htmlspecialchars((string) ($item['progress_required_percentage'] ?? '')) ?>"></label>
+                                                    <label>Fecha esperada<input type="date" name="expected_date" value="<?= htmlspecialchars((string) ($item['expected_date'] ?? '')) ?>"></label>
+                                                    <label>Condición<input type="text" name="condition_text" value="<?= htmlspecialchars((string) ($item['condition_text'] ?? '')) ?>"></label>
+                                                    <label>Inicio mensualidad<input type="date" name="start_date"></label>
+                                                    <label>Fin mensualidad<input type="date" name="end_date"></label>
+                                                    <label>Día mes (1-28)<input type="number" min="1" max="28" name="day_of_month" value="<?= htmlspecialchars((string) ($item['day_of_month'] ?? '')) ?>"></label>
+                                                    <label>Hito cronograma<input type="number" min="1" name="linked_schedule_activity_id" value="<?= htmlspecialchars((string) ($item['linked_schedule_activity_id'] ?? '')) ?>"></label>
+                                                    <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"><?= htmlspecialchars((string) ($item['notes'] ?? '')) ?></textarea></label>
+                                                    <div><button class="action-btn primary" type="submit">Guardar</button></div>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <p class="section-muted">Solo administradores y PM pueden editar la configuración contractual.</p>
-            <?php endif; ?>
-        </article>
+            </article>
 
-        <article class="card billing-card">
-            <h3>B. Resumen financiero</h3>
-            <div class="kpi-grid finance-kpi-grid">
-                <article class="kpi-card"><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingConfig['contract_value'] ?? 0)) ?></strong></article>
-                <article class="kpi-card"><span>Total esperado</span><strong><?= $fmtMoney((float) ($billingFinancialControl['expected_billing'] ?? 0)) ?></strong></article>
-                <article class="kpi-card"><span>Total facturado</span><strong><?= $fmtMoney($totalInvoiced) ?></strong></article>
-                <article class="kpi-card"><span>Total pagado</span><strong><?= $fmtMoney((float) ($billingTotals['total_paid'] ?? 0)) ?></strong></article>
-                <article class="kpi-card"><span>Saldo por facturar</span><strong><?= $fmtMoney((float) ($billingFinancialControl['pending_billing'] ?? 0)) ?></strong></article>
-                <article class="kpi-card"><span>Facturación atrasada</span><strong><?= $fmtMoney((float) ($billingFinancialControl['overdue_billing'] ?? 0)) ?></strong></article>
-                <article class="kpi-card"><span>Revenue forecast</span><strong><?= $fmtMoney((float) ($billingFinancialControl['forecast_revenue'] ?? 0)) ?></strong></article>
-            </div>
-            <?php if (($billingConfig['billing_type'] ?? '') === 'fixed' && $totalInvoiced > (float) ($billingConfig['contract_value'] ?? 0)): ?>
-                <p class="alert">⚠ Se superó el valor del contrato para facturación de tipo Fijo.</p>
-            <?php endif; ?>
-            <?php if ($hoursBillableAmount !== null): ?>
-                <p class="section-muted">Facturable por horas: <strong><?= $fmtMoney($hoursBillableAmount) ?></strong> · Diferencia vs facturado: <strong><?= $fmtMoney((float) $hoursDelta) ?></strong>.</p>
-            <?php endif; ?>
-            <div style="margin-top:12px;">
-                <a class="action-btn" href="<?= $basePath ?>/projects/billing-report?project_id=<?= (int) ($project['id'] ?? 0) ?>">Exportar CSV</a>
-            </div>
-        </article>
+            <article class="card billing-card" id="invoices-section">
+                <div class="billing-section-head">
+                    <h3>C. Facturas emitidas</h3>
+                    <?php if ($canManageBilling): ?>
+                        <button class="action-btn primary" type="button" data-toggle-inline-form="new-invoice">＋ Registrar factura</button>
+                    <?php endif; ?>
+                </div>
 
-        <article class="card billing-card">
-            <h3>C. Gestión de facturas</h3>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>Número</th><th>Emisión</th><th>Periodo</th><th>Valor</th><th>Estado</th><th>Pago</th><th>Acciones</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($projectInvoices as $inv): ?>
-                        <tr>
-                            <td><?= htmlspecialchars((string) ($inv['invoice_number'] ?? '')) ?></td>
-                            <td><?= htmlspecialchars((string) ($inv['issued_at'] ?? '')) ?></td>
-                            <td><?= htmlspecialchars((string) (($inv['period_start'] ?? '-') . ' a ' . ($inv['period_end'] ?? '-'))) ?></td>
-                            <td><?= $fmtMoney((float) ($inv['amount'] ?? 0)) ?></td>
-                            <td><?= htmlspecialchars($statusLabels[$inv['status'] ?? ''] ?? (string) ($inv['status'] ?? '')) ?></td>
-                            <td><?= htmlspecialchars((string) ($inv['paid_at'] ?? '-')) ?></td>
-                            <td class="actions">
-                                <?php if ($canManageBilling): ?><button class="action-btn small" type="button" data-open-modal="invoice-modal" data-prefill='<?= htmlspecialchars(json_encode($inv), ENT_QUOTES, 'UTF-8') ?>'>Editar</button><?php endif; ?>
-                                <?php if ($canMarkInvoicePaid && ($inv['status'] ?? '') !== 'paid'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/mark-paid"><button class="action-btn small" type="submit">Marcar como pagada</button></form><?php endif; ?>
-                                <?php if ($canVoidInvoice && ($inv['status'] ?? '') !== 'cancelled'): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/cancel"><button class="action-btn small" type="submit">Anular</button></form><?php endif; ?>
-                                <?php if ($canDeleteInvoice): ?><form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= (int) ($inv['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar factura?');"><button class="action-btn small danger" type="submit">Eliminar</button></form><?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </article>
+                <?php if ($canManageBilling): ?>
+                    <form id="new-invoice" method="POST" enctype="multipart/form-data" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices" class="grid-form inline-form" hidden>
+                        <label>Número de factura
+                            <input type="text" name="invoice_number" required>
+                        </label>
+                        <label>Fecha de emisión
+                            <input type="date" name="issued_at" required>
+                        </label>
+                        <label>Valor de la factura
+                            <input type="number" step="0.01" min="0" name="amount" required>
+                        </label>
+                        <label>Moneda
+                            <select name="currency_code">
+                                <?php foreach ($contractCurrencies as $code): ?>
+                                    <option value="<?= htmlspecialchars((string) $code) ?>" <?= $currency === $code ? 'selected' : '' ?>><?= htmlspecialchars((string) $code) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label style="grid-column:1/-1;">Ítems del plan que cubre esta factura
+                            <select name="plan_item_ids[]" multiple size="4">
+                                <?php foreach ($availablePlanItemsForInvoice as $planItem): ?>
+                                    <option value="<?= (int) ($planItem['id'] ?? 0) ?>">
+                                        <?= htmlspecialchars((string) ($planItem['concept'] ?? ('Ítem #' . (int) ($planItem['id'] ?? 0)))) ?>
+                                        (<?= htmlspecialchars($statusLabels[(string) ($planItem['status'] ?? '')] ?? (string) ($planItem['status'] ?? '')) ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label>Archivo PDF de la factura
+                            <input type="file" name="invoice_pdf" accept="application/pdf">
+                        </label>
+                        <label style="grid-column:1/-1;">Notas
+                            <textarea name="notes" rows="2"></textarea>
+                        </label>
+                        <div><button class="action-btn primary" type="submit">Guardar factura</button></div>
+                    </form>
+                <?php endif; ?>
 
-        <article class="card billing-card" style="grid-column:1/-1;">
-            <h3>Control financiero del proyecto</h3>
-            <h4 class="billing-subtitle">A) Configuración de modelo de facturación</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° Factura</th>
+                                <th>Fecha emisión</th>
+                                <th>Valor</th>
+                                <th>Ítems cubiertos</th>
+                                <th>PDF</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($projectInvoices === []): ?>
+                                <tr><td colspan="6" class="empty-row">No hay facturas emitidas registradas.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($projectInvoices as $inv): ?>
+                                    <?php
+                                        $invId = (int) ($inv['id'] ?? 0);
+                                        $coveredCount = (int) ($inv['covered_items_count'] ?? 0);
+                                        $coveredItems = trim((string) ($inv['covered_items'] ?? ''));
+                                        $attachmentPath = trim((string) ($inv['attachment_path'] ?? ''));
+                                    ?>
+                                    <tr id="invoice-row-<?= $invId ?>">
+                                        <td><?= htmlspecialchars((string) ($inv['invoice_number'] ?? '')) ?></td>
+                                        <td><?= htmlspecialchars((string) ($inv['issued_at'] ?? '')) ?></td>
+                                        <td><?= $fmtMoney((float) ($inv['amount'] ?? 0)) ?></td>
+                                        <td>
+                                            <?= $coveredCount > 0 ? $coveredCount . ' ítem(s)' : '-' ?>
+                                            <?php if ($coveredItems !== ''): ?>
+                                                <small class="cell-note"><?= htmlspecialchars($coveredItems) ?></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($attachmentPath !== ''): ?>
+                                                <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= $invId ?>/pdf" title="Descargar PDF">⬇</a>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="actions">
+                                            <?php if ($canManageBilling): ?>
+                                                <button class="action-btn small" type="button" data-toggle-inline-form="edit-invoice-<?= $invId ?>">✎</button>
+                                            <?php endif; ?>
+                                            <?php if ($canDeleteInvoice): ?>
+                                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= $invId ?>/delete" onsubmit="return confirm('¿Eliminar factura?');">
+                                                    <button class="action-btn small danger" type="submit">🗑</button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                    <?php if ($canManageBilling): ?>
+                                        <tr class="inline-edit-row" id="edit-invoice-<?= $invId ?>" hidden>
+                                            <td colspan="6">
+                                                <form method="POST" enctype="multipart/form-data" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/<?= $invId ?>/update" class="grid-form inline-form">
+                                                    <label>Número de factura<input type="text" name="invoice_number" value="<?= htmlspecialchars((string) ($inv['invoice_number'] ?? '')) ?>" required></label>
+                                                    <label>Fecha emisión<input type="date" name="issued_at" value="<?= htmlspecialchars((string) ($inv['issued_at'] ?? '')) ?>" required></label>
+                                                    <label>Valor<input type="number" step="0.01" min="0" name="amount" value="<?= htmlspecialchars((string) ($inv['amount'] ?? '')) ?>" required></label>
+                                                    <label>Moneda
+                                                        <select name="currency_code">
+                                                            <?php foreach ($contractCurrencies as $code): ?>
+                                                                <option value="<?= htmlspecialchars((string) $code) ?>" <?= (($inv['currency_code'] ?? $currency) === $code) ? 'selected' : '' ?>><?= htmlspecialchars((string) $code) ?></option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </label>
+                                                    <label style="grid-column:1/-1;">Ítems del plan
+                                                        <select name="plan_item_ids[]" multiple size="4">
+                                                            <?php
+                                                                $selectedIds = is_array($inv['selected_plan_item_ids'] ?? null) ? array_map('intval', $inv['selected_plan_item_ids']) : [];
+                                                                foreach ($billingPlanItems as $planItem):
+                                                                    $planId = (int) ($planItem['id'] ?? 0);
+                                                                    $status = (string) ($planItem['status'] ?? '');
+                                                                    $selectable = in_array($status, ['listo_para_emitir', 'atrasado'], true)
+                                                                        || in_array($planId, $selectedIds, true);
+                                                                    if (!$selectable) {
+                                                                        continue;
+                                                                    }
+                                                            ?>
+                                                                <option value="<?= $planId ?>" <?= in_array($planId, $selectedIds, true) ? 'selected' : '' ?>>
+                                                                    <?= htmlspecialchars((string) ($planItem['concept'] ?? ('Ítem #' . $planId))) ?>
+                                                                </option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </label>
+                                                    <label>Archivo PDF<input type="file" name="invoice_pdf" accept="application/pdf"></label>
+                                                    <input type="hidden" name="existing_attachment_path" value="<?= htmlspecialchars($attachmentPath) ?>">
+                                                    <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"><?= htmlspecialchars((string) ($inv['notes'] ?? '')) ?></textarea></label>
+                                                    <div><button class="action-btn primary" type="submit">Guardar cambios</button></div>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
 
-            <?php if ($canManageBilling): ?>
-            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form billing-model-form" style="margin-bottom:14px;">
-                <label>Tipo de facturación
-                    <select name="billing_model" required>
-                        <option value="milestones">Por hitos</option>
-                        <option value="advance_balance">Anticipo + saldo</option>
-                        <option value="recurring">Recurrente</option>
-                        <option value="consumption">Por consumo</option>
-                    </select>
-                </label>
-                <label>Concepto<input type="text" name="concept" placeholder="Anticipo, soporte, fase 1"></label>
-                <label>Nombre hito<input type="text" name="milestone_name" placeholder="Entrega fase 1"></label>
-                <label>%<input type="number" name="percentage" step="0.01" min="0" max="100"></label>
-                <label>Valor<input type="number" name="amount" step="0.01" min="0"></label>
-                <label>Frecuencia
-                    <select name="billing_frequency">
-                        <option value="">-</option>
-                        <option value="monthly">Mensual</option>
-                        <option value="quarterly">Trimestral</option>
-                        <option value="custom">Personalizada</option>
-                    </select>
-                </label>
-                <label>Condición esperada<input type="text" name="expected_trigger" placeholder="Aprobación cliente"></label>
-                <label>Fecha esperada<input type="date" name="expected_date"></label>
-                <label>Estado
-                    <select name="status" required>
-                        <option value="pendiente">Pendiente</option>
-                        <option value="listo_para_facturar">Listo para facturar</option>
-                        <option value="facturado">Facturado</option>
-                        <option value="pagado">Pagado</option>
-                        <option value="atrasado">Atrasado</option>
-                    </select>
-                </label>
-                <div><button class="action-btn primary billing-primary-cta" type="submit">Agregar a matriz</button></div>
-            </form>
-            <?php endif; ?>
-
-            <h4 class="billing-subtitle">B) Matriz de facturación</h4>
-            <div class="table-wrapper">
-                <table class="billing-matrix-table">
-                    <thead><tr><th>Concepto</th><th>Fecha esperada</th><th>Valor</th><th>Estado</th><th>Factura asociada</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($billingPlanItems as $item): ?>
-                        <?php
-                            $status = (string) ($item['status'] ?? 'pendiente');
-                            $resolved = isset($item['resolved_amount']) ? (float) $item['resolved_amount'] : (float) ($item['amount'] ?? 0);
-                            $percentText = isset($item['percentage']) && $item['percentage'] !== null ? rtrim(rtrim(number_format((float) $item['percentage'], 2, '.', ''), '0'), '.') . '%' : '';
-                        ?>
-                        <tr>
-                            <td><?= htmlspecialchars((string) ($item['concept'] ?: ($item['milestone_name'] ?? '-'))) ?></td>
-                            <td><?= htmlspecialchars((string) ($item['expected_date'] ?? '-')) ?></td>
-                            <td><?= $percentText !== '' ? htmlspecialchars($percentText) . ' · ' : '' ?><?= $fmtMoney($resolved) ?></td>
-                            <td><span class="pill status-badge status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($controlStatusLabels[$status] ?? str_replace('_', ' ', $status)) ?></span></td>
-                            <td><?= !empty($item['invoice_id']) ? '#' . (int) $item['invoice_id'] : '-' ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </article>
+            <article class="card billing-card">
+                <div class="billing-section-head">
+                    <h3>D. Resumen financiero</h3>
+                    <a class="action-btn" href="<?= $basePath ?>/projects/billing-report?project_id=<?= (int) ($project['id'] ?? 0) ?>">Exportar CSV</a>
+                </div>
+                <div class="kpi-grid finance-kpi-grid">
+                    <article class="kpi-card"><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_contract'] ?? 0)) ?></strong></article>
+                    <article class="kpi-card"><span>Total plan</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_plan'] ?? 0)) ?></strong></article>
+                    <article class="kpi-card"><span>Total facturado</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_invoiced'] ?? 0)) ?></strong></article>
+                    <article class="kpi-card"><span>Saldo por facturar</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['balance_to_invoice'] ?? 0)) ?></strong></article>
+                    <article class="kpi-card"><span>Ítems atrasados</span><strong><?= (int) ($billingFinancialSummary['overdue_items_count'] ?? 0) ?></strong></article>
+                    <article class="kpi-card"><span>Ítems próximos</span><strong><?= (int) ($billingFinancialSummary['upcoming_items_count'] ?? 0) ?></strong></article>
+                </div>
+                <?php if (abs((float) ($billingFinancialSummary['plan_difference'] ?? 0)) > 0.009): ?>
+                    <p class="warning-note">
+                        El plan no cubre el valor total del contrato. Diferencia:
+                        <?= $fmtMoney(abs((float) ($billingFinancialSummary['plan_difference'] ?? 0))) ?>
+                    </p>
+                <?php endif; ?>
+            </article>
+        <?php endif; ?>
     </section>
 </section>
 
-<?php if ($canManageBilling): ?>
-<div class="modal-backdrop" data-modal="invoice-modal" hidden>
-    <div class="modal-card">
-        <h3>Registrar factura</h3>
-        <form method="POST" id="invoice-form" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices" class="grid-form">
-            <input type="hidden" name="_invoice_id" id="invoice-id">
-            <label>Número factura<input type="text" name="invoice_number" id="invoice-number" required></label>
-            <label>Fecha emisión<input type="date" name="issued_at" id="issued-at" required></label>
-            <label>Periodo desde<input type="date" name="period_start" id="period-start"></label>
-            <label>Periodo hasta<input type="date" name="period_end" id="period-end"></label>
-            <label>Valor<input type="number" step="0.01" min="0" name="amount" id="amount" required></label>
-            <label>Estado<select name="status" id="status"><?php foreach (($invoiceStatuses ?? []) as $st): ?><option value="<?= htmlspecialchars($st) ?>"><?= htmlspecialchars($statusLabels[$st] ?? $st) ?></option><?php endforeach; ?></select></label>
-            <label id="paid-at-field" style="display:none;">Fecha de pago<input type="date" name="paid_at" id="paid-at"></label>
-            <label>Adjuntar archivo<input type="text" name="attachment_path" id="attachment-path"></label>
-            <label style="grid-column:1/-1;">Observaciones<textarea name="notes" rows="3" id="notes"></textarea></label>
-            <div><button class="action-btn primary" type="submit">Guardar</button></div>
-            <div><button class="action-btn" type="button" data-close-modal="invoice-modal">Cerrar</button></div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
 <script>
-document.addEventListener('click', (e) => {
-  const openBtn = e.target.closest('[data-open-modal]');
-  if (openBtn) {
-    const name = openBtn.getAttribute('data-open-modal');
-    const modal = document.querySelector(`[data-modal="${name}"]`);
-    if (modal) { modal.hidden = false; }
-    const prefill = openBtn.getAttribute('data-prefill');
-    const form = document.getElementById('invoice-form');
-    if (prefill && form) {
-      const inv = JSON.parse(prefill);
-      document.getElementById('invoice-id').value = inv.id || '';
-      form.action = `<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/invoices/${inv.id}/update`;
-      ['invoice_number','issued_at','period_start','period_end','amount','status','paid_at','attachment_path','notes'].forEach((k) => {
-        const el = document.getElementById(k.replaceAll('_','-')); if (el) el.value = inv[k] || '';
-      });
-    }
+document.addEventListener('click', (event) => {
+  const trigger = event.target.closest('[data-toggle-inline-form]');
+  if (!trigger) {
+    return;
   }
-  const closeBtn = e.target.closest('[data-close-modal]');
-  if (closeBtn) {
-    const modal = document.querySelector(`[data-modal="${closeBtn.getAttribute('data-close-modal')}"]`);
-    if (modal) modal.hidden = true;
+  const targetId = trigger.getAttribute('data-toggle-inline-form');
+  const target = document.getElementById(targetId);
+  if (!target) {
+    return;
   }
+  target.hidden = !target.hidden;
 });
-const statusEl = document.getElementById('status');
-if (statusEl) {
-  const syncPaid = () => document.getElementById('paid-at-field').style.display = statusEl.value === 'paid' ? 'block' : 'none';
-  statusEl.addEventListener('change', syncPaid); syncPaid();
-}
-const billingType = document.getElementById('billing-type');
-if (billingType) {
-  const syncRate = () => document.getElementById('hourly-rate-field').style.display = billingType.value === 'hours' ? 'block' : 'none';
-  billingType.addEventListener('change', syncRate); syncRate();
-}
 
-const billableToggle = document.getElementById('is-billable');
-const billableSwitch = document.getElementById('billable-switch');
-const billableFields = document.getElementById('billable-config-fields');
-const billableBadge = document.getElementById('billable-badge');
-const billableOffMessage = document.getElementById('billable-off-message');
-const billingForm = document.getElementById('billing-config-form');
-
-if (billableToggle && billableFields) {
-  const isBillableOn = () => billableToggle.value === '1';
-  const renderBillableSwitch = (on) => {
-    if (!billableSwitch) {
-      return;
-    }
-    const track = billableSwitch.querySelector('.billable-switch-track');
-    const thumb = billableSwitch.querySelector('.billable-switch-thumb');
-    if (track) {
-      track.setAttribute('fill', on ? '#22a35a' : '#b8bec8');
-      track.setAttribute('stroke', on ? '#1d8b4c' : 'rgba(0,0,0,.14)');
-    }
-    if (thumb) {
-      thumb.setAttribute('cx', on ? '36' : '15');
-    }
-  };
-
-  const syncBillable = () => {
-    const on = isBillableOn();
-    billableFields.style.display = on ? 'contents' : 'none';
-    if (billableOffMessage) {
-      billableOffMessage.style.display = on ? 'none' : 'block';
-    }
-    if (billableBadge) {
-      billableBadge.textContent = on ? 'Facturable' : 'No facturable';
-      billableBadge.classList.toggle('is-on', on);
-      billableBadge.classList.toggle('is-off', !on);
-    }
-    if (billableSwitch) {
-      billableSwitch.setAttribute('aria-checked', on ? 'true' : 'false');
-      billableSwitch.classList.toggle('is-on', on);
-      billableSwitch.classList.toggle('is-off', !on);
-      renderBillableSwitch(on);
-    }
-    billableFields.querySelectorAll('input, select, textarea').forEach((field) => {
-      field.disabled = !on;
+const planTypeSelector = document.querySelector('[data-plan-type="true"]');
+if (planTypeSelector) {
+  const syncPlanType = () => {
+    const value = planTypeSelector.value;
+    document.querySelectorAll('[data-plan-fields]').forEach((block) => {
+      block.hidden = block.getAttribute('data-plan-fields') !== value;
     });
   };
-
-  const autoSaveBillable = async (previousValue) => {
-    try {
-      const response = await fetch(`<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-toggle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: JSON.stringify({ is_billable: isBillableOn() ? 1 : 0 }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok || payload?.status !== 'ok') {
-        throw new Error(payload?.message || 'No se pudo actualizar el estado de facturación.');
-      }
-
-      const persisted = payload?.is_billable === 1 ? '1' : '0';
-      billableToggle.value = persisted;
-      syncBillable();
-    } catch (error) {
-      billableToggle.value = previousValue;
-      syncBillable();
-      window.alert(error instanceof Error ? error.message : 'No se pudo guardar el estado de facturación. Inténtalo nuevamente.');
-      console.error('No fue posible guardar el estado de facturación', error);
-    }
-  };
-
-  if (billableSwitch) {
-    billableSwitch.addEventListener('click', () => {
-      const previousValue = billableToggle.value;
-      billableToggle.value = isBillableOn() ? '0' : '1';
-      syncBillable();
-      autoSaveBillable(previousValue);
-    });
-  }
-
-  syncBillable();
-}
-
-if (billingForm) {
-  billingForm.addEventListener('change', async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
-      return;
-    }
-    if (target.id === 'is-billable') {
-      return;
-    }
-
-    const formData = new FormData(billingForm);
-    if (billableToggle && billableToggle.value === '1') {
-      formData.set('is_billable', '1');
-    }
-
-    try {
-      await fetch(billingForm.action, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        body: formData,
-      });
-    } catch (error) {
-      console.error('No fue posible autoguardar la configuración', error);
-    }
-  });
+  planTypeSelector.addEventListener('change', syncPlanType);
+  syncPlanType();
 }
 </script>
 
@@ -400,80 +459,97 @@ if (billingForm) {
   padding: 20px;
   margin-bottom: 24px;
 }
-.billing-layout > .billing-card + .billing-card { margin-top: 24px; }
-.billing-layout .grid-form label { margin-bottom: 10px; }
-
-.finance-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(170px, 1fr));
-  gap: 12px;
-}
-.finance-kpi-grid .kpi-card {
-  background: #f9fafb;
-  border-radius: 8px;
-  padding: 14px;
+.billing-section-head {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
 }
-.finance-kpi-grid .kpi-card span {
-  color: #6b7280;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .02em;
+.attention-banner {
+  margin: 10px 0 14px;
+  border: 1px solid #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
-.finance-kpi-grid .kpi-card strong {
-  font-size: 1.25rem;
-  line-height: 1.2;
-}
-
-.billing-subtitle {
-  margin: 24px 0 12px;
-  font-size: 1rem;
-  color: #1f2937;
-}
-.billing-subtitle:first-of-type { margin-top: 8px; }
-
-.billing-primary-cta {
-  background: var(--primary, #2563eb);
-  border-color: var(--primary, #2563eb);
-  color: #fff;
+.attention-banner a {
+  color: #92400e;
   font-weight: 700;
 }
-
-.billing-matrix-table {
-  width: 100%;
-  border-collapse: collapse;
+.inline-form {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
 }
-.billing-matrix-table thead th {
-  text-align: left;
+.plan-type-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.status-pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.status-pendiente { background: #6b72801f; color: #6b7280; }
+.status-proximo { background: #f59e0b1f; color: #b45309; }
+.status-listo_para_emitir { background: #2563eb1f; color: #1d4ed8; }
+.status-emitido { background: #16a34a1f; color: #15803d; }
+.status-atrasado { background: #dc26261f; color: #b91c1c; }
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kpi-grid.finance-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.kpi-card {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+}
+.kpi-card span {
+  color: #6b7280;
   font-size: 12px;
   text-transform: uppercase;
+}
+.kpi-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.1rem;
+}
+.warning-note {
+  margin-top: 12px;
+  border: 1px solid #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 10px;
+}
+.empty-row,
+.empty-note {
+  text-align: center;
   color: #6b7280;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
 }
-.billing-matrix-table th,
-.billing-matrix-table td {
-  padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
+.cell-note {
+  display: block;
+  color: #6b7280;
 }
-
-.status-badge { border-radius: 999px; font-weight: 600; }
-.status-pendiente { background: #9ca3af22 !important; color: #9ca3af !important; }
-.status-listo_para_facturar { background: #f59e0b22 !important; color: #f59e0b !important; }
-.status-facturado { background: #22c55e22 !important; color: #22c55e !important; }
-.status-pagado { background: #3b82f622 !important; color: #3b82f6 !important; }
-.status-atrasado { background: #ef444422 !important; color: #ef4444 !important; }
-
-.contract-switch-row { grid-column: 1 / -1; display:flex; align-items:center; gap:12px; }
-.contract-title { font-weight:700; }
-.contract-switch-row .toggle-switch { width:52px; height:30px; border-radius:999px; border:1px solid rgba(0,0,0,.14); background:#b8bec8; padding:2px; display:inline-flex; align-items:center; justify-content:flex-start; cursor:pointer; transition:background-color .2s ease, border-color .2s ease; box-sizing:border-box; }
-.contract-switch-row .toggle-switch.is-disabled { opacity:.65; cursor:not-allowed; }
-.contract-switch-row .billable-switch-svg { display:block; filter: drop-shadow(0 3px 8px rgba(0,0,0,.16)); }
-.contract-switch-row .billable-switch-thumb { transition:cx .2s ease; }
-.contract-switch-row .toggle-switch.is-on { background:#22a35a; border-color:#1d8b4c; }
-.billable-badge { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent; }
-.billable-badge.is-on { background:color-mix(in srgb, var(--success) 18%, var(--background)); color:var(--success); border-color:color-mix(in srgb, var(--success) 35%, var(--background)); }
-.billable-badge.is-off { background:color-mix(in srgb, var(--text-secondary) 14%, var(--background)); color:var(--text-secondary); border-color:color-mix(in srgb, var(--text-secondary) 30%, var(--background)); }
+.readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 12px;
+}
 </style>

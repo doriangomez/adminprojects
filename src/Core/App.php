@@ -319,16 +319,20 @@ class App
                 $controller->createBillingPlanItem((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\d+)/billing-plan/(\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateBillingPlanItem((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/billing-plan/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteBillingPlanItem((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\d+)/invoices/(\d+)/update$#', $path, $matches) && $method === 'POST') {
                 $controller->updateInvoice((int) $matches[1], (int) $matches[2]);
                 return;
             }
-            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/mark-paid$#', $path, $matches) && $method === 'POST') {
-                $controller->markInvoicePaid((int) $matches[1], (int) $matches[2]);
-                return;
-            }
-            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/cancel$#', $path, $matches) && $method === 'POST') {
-                $controller->cancelInvoice((int) $matches[1], (int) $matches[2]);
+            if (preg_match('#^/projects/(\d+)/invoices/(\d+)/pdf$#', $path, $matches) && $method === 'GET') {
+                $controller->downloadInvoicePdf((int) $matches[1], (int) $matches[2]);
                 return;
             }
             if (preg_match('#^/projects/(\d+)/invoices/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
