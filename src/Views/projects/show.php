@@ -405,6 +405,110 @@ $progressHoursAuto = isset($pmoSnapshot['progress_hours']) ? (float) $pmoSnapsho
 $progressTasksAuto = isset($pmoSnapshot['progress_tasks']) ? (float) $pmoSnapshot['progress_tasks'] : null;
 $riskPmoScore = (int) ($pmoSnapshot['risk_score'] ?? 0);
 $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : 'green');
+
+$requiredDocumentsMetaCode = '99-REQDOCS-META';
+$requiredDocuments = [
+    ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta', 'tag' => 'Propuesta aceptada por el cliente'],
+    ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio de proyecto'],
+    ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Acta', 'tag' => 'Kickoff'],
+    ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Actas de seguimiento'],
+    ['key' => 'cronograma', 'name' => 'Cronograma de trabajo', 'description' => 'Plan temporal de entregables, hitos y responsables.', 'icon' => '📆', 'document_type' => 'Cronograma', 'tag' => 'Cronograma de trabajo'],
+    ['key' => 'pruebas_funcionales', 'name' => 'Pruebas funcionales con el cliente (acta)', 'description' => 'Resultados y conformidad de pruebas funcionales con cliente.', 'icon' => '✅', 'document_type' => 'Acta', 'tag' => 'Pruebas funcionales con el cliente (acta)'],
+    ['key' => 'acta_cierre', 'name' => 'Acta de cierre', 'description' => 'Cierre formal del proyecto y aceptación final.', 'icon' => '🏁', 'document_type' => 'Acta', 'tag' => 'Acta de cierre'],
+    ['key' => 'lecciones_aprendidas', 'name' => 'Lecciones aprendidas', 'description' => 'Resumen de hallazgos para mejora continua.', 'icon' => '📚', 'document_type' => 'Lecciones aprendidas', 'tag' => 'Lecciones aprendidas'],
+    ['key' => 'diagrama_flujo', 'name' => 'Diagrama de flujo', 'description' => 'Representación visual del flujo operativo o funcional.', 'icon' => '🔀', 'document_type' => 'Diagrama', 'tag' => 'Diagrama de flujo'],
+    ['key' => 'diagrama_arquitectura', 'name' => 'Diagrama de arquitectura', 'description' => 'Vista estructural de componentes y su interacción.', 'icon' => '🏗️', 'document_type' => 'Diagrama', 'tag' => 'Diagrama de arquitectura'],
+    ['key' => 'documento_arquitectura', 'name' => 'Documento de arquitectura', 'description' => 'Documento técnico con decisiones de arquitectura.', 'icon' => '🧱', 'document_type' => 'Arquitectura', 'tag' => 'Documento de arquitectura'],
+    ['key' => 'repositorio_git', 'name' => 'Repositorio Git', 'description' => 'URL oficial del repositorio de código fuente del proyecto.', 'icon' => '🔗', 'document_type' => 'Repositorio', 'tag' => 'Repositorio Git', 'is_git' => true],
+];
+
+$allProjectFiles = [];
+$flattenFiles = static function (array $nodes) use (&$flattenFiles, &$allProjectFiles): void {
+    foreach ($nodes as $node) {
+        if (!is_array($node)) {
+            continue;
+        }
+        foreach (($node['files'] ?? []) as $file) {
+            if (is_array($file)) {
+                $allProjectFiles[] = $file;
+            }
+        }
+        if (!empty($node['children'])) {
+            $flattenFiles($node['children']);
+        }
+    }
+};
+$flattenFiles($tree);
+
+$userNamesById = [];
+foreach ($responsibleUsers as $responsibleUser) {
+    $id = isset($responsibleUser['id']) ? (int) $responsibleUser['id'] : 0;
+    if ($id <= 0) {
+        continue;
+    }
+    $name = trim((string) ($responsibleUser['name'] ?? $responsibleUser['full_name'] ?? $responsibleUser['email'] ?? ''));
+    if ($name !== '') {
+        $userNamesById[$id] = $name;
+    }
+}
+if (!empty($currentUser['id'])) {
+    $userNamesById[(int) $currentUser['id']] = trim((string) ($currentUser['name'] ?? $currentUser['full_name'] ?? $currentUser['email'] ?? ('Usuario #' . (int) $currentUser['id'])));
+}
+
+$requiredDocumentsMeta = [];
+foreach ($allNodes as $node) {
+    if (($node['code'] ?? '') !== $requiredDocumentsMetaCode) {
+        continue;
+    }
+    $decoded = json_decode((string) ($node['description'] ?? ''), true);
+    if (is_array($decoded)) {
+        $requiredDocumentsMeta = $decoded;
+    }
+    break;
+}
+$gitRepositoryUrl = trim((string) ($requiredDocumentsMeta['git_repository_url'] ?? ''));
+$gitRepositoryUpdatedAt = $requiredDocumentsMeta['updated_at'] ?? null;
+$gitRepositoryUpdatedBy = isset($requiredDocumentsMeta['updated_by']) ? (int) $requiredDocumentsMeta['updated_by'] : null;
+
+$requiredDocumentsCards = [];
+foreach ($requiredDocuments as $requiredDocument) {
+    if (!empty($requiredDocument['is_git'])) {
+        $isCompleted = $gitRepositoryUrl !== '';
+        $requiredDocumentsCards[] = array_merge($requiredDocument, [
+            'completed' => $isCompleted,
+            'record' => $isCompleted
+                ? [
+                    'title' => $gitRepositoryUrl,
+                    'storage_path' => $gitRepositoryUrl,
+                    'created_at' => $gitRepositoryUpdatedAt,
+                    'created_by' => $gitRepositoryUpdatedBy,
+                ]
+                : null,
+        ]);
+        continue;
+    }
+
+    $normalizedTag = mb_strtolower(trim((string) ($requiredDocument['tag'] ?? '')));
+    $normalizedType = mb_strtolower(trim((string) ($requiredDocument['document_type'] ?? '')));
+    $matches = array_values(array_filter($allProjectFiles, static function (array $file) use ($normalizedTag, $normalizedType): bool {
+        $tags = array_map(static fn ($tag): string => mb_strtolower(trim((string) $tag)), is_array($file['tags'] ?? null) ? $file['tags'] : []);
+        $type = mb_strtolower(trim((string) ($file['document_type'] ?? '')));
+        return ($normalizedTag !== '' && in_array($normalizedTag, $tags, true))
+            || ($normalizedType !== '' && $type === $normalizedType);
+    }));
+
+    usort($matches, static function (array $a, array $b): int {
+        return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+    });
+    $latest = $matches[0] ?? null;
+    $requiredDocumentsCards[] = array_merge($requiredDocument, [
+        'completed' => $latest !== null,
+        'record' => $latest,
+    ]);
+}
+$requiredDocumentsCompleted = count(array_filter($requiredDocumentsCards, static fn (array $doc): bool => !empty($doc['completed'])));
+$requiredDocumentsTotal = count($requiredDocumentsCards);
+$requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($requiredDocumentsCompleted / $requiredDocumentsTotal) * 100) : 0;
 ?>
 
 <section class="project-shell">
@@ -1015,6 +1119,67 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
             </article>
         </section>
     <?php else: ?>
+        <section class="required-documents-block">
+            <div class="required-documents-block__header">
+                <div>
+                    <p class="eyebrow">Documentación base</p>
+                    <h3>Documentos obligatorios del proyecto</h3>
+                    <p class="section-muted"><?= $requiredDocumentsCompleted ?> / <?= $requiredDocumentsTotal ?> documentos obligatorios completados</p>
+                </div>
+            </div>
+            <div class="required-documents-progress">
+                <div class="project-progress__bar" role="progressbar" aria-valuenow="<?= $requiredDocumentsProgress ?>" aria-valuemin="0" aria-valuemax="100">
+                    <div style="width: <?= $requiredDocumentsProgress ?>%;"></div>
+                </div>
+            </div>
+            <div class="required-documents-grid">
+                <?php foreach ($requiredDocumentsCards as $requiredCard): ?>
+                    <?php
+                    $record = is_array($requiredCard['record'] ?? null) ? $requiredCard['record'] : null;
+                    $isCompleted = !empty($requiredCard['completed']);
+                    $recordedBy = isset($record['created_by']) ? ($userNamesById[(int) $record['created_by']] ?? ('Usuario #' . (int) $record['created_by'])) : 'Sin usuario';
+                    $recordDate = $formatTimestamp($record['created_at'] ?? null);
+                    $isGitCard = !empty($requiredCard['is_git']);
+                    ?>
+                    <article class="required-doc-card">
+                        <div class="required-doc-card__top">
+                            <span class="required-doc-card__icon"><?= htmlspecialchars((string) ($requiredCard['icon'] ?? '📄')) ?></span>
+                            <span class="expected-pill <?= $isCompleted ? 'expected-approved' : 'expected-pending' ?>"><?= $isCompleted ? 'Completado' : 'Pendiente' ?></span>
+                        </div>
+                        <div class="required-doc-card__body">
+                            <strong><?= htmlspecialchars((string) ($requiredCard['name'] ?? 'Documento')) ?></strong>
+                            <small><?= htmlspecialchars((string) ($requiredCard['description'] ?? '')) ?></small>
+                        </div>
+                        <div class="required-doc-card__actions">
+                            <button
+                                type="button"
+                                class="action-btn primary"
+                                data-required-document-action
+                                data-required-doc-key="<?= htmlspecialchars((string) ($requiredCard['key'] ?? '')) ?>"
+                                data-required-doc-name="<?= htmlspecialchars((string) ($requiredCard['name'] ?? '')) ?>"
+                                data-required-doc-type="<?= htmlspecialchars((string) ($requiredCard['document_type'] ?? '')) ?>"
+                                data-required-doc-tag="<?= htmlspecialchars((string) ($requiredCard['tag'] ?? '')) ?>"
+                                data-required-doc-git="<?= $isGitCard ? '1' : '0' ?>"
+                                data-required-doc-url="<?= htmlspecialchars((string) ($record['storage_path'] ?? '')) ?>"
+                            >
+                                <?= $isCompleted ? 'Ver / Editar' : 'Registrar documento' ?>
+                            </button>
+                            <?php if ($isCompleted && $record): ?>
+                                <div class="required-doc-card__meta">
+                                    <?php if ($isGitCard): ?>
+                                        <a href="<?= htmlspecialchars((string) $record['storage_path']) ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars((string) $record['storage_path']) ?></a>
+                                    <?php else: ?>
+                                        <span><?= htmlspecialchars((string) ($record['file_name'] ?? 'Documento cargado')) ?></span>
+                                    <?php endif; ?>
+                                    <small><?= htmlspecialchars($recordDate) ?> · <?= htmlspecialchars($recordedBy) ?></small>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </section>
+        <div class="required-documents-divider" aria-hidden="true"></div>
         <div class="project-layout">
             <aside class="phase-sidebar">
                 <div class="phase-sidebar__header">
@@ -1275,6 +1440,28 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
     const toggleHealthPopover = document.querySelector('[data-toggle-health-popover]');
     const openProgressButtons = document.querySelectorAll('[data-open-modal="progress-modal"]');
     const closeProgressButtons = progressModal ? progressModal.querySelectorAll('[data-close-modal]') : [];
+    const requiredDocumentButtons = document.querySelectorAll('[data-required-document-action]');
+
+    requiredDocumentButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const documentFlowRoot = document.querySelector('[data-document-flow]');
+            if (!documentFlowRoot) {
+                window.alert('Selecciona una subfase para registrar el documento obligatorio.');
+                return;
+            }
+            documentFlowRoot.dispatchEvent(new CustomEvent('required-document:open', {
+                bubbles: false,
+                detail: {
+                    key: button.dataset.requiredDocKey || '',
+                    name: button.dataset.requiredDocName || '',
+                    documentType: button.dataset.requiredDocType || '',
+                    tag: button.dataset.requiredDocTag || '',
+                    isGit: button.dataset.requiredDocGit === '1',
+                    repositoryUrl: button.dataset.requiredDocUrl || '',
+                },
+            }));
+        });
+    });
 
     const toggleProgressModal = (open) => {
         if (!progressModal) return;
@@ -1432,6 +1619,21 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
     .progress-history { display:flex; }
     .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; width:100%; }
     .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .required-documents-block { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:14px; margin-bottom:14px; }
+    .required-documents-block__header h3 { margin:4px 0; }
+    .required-documents-progress { display:flex; flex-direction:column; gap:6px; }
+    .required-documents-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
+    .required-doc-card { border:1px solid var(--border); border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--surface) 92%, var(--background)); }
+    .required-doc-card__top { display:flex; justify-content:space-between; align-items:center; }
+    .required-doc-card__icon { font-size:20px; }
+    .required-doc-card__body strong { display:block; margin-bottom:4px; color: var(--text-primary); }
+    .required-doc-card__body small { color: var(--text-secondary); }
+    .required-doc-card__actions { display:flex; flex-direction:column; gap:8px; }
+    .required-doc-card__meta { display:flex; flex-direction:column; gap:4px; }
+    .required-doc-card__meta span,
+    .required-doc-card__meta a { font-size:12px; color: var(--text-primary); word-break:break-word; }
+    .required-doc-card__meta small { font-size:11px; color: var(--text-secondary); }
+    .required-documents-divider { height:1px; background: var(--border); margin: 2px 0 16px; }
     .project-layout { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
     .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
     .phase-sidebar__header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -1546,6 +1748,7 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
     .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:8px; }
     .notes-entry strong { color: var(--text-primary); }
     @media (max-width: 960px) {
+        .required-documents-grid { grid-template-columns: 1fr; }
         .project-layout { grid-template-columns: 1fr; }
         .phase-sidebar { max-height:none; }
     }

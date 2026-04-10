@@ -61,6 +61,7 @@ class ProjectsController extends Controller
     private const STOPPER_IMPACT_LEVELS = ['bajo', 'medio', 'alto', 'critico'];
     private const STOPPER_AFFECTED_AREAS = ['tiempo', 'alcance', 'costo', 'calidad'];
     private const STOPPER_STATUSES = ['abierto', 'en_gestion', 'escalado', 'resuelto', 'cerrado'];
+    private const REQUIRED_DOCUMENTS_META_CODE = '99-REQDOCS-META';
 
     public function index(): void
     {
@@ -1490,6 +1491,76 @@ class ProjectsController extends Controller
                 'success' => false,
                 'message' => $e->getMessage() ?: 'No se pudo adjuntar el archivo al nodo.',
                 'document_id' => null,
+            ], $status);
+            return;
+        }
+    }
+
+    public function saveRequiredGitRepository(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $url = trim((string) ($_POST['repository_url'] ?? ''));
+            if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+                throw new \InvalidArgumentException('Ingresa una URL de repositorio válida.');
+            }
+
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $tree = $nodesRepo->treeWithFiles($projectId);
+            $flatNodes = $this->flattenProjectNodes($tree);
+            $rootNode = null;
+            foreach ($flatNodes as $node) {
+                if (($node['code'] ?? '') === 'ROOT') {
+                    $rootNode = $node;
+                    break;
+                }
+            }
+            if (!$rootNode) {
+                throw new \RuntimeException('No se encontró el nodo raíz del proyecto.');
+            }
+
+            $userId = (int) ($this->auth->user()['id'] ?? 0);
+            $metaNode = $nodesRepo->findNodeByCode($projectId, self::REQUIRED_DOCUMENTS_META_CODE);
+            $payload = [
+                'git_repository_url' => $url,
+                'updated_at' => date('c'),
+                'updated_by' => $userId > 0 ? $userId : null,
+            ];
+
+            if ($metaNode) {
+                $this->db->execute(
+                    'UPDATE project_nodes SET description = :description WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':description' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                        ':id' => (int) ($metaNode['id'] ?? 0),
+                        ':project_id' => $projectId,
+                    ]
+                );
+            } else {
+                $nodesRepo->createNode([
+                    'project_id' => $projectId,
+                    'parent_id' => (int) ($rootNode['id'] ?? 0),
+                    'code' => self::REQUIRED_DOCUMENTS_META_CODE,
+                    'node_type' => 'metadata',
+                    'title' => 'Documentos obligatorios del proyecto',
+                    'description' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                    'sort_order' => 999,
+                    'created_by' => $userId > 0 ? $userId : null,
+                ]);
+            }
+
+            $this->json([
+                'success' => true,
+                'message' => 'Repositorio Git guardado.',
+                'data' => $payload,
+            ]);
+            return;
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'No se pudo guardar el repositorio.',
             ], $status);
             return;
         }
