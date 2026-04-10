@@ -740,7 +740,13 @@ class ProjectBillingRepository
             $this->db->execute(
                 'UPDATE project_billing_plan
                  SET invoice_id = NULL,
-                     status = "pendiente",
+                    status = CASE
+                        WHEN condition_met = 1 THEN "listo_para_emitir"
+                        WHEN expected_date IS NULL THEN "pendiente"
+                        WHEN expected_date < CURDATE() THEN "atrasado"
+                        WHEN expected_date = CURDATE() THEN "listo_para_emitir"
+                        ELSE "listo_para_emitir"
+                    END,
                      updated_at = NOW()
                  WHERE project_id = :project_id
                    AND id IN (' . $inList . ')
@@ -751,7 +757,13 @@ class ProjectBillingRepository
             $this->db->execute(
                 'UPDATE project_billing_plan
                  SET invoice_id = NULL,
-                     status = "pendiente",
+                    status = CASE
+                        WHEN condition_met = 1 THEN "listo_para_emitir"
+                        WHEN expected_date IS NULL THEN "pendiente"
+                        WHEN expected_date < CURDATE() THEN "atrasado"
+                        WHEN expected_date = CURDATE() THEN "listo_para_emitir"
+                        ELSE "listo_para_emitir"
+                    END,
                      updated_at = NOW()
                  WHERE project_id = :project_id
                    AND invoice_id = :invoice_id',

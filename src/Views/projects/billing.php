@@ -386,6 +386,12 @@ foreach ($projectInvoices as $invoice) {
                                                         </select>
                                                     </label>
                                                     <label>Archivo PDF<input type="file" name="invoice_pdf" accept="application/pdf"></label>
+                                                    <?php if ($attachmentPath !== ''): ?>
+                                                        <label class="invoice-pdf-remove-toggle">
+                                                            <input type="checkbox" name="remove_invoice_pdf" value="1">
+                                                            Eliminar PDF actual
+                                                        </label>
+                                                    <?php endif; ?>
                                                     <input type="hidden" name="existing_attachment_path" value="<?= htmlspecialchars($attachmentPath) ?>">
                                                     <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"><?= htmlspecialchars((string) ($inv['notes'] ?? '')) ?></textarea></label>
                                                     <div><button class="action-btn primary" type="submit">Guardar cambios</button></div>

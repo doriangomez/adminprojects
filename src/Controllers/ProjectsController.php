@@ -2590,8 +2590,20 @@ class ProjectsController extends Controller
             http_response_code(403);
             exit('Solo Admin y PM pueden editar facturas.');
         }
-        $payload = $this->invoicePayloadFromRequest($projectId);
-        (new ProjectBillingRepository($this->db))->updateInvoice($projectId, $invoiceId, $payload);
+        $billingRepo = new ProjectBillingRepository($this->db);
+        $currentInvoice = $billingRepo->findInvoice($projectId, $invoiceId);
+        if (!$currentInvoice) {
+            http_response_code(404);
+            exit('Factura no encontrada.');
+        }
+
+        $payload = $this->invoicePayloadFromRequest($projectId, $currentInvoice);
+        $billingRepo->updateInvoice($projectId, $invoiceId, $payload);
+        $this->cleanupOldInvoicePdf(
+            $projectId,
+            trim((string) ($currentInvoice['attachment_path'] ?? '')),
+            trim((string) ($payload['attachment_path'] ?? ''))
+        );
         header('Location: /projects/' . $projectId . '/billing');
     }
 
@@ -2891,7 +2903,7 @@ class ProjectsController extends Controller
         ];
     }
 
-    private function invoicePayloadFromRequest(int $projectId): array
+    private function invoicePayloadFromRequest(int $projectId, ?array $currentInvoice = null): array
     {
         $invoiceNumber = trim((string) ($_POST['invoice_number'] ?? ''));
         $issuedAt = $this->nullableDate($_POST['issued_at'] ?? null);
@@ -2910,9 +2922,17 @@ class ProjectsController extends Controller
             ? array_values(array_unique(array_map('intval', $_POST['plan_item_ids'])))
             : [];
         $planItemIds = array_values(array_filter($planItemIds, static fn (int $id): bool => $id > 0));
-        $attachmentPath = $this->invoicePdfPathFromUpload($projectId);
-        if ($attachmentPath === null) {
-            $attachmentPath = trim((string) ($_POST['existing_attachment_path'] ?? '')) ?: null;
+
+        $uploadedAttachmentPath = $this->invoicePdfPathFromUpload($projectId);
+        $removePdf = isset($_POST['remove_invoice_pdf']) && (string) ($_POST['remove_invoice_pdf']) === '1';
+        $existingAttachmentPath = trim((string) ($currentInvoice['attachment_path'] ?? ($_POST['existing_attachment_path'] ?? '')));
+
+        if ($uploadedAttachmentPath !== null) {
+            $attachmentPath = $uploadedAttachmentPath;
+        } elseif ($removePdf) {
+            $attachmentPath = null;
+        } else {
+            $attachmentPath = $existingAttachmentPath !== '' ? $existingAttachmentPath : null;
         }
 
         return [
@@ -2927,6 +2947,32 @@ class ProjectsController extends Controller
             'currency_code' => $currency,
             'plan_item_ids' => $planItemIds,
         ];
+    }
+
+    private function cleanupOldInvoicePdf(int $projectId, string $previousPath, string $nextPath): void
+    {
+        if ($previousPath === '' || $previousPath === $nextPath) {
+            return;
+        }
+
+        $allowedPrefix = '/storage/projects/' . $projectId . '/billing/invoices/';
+        if (!str_starts_with($previousPath, $allowedPrefix)) {
+            return;
+        }
+
+        $baseDir = realpath(__DIR__ . '/../../public/storage/projects/' . $projectId . '/billing/invoices');
+        $fullPath = realpath(__DIR__ . '/../../public' . $previousPath);
+        if ($baseDir === false || $fullPath === false) {
+            return;
+        }
+        if (!str_starts_with($fullPath, $baseDir . DIRECTORY_SEPARATOR)) {
+            return;
+        }
+        if (!is_file($fullPath) || !is_writable($fullPath)) {
+            return;
+        }
+
+        @unlink($fullPath);
     }
 
     private function invoicePdfPathFromUpload(int $projectId): ?string
