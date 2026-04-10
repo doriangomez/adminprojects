@@ -1739,7 +1739,14 @@ class ProjectsController extends Controller
             }
             $requiredDocumentFileCode = self::REQUIRED_DOCUMENTS_FILES_CODE . '-FILE-' . strtoupper($key);
             $existingNode = $nodesRepo->findNodeByCode($projectId, $requiredDocumentFileCode);
-            if (!$hasUpload && !$existingNode) {
+            $removeExistingFile = isset($_POST['remove_required_document_file']) && (string) ($_POST['remove_required_document_file']) === '1';
+            $deletedExistingNodeId = 0;
+            if ($removeExistingFile && $existingNode && (int) ($existingNode['id'] ?? 0) > 0) {
+                $deletedExistingNodeId = (int) ($existingNode['id'] ?? 0);
+                $nodesRepo->deleteNode($projectId, $deletedExistingNodeId, $userId);
+                $existingNode = null;
+            }
+            if (!$hasUpload && !$existingNode && !$removeExistingFile) {
                 throw new \InvalidArgumentException('Selecciona un archivo para continuar.');
             }
 
@@ -1780,7 +1787,7 @@ class ProjectsController extends Controller
                         ':project_id' => $projectId,
                     ]
                 );
-            } else {
+            } elseif ($existingNode) {
                 $savedNodeId = (int) ($existingNode['id'] ?? 0);
                 if ($savedNodeId <= 0) {
                     throw new \RuntimeException('No se encontró el documento obligatorio para editar.');
@@ -1822,24 +1829,44 @@ class ProjectsController extends Controller
                     'version' => (string) ($meta['document_version'] ?? ''),
                     'document_type' => (string) ($meta['document_type'] ?? ''),
                 ];
+            } else {
+                $result = [
+                    'id' => null,
+                    'code' => $requiredDocumentFileCode,
+                    'file_name' => '',
+                    'storage_path' => '',
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'description' => (string) ($meta['description'] ?? ''),
+                    'document_status' => $meta['document_status'] ?? 'final',
+                    'tags' => json_decode((string) ($meta['document_tags'] ?? '[]'), true) ?: [],
+                    'version' => (string) ($meta['document_version'] ?? ''),
+                    'document_type' => (string) ($meta['document_type'] ?? ''),
+                ];
             }
 
             $auditRepo = new AuditLogRepository($this->db);
-            $auditRepo->log(
-                $userId,
-                'project_node_file',
-                (int) ($result['id'] ?? 0),
-                $hasUpload ? 'document_uploaded' : 'document_metadata_updated',
-                [
-                    'document_type' => $meta['document_type'] ?? null,
-                    'document_tags' => $meta['document_tags'] ?? null,
-                    'document_version' => $meta['document_version'] ?? null,
-                    'description' => $meta['description'] ?? null,
-                    'document_status' => $meta['document_status'] ?? null,
-                    'required_document_key' => $key,
-                    'required_document_upload' => $hasUpload,
-                ]
-            );
+            $auditEntityId = isset($result['id']) ? (int) ($result['id'] ?? 0) : 0;
+            if ($auditEntityId <= 0) {
+                $auditEntityId = $deletedExistingNodeId;
+            }
+            if ($auditEntityId > 0) {
+                $auditRepo->log(
+                    $userId,
+                    'project_node_file',
+                    $auditEntityId,
+                    $hasUpload ? 'document_uploaded' : ($removeExistingFile ? 'document_removed' : 'document_metadata_updated'),
+                    [
+                        'document_type' => $meta['document_type'] ?? null,
+                        'document_tags' => $meta['document_tags'] ?? null,
+                        'document_version' => $meta['document_version'] ?? null,
+                        'description' => $meta['description'] ?? null,
+                        'document_status' => $meta['document_status'] ?? null,
+                        'required_document_key' => $key,
+                        'required_document_upload' => $hasUpload,
+                        'required_document_file_removed' => $removeExistingFile,
+                    ]
+                );
+            }
 
             $recordedBy = trim((string) (
                 $this->auth->user()['name']
@@ -1848,11 +1875,18 @@ class ProjectsController extends Controller
                 ?? ('Usuario #' . $userId)
             ));
             $recordedDate = date('d/m/Y');
+            $fileId = isset($result['id']) ? (int) ($result['id'] ?? 0) : 0;
+            $fileStoragePath = trim((string) ($result['storage_path'] ?? ''));
+            $hasFile = $fileId > 0 && $fileStoragePath !== '';
+            $fileUrl = $hasFile ? '/projects/' . $projectId . '/nodes/' . $fileId . '/download' : '';
+            $message = ($removeExistingFile && !$hasUpload && !$hasFile)
+                ? 'Archivo eliminado. El documento obligatorio quedó pendiente.'
+                : 'Documento obligatorio guardado.';
 
             $this->json([
                 'success' => true,
-                'message' => 'Documento obligatorio guardado.',
-                'document_id' => isset($result['id']) ? (int) $result['id'] : null,
+                'message' => $message,
+                'document_id' => $fileId > 0 ? $fileId : null,
                 'data' => $result,
                 'required_document' => [
                     'key' => $key,
@@ -1862,6 +1896,11 @@ class ProjectsController extends Controller
                     'document_type' => (string) ($meta['document_type'] ?? ''),
                     'document_tags' => json_decode((string) ($meta['document_tags'] ?? '[]'), true) ?: [],
                     'document_version' => (string) ($meta['document_version'] ?? ''),
+                    'file_id' => $fileId > 0 ? $fileId : null,
+                    'file_name' => (string) ($result['file_name'] ?? ''),
+                    'file_url' => $fileUrl,
+                    'has_file' => $hasFile,
+                    'completed' => $hasFile,
                 ],
             ]);
             return;

@@ -424,9 +424,9 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
 $requiredDocumentsMetaCode = '99-REQDOCS-META';
 $requiredDocumentsFilesCode = '99-REQDOCS-FILES';
 $requiredDocuments = [
-    ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta', 'tag' => 'Propuesta comercial', 'match_tags' => ['Propuesta comercial', 'Propuesta aceptada por el cliente']],
+    ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta comercial', 'tag' => 'Propuesta comercial', 'match_tags' => ['Propuesta comercial', 'Propuesta aceptada por el cliente']],
     ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio', 'match_tags' => ['Acta de inicio', 'Acta de inicio de proyecto']],
-    ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Acta', 'tag' => 'Kickoff'],
+    ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Kickoff', 'tag' => 'Kickoff'],
     ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Seguimiento', 'match_tags' => ['Seguimiento', 'Actas de seguimiento']],
     ['key' => 'cronograma', 'name' => 'Cronograma de trabajo', 'description' => 'Plan temporal de entregables, hitos y responsables.', 'icon' => '📆', 'document_type' => 'Cronograma', 'tag' => 'Cronograma de trabajo'],
     ['key' => 'pruebas_funcionales', 'name' => 'Pruebas funcionales con el cliente', 'description' => 'Resultados y conformidad de pruebas funcionales con cliente.', 'icon' => '✅', 'document_type' => 'Acta', 'tag' => 'Pruebas funcionales', 'match_tags' => ['Pruebas funcionales', 'Pruebas funcionales con el cliente (acta)']],
@@ -521,27 +521,6 @@ foreach ($requiredDocuments as $requiredDocument) {
 
     $fileCode = $requiredDocumentsFilesCode . '-FILE-' . strtoupper((string) ($requiredDocument['key'] ?? ''));
     $latest = is_array($requiredDocumentsFilesByCode[$fileCode] ?? null) ? $requiredDocumentsFilesByCode[$fileCode] : null;
-    if ($latest === null) {
-        $normalizedTags = array_values(array_filter(array_map(
-            static fn (string $tag): string => mb_strtolower(trim((string) $tag)),
-            is_array($requiredDocument['match_tags'] ?? null) ? $requiredDocument['match_tags'] : [(string) ($requiredDocument['tag'] ?? '')]
-        )));
-        $normalizedTypes = array_values(array_filter(array_map(
-            static fn (string $type): string => mb_strtolower(trim((string) $type)),
-            is_array($requiredDocument['match_types'] ?? null) ? $requiredDocument['match_types'] : [(string) ($requiredDocument['document_type'] ?? '')]
-        )));
-        $matches = array_values(array_filter($requiredDocumentsFolderFiles, static function (array $file) use ($normalizedTags, $normalizedTypes): bool {
-            $tags = array_map(static fn ($tag): string => mb_strtolower(trim((string) $tag)), is_array($file['tags'] ?? null) ? $file['tags'] : []);
-            $type = mb_strtolower(trim((string) ($file['document_type'] ?? '')));
-            $matchesTag = !empty($normalizedTags) && !empty(array_intersect($normalizedTags, $tags));
-            $matchesType = !empty($normalizedTypes) && in_array($type, $normalizedTypes, true);
-            return $matchesTag || $matchesType;
-        }));
-        usort($matches, static function (array $a, array $b): int {
-            return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
-        });
-        $latest = $matches[0] ?? null;
-    }
     $requiredDocumentsCards[] = array_merge($requiredDocument, [
         'completed' => $latest !== null,
         'record' => $latest,
@@ -1318,6 +1297,12 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                 $recordTags = [trim((string) $requiredCard['tag'])];
                             }
                             $repositoryUrl = (string) ($record['storage_path'] ?? '');
+                            $recordFileId = isset($record['id']) ? (int) $record['id'] : 0;
+                            $recordFileName = trim((string) ($record['file_name'] ?? ''));
+                            $recordFileDownloadUrl = (!$isGitCard && $recordFileId > 0)
+                                ? ($basePath . '/projects/' . (int) ($project['id'] ?? 0) . '/nodes/' . $recordFileId . '/download')
+                                : '';
+                            $hasRecordFile = $recordFileDownloadUrl !== '';
                             $actionLabel = $isScheduleCard
                                 ? ($isCompleted ? 'Ver cronograma' : 'Crear cronograma')
                                 : ($isGitCard
@@ -1338,6 +1323,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                 data-required-doc-url="<?= htmlspecialchars($repositoryUrl) ?>"
                                 data-required-doc-description="<?= htmlspecialchars($descriptionForDisplay) ?>"
                                 data-required-doc-modal-description="<?= htmlspecialchars($descriptionForDisplay) ?>"
+                                data-required-doc-file-id="<?= $recordFileId > 0 ? (string) $recordFileId : '' ?>"
+                                data-required-doc-file-name="<?= htmlspecialchars($recordFileName) ?>"
+                                data-required-doc-file-url="<?= htmlspecialchars($recordFileDownloadUrl) ?>"
+                                data-required-doc-has-file="<?= $hasRecordFile ? '1' : '0' ?>"
                             >
                                 <td>
                                     <span class="required-doc-state <?= $isCompleted ? 'required-doc-state--completed' : 'required-doc-state--pending' ?>" data-required-doc-state-icon aria-hidden="true"></span>
@@ -1348,6 +1337,14 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                         <a class="required-doc-description required-doc-description--link" href="<?= htmlspecialchars($repositoryUrl) ?>" target="_blank" rel="noopener noreferrer" data-required-doc-description-node><?= htmlspecialchars($repositoryUrl) ?></a>
                                     <?php else: ?>
                                         <span class="required-doc-description" data-required-doc-description-node><?= htmlspecialchars($descriptionForDisplay) ?></span>
+                                        <a
+                                            class="required-doc-file-reference<?= $hasRecordFile ? '' : ' is-hidden' ?>"
+                                            href="<?= htmlspecialchars($hasRecordFile ? $recordFileDownloadUrl : '#') ?>"
+                                            data-required-doc-file-reference
+                                            <?= $hasRecordFile ? 'download' : 'hidden' ?>
+                                        >
+                                            <?= htmlspecialchars($recordFileName !== '' ? $recordFileName : 'Archivo adjunto') ?>
+                                        </a>
                                     <?php endif; ?>
                                 </td>
                                 <td><span data-required-doc-registered-by><?= htmlspecialchars($recordedBy) ?></span></td>
@@ -1404,6 +1401,16 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                         <input type="hidden" name="document_type" value="" data-required-doc-document-type-hidden>
                         <input type="hidden" name="document_tags" value="" data-required-doc-upload-tags-hidden>
                         <input type="hidden" name="required_document_tag" value="" data-required-doc-tag-hidden>
+                        <input type="hidden" name="remove_required_document_file" value="0" data-required-doc-remove-file-hidden>
+                        <div class="required-doc-current-file" data-required-doc-current-file hidden>
+                            <p class="required-doc-current-file__title">Archivo actual</p>
+                            <div class="required-doc-current-file__actions">
+                                <span data-required-doc-current-file-name></span>
+                                <a class="action-btn small" href="#" data-required-doc-current-file-download target="_blank" rel="noopener noreferrer">Descargar</a>
+                                <button type="button" class="action-btn small danger" data-required-doc-current-file-remove>Eliminar archivo</button>
+                            </div>
+                            <p class="section-muted" data-required-doc-current-file-removed-note hidden>El archivo actual se eliminará al guardar.</p>
+                        </div>
                         <label class="field">
                             <span>Archivo *</span>
                             <input type="file" name="required_document_file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
@@ -1726,7 +1733,26 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     const requiredDocumentTagsCustom = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-upload-tag-custom]') : null;
     const requiredDocumentPreview = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-upload-preview]') : null;
     const requiredDocumentInput = requiredDocumentModal ? requiredDocumentModal.querySelector('input[type="file"][name="required_document_file"]') : null;
+    const requiredDocumentCurrentFile = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file]') : null;
+    const requiredDocumentCurrentFileName = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file-name]') : null;
+    const requiredDocumentCurrentFileDownload = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file-download]') : null;
+    const requiredDocumentCurrentFileRemoveButton = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file-remove]') : null;
+    const requiredDocumentCurrentFileRemovedNote = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file-removed-note]') : null;
+    const requiredDocumentRemoveFileHidden = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-remove-file-hidden]') : null;
     let activeRequiredDocumentKey = '';
+    let requiredDocumentRemoveFileRequested = false;
+    const requiredDocumentTypePresetsByKey = {
+        propuesta_aceptada: 'Propuesta comercial',
+        acta_inicio: 'Acta',
+        kickoff: 'Kickoff',
+        actas_seguimiento: 'Acta',
+        pruebas_funcionales: 'Acta',
+        acta_cierre: 'Acta',
+        lecciones_aprendidas: 'Informe',
+        diagrama_flujo: 'Diagrama',
+        diagrama_arquitectura: 'Diagrama',
+        documento_arquitectura: 'Documento técnico',
+    };
     const getTodayDate = () => {
         const now = new Date();
         const day = String(now.getDate()).padStart(2, '0');
@@ -1768,15 +1794,24 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         const registeredByNode = row.querySelector('[data-required-doc-registered-by]');
         const dateNode = row.querySelector('[data-required-doc-date]');
         const descriptionNode = row.querySelector('[data-required-doc-description-node]');
+        const fileReferenceNode = row.querySelector('[data-required-doc-file-reference]');
         const currentUserName = requiredDocumentsRoot?.dataset.requiredDocCurrentUser || 'Usuario';
         const documentDescription = row.dataset.requiredDocDescription || '';
         const repositoryUrl = options.repositoryUrl || row.dataset.requiredDocUrl || '';
+        const hasFile = typeof options.hasFile === 'boolean'
+            ? options.hasFile
+            : row.dataset.requiredDocHasFile === '1';
+        const fileId = options.fileId !== undefined ? Number(options.fileId || 0) : Number(row.dataset.requiredDocFileId || 0);
+        const fileName = String(options.fileName || row.dataset.requiredDocFileName || '').trim();
+        const fileUrl = String(options.fileUrl || row.dataset.requiredDocFileUrl || '').trim();
         const isGit = row.dataset.requiredDocGit === '1';
 
         row.dataset.requiredDocCompleted = '1';
+        row.dataset.requiredDocHasFile = hasFile ? '1' : '0';
         if (stateIcon) {
+            stateIcon.classList.remove('required-doc-state--missing-file');
             stateIcon.classList.remove('required-doc-state--pending');
-            stateIcon.classList.add('required-doc-state--completed');
+            stateIcon.classList.add(hasFile ? 'required-doc-state--completed' : 'required-doc-state--missing-file');
         }
         if (registeredByNode) {
             registeredByNode.textContent = options.recordedBy || currentUserName;
@@ -1803,10 +1838,82 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                 descriptionNode.textContent = options.description || documentDescription;
             }
         }
+        if (!isGit && fileReferenceNode) {
+            if (hasFile && fileUrl !== '') {
+                fileReferenceNode.hidden = false;
+                fileReferenceNode.classList.remove('is-hidden');
+                fileReferenceNode.href = fileUrl;
+                fileReferenceNode.setAttribute('download', '');
+                fileReferenceNode.textContent = fileName !== '' ? fileName : 'Archivo adjunto';
+            } else {
+                fileReferenceNode.hidden = true;
+                fileReferenceNode.classList.add('is-hidden');
+                fileReferenceNode.href = '#';
+                fileReferenceNode.removeAttribute('download');
+                fileReferenceNode.textContent = 'Archivo adjunto';
+            }
+        }
         if (isGit && repositoryUrl !== '') {
             row.dataset.requiredDocUrl = repositoryUrl;
         }
+        if (!isGit) {
+            row.dataset.requiredDocFileId = fileId > 0 ? String(fileId) : '';
+            row.dataset.requiredDocFileName = fileName;
+            row.dataset.requiredDocFileUrl = fileUrl;
+        }
         updateRequiredDocumentsSummary();
+    };
+
+    const setRequiredDocumentRowPending = (row, options = {}) => {
+        if (!row) return;
+        const actionButton = row.querySelector('[data-required-doc-action-button]');
+        const stateIcon = row.querySelector('[data-required-doc-state-icon]');
+        const registeredByNode = row.querySelector('[data-required-doc-registered-by]');
+        const dateNode = row.querySelector('[data-required-doc-date]');
+        const descriptionNode = row.querySelector('[data-required-doc-description-node]');
+        const fileReferenceNode = row.querySelector('[data-required-doc-file-reference]');
+        row.dataset.requiredDocCompleted = '0';
+        row.dataset.requiredDocHasFile = '0';
+        row.dataset.requiredDocFileId = '';
+        row.dataset.requiredDocFileName = '';
+        row.dataset.requiredDocFileUrl = '';
+        if (stateIcon) {
+            stateIcon.classList.remove('required-doc-state--completed');
+            stateIcon.classList.remove('required-doc-state--missing-file');
+            stateIcon.classList.add('required-doc-state--pending');
+        }
+        if (actionButton) {
+            actionButton.classList.remove('required-doc-action--completed');
+            actionButton.classList.add('required-doc-action--pending');
+            actionButton.textContent = options.actionLabel || 'Registrar';
+        }
+        if (registeredByNode) {
+            registeredByNode.textContent = '-';
+        }
+        if (dateNode) {
+            dateNode.textContent = '-';
+        }
+        if (!isGit && descriptionNode) {
+            descriptionNode.textContent = row.dataset.requiredDocDescription || row.dataset.requiredDocModalDescription || '';
+        }
+        if (fileReferenceNode) {
+            fileReferenceNode.hidden = true;
+            fileReferenceNode.classList.add('is-hidden');
+            fileReferenceNode.href = '#';
+            fileReferenceNode.removeAttribute('download');
+            fileReferenceNode.textContent = 'Archivo adjunto';
+        }
+        updateRequiredDocumentsSummary();
+    };
+
+    const syncRequiredDocumentCurrentFileUI = () => {
+        if (!requiredDocumentCurrentFile || !requiredDocumentCurrentFileRemovedNote || !requiredDocumentCurrentFileRemoveButton) return;
+        requiredDocumentCurrentFile.classList.toggle('is-marked-for-removal', requiredDocumentRemoveFileRequested);
+        requiredDocumentCurrentFileRemovedNote.hidden = !requiredDocumentRemoveFileRequested;
+        requiredDocumentCurrentFileRemoveButton.textContent = requiredDocumentRemoveFileRequested ? 'Conservar archivo' : 'Eliminar archivo';
+        if (requiredDocumentRemoveFileHidden) {
+            requiredDocumentRemoveFileHidden.value = requiredDocumentRemoveFileRequested ? '1' : '0';
+        }
     };
 
     const closeAllGitEditors = () => {
@@ -1846,17 +1953,30 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         if (!requiredDocumentModal) return;
         requiredDocumentModal.hidden = true;
         setRequiredDocumentValidation('');
+        requiredDocumentRemoveFileRequested = false;
+        syncRequiredDocumentCurrentFileUI();
         if (requiredDocumentUploadForm) {
             requiredDocumentUploadForm.reset();
             const keyInput = requiredDocumentUploadForm.querySelector('[data-required-doc-key-input]');
             const tagInput = requiredDocumentUploadForm.querySelector('[data-required-doc-tag-hidden]');
             if (keyInput) keyInput.value = '';
             if (tagInput) tagInput.value = '';
+            if (requiredDocumentRemoveFileHidden) requiredDocumentRemoveFileHidden.value = '0';
         }
         if (requiredDocumentPreview) {
             requiredDocumentPreview.hidden = true;
             const list = requiredDocumentPreview.querySelector('ul');
             if (list) list.innerHTML = '';
+        }
+        if (requiredDocumentCurrentFile) {
+            requiredDocumentCurrentFile.hidden = true;
+        }
+        if (requiredDocumentCurrentFileName) {
+            requiredDocumentCurrentFileName.textContent = '';
+        }
+        if (requiredDocumentCurrentFileDownload) {
+            requiredDocumentCurrentFileDownload.href = '#';
+            requiredDocumentCurrentFileDownload.removeAttribute('download');
         }
         activeRequiredDocumentKey = '';
     };
@@ -1869,12 +1989,19 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         const isEdit = row.dataset.requiredDocCompleted === '1';
         const key = row.dataset.requiredDocKey || '';
         const name = row.dataset.requiredDocName || 'documento obligatorio';
-        const expectedType = String(row.dataset.requiredDocType || '').trim();
+        const recordedType = String(row.dataset.requiredDocType || '').trim();
+        const presetType = String(requiredDocumentTypePresetsByKey[key] || '').trim();
+        const expectedType = isEdit ? recordedType : (presetType || recordedType);
         const expectedTag = String(row.dataset.requiredDocTag || '').trim();
         const expectedTags = String(row.dataset.requiredDocTags || '').split('|').map((tag) => tag.trim()).filter(Boolean);
         const existingVersion = String(row.dataset.requiredDocVersion || '').trim();
         const existingDescription = String(row.dataset.requiredDocModalDescription || row.dataset.requiredDocDescription || '').trim();
+        const existingFileName = String(row.dataset.requiredDocFileName || '').trim();
+        const existingFileUrl = String(row.dataset.requiredDocFileUrl || '').trim();
+        const hasExistingFile = row.dataset.requiredDocHasFile === '1' && existingFileUrl !== '';
         activeRequiredDocumentKey = key;
+        requiredDocumentRemoveFileRequested = false;
+        syncRequiredDocumentCurrentFileUI();
         if (keyInput) keyInput.value = key;
         if (tagInput) tagInput.value = expectedTag;
         if (title) {
@@ -1886,13 +2013,14 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             const hiddenTags = requiredDocumentUploadForm.querySelector('[data-required-doc-upload-tags-hidden]');
             if (hiddenType) hiddenType.value = '';
             if (hiddenTags) hiddenTags.value = '';
+            if (requiredDocumentRemoveFileHidden) requiredDocumentRemoveFileHidden.value = '0';
         }
         if (requiredDocumentTypeCustom) requiredDocumentTypeCustom.value = '';
         if (requiredDocumentTypeSelect) {
             const options = Array.from(requiredDocumentTypeSelect.options || []);
             const hasType = options.some((option) => option.value === expectedType);
             requiredDocumentTypeSelect.value = hasType ? expectedType : '';
-            if (!hasType && requiredDocumentTypeCustom && expectedType !== '') {
+            if (isEdit && !hasType && requiredDocumentTypeCustom && expectedType !== '') {
                 requiredDocumentTypeCustom.value = expectedType;
             }
         }
@@ -1921,6 +2049,24 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             const list = requiredDocumentPreview.querySelector('ul');
             if (list) list.innerHTML = '';
         }
+        if (requiredDocumentInput) {
+            requiredDocumentInput.required = !isEdit;
+        }
+        if (requiredDocumentCurrentFile) {
+            requiredDocumentCurrentFile.hidden = !isEdit || !hasExistingFile;
+        }
+        if (requiredDocumentCurrentFileName) {
+            requiredDocumentCurrentFileName.textContent = existingFileName !== '' ? existingFileName : 'Archivo adjunto';
+        }
+        if (requiredDocumentCurrentFileDownload) {
+            requiredDocumentCurrentFileDownload.href = hasExistingFile ? existingFileUrl : '#';
+            if (hasExistingFile) {
+                requiredDocumentCurrentFileDownload.setAttribute('download', '');
+            } else {
+                requiredDocumentCurrentFileDownload.removeAttribute('download');
+            }
+        }
+        syncRequiredDocumentCurrentFileUI();
         setRequiredDocumentValidation('');
         requiredDocumentModal.hidden = false;
     };
@@ -1968,6 +2114,12 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             requiredDocumentPreview.hidden = list.children.length === 0;
         });
     }
+    if (requiredDocumentCurrentFileRemoveButton) {
+        requiredDocumentCurrentFileRemoveButton.addEventListener('click', () => {
+            requiredDocumentRemoveFileRequested = !requiredDocumentRemoveFileRequested;
+            syncRequiredDocumentCurrentFileUI();
+        });
+    }
 
     if (requiredDocumentUploadForm) {
         requiredDocumentUploadForm.addEventListener('submit', (event) => {
@@ -1975,6 +2127,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             const keyInput = requiredDocumentUploadForm.querySelector('[data-required-doc-key-input]');
             const hiddenType = requiredDocumentUploadForm.querySelector('[data-required-doc-document-type-hidden]');
             const hiddenTags = requiredDocumentUploadForm.querySelector('[data-required-doc-upload-tags-hidden]');
+            const removeFileValue = requiredDocumentRemoveFileHidden ? String(requiredDocumentRemoveFileHidden.value || '0') : '0';
             const key = String(keyInput?.value || activeRequiredDocumentKey || '').trim();
             const documentType = collectRequiredDocumentType();
             const tags = collectRequiredDocumentTags();
@@ -2059,11 +2212,24 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                             targetRow.dataset.requiredDocTags = payloadTags.join('|');
                             targetRow.dataset.requiredDocTag = payloadTags[0];
                         }
-                        setRequiredDocumentRowCompleted(targetRow, {
-                            recordedBy: payload.required_document?.recorded_by || undefined,
-                            recordedDate: payload.required_document?.recorded_date || undefined,
-                            description: targetRow.dataset.requiredDocDescription || undefined,
-                        });
+                        const payloadFileId = Number(requiredDocumentPayload.file_id || 0);
+                        const payloadFileName = String(requiredDocumentPayload.file_name || '').trim();
+                        const payloadFileUrl = String(requiredDocumentPayload.file_url || '').trim();
+                        const payloadHasFile = Boolean(requiredDocumentPayload.has_file);
+                        const payloadCompleted = Boolean(requiredDocumentPayload.completed);
+                        if (payloadCompleted) {
+                            setRequiredDocumentRowCompleted(targetRow, {
+                                recordedBy: payload.required_document?.recorded_by || undefined,
+                                recordedDate: payload.required_document?.recorded_date || undefined,
+                                description: targetRow.dataset.requiredDocDescription || undefined,
+                                hasFile: payloadHasFile,
+                                fileId: payloadFileId,
+                                fileName: payloadFileName,
+                                fileUrl: payloadFileUrl,
+                            });
+                        } else {
+                            setRequiredDocumentRowPending(targetRow);
+                        }
                     }
                     closeRequiredDocumentModal();
                 })
@@ -2558,6 +2724,8 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .required-doc-state--pending { border:2px solid #f59e0b; background:transparent; }
     .required-doc-state--completed { border:2px solid var(--success); background: var(--success); }
     .required-doc-state--completed::after { content:'✓'; color:#fff; font-size:11px; line-height:1; font-weight:700; }
+    .required-doc-state--missing-file { border:2px solid var(--warning); background: color-mix(in srgb, var(--warning) 18%, var(--background)); }
+    .required-doc-state--missing-file::after { content:'!'; color:var(--warning); font-size:11px; line-height:1; font-weight:800; }
     .required-doc-action { border:1px solid; border-radius:8px; background:#fff; padding:4px 10px; font-size:12px; font-weight:600; line-height:1.2; cursor:pointer; white-space:nowrap; }
     .required-doc-action--pending { border-color: var(--primary); color: var(--primary); }
     .required-doc-action--completed { border-color: var(--border); color: var(--text-secondary); }
@@ -2597,6 +2765,14 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .required-documents-block .field-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
     .required-documents-block .upload-preview { margin-top:6px; background: var(--surface); border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
     .required-documents-block .form-validation { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border:1px solid color-mix(in srgb, var(--warning) 35%, var(--background)); border-radius:8px; padding:8px 10px; font-size:12px; font-weight:600; }
+    .required-doc-file-reference { display:block; margin-top:4px; font-size:11px; color: var(--text-secondary); text-decoration:none; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .required-doc-file-reference:hover { text-decoration:underline; color: var(--primary); }
+    .required-doc-file-reference.is-hidden { display:none; }
+    .required-doc-current-file { border:1px solid var(--border); border-radius:10px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:8px; }
+    .required-doc-current-file__title { margin:0; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: var(--text-secondary); }
+    .required-doc-current-file__actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:13px; }
+    .required-doc-current-file__actions span { font-weight:600; color: var(--text-primary); }
+    .required-doc-current-file.is-marked-for-removal { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: color-mix(in srgb, var(--danger) 9%, var(--background)); }
     .required-documents-block .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
     .required-documents-block .button-spinner { width:14px; height:14px; border-radius:50%; border:2px solid color-mix(in srgb, var(--text-primary) 50%, var(--background)); border-top-color: var(--text-primary); animation: spin 1s linear infinite; display:none; }
     .required-documents-block .action-btn.is-loading .button-spinner { display:inline-block; }
