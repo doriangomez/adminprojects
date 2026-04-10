@@ -21,6 +21,26 @@ foreach (is_array($calendarRules['holidays'] ?? null) ? $calendarRules['holidays
     $name = trim((string) ($holiday['name'] ?? 'Festivo'));
     $holidayLines[] = $date . '|' . ($name !== '' ? $name : 'Festivo');
 }
+$additionalHolidayLines = [];
+foreach (is_array($calendarRules['additional_holidays'] ?? null) ? $calendarRules['additional_holidays'] : [] as $holiday) {
+    if (!is_array($holiday)) {
+        continue;
+    }
+    $date = trim((string) ($holiday['date'] ?? ''));
+    if ($date === '') {
+        continue;
+    }
+    $name = trim((string) ($holiday['name'] ?? $holiday['reason'] ?? 'Feriado adicional'));
+    if ($name === '') {
+        $name = 'Feriado adicional';
+    }
+    $scope = strtolower(trim((string) ($holiday['scope'] ?? 'year_specific')));
+    $scopeLabel = $scope === 'all_years' ? 'todos' : 'anio';
+    $year = $scope === 'all_years'
+        ? ''
+        : (string) ((int) ($holiday['year'] ?? substr($date, 0, 4)));
+    $additionalHolidayLines[] = $date . '|' . $name . '|' . $scopeLabel . '|' . $year;
+}
 $exceptionLines = [];
 foreach (is_array($calendarRules['exceptions'] ?? null) ? $calendarRules['exceptions'] : [] as $exception) {
     if (!is_array($exception)) {
@@ -160,6 +180,11 @@ $weekdayLabels = [
                                 <div class="input-stack">
                                     <label>Excepciones (uno por linea: YYYY-MM-DD|laboral/no_laboral|Motivo)</label>
                                     <textarea name="timesheets_exceptions" rows="5" class="operacion-textarea" placeholder="2026-03-21|laboral|Guardia de soporte&#10;2026-03-23|no_laboral|Cierre de oficina"><?= htmlspecialchars(implode("\n", $exceptionLines)) ?></textarea>
+                                </div>
+                                <div class="input-stack">
+                                    <label>Feriados adicionales (YYYY-MM-DD|Motivo|anio/todos|YYYY)</label>
+                                    <textarea name="timesheets_additional_holidays" rows="6" class="operacion-textarea" placeholder="2026-11-30|Dia de integracion empresa|anio|2026&#10;2026-12-24|Navidad corporativa|todos|"><?= htmlspecialchars(implode("\n", $additionalHolidayLines)) ?></textarea>
+                                    <small class="subtext">Estos feriados se suman a los oficiales de Colombia para validar completitud de semana.</small>
                                 </div>
                             </div>
                             <div class="operacion-card">

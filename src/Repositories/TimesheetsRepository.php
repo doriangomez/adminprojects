@@ -342,6 +342,26 @@ class TimesheetsRepository
         }
         unset($dayItems);
 
+        $requiredWorkingDays = 0;
+        $completedWorkingDays = 0;
+        $holidayDays = 0;
+        foreach ($days as $day) {
+            $dayKey = (string) ($day['key'] ?? '');
+            $dayType = (string) ($day['day_type'] ?? '');
+            $isWeekday = $this->isWeekday($dayKey);
+            $isHoliday = $dayType === 'holiday';
+            if ($isWeekday && $isHoliday) {
+                $holidayDays++;
+            }
+            if (!$isWeekday || !$day['is_working']) {
+                continue;
+            }
+            $requiredWorkingDays++;
+            if (((float) ($dayTotals[$dayKey] ?? 0)) > 0.001) {
+                $completedWorkingDays++;
+            }
+        }
+
         return [
             'days' => $days,
             'rows' => $rows,
@@ -353,6 +373,10 @@ class TimesheetsRepository
             'weekly_capacity_base' => $weeklyBaseForWeek,
             'weekly_capacity_breakdown' => $weeklyCapacityBreakdown,
             'requires_full_report' => (int) ($profile['requiere_reporte_horas'] ?? 0) === 1,
+            'required_working_days' => $requiredWorkingDays,
+            'completed_working_days' => $completedWorkingDays,
+            'holiday_days_in_week' => $holidayDays,
+            'missing_required_days' => max(0, $requiredWorkingDays - $completedWorkingDays),
             'activities_by_day' => $activitiesByDay,
             'activity_types' => $this->activityTypesCatalog(),
         ];
@@ -889,19 +913,47 @@ class TimesheetsRepository
                 $dailyCapacityMap = is_array($weeklyCapacityBreakdown['daily'] ?? null) ? $weeklyCapacityBreakdown['daily'] : [];
             }
 
+            $missingRequiredDays = 0;
+            $requiredWorkingDays = 0;
+            $holidayDaysInWeek = 0;
             for ($i = 0; $i < 7; $i++) {
                 $dayDate = $weekStart->modify('+' . $i . ' days');
                 $day = $dayDate->format('Y-m-d');
                 $dayMeta = $this->workCalendarService()->classifyDate($dayDate);
+                if ($this->isWeekday($day) && (($dayMeta['type'] ?? '') === 'holiday')) {
+                    $holidayDaysInWeek++;
+                }
                 $availableHours = (float) ($dailyCapacityMap[$day]['available_hours'] ?? (empty($dayMeta['is_working']) ? 0.0 : 8.0));
                 if ($availableHours <= 0.001) {
                     continue;
                 }
+                if (!$this->isWeekday($day)) {
+                    continue;
+                }
+                $requiredWorkingDays++;
                 if (($totalsByDate[$day] ?? 0.0) <= 0) {
+                    $missingRequiredDays++;
+                }
+            }
+            if ($missingRequiredDays > 0) {
+                if ($holidayDaysInWeek > 0) {
                     throw new InvalidArgumentException(
-                        'No se puede enviar la semana: hay días laborales sin horas registradas.'
+                        sprintf(
+                            'No se puede enviar la semana: completa %d de %d días hábiles para enviar (semana con %d feriado%s).',
+                            max(0, $requiredWorkingDays - $missingRequiredDays),
+                            $requiredWorkingDays,
+                            $holidayDaysInWeek,
+                            $holidayDaysInWeek === 1 ? '' : 's'
+                        )
                     );
                 }
+                throw new InvalidArgumentException(
+                    sprintf(
+                        'No se puede enviar la semana: completa %d de %d días hábiles para enviar.',
+                        max(0, $requiredWorkingDays - $missingRequiredDays),
+                        $requiredWorkingDays
+                    )
+                );
             }
         }
 
@@ -1420,6 +1472,8 @@ class TimesheetsRepository
                     'owner_user_id' => $ownerUserId,
                     'owner_name' => (string) ($row['user_name'] ?? $row['talent'] ?? 'Talento'),
                     'total_hours' => 0.0,
+                    'holiday_days_in_week' => 0,
+                    'week_contains_holiday' => false,
                     'rows' => [],
                     'projects' => [],
                     'days' => [],
@@ -1469,6 +1523,15 @@ class TimesheetsRepository
                 $days[] = $day;
             }
             $week['days'] = $days;
+            $weekStartDate = new \DateTimeImmutable((string) ($week['week_start'] ?? 'now'));
+            $holidayDays = 0;
+            foreach ($this->workCalendarService()->weekMap($weekStartDate) as $dateKey => $dayMeta) {
+                if ($this->isWeekday((string) $dateKey) && (string) ($dayMeta['type'] ?? '') === 'holiday') {
+                    $holidayDays++;
+                }
+            }
+            $week['holiday_days_in_week'] = $holidayDays;
+            $week['week_contains_holiday'] = $holidayDays > 0;
         }
         unset($week);
 
@@ -2906,18 +2969,23 @@ class TimesheetsRepository
         }
 
         $dayMeta = $this->workCalendarService()->classifyDate($day);
-        if (empty($dayMeta['is_working']) && !$this->canOverrideNonWorkingRestriction($userId, $dayMeta)) {
+        $isHoliday = (string) ($dayMeta['type'] ?? '') === 'holiday';
+        if ($isHoliday) {
+            // Feriados siempre editables: el registro es opcional para el talento.
+        } elseif (empty($dayMeta['is_working']) && !$this->canOverrideNonWorkingRestriction($userId, $dayMeta)) {
             throw new InvalidArgumentException($this->nonWorkingDayMessage($dayMeta));
         }
 
-        $dayCapacity = $this->dayCapacityContextForUser($userId, $day);
-        if ($this->absenceBlocksTimesheetLogging() && !$this->canOverrideAbsenceRestriction($userId)) {
-            if (!empty($dayCapacity['has_vacation'])) {
-                throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
-            }
-            if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
-                $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
-                throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+        if (!$isHoliday) {
+            $dayCapacity = $this->dayCapacityContextForUser($userId, $day);
+            if ($this->absenceBlocksTimesheetLogging() && !$this->canOverrideAbsenceRestriction($userId)) {
+                if (!empty($dayCapacity['has_vacation'])) {
+                    throw new InvalidArgumentException('No puedes registrar horas. Estás en vacaciones este día.');
+                }
+                if (!empty($dayCapacity['has_full_day_absence']) && (float) ($dayCapacity['available_hours'] ?? 0) <= 0.001) {
+                    $absenceName = trim((string) ($dayCapacity['primary_absence_label'] ?? 'Ausencia'));
+                    throw new InvalidArgumentException('No puedes registrar horas. Tienes ' . strtolower($absenceName) . ' este día.');
+                }
             }
         }
 
@@ -2955,6 +3023,11 @@ class TimesheetsRepository
         }
 
         $dayDate = new \DateTimeImmutable($date);
+        $dayMeta = $this->workCalendarService()->classifyDate($dayDate);
+        if ((string) ($dayMeta['type'] ?? '') === 'holiday') {
+            // En feriado el registro es opcional y editable, sin exigir capacidad diaria.
+            return;
+        }
         $dayCapacity = $this->dayCapacityContextForUser($userId, $dayDate);
         if ($dayCapacity === []) {
             return;
@@ -3739,6 +3812,19 @@ class TimesheetsRepository
         }
 
         return 'Este día es no laboral. No se pueden registrar horas.';
+    }
+
+    private function isWeekday(string $date): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return false;
+        }
+        try {
+            $weekday = (int) (new \DateTimeImmutable($date))->format('N');
+            return $weekday >= 1 && $weekday <= 5;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function isAdministratorUser(int $userId): bool

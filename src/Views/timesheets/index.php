@@ -19,6 +19,20 @@ $weekIndicators = is_array($weekIndicators ?? null) ? $weekIndicators : [];
 $dayStatuses = is_array($weeklyGrid['day_statuses'] ?? null) ? $weeklyGrid['day_statuses'] : [];
 $dayDraftEntries = is_array($weeklyGrid['day_draft_entries'] ?? null) ? $weeklyGrid['day_draft_entries'] : [];
 $weekStatus = (string) ($selectedWeekSummary['status'] ?? 'draft');
+$requiredWorkingDays = max(0, (int) ($weeklyGrid['required_working_days'] ?? 0));
+$completedWorkingDays = max(0, (int) ($weeklyGrid['completed_working_days'] ?? 0));
+$holidayDaysInWeek = max(0, (int) ($weeklyGrid['holiday_days_in_week'] ?? 0));
+$missingRequiredDays = max(0, (int) ($weeklyGrid['missing_required_days'] ?? 0));
+$isHolidayWeekPendingSubmission = $weekStatus === 'draft' && $holidayDaysInWeek > 0;
+$missingDaysMessage = $isHolidayWeekPendingSubmission
+    ? sprintf(
+        'Semana con %d feriado%s. Completa %d de %d días hábiles para enviar.',
+        $holidayDaysInWeek,
+        $holidayDaysInWeek === 1 ? '' : 's',
+        $completedWorkingDays,
+        $requiredWorkingDays
+    )
+    : '';
 $currentUserName = trim((string) ($currentUserName ?? 'Usuario')) ?: 'Usuario';
 $timesheetNotice = trim((string) ($timesheetNotice ?? ''));
 $capacityTooltipLines = is_array($weekIndicators['capacity_tooltip_lines'] ?? null) ? $weekIndicators['capacity_tooltip_lines'] : [];
@@ -66,6 +80,7 @@ foreach ($dayDraftEntries as $draftCount) {
         break;
     }
 }
+$canSubmitWeek = $hasDraftEntriesInWeek && ($missingRequiredDays <= 0);
 $weeklyApprovalTotals = [
     'approved' => 0.0,
     'pending' => 0.0,
@@ -160,7 +175,7 @@ foreach ($gridDays as $day) {
                 <button type="button" class="btn" id="duplicate-day-trigger" <?= $weekFullyLocked ? 'disabled' : '' ?>>Duplicar día</button>
                 <form method="POST" action="<?= $basePath ?>/timesheets/submit-week">
                     <input type="hidden" name="week" value="<?= htmlspecialchars($weekValue) ?>">
-                    <button type="submit" class="btn success" <?= !$hasDraftEntriesInWeek ? 'disabled' : '' ?>>Enviar semana</button>
+                    <button type="submit" class="btn success" <?= !$canSubmitWeek ? 'disabled' : '' ?>>Enviar semana</button>
                 </form>
                 <?php if (in_array($weekStatus, ['submitted', 'partial'], true)): ?>
                     <form method="POST" action="<?= $basePath ?>/timesheets/cancel-week">
@@ -183,6 +198,9 @@ foreach ($gridDays as $day) {
         </section>
         <?php if ($timesheetNotice !== ''): ?>
             <section class="card week-notice-banner"><?= htmlspecialchars($timesheetNotice) ?></section>
+        <?php endif; ?>
+        <?php if ($isHolidayWeekPendingSubmission): ?>
+            <section class="card week-notice-banner week-holiday-message"><?= htmlspecialchars($missingDaysMessage) ?></section>
         <?php endif; ?>
         <?php if ($weekFullyLocked): ?>
             <section class="card week-locked-banner">Todos los días registrados están enviados o aprobados.</section>
@@ -253,9 +271,9 @@ foreach ($gridDays as $day) {
                         $dayStatusMeta = $statusMeta[$dayStatus] ?? $statusMeta['draft'];
                         $dayHasDraftEntries = (int) ($dayDraftEntries[$dayDate] ?? 0) > 0;
                         $isWorkflowLocked = in_array($dayStatus, ['submitted', 'approved'], true);
-                        $canEditDay = !$isBlockedDay && !$isWorkflowLocked;
+                        $canEditDay = (!$isBlockedDay || $isHoliday) && !$isWorkflowLocked;
                         ?>
-                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day' : '' ?><?= $isBlockedDay ? ' non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= $isBlockedDay ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>" data-day-status="<?= htmlspecialchars($dayStatus) ?>">
+                        <article class="day-card<?= $isHoliday ? ' holiday-day' : '' ?><?= !$isHoliday && $isBlockedDay ? ' non-working-day non-working' : '' ?>" data-drop-day="<?= htmlspecialchars($dayDate) ?>" data-non-working="<?= (!$isHoliday && $isBlockedDay) ? '1' : '0' ?>" data-day-type="<?= htmlspecialchars($dayType) ?>" data-day-name="<?= htmlspecialchars($daySpecialName) ?>" data-day-status="<?= htmlspecialchars($dayStatus) ?>">
                             <header class="day-card-header">
                                 <strong><?= htmlspecialchars($dayLabel) ?></strong>
                                 <?php if ($dayType === 'holiday'): ?>
@@ -269,7 +287,7 @@ foreach ($gridDays as $day) {
                                 <?php endif; ?>
                             </header>
                             <?php if ($daySpecialName !== ''): ?>
-                                <div class="day-special-name"><?= htmlspecialchars($daySpecialName) ?></div>
+                                <div class="day-special-name<?= $isHoliday ? ' holiday-name' : '' ?>"><?= htmlspecialchars($daySpecialName) ?></div>
                             <?php endif; ?>
                             <div class="day-total">Total: <strong><?= round((float) ($dayTotals[$dayDate] ?? 0), 2) ?>h</strong></div>
                             <div class="day-status-pill pill status <?= htmlspecialchars($dayStatusMeta['class']) ?>"><?= htmlspecialchars(strtoupper($dayStatusMeta['label'])) ?></div>
@@ -291,7 +309,7 @@ foreach ($gridDays as $day) {
                                     <?php if ($canEditDay): ?>
                                         <button type="button" class="btn-xs register-activity-btn" data-prefill-date="<?= htmlspecialchars($dayDate) ?>">+ Registrar actividad</button>
                                     <?php elseif ($isHoliday): ?>
-                                        <small>Este dia es festivo. Registro bloqueado.</small>
+                                        <small>Este dia es festivo y el registro es opcional.</small>
                                     <?php elseif ($isWorkflowLocked): ?>
                                         <small>Este dia está enviado/aprobado. Registro bloqueado.</small>
                                     <?php elseif ($isBlockedDay): ?>
@@ -542,6 +560,7 @@ foreach ($gridDays as $day) {
 .header-inline-form input{min-width:180px}
 .week-status-row{display:flex;align-items:center;gap:10px}
 .week-notice-banner{border-color:color-mix(in srgb,var(--primary) 45%,var(--border));background:color-mix(in srgb,var(--primary) 14%,var(--surface));font-weight:700}
+.week-holiday-message{border-color:color-mix(in srgb,var(--neutral) 50%,var(--border));background:color-mix(in srgb,var(--neutral) 16%,var(--surface))}
 .week-locked-banner{border-color:color-mix(in srgb,var(--warning) 45%,var(--border));background:color-mix(in srgb,var(--warning) 18%,var(--surface));font-weight:700}
 .indicators-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}
 .indicator{display:flex;flex-direction:column;gap:4px}
@@ -563,7 +582,7 @@ foreach ($gridDays as $day) {
 .day-status-pill{margin:0 0 8px 0}
 .day-actions{display:flex;gap:6px;margin:0 0 8px 0}
 .day-drop-hint{font-size:11px;color:var(--text-secondary);border:1px dashed var(--border);border-radius:8px;padding:4px 6px;margin-bottom:8px}
-.day-card.holiday-day{background:#ffe5e5;border-color:#f2b8b8}
+.day-card.holiday-day{background:#f3f4f6;border-color:#d1d5db}
 .day-card.non-working-day{background:#f8fafc;border-color:#cbd5e1}
 .day-card.absence-day{background:#eff6ff;border-color:#bfdbfe}
 .day-card.absence-day.absence-vacaciones{background:#dbeafe;border-color:#93c5fd}
@@ -572,7 +591,8 @@ foreach ($gridDays as $day) {
 .day-state{font-size:11px;font-weight:700;color:#b91c1c}
 .day-state.absence{color:#1e3a8a}
 .day-state.absence.partial{color:#854d0e}
-.day-special-name{font-size:12px;color:#991b1b;font-weight:600;margin:2px 0 6px}
+.day-special-name{font-size:10px;color:#6b7280;font-weight:600;margin:2px 0 6px}
+.day-special-name.holiday-name{font-size:9px;color:#9ca3af;font-weight:600;letter-spacing:.01em}
 .day-empty-state{border:1px dashed var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;color:var(--text-secondary)}
 .day-empty-state .btn-xs{margin-top:6px;align-self:flex-start}
 .activity-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
@@ -684,9 +704,7 @@ foreach ($gridDays as $day) {
       return `No puedes registrar horas. Tienes ${label} este día.`;
     }
     if (type === 'holiday') {
-      return name
-        ? `Este día es festivo (${name}). No se pueden registrar horas.`
-        : 'Este día es festivo. No se pueden registrar horas.';
+      return '';
     }
     return name
       ? `Este día es no laboral (${name}). No se pueden registrar horas.`
@@ -833,7 +851,7 @@ foreach ($gridDays as $day) {
   form?.querySelector('[name="date"]')?.addEventListener('change', (event) => {
     const value = String(event.target?.value || '');
     const meta = dayMeta(value);
-    if (meta.blocked) {
+    if (meta.blocked && meta.type !== 'holiday') {
       alert(blockedDayMessage(meta.type, meta.name));
       event.target.value = '';
       return;
@@ -903,7 +921,7 @@ foreach ($gridDays as $day) {
     const formData = new FormData(form);
     const raw = Object.fromEntries(formData.entries());
     const selectedMeta = dayMeta(String(raw.date || ''));
-    if (selectedMeta.blocked) {
+    if (selectedMeta.blocked && selectedMeta.type !== 'holiday') {
       alert(blockedDayMessage(selectedMeta.type, selectedMeta.name));
       return;
     }
@@ -927,7 +945,7 @@ foreach ($gridDays as $day) {
       if (lastSubmitMode === 'save_duplicate' && finalActivityId > 0) {
         const targetDate = nextDate(String(raw.date || ''));
         const duplicateMeta = dayMeta(targetDate);
-        if (duplicateMeta.blocked) {
+      if (duplicateMeta.blocked && duplicateMeta.type !== 'holiday') {
           alert(blockedDayMessage(duplicateMeta.type, duplicateMeta.name));
           return;
         }
@@ -971,7 +989,7 @@ foreach ($gridDays as $day) {
       const target = prompt('Fecha destino (YYYY-MM-DD):');
       if (!target) return;
       const duplicateMeta = dayMeta(target);
-      if (duplicateMeta.blocked) {
+      if (duplicateMeta.blocked && duplicateMeta.type !== 'holiday') {
         alert(blockedDayMessage(duplicateMeta.type, duplicateMeta.name));
         return;
       }
@@ -995,7 +1013,7 @@ foreach ($gridDays as $day) {
       const target = prompt('Fecha destino (YYYY-MM-DD):');
       if (!target) return;
       const moveMeta = dayMeta(target);
-      if (moveMeta.blocked) {
+      if (moveMeta.blocked && moveMeta.type !== 'holiday') {
         alert(blockedDayMessage(moveMeta.type, moveMeta.name));
         return;
       }
@@ -1036,7 +1054,7 @@ foreach ($gridDays as $day) {
     const source = getDateByLabel('Selecciona día origen');
     if (!source) return;
     const sourceMeta = dayMeta(source);
-    if (sourceMeta.blocked) {
+    if (sourceMeta.blocked && sourceMeta.type !== 'holiday') {
       alert(blockedDayMessage(sourceMeta.type, sourceMeta.name));
       return;
     }
@@ -1047,7 +1065,7 @@ foreach ($gridDays as $day) {
     const target = getDateByLabel('Selecciona día destino');
     if (!target) return;
     const duplicateDayMeta = dayMeta(target);
-    if (duplicateDayMeta.blocked) {
+    if (duplicateDayMeta.blocked && duplicateDayMeta.type !== 'holiday') {
       alert(blockedDayMessage(duplicateDayMeta.type, duplicateDayMeta.name));
       return;
     }
@@ -1074,7 +1092,7 @@ foreach ($gridDays as $day) {
       const targetDate = button.dataset.prefillDate || '';
       if (targetDate) {
         const targetMeta = dayMeta(targetDate);
-        if (targetMeta.blocked) {
+        if (targetMeta.blocked && targetMeta.type !== 'holiday') {
           alert(blockedDayMessage(targetMeta.type, targetMeta.name));
           return;
         }
@@ -1190,7 +1208,7 @@ foreach ($gridDays as $day) {
   document.querySelectorAll('[data-drop-day]').forEach((dayCard) => {
     dayCard.addEventListener('dragover', (event) => {
       if (weekFullyLocked) return;
-      if (dayCard.dataset.nonWorking === '1') return;
+      if (dayCard.dataset.nonWorking === '1' && (dayCard.dataset.dayType || '') !== 'holiday') return;
       if (['submitted', 'pending', 'pending_approval', 'approved'].includes(String(dayCard.dataset.dayStatus || '').toLowerCase())) return;
       event.preventDefault();
       dayCard.classList.add('is-drop-target');
@@ -1201,8 +1219,10 @@ foreach ($gridDays as $day) {
       dayCard.classList.remove('is-drop-target');
       if (weekFullyLocked) return;
       if (dayCard.dataset.nonWorking === '1') {
-        alert(blockedDayMessage(dayCard.dataset.dayType || '', dayCard.dataset.dayName || ''));
-        return;
+        if ((dayCard.dataset.dayType || '') !== 'holiday') {
+          alert(blockedDayMessage(dayCard.dataset.dayType || '', dayCard.dataset.dayName || ''));
+          return;
+        }
       }
       if (['submitted', 'pending', 'pending_approval', 'approved'].includes(String(dayCard.dataset.dayStatus || '').toLowerCase())) {
         alert(workflowLockedDayMessage(String(dayCard.dataset.dayStatus || 'submitted').toLowerCase()));
