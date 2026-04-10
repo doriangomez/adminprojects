@@ -953,6 +953,7 @@ class DatabaseMigrator
             $this->ensureProjectInvoiceStatusEnum();
             $this->ensureProjectInvoiceTimesheetsTable();
             $this->ensureProjectBillingPlanTable();
+            $this->ensureProjectBillingSchemaRefresh();
             $this->ensureBillingPermissions();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de facturación por proyecto: ' . $e->getMessage());
@@ -2694,10 +2695,10 @@ class DatabaseMigrator
                 period_start DATE NULL,
                 period_end DATE NULL,
                 amount DECIMAL(14,2) NOT NULL,
-                status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued",
-                paid_at DATE NULL,
+                status ENUM("issued","cancelled") NOT NULL DEFAULT "issued",
                 notes TEXT NULL,
                 attachment_path VARCHAR(255) NULL,
+                currency_code CHAR(3) NOT NULL DEFAULT "USD",
                 created_by INT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -2737,7 +2738,7 @@ class DatabaseMigrator
 
         $this->db->execute(
             'ALTER TABLE project_invoices
-             MODIFY COLUMN status ENUM("issued","paid","draft","cancelled") NOT NULL DEFAULT "issued"'
+             MODIFY COLUMN status ENUM("issued","cancelled") NOT NULL DEFAULT "issued"'
         );
     }
 
@@ -2771,6 +2772,140 @@ class DatabaseMigrator
         );
     }
 
+    private function ensureProjectBillingSchemaRefresh(): void
+    {
+        if ($this->db->tableExists('projects') && !$this->db->columnExists('projects', 'contract_notes')) {
+            $this->db->execute(
+                'ALTER TABLE projects
+                 ADD COLUMN contract_notes TEXT NULL AFTER hourly_rate'
+            );
+        }
+
+        if ($this->db->tableExists('project_invoices')) {
+            if (!$this->db->columnExists('project_invoices', 'currency_code')) {
+                $this->db->execute(
+                    'ALTER TABLE project_invoices
+                     ADD COLUMN currency_code CHAR(3) NOT NULL DEFAULT "USD" AFTER amount'
+                );
+            }
+
+            $this->db->execute(
+                'ALTER TABLE project_invoices
+                 MODIFY COLUMN status ENUM("issued","cancelled","paid","draft","sent","overdue","void") NOT NULL DEFAULT "issued"'
+            );
+        }
+
+        if ($this->db->tableExists('project_billing_plan')) {
+            if (!$this->db->columnExists('project_billing_plan', 'item_type')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN item_type ENUM("anticipo","mensualidad_fija","hito_entregable","porcentaje_avance")
+                     NULL AFTER billing_model'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'progress_required_percentage')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN progress_required_percentage DECIMAL(7,2) NULL AFTER percentage'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'condition_text')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN condition_text TEXT NULL AFTER expected_date'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'condition_met')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN condition_met TINYINT(1) NOT NULL DEFAULT 0 AFTER condition_text'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'notes')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN notes TEXT NULL AFTER condition_met'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'linked_schedule_activity_id')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN linked_schedule_activity_id BIGINT NULL AFTER notes'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'day_of_month')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN day_of_month TINYINT UNSIGNED NULL AFTER linked_schedule_activity_id'
+                );
+            }
+            if (!$this->db->columnExists('project_billing_plan', 'series_key')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     ADD COLUMN series_key VARCHAR(120) NULL AFTER day_of_month'
+                );
+            }
+
+            if ($this->db->columnExists('project_billing_plan', 'status')) {
+                $this->db->execute(
+                    'ALTER TABLE project_billing_plan
+                     MODIFY COLUMN status ENUM("pendiente","proximo","listo_para_emitir","emitido","atrasado")
+                     NOT NULL DEFAULT "pendiente"'
+                );
+            }
+
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET item_type = CASE
+                    WHEN item_type IS NOT NULL AND item_type <> "" THEN item_type
+                    WHEN billing_model = "advance_balance" THEN "anticipo"
+                    WHEN billing_model = "recurring" THEN "mensualidad_fija"
+                    WHEN billing_model = "consumption" THEN "porcentaje_avance"
+                    ELSE "hito_entregable"
+                 END'
+            );
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET condition_text = COALESCE(NULLIF(condition_text, ""), expected_trigger)'
+            );
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET status = CASE
+                    WHEN status = "listo_para_facturar" THEN "listo_para_emitir"
+                    WHEN status = "facturado" THEN "emitido"
+                    WHEN status = "pagado" THEN "emitido"
+                    ELSE status
+                 END'
+            );
+        }
+
+        if (!$this->db->tableExists('project_invoice_plan_items')) {
+            $this->db->execute(
+                'CREATE TABLE project_invoice_plan_items (
+                    invoice_id BIGINT NOT NULL,
+                    plan_item_id BIGINT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (invoice_id, plan_item_id),
+                    UNIQUE KEY uq_project_invoice_plan_item (plan_item_id),
+                    CONSTRAINT fk_project_invoice_plan_items_invoice FOREIGN KEY (invoice_id) REFERENCES project_invoices(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_project_invoice_plan_items_plan FOREIGN KEY (plan_item_id) REFERENCES project_billing_plan(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+        }
+
+        if (
+            $this->db->tableExists('project_invoice_plan_items')
+            && $this->db->tableExists('project_billing_plan')
+        ) {
+            $this->db->execute(
+                'INSERT IGNORE INTO project_invoice_plan_items (invoice_id, plan_item_id)
+                 SELECT invoice_id, id
+                 FROM project_billing_plan
+                 WHERE invoice_id IS NOT NULL'
+            );
+        }
+    }
+
     private function ensureBillingPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {
@@ -2780,8 +2915,6 @@ class DatabaseMigrator
         $permissions = [
             'project.billing.view' => 'Ver facturación de proyectos',
             'project.billing.manage' => 'Registrar y editar facturas de proyecto',
-            'project.billing.mark_paid' => 'Cambiar estado de facturas a pagado',
-            'project.billing.void' => 'Anular facturas de proyecto',
         ];
 
         foreach ($permissions as $code => $name) {
