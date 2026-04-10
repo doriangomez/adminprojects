@@ -37,9 +37,12 @@ $pmoHoursTrend = is_array($pmoHoursTrend ?? null) ? $pmoHoursTrend : [];
 $pmoActiveBlockers = is_array($pmoActiveBlockers ?? null) ? $pmoActiveBlockers : [];
 $detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $timesheetEntries = is_array($timesheetEntries ?? null) ? $timesheetEntries : [];
+$scheduleActivities = is_array($scheduleActivities ?? null) ? $scheduleActivities : [];
+$scheduleSummary = is_array($scheduleSummary ?? null) ? $scheduleSummary : [];
+$tasksForSchedule = is_array($tasksForSchedule ?? null) ? $tasksForSchedule : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
-$view = in_array($view, ['resumen', 'documentos', 'seguimiento', 'bloqueos', 'horas'], true) ? $view : 'documentos';
+$view = in_array($view, ['resumen', 'documentos', 'cronograma', 'seguimiento', 'bloqueos', 'horas'], true) ? $view : 'documentos';
 
 $methodology = strtolower((string) ($project['methodology'] ?? 'cascada'));
 if ($methodology === 'convencional' || $methodology === '') {
@@ -472,6 +475,21 @@ $gitRepositoryUpdatedBy = isset($requiredDocumentsMeta['updated_by']) ? (int) $r
 
 $requiredDocumentsCards = [];
 foreach ($requiredDocuments as $requiredDocument) {
+    if (($requiredDocument['key'] ?? '') === 'cronograma') {
+        $hasSchedule = !empty($scheduleActivities);
+        $requiredDocumentsCards[] = array_merge($requiredDocument, [
+            'completed' => $hasSchedule,
+            'record' => $hasSchedule
+                ? [
+                    'file_name' => count($scheduleActivities) . ' actividades registradas',
+                    'created_at' => $scheduleActivities[0]['updated_at'] ?? null,
+                    'created_by' => null,
+                ]
+                : null,
+            'is_schedule' => true,
+        ]);
+        continue;
+    }
     if (!empty($requiredDocument['is_git'])) {
         $isCompleted = $gitRepositoryUrl !== '';
         $requiredDocumentsCards[] = array_merge($requiredDocument, [
@@ -592,6 +610,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     <?php
     $activeTab = match ($view) {
         'resumen' => 'resumen',
+        'cronograma' => 'cronograma',
         'horas' => 'horas',
         'seguimiento' => 'seguimiento',
         'bloqueos' => 'bloqueos',
@@ -818,6 +837,96 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                 <?php endif; ?>
             </div>
         </section>
+    <?php elseif ($view === 'cronograma'): ?>
+        <?php
+        $hasSchedule = !empty($scheduleActivities);
+        $talentNames = array_values(array_unique(array_filter(array_map(static fn (array $a): string => trim((string) ($a['talent_name'] ?? $a['name'] ?? '')), $assignments))));
+        $zoom = $_GET['zoom'] ?? 'month';
+        ?>
+        <section class="schedule-shell" data-schedule-root data-project-id="<?= (int) ($project['id'] ?? 0) ?>">
+            <?php if (!$hasSchedule): ?>
+                <article class="schedule-empty">
+                    <h3>Este proyecto aún no tiene cronograma. Puedes crearlo desde cero o importar un archivo Excel.</h3>
+                    <div class="schedule-actions">
+                        <button type="button" class="action-btn primary" data-schedule-action="create">Crear cronograma</button>
+                        <button type="button" class="action-btn" data-schedule-action="import">Importar desde Excel</button>
+                    </div>
+                </article>
+            <?php else: ?>
+                <article class="schedule-summary-grid">
+                    <div><span>Fecha de inicio</span><strong><?= htmlspecialchars((string) ($scheduleSummary['start_date'] ?? 'N/A')) ?></strong></div>
+                    <div><span>Fecha de fin estimada</span><strong><?= htmlspecialchars((string) ($scheduleSummary['end_date'] ?? 'N/A')) ?></strong></div>
+                    <div><span>Días transcurridos / total</span><strong><?= (int) ($scheduleSummary['days_elapsed'] ?? 0) ?> / <?= (int) ($scheduleSummary['days_total'] ?? 0) ?></strong></div>
+                    <div><span>Avance general</span><strong><?= number_format((float) ($scheduleSummary['progress'] ?? 0), 1) ?>%</strong></div>
+                    <div><span>Estados</span><strong>🔴 <?= (int) ($scheduleSummary['red'] ?? 0) ?> · 🟡 <?= (int) ($scheduleSummary['yellow'] ?? 0) ?> · 🟢 <?= (int) ($scheduleSummary['green'] ?? 0) ?></strong></div>
+                    <div class="schedule-actions">
+                        <button type="button" class="action-btn primary" data-schedule-action="create">Editar cronograma</button>
+                        <button type="button" class="action-btn" data-schedule-action="import">Importar / Actualizar desde Excel</button>
+                    </div>
+                </article>
+                <article class="gantt-wrapper" id="gantt-export-area">
+                    <div class="gantt-controls">
+                        <span>Zoom:</span>
+                        <button class="action-btn small" data-zoom="week">Semanas</button>
+                        <button class="action-btn small" data-zoom="month">Meses</button>
+                        <button class="action-btn small" data-zoom="quarter">Trimestres</button>
+                        <button class="action-btn small" data-export="png">Exportar PNG</button>
+                        <button class="action-btn small" data-export="pdf">Exportar PDF</button>
+                    </div>
+                    <div class="gantt-grid" data-zoom="<?= htmlspecialchars((string) $zoom) ?>">
+                        <div class="gantt-table">
+                            <table>
+                                <thead><tr><th>Nº</th><th>Nombre</th><th>Tipo</th><th>Responsable</th><th>Inicio</th><th>Fin</th><th>Avance</th><th>Estado</th></tr></thead>
+                                <tbody>
+                                <?php foreach ($scheduleActivities as $i => $activity): ?>
+                                    <tr>
+                                        <td><?= (int) ($activity['sort_order'] ?? ($i + 1)) ?></td>
+                                        <td><?= htmlspecialchars((string) ($activity['name'] ?? '')) ?></td>
+                                        <td><?= (($activity['item_type'] ?? 'activity') === 'milestone') ? 'Hito' : 'Actividad' ?></td>
+                                        <td><?= htmlspecialchars((string) ($activity['responsible_name'] ?? 'Sin asignar')) ?></td>
+                                        <td><?= htmlspecialchars((string) ($activity['start_date'] ?? '')) ?></td>
+                                        <td><?= htmlspecialchars((string) ($activity['end_date'] ?? '')) ?></td>
+                                        <td><?= number_format((float) ($activity['progress_percent'] ?? 0), 0) ?>%</td>
+                                        <td><?= htmlspecialchars((string) ($activity['derived_status'] ?? 'green')) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="gantt-bars" data-gantt-bars='<?= htmlspecialchars(json_encode($scheduleActivities, JSON_UNESCAPED_UNICODE), ENT_QUOTES, "UTF-8") ?>'></div>
+                    </div>
+                </article>
+            <?php endif; ?>
+        </section>
+        <dialog id="schedule-editor-modal">
+            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/schedule/save" class="schedule-form">
+                <h3>Editor de cronograma</h3>
+                <p class="section-muted">Agrega hitos o actividades y guarda para generar el Gantt.</p>
+                <datalist id="schedule-talents">
+                    <?php foreach ($talentNames as $talentName): ?>
+                        <option value="<?= htmlspecialchars((string) $talentName) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+                <div id="schedule-editor-rows" data-existing='<?= htmlspecialchars(json_encode($scheduleActivities, JSON_UNESCAPED_UNICODE), ENT_QUOTES, "UTF-8") ?>'></div>
+                <input type="hidden" name="activities_json" id="schedule-activities-json" />
+                <div class="schedule-actions">
+                    <button type="button" class="action-btn" data-schedule-add-row>Agregar actividad</button>
+                    <button type="submit" class="action-btn primary">Guardar cronograma</button>
+                </div>
+            </form>
+        </dialog>
+        <dialog id="schedule-import-modal">
+            <form class="schedule-form" id="schedule-import-form" enctype="multipart/form-data">
+                <h3>Importar cronograma desde Excel</h3>
+                <p>Descarga plantilla con columnas: Nombre de la actividad, Tipo, Fecha inicio, Fecha fin, Responsable, Porcentaje de avance.</p>
+                <a class="action-btn" download="plantilla_cronograma.csv" href="data:text/csv;charset=utf-8,Nombre%20de%20la%20actividad,Tipo,Fecha%20inicio,Fecha%20fin,Responsable,Porcentaje%20de%20avance%0A">Descargar plantilla</a>
+                <input type="file" name="excel_file" accept=".xlsx,.csv" required />
+                <div id="schedule-import-preview"></div>
+                <div class="schedule-actions">
+                    <button type="submit" class="action-btn primary">Cargar y previsualizar</button>
+                </div>
+            </form>
+        </dialog>
     <?php elseif ($view === 'bloqueos'): ?>
         <?php
         $impactLabel = ['bajo' => 'Bajo', 'medio' => 'Medio', 'alto' => 'Alto', 'critico' => 'Crítico'];
@@ -1140,6 +1249,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                     $recordedBy = isset($record['created_by']) ? ($userNamesById[(int) $record['created_by']] ?? ('Usuario #' . (int) $record['created_by'])) : 'Sin usuario';
                     $recordDate = $formatTimestamp($record['created_at'] ?? null);
                     $isGitCard = !empty($requiredCard['is_git']);
+                    $isScheduleCard = !empty($requiredCard['is_schedule']);
                     ?>
                     <article class="required-doc-card">
                         <div class="required-doc-card__top">
@@ -1160,9 +1270,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                 data-required-doc-type="<?= htmlspecialchars((string) ($requiredCard['document_type'] ?? '')) ?>"
                                 data-required-doc-tag="<?= htmlspecialchars((string) ($requiredCard['tag'] ?? '')) ?>"
                                 data-required-doc-git="<?= $isGitCard ? '1' : '0' ?>"
+                                data-required-doc-schedule="<?= $isScheduleCard ? '1' : '0' ?>"
                                 data-required-doc-url="<?= htmlspecialchars((string) ($record['storage_path'] ?? '')) ?>"
                             >
-                                <?= $isCompleted ? 'Ver / Editar' : 'Registrar documento' ?>
+                                <?= $isScheduleCard ? 'Ver cronograma' : ($isCompleted ? 'Ver / Editar' : 'Registrar documento') ?>
                             </button>
                             <?php if ($isCompleted && $record): ?>
                                 <div class="required-doc-card__meta">
@@ -1444,6 +1555,12 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
 
     requiredDocumentButtons.forEach((button) => {
         button.addEventListener('click', () => {
+            if (button.dataset.requiredDocSchedule === '1') {
+                const url = new URL(window.location.href);
+                url.searchParams.set('view', 'cronograma');
+                window.location.href = url.toString();
+                return;
+            }
             const documentFlowRoot = document.querySelector('[data-document-flow]');
             if (!documentFlowRoot) {
                 window.alert('Selecciona una subfase para registrar el documento obligatorio.');
@@ -1516,6 +1633,137 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             }
         });
     }
+
+    const scheduleRoot = document.querySelector('[data-schedule-root]');
+    if (scheduleRoot) {
+        const editorModal = document.getElementById('schedule-editor-modal');
+        const importModal = document.getElementById('schedule-import-modal');
+        const editorRows = document.getElementById('schedule-editor-rows');
+        const hiddenActivities = document.getElementById('schedule-activities-json');
+        const projectId = Number(scheduleRoot.dataset.projectId || 0);
+        const talents = <?= json_encode($talentNames ?? [], JSON_UNESCAPED_UNICODE) ?>;
+        const tasks = <?= json_encode($tasksForSchedule ?? [], JSON_UNESCAPED_UNICODE) ?>;
+
+        const renderRow = (row = {}) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'schedule-row';
+            wrapper.innerHTML = `
+                <input placeholder="Nombre" data-field="name" value="${row.name || ''}" />
+                <select data-field="item_type"><option value="activity">Actividad</option><option value="milestone">Hito</option></select>
+                <input type="date" data-field="start_date" value="${row.start_date || ''}" />
+                <input type="date" data-field="end_date" value="${row.end_date || ''}" />
+                <input type="number" min="0" max="100" data-field="progress_percent" value="${Number(row.progress_percent || 0)}" />
+                <input list="schedule-talents" placeholder="Responsable" data-field="responsible_name" value="${row.responsible_name || ''}" />
+                <select data-field="linked_task_id"><option value="">Tarea vinculada</option>${tasks.map((t) => `<option value="${t.id}">${t.title}</option>`).join('')}</select>
+                <button type="button" class="action-btn" data-remove-row>Eliminar</button>
+            `;
+            wrapper.querySelector('[data-field="item_type"]').value = row.item_type || 'activity';
+            if (row.linked_task_id) wrapper.querySelector('[data-field="linked_task_id"]').value = String(row.linked_task_id);
+            wrapper.querySelector('[data-remove-row]').addEventListener('click', () => wrapper.remove());
+            const progressInput = wrapper.querySelector('[data-field="progress_percent"]');
+            const taskSelect = wrapper.querySelector('[data-field="linked_task_id"]');
+            taskSelect.addEventListener('change', () => {
+                const task = tasks.find((t) => Number(t.id) === Number(taskSelect.value));
+                if (!task) {
+                    progressInput.readOnly = false;
+                    return;
+                }
+                const status = String(task.status || '').toLowerCase();
+                progressInput.value = (status === 'done' || status === 'completed') ? '100' : ((status === 'in_progress' || status === 'review') ? '50' : '0');
+                progressInput.readOnly = true;
+            });
+            return wrapper;
+        };
+
+        const openEditor = () => {
+            if (!editorModal || !editorRows) return;
+            editorRows.innerHTML = '';
+            const existing = JSON.parse(editorRows.dataset.existing || '[]');
+            (existing.length ? existing : [{}]).forEach((row) => editorRows.appendChild(renderRow(row)));
+            editorModal.showModal();
+        };
+
+        scheduleRoot.querySelectorAll('[data-schedule-action]').forEach((btn) => btn.addEventListener('click', () => {
+            if (btn.dataset.scheduleAction === 'create') openEditor();
+            if (btn.dataset.scheduleAction === 'import' && importModal) importModal.showModal();
+        }));
+        document.querySelector('[data-schedule-add-row]')?.addEventListener('click', () => editorRows.appendChild(renderRow({})));
+        editorModal?.querySelector('form')?.addEventListener('submit', () => {
+            const rows = Array.from(editorRows.querySelectorAll('.schedule-row')).map((row, index) => ({
+                sort_order: index + 1,
+                name: row.querySelector('[data-field="name"]').value,
+                item_type: row.querySelector('[data-field="item_type"]').value,
+                start_date: row.querySelector('[data-field="start_date"]').value,
+                end_date: row.querySelector('[data-field="end_date"]').value,
+                progress_percent: Number(row.querySelector('[data-field="progress_percent"]').value || 0),
+                responsible_name: row.querySelector('[data-field="responsible_name"]').value,
+                linked_task_id: Number(row.querySelector('[data-field="linked_task_id"]').value || 0),
+            }));
+            hiddenActivities.value = JSON.stringify(rows);
+        });
+
+        const importForm = document.getElementById('schedule-import-form');
+        const preview = document.getElementById('schedule-import-preview');
+        importForm?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = new FormData(importForm);
+            const response = await fetch(`/projects/${projectId}/schedule/import-preview`, { method: 'POST', body: form });
+            const result = await response.json();
+            if (result.status !== 'ok') {
+                preview.innerHTML = `<p class="phase-warning">${result.message || 'No se pudo previsualizar.'}</p>`;
+                return;
+            }
+            const errors = Array.isArray(result.errors) ? result.errors : [];
+            preview.innerHTML = `<p>${errors.length ? 'Errores detectados' : 'Sin errores. Listo para importar.'}</p>` + errors.map((e) => `<p class="phase-warning">Fila ${e.row}: ${e.message}</p>`).join('') + `<div class="schedule-actions"><button type="button" class="action-btn primary" id="schedule-import-confirm">Confirmar importación</button></div>`;
+            document.getElementById('schedule-import-confirm')?.addEventListener('click', async () => {
+                const mode = <?= !empty($scheduleActivities) ? "'replace'" : "'replace'" ?>;
+                await fetch(`/projects/${projectId}/schedule/import-confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ mode, rows_json: JSON.stringify(result.rows || []) }),
+                });
+                window.location.reload();
+            });
+        });
+        document.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', () => {
+            if (button.dataset.export === 'pdf') {
+                window.print();
+                return;
+            }
+            if (button.dataset.export === 'png') {
+                const svg = document.querySelector('.gantt-bars svg');
+                if (!svg) return;
+                const data = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.outerHTML);
+                const link = document.createElement('a');
+                link.href = data;
+                link.download = 'cronograma-gantt.png';
+                link.click();
+            }
+        }));
+
+        const ganttBars = document.querySelector('.gantt-bars');
+        if (ganttBars) {
+            const items = JSON.parse(ganttBars.dataset.ganttBars || '[]');
+            if (items.length > 0) {
+                const starts = items.map((i) => new Date(i.start_date));
+                const ends = items.map((i) => new Date(i.end_date));
+                const min = new Date(Math.min(...starts));
+                const max = new Date(Math.max(...ends));
+                const totalDays = Math.max(1, Math.ceil((max - min) / 86400000) + 1);
+                const rows = items.map((item, idx) => {
+                    const s = new Date(item.start_date);
+                    const e = new Date(item.end_date || item.start_date);
+                    const left = Math.max(0, Math.floor((s - min) / 86400000));
+                    const width = Math.max(1, Math.floor((e - s) / 86400000) + 1);
+                    const color = item.derived_status === 'red' ? '#ef4444' : (item.derived_status === 'yellow' ? '#f59e0b' : '#10b981');
+                    return item.item_type === 'milestone'
+                        ? `<polygon points="${(left / totalDays) * 100}%,${idx * 28 + 6} ${(left / totalDays) * 100 + 1}%,${idx * 28 + 12} ${(left / totalDays) * 100}%,${idx * 28 + 18} ${(left / totalDays) * 100 - 1}%,${idx * 28 + 12}" fill="${color}"><title>${item.name}</title></polygon>`
+                        : `<rect x="${(left / totalDays) * 100}%" y="${idx * 28 + 6}" width="${(width / totalDays) * 100}%" height="12" rx="4" fill="${color}"><title>${item.name} · ${item.start_date} → ${item.end_date}</title></rect>`;
+                }).join('');
+                ganttBars.innerHTML = `<svg viewBox="0 0 100 ${items.length * 28 + 20}" preserveAspectRatio="none"><line x1="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100}" x2="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100}" y1="0" y2="${items.length * 28 + 20}" stroke="#3b82f6" stroke-dasharray="2 2" />${rows}</svg>`;
+            }
+        }
+    }
 </script>
 
 <style>
@@ -1577,6 +1825,22 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
     .action-btn.danger { background: color-mix(in srgb, var(--danger) 12%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
     .action-btn.small { padding:6px 8px; font-size:13px; }
+    .schedule-shell { border:1px solid var(--border); border-radius:16px; padding:16px; background:var(--surface); display:flex; flex-direction:column; gap:12px; }
+    .schedule-empty { border:1px dashed var(--border); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px; align-items:flex-start; }
+    .schedule-summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px; border:1px solid var(--border); border-radius:12px; padding:12px; }
+    .schedule-summary-grid div { display:flex; flex-direction:column; gap:2px; }
+    .schedule-summary-grid span { font-size:12px; color:var(--text-secondary); text-transform:uppercase; font-weight:700; }
+    .schedule-summary-grid strong { color:var(--text-primary); }
+    .schedule-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .gantt-wrapper { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    .gantt-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .gantt-grid { display:grid; grid-template-columns: minmax(420px, 1.2fr) minmax(320px, 1fr); gap:10px; }
+    .gantt-table { overflow:auto; border:1px solid var(--border); border-radius:10px; }
+    .gantt-bars { border:1px solid var(--border); border-radius:10px; min-height:220px; padding:4px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); }
+    .gantt-bars svg { width:100%; height:100%; min-height:220px; }
+    .schedule-form { display:flex; flex-direction:column; gap:10px; min-width:min(980px, 95vw); }
+    .schedule-row { display:grid; grid-template-columns: 1.4fr repeat(4, minmax(100px, 1fr)) 1.1fr 1.2fr auto; gap:8px; }
+    .schedule-row input, .schedule-row select { padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
     .pill.methodology { border:1px solid var(--background); }
     .pill.methodology.scrum { background: color-mix(in srgb, var(--info) 18%, var(--background)); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, var(--background)); }

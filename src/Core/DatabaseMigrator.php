@@ -988,6 +988,40 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureProjectScheduleModule(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        try {
+            if (!$this->db->tableExists('project_schedule_activities')) {
+                $this->db->execute(
+                    'CREATE TABLE project_schedule_activities (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        project_id INT NOT NULL,
+                        sort_order INT NOT NULL DEFAULT 1,
+                        name VARCHAR(220) NOT NULL,
+                        item_type ENUM(\'milestone\', \'activity\') NOT NULL DEFAULT \'activity\',
+                        start_date DATE NULL,
+                        end_date DATE NULL,
+                        duration_days INT NOT NULL DEFAULT 0,
+                        responsible_name VARCHAR(150) NULL,
+                        progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+                        linked_task_id INT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_project_schedule_project (project_id, sort_order),
+                        INDEX idx_project_schedule_task (linked_task_id),
+                        CONSTRAINT fk_project_schedule_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+                );
+            }
+        } catch (\PDOException $e) {
+            error_log('Error asegurando módulo de cronograma: ' . $e->getMessage());
+        }
+    }
+
     public function ensureDecisionCenterPermissions(): void
     {
         if (!$this->db->tableExists('permissions') || !$this->db->tableExists('role_permissions') || !$this->db->tableExists('roles')) {

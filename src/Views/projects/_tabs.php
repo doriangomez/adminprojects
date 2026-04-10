@@ -18,6 +18,11 @@ $tabs = [
         'href' => $documentsHref,
         'icon' => 'documents',
     ],
+    'cronograma' => [
+        'label' => 'Cronograma',
+        'href' => $basePath . '/projects/' . $projectId . '?view=cronograma',
+        'icon' => 'timeline',
+    ],
     'seguimiento' => [
         'label' => 'Notas / Seguimiento',
         'href' => $basePath . '/projects/' . $projectId . '?view=seguimiento',
@@ -71,6 +76,7 @@ $projectTabIcon = static function (string $icon): string {
     return match ($icon) {
         'summary' => '<svg viewBox="0 0 24 24"><path d="M4 13h6v7H4z"/><path d="M14 4h6v16h-6z"/><path d="M4 4h6v5H4z"/></svg>',
         'documents' => '<svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9.5A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M4 9h16"/></svg>',
+        'timeline' => '<svg viewBox="0 0 24 24"><path d="M4 12h16"/><circle cx="7" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="17" cy="12" r="2"/><path d="M7 5v3"/><path d="M12 16v3"/><path d="M17 5v3"/></svg>',
         'notes' => '<svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6"/><path d="M9 12h6"/></svg>',
         'blockers' => '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 8 8 8"/><path d="m16 8-8 8"/></svg>',
         'hours' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="m12 13 3 2"/><path d="M9 3h6"/><path d="M12 3v2"/></svg>',

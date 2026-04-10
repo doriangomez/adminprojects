@@ -416,6 +416,25 @@ CREATE TABLE tasks (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+CREATE TABLE project_schedule_activities (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    sort_order INT NOT NULL DEFAULT 1,
+    name VARCHAR(220) NOT NULL,
+    item_type ENUM('milestone', 'activity') NOT NULL DEFAULT 'activity',
+    start_date DATE NULL,
+    end_date DATE NULL,
+    duration_days INT NOT NULL DEFAULT 0,
+    responsible_name VARCHAR(150) NULL,
+    progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+    linked_task_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project_schedule_project (project_id, sort_order),
+    INDEX idx_project_schedule_task (linked_task_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
 CREATE TABLE talents (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
