@@ -158,7 +158,7 @@ foreach ($documentExpectedItems as $doc) {
                             <h5>Carga libre de documentos</h5>
                             <p class="section-muted">Solo se guardan en esta subfase. Campos obligatorios marcados con *.</p>
                         </div>
-                        <button type="button" class="action-btn primary" id="btnUploadDocument" data-open-upload>Subir documento</button>
+                        <button type="button" class="action-btn primary" data-open-upload>Subir documento</button>
                     </div>
                     <div class="upload-preview" data-upload-preview hidden>
                         <strong>Archivos listos para cargar:</strong>
@@ -179,9 +179,13 @@ foreach ($documentExpectedItems as $doc) {
                                 <button type="button" class="action-btn small" data-close-upload>✕</button>
                             </header>
                             <div class="form-validation" data-upload-validation hidden>Revisa los campos obligatorios.</div>
-                            <label class="field">
+                            <label class="field" data-upload-file-field>
                                 <span>Archivo *</span>
                                 <input type="file" name="document" required accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff">
+                            </label>
+                            <label class="field" data-upload-repository-field hidden>
+                                <span>URL del repositorio *</span>
+                                <input type="url" name="repository_url" placeholder="https://github.com/organizacion/repositorio">
                             </label>
                             <div class="field-grid">
                                 <label class="field">
@@ -1160,13 +1164,18 @@ foreach ($documentExpectedItems as $doc) {
         const uploadPreview = root.querySelector('[data-upload-preview]');
         const uploadForm = root.querySelector('[data-upload-form]');
         const uploadInput = uploadForm ? uploadForm.querySelector('input[type="file"]') : null;
+        const uploadFileField = uploadForm ? uploadForm.querySelector('[data-upload-file-field]') : null;
+        const uploadRepositoryField = uploadForm ? uploadForm.querySelector('[data-upload-repository-field]') : null;
+        const repositoryUrlInput = uploadForm ? uploadForm.querySelector('input[name="repository_url"]') : null;
         const uploadSubmitButton = uploadForm ? uploadForm.querySelector('[data-upload-submit]') : null;
         const uploadValidation = uploadForm ? uploadForm.querySelector('[data-upload-validation]') : null;
+        let requiredDocumentContext = null;
 
         const closeModal = () => {
             if (uploadModal) {
                 uploadModal.hidden = true;
             }
+            requiredDocumentContext = null;
         };
 
         const setUploadValidation = (message) => {
@@ -1206,10 +1215,54 @@ foreach ($documentExpectedItems as $doc) {
             openUpload.addEventListener('click', openUploadModal);
         }
 
-        const uploadButtonById = document.getElementById('btnUploadDocument');
-        if (uploadButtonById && uploadButtonById !== openUpload) {
-            uploadButtonById.addEventListener('click', openUploadModal);
-        }
+        const toggleUploadMode = (isGitMode, repositoryUrl = '') => {
+            if (uploadFileField) uploadFileField.hidden = isGitMode;
+            if (uploadRepositoryField) uploadRepositoryField.hidden = !isGitMode;
+            if (uploadInput) {
+                uploadInput.required = !isGitMode;
+                if (isGitMode) {
+                    uploadInput.value = '';
+                }
+            }
+            if (repositoryUrlInput) {
+                repositoryUrlInput.required = isGitMode;
+                repositoryUrlInput.value = repositoryUrl || '';
+            }
+        };
+
+        root.addEventListener('required-document:open', (event) => {
+            if (!uploadForm || !uploadModal) return;
+            requiredDocumentContext = event.detail || null;
+            const docTypeSelect = uploadForm.querySelector('[data-document-type-select]');
+            const docTypeCustom = uploadForm.querySelector('[data-document-type-custom]');
+            const uploadTagSelect = uploadForm.querySelector('[data-upload-tag-select]');
+            const uploadTagCustom = uploadForm.querySelector('[data-upload-tag-custom]');
+
+            if (docTypeCustom) docTypeCustom.value = '';
+            if (docTypeSelect) {
+                const expectedType = String(requiredDocumentContext?.documentType || '').trim();
+                const options = Array.from(docTypeSelect.options || []);
+                const hasType = options.some(option => option.value === expectedType);
+                docTypeSelect.value = hasType ? expectedType : '';
+                if (!hasType && docTypeCustom && expectedType !== '') {
+                    docTypeCustom.value = expectedType;
+                }
+            }
+
+            if (uploadTagSelect) {
+                const expectedTag = String(requiredDocumentContext?.tag || '').trim();
+                Array.from(uploadTagSelect.options).forEach(option => {
+                    option.selected = expectedTag !== '' && option.value === expectedTag;
+                });
+                if (uploadTagCustom) {
+                    const hasExpectedTag = Array.from(uploadTagSelect.options).some(option => option.value === expectedTag);
+                    uploadTagCustom.value = hasExpectedTag ? '' : expectedTag;
+                }
+            }
+            toggleUploadMode(Boolean(requiredDocumentContext?.isGit), String(requiredDocumentContext?.repositoryUrl || ''));
+            setUploadValidation('');
+            openUploadModal();
+        });
 
         const collectUploadTags = () => {
             const select = uploadModal?.querySelector('[data-upload-tag-select]');
@@ -1232,6 +1285,7 @@ foreach ($documentExpectedItems as $doc) {
         };
 
         if (uploadForm) {
+            toggleUploadMode(false);
             if (uploadInput && uploadPreview) {
                 uploadInput.addEventListener('change', () => {
                     const list = uploadPreview.querySelector('ul');
@@ -1261,6 +1315,61 @@ foreach ($documentExpectedItems as $doc) {
                 const hiddenTags = uploadForm.querySelector('[data-document-tags-hidden]');
                 if (hiddenType) hiddenType.value = documentType;
                 if (hiddenTags) hiddenTags.value = JSON.stringify(tags);
+
+                if (requiredDocumentContext?.isGit) {
+                    const repositoryUrl = (repositoryUrlInput?.value ?? '').trim();
+                    if (!repositoryUrl) {
+                        setUploadValidation('Ingresa la URL del repositorio.');
+                        return;
+                    }
+                    if (uploadSubmitButton && uploadSubmitButton.dataset.loading === 'true') {
+                        return;
+                    }
+                    setUploadValidation('');
+                    if (uploadSubmitButton) {
+                        const label = uploadSubmitButton.querySelector('.button-label');
+                        uploadSubmitButton.dataset.originalLabel = label?.textContent || 'Guardar documento';
+                        if (label) {
+                            label.textContent = 'Guardando repositorio...';
+                        }
+                        uploadSubmitButton.dataset.loading = 'true';
+                        uploadSubmitButton.disabled = true;
+                        uploadSubmitButton.classList.add('is-loading');
+                    }
+                    const gitFormData = new FormData();
+                    gitFormData.append('repository_url', repositoryUrl);
+                    fetch(`${basePath}/projects/${documentProjectId}/required-documents/git`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: gitFormData,
+                    })
+                        .then(response => response.json())
+                        .then(payload => {
+                            if (!payload.success) {
+                                throw new Error(payload.message || 'No se pudo guardar el repositorio.');
+                            }
+                            showToast(payload.message || 'Repositorio Git guardado.', 'success');
+                            closeModal();
+                            window.location.reload();
+                        })
+                        .catch(error => {
+                            setUploadValidation(error.message || 'No se pudo guardar el repositorio.');
+                        })
+                        .finally(() => {
+                            if (uploadSubmitButton) {
+                                const label = uploadSubmitButton.querySelector('.button-label');
+                                if (label) {
+                                    label.textContent = uploadSubmitButton.dataset.originalLabel || 'Guardar documento';
+                                }
+                                uploadSubmitButton.dataset.loading = 'false';
+                                uploadSubmitButton.disabled = false;
+                                uploadSubmitButton.classList.remove('is-loading');
+                            }
+                        });
+                    return;
+                }
 
                 if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
                     setUploadValidation('Selecciona un archivo para continuar.');
