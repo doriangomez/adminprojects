@@ -160,6 +160,9 @@ class ConfigController extends Controller
         $holidays = array_key_exists('timesheets_holidays', $_POST)
             ? $this->parseCalendarHolidays((string) ($_POST['timesheets_holidays'] ?? ''))
             : $this->normalizeCalendarHolidays($currentWorkCalendar['holidays'] ?? []);
+        $additionalHolidays = array_key_exists('timesheets_additional_holidays', $_POST)
+            ? $this->parseAdditionalCalendarHolidays((string) ($_POST['timesheets_additional_holidays'] ?? ''))
+            : $this->normalizeAdditionalCalendarHolidays($currentWorkCalendar['additional_holidays'] ?? []);
         $exceptions = array_key_exists('timesheets_exceptions', $_POST)
             ? $this->parseCalendarExceptions((string) ($_POST['timesheets_exceptions'] ?? ''))
             : $this->normalizeCalendarExceptions($currentWorkCalendar['exceptions'] ?? []);
@@ -261,6 +264,7 @@ class ConfigController extends Controller
                         'working_days' => $workingDays,
                         'weekend_days' => array_values(array_diff(range(1, 7), $workingDays)),
                         'holidays' => $holidays,
+                        'additional_holidays' => $additionalHolidays,
                         'exceptions' => $exceptions,
                         'allow_admin_holiday_logging' => $allowAdminHolidayLogging,
                         'allow_admin_non_working_logging' => $allowAdminNonWorkingLogging,
@@ -762,6 +766,61 @@ class ConfigController extends Controller
         return array_values($exceptionsByDate);
     }
 
+    private function parseAdditionalCalendarHolidays(string $value): array
+    {
+        $rows = preg_split('/\R/u', $value) ?: [];
+        $holidaysByKey = [];
+        foreach ($rows as $rawLine) {
+            $line = trim((string) $rawLine);
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = array_map('trim', explode('|', $line, 4));
+            $date = (string) ($parts[0] ?? '');
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+
+            $name = (string) ($parts[1] ?? '');
+            if ($name === '') {
+                $name = 'Feriado adicional';
+            }
+
+            $scopeRaw = strtolower((string) ($parts[2] ?? 'anio'));
+            $scope = in_array($scopeRaw, ['todos', 'all', 'all_years', 'global'], true)
+                ? 'all_years'
+                : 'year_specific';
+
+            $yearPart = trim((string) ($parts[3] ?? ''));
+            $year = $scope === 'all_years'
+                ? null
+                : ($yearPart !== '' ? (int) $yearPart : (int) substr($date, 0, 4));
+            if ($scope === 'year_specific' && ($year === null || $year < 1900)) {
+                $year = (int) substr($date, 0, 4);
+            }
+
+            $key = $date . '|' . $scope . '|' . ($year ?? 0) . '|' . $name;
+            $holidaysByKey[$key] = [
+                'date' => $date,
+                'name' => $name,
+                'scope' => $scope,
+                'year' => $year,
+            ];
+        }
+
+        uasort($holidaysByKey, static function (array $left, array $right): int {
+            $dateCompare = strcmp((string) ($left['date'] ?? ''), (string) ($right['date'] ?? ''));
+            if ($dateCompare !== 0) {
+                return $dateCompare;
+            }
+
+            return strcmp((string) ($left['name'] ?? ''), (string) ($right['name'] ?? ''));
+        });
+
+        return array_values($holidaysByKey);
+    }
+
     private function normalizeCalendarHolidays(mixed $value): array
     {
         if (!is_array($value)) {
@@ -810,6 +869,57 @@ class ConfigController extends Controller
             ];
         }
         ksort($rows);
+
+        return array_values($rows);
+    }
+
+    private function normalizeAdditionalCalendarHolidays(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $date = trim((string) ($item['date'] ?? ''));
+            if (!$this->isIsoDate($date)) {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? $item['reason'] ?? 'Feriado adicional'));
+            if ($name === '') {
+                $name = 'Feriado adicional';
+            }
+            $scopeRaw = strtolower(trim((string) ($item['scope'] ?? 'year_specific')));
+            $scope = in_array($scopeRaw, ['all_years', 'all', 'todos', 'global'], true)
+                ? 'all_years'
+                : 'year_specific';
+            $year = $scope === 'all_years'
+                ? null
+                : (int) ($item['year'] ?? substr($date, 0, 4));
+            if ($scope === 'year_specific' && $year < 1900) {
+                $year = (int) substr($date, 0, 4);
+            }
+
+            $key = $date . '|' . $scope . '|' . ($year ?? 0) . '|' . $name;
+            $rows[$key] = [
+                'date' => $date,
+                'name' => $name,
+                'scope' => $scope,
+                'year' => $year,
+            ];
+        }
+
+        uasort($rows, static function (array $left, array $right): int {
+            $dateCompare = strcmp((string) ($left['date'] ?? ''), (string) ($right['date'] ?? ''));
+            if ($dateCompare !== 0) {
+                return $dateCompare;
+            }
+
+            return strcmp((string) ($left['name'] ?? ''), (string) ($right['name'] ?? ''));
+        });
 
         return array_values($rows);
     }

@@ -194,6 +194,9 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                                         <strong class="inbox-card__title"><?= htmlspecialchars((string) ($week['week_label'] ?? '')) ?></strong>
                                         <div class="meta-line">Talento: <?= htmlspecialchars((string) ($week['owner_name'] ?? 'Sin usuario')) ?></div>
                                         <div class="meta-line">Total: <?= htmlspecialchars((string) round((float) ($week['total_hours'] ?? 0), 2)) ?>h</div>
+                                        <?php if (!empty($week['week_contains_holiday'])): ?>
+                                            <div class="meta-line"><span class="status-pill status-muted">Semana con feriado</span></div>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="badge status-warning">Pendiente</div>
                                 </header>

@@ -212,6 +212,7 @@ class ConfigService
                     'working_days' => [1, 2, 3, 4, 5],
                     'weekend_days' => [6, 7],
                     'holidays' => [],
+                    'additional_holidays' => [],
                     'exceptions' => [],
                     'allow_admin_holiday_logging' => false,
                     'allow_admin_non_working_logging' => false,
