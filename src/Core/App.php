@@ -41,6 +41,7 @@ class App
         $migrator->ensureProjectBillingModule();
         $migrator->ensureProjectStoppersModule();
         $migrator->ensureProjectPmoAutomationModule();
+        $migrator->ensureProjectScheduleModule();
         $migrator->ensureDecisionCenterPermissions();
         $this->auth = new Auth($this->db);
     }
@@ -383,6 +384,18 @@ class App
                     $controller->tasks((int) $matches[1]);
                     return;
                 }
+            }
+            if (preg_match('#^/projects/(\\d+)/schedule/save$#', $path, $matches) && $method === 'POST') {
+                $controller->saveSchedule((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/schedule/import-preview$#', $path, $matches) && $method === 'POST') {
+                $controller->importSchedulePreview((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/schedule/import-confirm$#', $path, $matches) && $method === 'POST') {
+                $controller->importScheduleConfirm((int) $matches[1]);
+                return;
             }
                         if (preg_match('#^/projects/(\d+)/requirements$#', $path, $matches) && $method === 'GET') {
                 $controller->requirements((int) $matches[1]);

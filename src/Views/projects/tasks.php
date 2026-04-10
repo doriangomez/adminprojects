@@ -203,6 +203,9 @@ foreach ($selectedRisks as $riskCode) {
                         <div>
                             <strong><?= htmlspecialchars($task['title'] ?? '') ?></strong>
                             <small class="section-muted">Responsable: <?= htmlspecialchars($task['assignee'] ?? 'Sin asignar') ?></small>
+                            <?php if (!empty($task['in_schedule'])): ?>
+                                <span class="status-badge status-info" style="margin-left:6px;">🗓️ En cronograma</span>
+                            <?php endif; ?>
                         </div>
                         <div class="task-meta">
                             <span class="status-badge <?= htmlspecialchars($taskStatus['class']) ?>">

@@ -10,6 +10,7 @@ use App\Repositories\ProjectBillingRepository;
 use App\Repositories\ProjectNodesRepository;
 use App\Repositories\ProjectStoppersRepository;
 use App\Repositories\ProjectsRepository;
+use App\Repositories\ProjectSchedulesRepository;
 use App\Repositories\TalentsRepository;
 use App\Repositories\TasksRepository;
 use App\Repositories\UsersRepository;
@@ -413,6 +414,12 @@ class ProjectsController extends Controller
 
         $tasksRepo = new TasksRepository($this->db);
         $tasks = $tasksRepo->forProject($id, $user);
+        $scheduleActivities = (new ProjectSchedulesRepository($this->db))->activitiesForProject($id);
+        $linkedTaskIds = array_values(array_unique(array_filter(array_map(static fn (array $activity): int => (int) ($activity['linked_task_id'] ?? 0), $scheduleActivities))));
+        foreach ($tasks as &$task) {
+            $task['in_schedule'] = in_array((int) ($task['id'] ?? 0), $linkedTaskIds, true);
+        }
+        unset($task);
         $canManage = $this->auth->can('projects.manage');
         $isTalent = $this->auth->hasRole('Talento');
         $isClosed = $this->normalizeStatus((string) ($project['status'] ?? '')) === 'closed';
@@ -510,6 +517,87 @@ class ProjectsController extends Controller
         ]);
 
         header('Location: /projects/' . $id . '/tasks');
+    }
+
+    public function saveSchedule(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($id, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $raw = trim((string) ($_POST['activities_json'] ?? ''));
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || empty($decoded)) {
+            http_response_code(400);
+            exit('No se recibieron actividades válidas.');
+        }
+
+        $activities = $this->normalizeScheduleActivities($decoded);
+        (new ProjectSchedulesRepository($this->db))->replaceActivities($id, $activities);
+        header('Location: /projects/' . $id . '?view=cronograma');
+    }
+
+    public function importSchedulePreview(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($id, $this->auth->user() ?? []);
+        if (!$project) {
+            $this->json(['status' => 'error', 'message' => 'Proyecto no encontrado.'], 404);
+            return;
+        }
+
+        if (!isset($_FILES['excel_file']) || (int) ($_FILES['excel_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['status' => 'error', 'message' => 'Debes subir un archivo Excel.'], 400);
+            return;
+        }
+
+        try {
+            $rows = $this->readSpreadsheetRows((string) ($_FILES['excel_file']['tmp_name'] ?? ''), (string) ($_FILES['excel_file']['name'] ?? ''));
+            $validated = $this->validateImportedScheduleRows($rows, $id);
+            $this->json(['status' => 'ok'] + $validated);
+            return;
+        } catch (\Throwable $e) {
+            $this->json(['status' => 'error', 'message' => $e->getMessage()], 400);
+            return;
+        }
+    }
+
+    public function importScheduleConfirm(int $id): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($id, $this->auth->user() ?? []);
+        if (!$project) {
+            $this->json(['status' => 'error', 'message' => 'Proyecto no encontrado.'], 404);
+            return;
+        }
+
+        $rawRows = json_decode((string) ($_POST['rows_json'] ?? '[]'), true);
+        $mode = strtolower(trim((string) ($_POST['mode'] ?? 'replace')));
+        if (!is_array($rawRows) || empty($rawRows)) {
+            $this->json(['status' => 'error', 'message' => 'No hay datos para importar.'], 400);
+            return;
+        }
+
+        $validated = $this->validateImportedScheduleRows($rawRows, $id);
+        if (!empty($validated['errors'])) {
+            $this->json(['status' => 'error', 'message' => 'Corrige los errores antes de importar.', 'errors' => $validated['errors']], 400);
+            return;
+        }
+
+        $scheduleRepo = new ProjectSchedulesRepository($this->db);
+        if ($mode === 'merge') {
+            $scheduleRepo->mergeActivities($id, $validated['activities']);
+        } else {
+            $scheduleRepo->replaceActivities($id, $validated['activities']);
+        }
+
+        $this->json(['status' => 'ok']);
     }
 
     public function outsourcing(int $id): void
@@ -2008,6 +2096,10 @@ class ProjectsController extends Controller
         $billingPlanSummary = $billingRepo->financialControlSummary($id, $billingConfig, $invoiceTotals, $approvedHoursTotal);
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
+        $tasksForSchedule = (new TasksRepository($this->db))->forProject($id, $user);
+        $scheduleRepo = new ProjectSchedulesRepository($this->db);
+        $scheduleActivities = $scheduleRepo->activitiesForProject($id);
+        $scheduleSummary = $scheduleRepo->summary($id);
         $pmoSnapshot = [];
         $pmoAlerts = [];
         $pmoHoursTrend = [];
@@ -2074,6 +2166,9 @@ class ProjectsController extends Controller
             'stopperStatusOptions' => array_values(array_filter(self::STOPPER_STATUSES, static fn (string $status): bool => $status !== 'cerrado')),
             'canCloseStoppers' => $this->auth->can('project.stoppers.close'),
             'responsibleUsers' => (new UsersRepository($this->db))->findByRoleNames(['Administrador', 'PMO', 'Líder de Proyecto', 'Talento']),
+            'tasksForSchedule' => $tasksForSchedule,
+            'scheduleActivities' => $scheduleActivities,
+            'scheduleSummary' => $scheduleSummary,
             'pmoSnapshot' => $pmoSnapshot,
             'pmoAlerts' => $pmoAlerts,
             'pmoHoursTrend' => $pmoHoursTrend,
@@ -4030,6 +4125,156 @@ POST crudo:
         (new RequirementsRepository($this->db))->delete($requirementId);
         header('Location: /projects/' . $projectId . '/requirements?deleted=1');
         exit;
+    }
+
+    private function normalizeScheduleActivities(array $rows): array
+    {
+        $normalized = [];
+        foreach ($rows as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $name = trim((string) ($row['name'] ?? $row['nombre'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $itemType = strtolower(trim((string) ($row['item_type'] ?? $row['type'] ?? $row['tipo'] ?? 'activity')));
+            $itemType = in_array($itemType, ['milestone', 'hito'], true) ? 'milestone' : 'activity';
+            $startDate = $this->normalizeDateValue((string) ($row['start_date'] ?? $row['fecha_inicio'] ?? ''));
+            $endDate = $this->normalizeDateValue((string) ($row['end_date'] ?? $row['fecha_fin'] ?? ''));
+            $duration = (int) ($row['duration_days'] ?? $row['duracion_dias'] ?? 0);
+            if ($duration <= 0 && $startDate && $endDate) {
+                $duration = max(0, (int) floor(((strtotime($endDate) ?: 0) - (strtotime($startDate) ?: 0)) / 86400) + 1);
+            }
+            $normalized[] = [
+                'sort_order' => (int) ($row['sort_order'] ?? $row['order'] ?? ($index + 1)),
+                'name' => $name,
+                'item_type' => $itemType,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'duration_days' => $itemType === 'milestone' ? 0 : max(0, $duration),
+                'responsible_name' => trim((string) ($row['responsible_name'] ?? $row['responsable'] ?? '')),
+                'progress_percent' => max(0, min(100, (float) ($row['progress_percent'] ?? $row['porcentaje_avance'] ?? 0))),
+                'linked_task_id' => (int) ($row['linked_task_id'] ?? $row['tarea_vinculada'] ?? 0),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function validateImportedScheduleRows(array $rows, int $projectId): array
+    {
+        $projectTasks = (new TasksRepository($this->db))->forProject($projectId, $this->auth->user() ?? []);
+        $taskTitles = array_map(static fn (array $task): string => mb_strtolower(trim((string) ($task['title'] ?? ''))), $projectTasks);
+        $errors = [];
+        $activities = [];
+        foreach ($rows as $idx => $row) {
+            if (!is_array($row)) {
+                $errors[] = ['row' => $idx + 1, 'message' => 'Fila inválida.'];
+                continue;
+            }
+            $activity = $this->normalizeScheduleActivities([$row])[0] ?? null;
+            if (!$activity) {
+                $errors[] = ['row' => $idx + 1, 'message' => 'Nombre de actividad obligatorio.'];
+                continue;
+            }
+            if (!$activity['start_date'] || !$activity['end_date']) {
+                $errors[] = ['row' => $idx + 1, 'message' => 'Fecha inicio y fin son obligatorias.'];
+            }
+            $responsible = mb_strtolower(trim((string) ($activity['responsible_name'] ?? '')));
+            if ($responsible !== '') {
+                $existsTalent = (bool) $this->db->fetchOne(
+                    'SELECT 1 FROM project_talent_assignments a JOIN talents t ON t.id = a.talent_id WHERE a.project_id = :project AND LOWER(t.name) = :name LIMIT 1',
+                    [':project' => $projectId, ':name' => $responsible]
+                );
+                if (!$existsTalent) {
+                    $errors[] = ['row' => $idx + 1, 'message' => 'Responsable no existe en Talento para este proyecto.'];
+                }
+            }
+            if (!empty($row['tarea_vinculada']) && !in_array(mb_strtolower(trim((string) $row['tarea_vinculada'])), $taskTitles, true)) {
+                $errors[] = ['row' => $idx + 1, 'message' => 'Tarea vinculada no encontrada en el proyecto.'];
+            }
+            $activities[] = $activity;
+        }
+
+        return ['rows' => $rows, 'activities' => $activities, 'errors' => $errors];
+    }
+
+    private function readSpreadsheetRows(string $tmpPath, string $originalName): array
+    {
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if ($extension === 'csv') {
+            $rows = [];
+            $handle = fopen($tmpPath, 'rb');
+            if (!$handle) {
+                return [];
+            }
+            $headers = null;
+            while (($data = fgetcsv($handle, 0, ',')) !== false) {
+                if ($headers === null) {
+                    $headers = $data;
+                    continue;
+                }
+                $rows[] = array_combine($headers, $data) ?: [];
+            }
+            fclose($handle);
+            return $rows;
+        }
+
+        if ($extension !== 'xlsx') {
+            throw new \InvalidArgumentException('Formato inválido. Usa .xlsx o .csv.');
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($tmpPath) !== true) {
+            throw new \InvalidArgumentException('No se pudo leer el archivo XLSX.');
+        }
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml') ?: '';
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml') ?: '';
+        $zip->close();
+
+        $sharedStrings = [];
+        if ($sharedXml !== '') {
+            $shared = @simplexml_load_string($sharedXml);
+            if ($shared) {
+                foreach ($shared->si as $si) {
+                    $sharedStrings[] = trim((string) ($si->t ?? ''));
+                }
+            }
+        }
+        $sheet = @simplexml_load_string($sheetXml);
+        if (!$sheet || !isset($sheet->sheetData)) {
+            return [];
+        }
+        $table = [];
+        foreach ($sheet->sheetData->row as $row) {
+            $line = [];
+            foreach ($row->c as $c) {
+                $v = (string) ($c->v ?? '');
+                $type = (string) ($c['t'] ?? '');
+                $line[] = ($type === 's') ? ($sharedStrings[(int) $v] ?? '') : $v;
+            }
+            $table[] = $line;
+        }
+        $headers = array_map('trim', $table[0] ?? []);
+        $rows = [];
+        foreach (array_slice($table, 1) as $line) {
+            $rows[] = array_combine($headers, $line) ?: [];
+        }
+        return $rows;
+    }
+
+    private function normalizeDateValue(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $value) === 1) {
+            return $value;
+        }
+        $timestamp = strtotime(str_replace('/', '-', $value));
+        return $timestamp ? date('Y-m-d', $timestamp) : null;
     }
 
 }
