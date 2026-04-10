@@ -63,6 +63,19 @@ class ProjectsController extends Controller
     private const STOPPER_AFFECTED_AREAS = ['tiempo', 'alcance', 'costo', 'calidad'];
     private const STOPPER_STATUSES = ['abierto', 'en_gestion', 'escalado', 'resuelto', 'cerrado'];
     private const REQUIRED_DOCUMENTS_META_CODE = '99-REQDOCS-META';
+    private const REQUIRED_DOCUMENTS_FILES_CODE = '99-REQDOCS-FILES';
+    private const REQUIRED_DOCUMENT_UPLOAD_KEYS = [
+        'propuesta_aceptada',
+        'acta_inicio',
+        'kickoff',
+        'actas_seguimiento',
+        'pruebas_funcionales',
+        'acta_cierre',
+        'lecciones_aprendidas',
+        'diagrama_flujo',
+        'diagrama_arquitectura',
+        'documento_arquitectura',
+    ];
 
     public function index(): void
     {
@@ -1671,6 +1684,192 @@ class ProjectsController extends Controller
             $this->json([
                 'success' => false,
                 'message' => $e->getMessage() ?: 'No se pudo guardar el repositorio.',
+            ], $status);
+            return;
+        }
+    }
+
+    public function saveRequiredDocumentUpload(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+
+        try {
+            $this->ensureDocumentFlowSchema();
+            $key = trim((string) ($_POST['required_document_key'] ?? ''));
+            if (!in_array($key, self::REQUIRED_DOCUMENT_UPLOAD_KEYS, true)) {
+                throw new \InvalidArgumentException('Documento obligatorio inválido.');
+            }
+
+            $meta = $this->collectDocumentUploadMeta();
+            $upload = $_FILES['required_document_file'] ?? null;
+            $hasUpload = is_array($upload) && (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
+
+            $nodesRepo = new ProjectNodesRepository($this->db);
+            $tree = $nodesRepo->treeWithFiles($projectId);
+            $flatNodes = $this->flattenProjectNodes($tree);
+            $rootNode = null;
+            foreach ($flatNodes as $node) {
+                if (($node['code'] ?? '') === 'ROOT') {
+                    $rootNode = $node;
+                    break;
+                }
+            }
+            if (!$rootNode) {
+                throw new \RuntimeException('No se encontró el nodo raíz del proyecto.');
+            }
+
+            $userId = (int) ($this->auth->user()['id'] ?? 0);
+            $requiredFilesNode = $nodesRepo->findNodeByCode($projectId, self::REQUIRED_DOCUMENTS_FILES_CODE);
+            if (!$requiredFilesNode) {
+                $requiredFilesNodeId = $nodesRepo->createNode([
+                    'project_id' => $projectId,
+                    'parent_id' => (int) ($rootNode['id'] ?? 0),
+                    'code' => self::REQUIRED_DOCUMENTS_FILES_CODE,
+                    'node_type' => 'folder',
+                    'title' => 'Documentos obligatorios del proyecto',
+                    'description' => 'Repositorio técnico para documentos obligatorios.',
+                    'sort_order' => 998,
+                    'created_by' => $userId > 0 ? $userId : null,
+                ]);
+            } else {
+                $requiredFilesNodeId = (int) ($requiredFilesNode['id'] ?? 0);
+            }
+            if ($requiredFilesNodeId <= 0) {
+                throw new \RuntimeException('No se pudo resolver la carpeta de documentos obligatorios.');
+            }
+            $requiredDocumentFileCode = self::REQUIRED_DOCUMENTS_FILES_CODE . '-FILE-' . strtoupper($key);
+            $existingNode = $nodesRepo->findNodeByCode($projectId, $requiredDocumentFileCode);
+            if (!$hasUpload && !$existingNode) {
+                throw new \InvalidArgumentException('Selecciona un archivo para continuar.');
+            }
+
+            $tag = trim((string) ($_POST['required_document_tag'] ?? ''));
+            if ($tag !== '') {
+                $decodedTags = json_decode((string) ($meta['document_tags'] ?? '[]'), true);
+                $normalizedTags = is_array($decodedTags) ? $decodedTags : [];
+                $normalizedTags[] = $tag;
+                $meta['document_tags'] = json_encode(
+                    array_values(
+                        array_unique(
+                            array_filter(
+                                array_map(static fn ($value): string => trim((string) $value), $normalizedTags)
+                            )
+                        )
+                    ),
+                    JSON_UNESCAPED_UNICODE
+                );
+            }
+
+            if ($hasUpload && $existingNode && (int) ($existingNode['id'] ?? 0) > 0) {
+                $nodesRepo->deleteNode($projectId, (int) ($existingNode['id'] ?? 0), $userId);
+                $existingNode = null;
+            }
+
+            $result = [];
+            if ($hasUpload) {
+                $result = $nodesRepo->createFileNode($projectId, $requiredFilesNodeId, $upload, $userId, $meta);
+                $savedNodeId = (int) ($result['id'] ?? 0);
+                if ($savedNodeId <= 0) {
+                    throw new \RuntimeException('No se pudo guardar el documento obligatorio.');
+                }
+                $this->db->execute(
+                    'UPDATE project_nodes SET code = :code WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':code' => $requiredDocumentFileCode,
+                        ':id' => $savedNodeId,
+                        ':project_id' => $projectId,
+                    ]
+                );
+            } else {
+                $savedNodeId = (int) ($existingNode['id'] ?? 0);
+                if ($savedNodeId <= 0) {
+                    throw new \RuntimeException('No se encontró el documento obligatorio para editar.');
+                }
+                $this->db->execute(
+                    'UPDATE project_nodes
+                     SET document_type = :document_type,
+                         document_tags = :document_tags,
+                         document_version = :document_version,
+                         description = :description
+                     WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':document_type' => $meta['document_type'] ?? null,
+                        ':document_tags' => $meta['document_tags'] ?? null,
+                        ':document_version' => $meta['document_version'] ?? null,
+                        ':description' => $meta['description'] ?? null,
+                        ':id' => $savedNodeId,
+                        ':project_id' => $projectId,
+                    ]
+                );
+                $savedNode = $this->db->fetchOne(
+                    'SELECT id, title, file_path, created_at
+                     FROM project_nodes
+                     WHERE id = :id AND project_id = :project_id',
+                    [
+                        ':id' => $savedNodeId,
+                        ':project_id' => $projectId,
+                    ]
+                ) ?: [];
+                $result = [
+                    'id' => $savedNodeId,
+                    'code' => $requiredDocumentFileCode,
+                    'file_name' => (string) ($savedNode['title'] ?? ''),
+                    'storage_path' => (string) ($savedNode['file_path'] ?? ''),
+                    'created_at' => (string) ($savedNode['created_at'] ?? date('Y-m-d H:i:s')),
+                    'description' => (string) ($meta['description'] ?? ''),
+                    'document_status' => $meta['document_status'] ?? 'final',
+                    'tags' => json_decode((string) ($meta['document_tags'] ?? '[]'), true) ?: [],
+                    'version' => (string) ($meta['document_version'] ?? ''),
+                    'document_type' => (string) ($meta['document_type'] ?? ''),
+                ];
+            }
+
+            $auditRepo = new AuditLogRepository($this->db);
+            $auditRepo->log(
+                $userId,
+                'project_node_file',
+                (int) ($result['id'] ?? 0),
+                $hasUpload ? 'document_uploaded' : 'document_metadata_updated',
+                [
+                    'document_type' => $meta['document_type'] ?? null,
+                    'document_tags' => $meta['document_tags'] ?? null,
+                    'document_version' => $meta['document_version'] ?? null,
+                    'description' => $meta['description'] ?? null,
+                    'document_status' => $meta['document_status'] ?? null,
+                    'required_document_key' => $key,
+                    'required_document_upload' => $hasUpload,
+                ]
+            );
+
+            $recordedBy = trim((string) (
+                $this->auth->user()['name']
+                ?? $this->auth->user()['full_name']
+                ?? $this->auth->user()['email']
+                ?? ('Usuario #' . $userId)
+            ));
+            $recordedDate = date('d/m/Y');
+
+            $this->json([
+                'success' => true,
+                'message' => 'Documento obligatorio guardado.',
+                'document_id' => isset($result['id']) ? (int) $result['id'] : null,
+                'data' => $result,
+                'required_document' => [
+                    'key' => $key,
+                    'recorded_by' => $recordedBy,
+                    'recorded_date' => $recordedDate,
+                    'description' => (string) ($meta['description'] ?? ''),
+                    'document_type' => (string) ($meta['document_type'] ?? ''),
+                    'document_tags' => json_decode((string) ($meta['document_tags'] ?? '[]'), true) ?: [],
+                    'document_version' => (string) ($meta['document_version'] ?? ''),
+                ],
+            ]);
+            return;
+        } catch (\Throwable $e) {
+            $status = $e instanceof \InvalidArgumentException ? 400 : 500;
+            $this->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'No se pudo guardar el documento obligatorio.',
             ], $status);
             return;
         }
