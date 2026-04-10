@@ -1211,10 +1211,6 @@ foreach ($documentExpectedItems as $doc) {
             button.addEventListener('click', closeModal);
         });
 
-        if (openUpload) {
-            openUpload.addEventListener('click', openUploadModal);
-        }
-
         const toggleUploadMode = (isGitMode, repositoryUrl = '') => {
             if (uploadFileField) uploadFileField.hidden = isGitMode;
             if (uploadRepositoryField) uploadRepositoryField.hidden = !isGitMode;
@@ -1462,6 +1458,15 @@ foreach ($documentExpectedItems as $doc) {
                         closeModal();
                         updateAlert();
                         showToast('Documento guardado en la subfase.', 'success');
+                        if (requiredDocumentContext?.key) {
+                            root.dispatchEvent(new CustomEvent('required-document:uploaded', {
+                                bubbles: true,
+                                detail: {
+                                    key: requiredDocumentContext.key,
+                                    fileName: (payload.data && payload.data[0] && payload.data[0].file_name) ? payload.data[0].file_name : '',
+                                },
+                            }));
+                        }
                     })
                     .catch(error => {
                         setUploadValidation(error.message);

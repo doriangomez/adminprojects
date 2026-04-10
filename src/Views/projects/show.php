@@ -39,6 +39,8 @@ $detailWarnings = is_array($detailWarnings ?? null) ? $detailWarnings : [];
 $timesheetEntries = is_array($timesheetEntries ?? null) ? $timesheetEntries : [];
 $scheduleActivities = is_array($scheduleActivities ?? null) ? $scheduleActivities : [];
 $scheduleSummary = is_array($scheduleSummary ?? null) ? $scheduleSummary : [];
+$scheduleCreatedBy = isset($scheduleCreatedBy) ? (int) $scheduleCreatedBy : null;
+$scheduleCreatedAt = $scheduleCreatedAt ?? null;
 $tasksForSchedule = is_array($tasksForSchedule ?? null) ? $tasksForSchedule : [];
 $view = $_GET['view'] ?? 'documentos';
 $returnUrl = $_GET['return'] ?? ($basePath . '/projects');
@@ -386,6 +388,16 @@ $formatTimestamp = static function (?string $value): string {
 
     return date('d/m/Y H:i', $timestamp);
 };
+$formatDateShort = static function (?string $value): string {
+    if (!$value) {
+        return '-';
+    }
+    $timestamp = strtotime($value);
+    if (!$timestamp) {
+        return '-';
+    }
+    return date('d/m/Y', $timestamp);
+};
 $lastProgressDate = $lastProgressEntry ? $formatTimestamp($lastProgressEntry['created_at'] ?? null) : 'Sin registro';
 
 $healthScore = is_array($healthScore ?? null) ? $healthScore : [
@@ -411,17 +423,17 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
 
 $requiredDocumentsMetaCode = '99-REQDOCS-META';
 $requiredDocuments = [
-    ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta', 'tag' => 'Propuesta aceptada por el cliente'],
-    ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio de proyecto'],
+    ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta', 'tag' => 'Propuesta comercial', 'match_tags' => ['Propuesta comercial', 'Propuesta aceptada por el cliente']],
+    ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio', 'match_tags' => ['Acta de inicio', 'Acta de inicio de proyecto']],
     ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Acta', 'tag' => 'Kickoff'],
-    ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Actas de seguimiento'],
+    ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Seguimiento', 'match_tags' => ['Seguimiento', 'Actas de seguimiento']],
     ['key' => 'cronograma', 'name' => 'Cronograma de trabajo', 'description' => 'Plan temporal de entregables, hitos y responsables.', 'icon' => '📆', 'document_type' => 'Cronograma', 'tag' => 'Cronograma de trabajo'],
-    ['key' => 'pruebas_funcionales', 'name' => 'Pruebas funcionales con el cliente (acta)', 'description' => 'Resultados y conformidad de pruebas funcionales con cliente.', 'icon' => '✅', 'document_type' => 'Acta', 'tag' => 'Pruebas funcionales con el cliente (acta)'],
-    ['key' => 'acta_cierre', 'name' => 'Acta de cierre', 'description' => 'Cierre formal del proyecto y aceptación final.', 'icon' => '🏁', 'document_type' => 'Acta', 'tag' => 'Acta de cierre'],
-    ['key' => 'lecciones_aprendidas', 'name' => 'Lecciones aprendidas', 'description' => 'Resumen de hallazgos para mejora continua.', 'icon' => '📚', 'document_type' => 'Lecciones aprendidas', 'tag' => 'Lecciones aprendidas'],
-    ['key' => 'diagrama_flujo', 'name' => 'Diagrama de flujo', 'description' => 'Representación visual del flujo operativo o funcional.', 'icon' => '🔀', 'document_type' => 'Diagrama', 'tag' => 'Diagrama de flujo'],
-    ['key' => 'diagrama_arquitectura', 'name' => 'Diagrama de arquitectura', 'description' => 'Vista estructural de componentes y su interacción.', 'icon' => '🏗️', 'document_type' => 'Diagrama', 'tag' => 'Diagrama de arquitectura'],
-    ['key' => 'documento_arquitectura', 'name' => 'Documento de arquitectura', 'description' => 'Documento técnico con decisiones de arquitectura.', 'icon' => '🧱', 'document_type' => 'Arquitectura', 'tag' => 'Documento de arquitectura'],
+    ['key' => 'pruebas_funcionales', 'name' => 'Pruebas funcionales con el cliente', 'description' => 'Resultados y conformidad de pruebas funcionales con cliente.', 'icon' => '✅', 'document_type' => 'Acta', 'tag' => 'Pruebas funcionales', 'match_tags' => ['Pruebas funcionales', 'Pruebas funcionales con el cliente (acta)']],
+    ['key' => 'acta_cierre', 'name' => 'Acta de cierre', 'description' => 'Cierre formal del proyecto y aceptación final.', 'icon' => '🏁', 'document_type' => 'Acta', 'tag' => 'Cierre', 'match_tags' => ['Cierre', 'Acta de cierre']],
+    ['key' => 'lecciones_aprendidas', 'name' => 'Lecciones aprendidas', 'description' => 'Resumen de hallazgos para mejora continua.', 'icon' => '📚', 'document_type' => 'Informe', 'tag' => 'Lecciones aprendidas', 'match_types' => ['Informe', 'Lecciones aprendidas']],
+    ['key' => 'diagrama_flujo', 'name' => 'Diagrama de flujo', 'description' => 'Representación visual del flujo operativo o funcional.', 'icon' => '🔀', 'document_type' => 'Diagrama', 'tag' => 'Flujo', 'match_tags' => ['Flujo', 'Diagrama de flujo']],
+    ['key' => 'diagrama_arquitectura', 'name' => 'Diagrama de arquitectura', 'description' => 'Vista estructural de componentes y su interacción.', 'icon' => '🏗️', 'document_type' => 'Diagrama', 'tag' => 'Arquitectura', 'match_tags' => ['Arquitectura', 'Diagrama de arquitectura']],
+    ['key' => 'documento_arquitectura', 'name' => 'Documento de arquitectura', 'description' => 'Documento técnico con decisiones de arquitectura.', 'icon' => '🧱', 'document_type' => 'Documento técnico', 'tag' => 'Arquitectura', 'match_types' => ['Documento técnico', 'Arquitectura'], 'match_tags' => ['Arquitectura', 'Documento de arquitectura']],
     ['key' => 'repositorio_git', 'name' => 'Repositorio Git', 'description' => 'URL oficial del repositorio de código fuente del proyecto.', 'icon' => '🔗', 'document_type' => 'Repositorio', 'tag' => 'Repositorio Git', 'is_git' => true],
 ];
 
@@ -482,8 +494,8 @@ foreach ($requiredDocuments as $requiredDocument) {
             'record' => $hasSchedule
                 ? [
                     'file_name' => count($scheduleActivities) . ' actividades registradas',
-                    'created_at' => $scheduleActivities[0]['updated_at'] ?? null,
-                    'created_by' => null,
+                    'created_at' => $scheduleCreatedAt ?: ($scheduleActivities[0]['created_at'] ?? $scheduleActivities[0]['updated_at'] ?? null),
+                    'created_by' => $scheduleCreatedBy,
                 ]
                 : null,
             'is_schedule' => true,
@@ -506,13 +518,20 @@ foreach ($requiredDocuments as $requiredDocument) {
         continue;
     }
 
-    $normalizedTag = mb_strtolower(trim((string) ($requiredDocument['tag'] ?? '')));
-    $normalizedType = mb_strtolower(trim((string) ($requiredDocument['document_type'] ?? '')));
-    $matches = array_values(array_filter($allProjectFiles, static function (array $file) use ($normalizedTag, $normalizedType): bool {
+    $normalizedTags = array_values(array_filter(array_map(
+        static fn (string $tag): string => mb_strtolower(trim((string) $tag)),
+        is_array($requiredDocument['match_tags'] ?? null) ? $requiredDocument['match_tags'] : [(string) ($requiredDocument['tag'] ?? '')]
+    )));
+    $normalizedTypes = array_values(array_filter(array_map(
+        static fn (string $type): string => mb_strtolower(trim((string) $type)),
+        is_array($requiredDocument['match_types'] ?? null) ? $requiredDocument['match_types'] : [(string) ($requiredDocument['document_type'] ?? '')]
+    )));
+    $matches = array_values(array_filter($allProjectFiles, static function (array $file) use ($normalizedTags, $normalizedTypes): bool {
         $tags = array_map(static fn ($tag): string => mb_strtolower(trim((string) $tag)), is_array($file['tags'] ?? null) ? $file['tags'] : []);
         $type = mb_strtolower(trim((string) ($file['document_type'] ?? '')));
-        return ($normalizedTag !== '' && in_array($normalizedTag, $tags, true))
-            || ($normalizedType !== '' && $type === $normalizedType);
+        $matchesTag = !empty($normalizedTags) && !empty(array_intersect($normalizedTags, $tags));
+        $matchesType = !empty($normalizedTypes) && in_array($type, $normalizedTypes, true);
+        return $matchesTag || $matchesType;
     }));
 
     usort($matches, static function (array $a, array $b): int {
@@ -1248,69 +1267,109 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             </article>
         </section>
     <?php else: ?>
-        <section class="required-documents-block">
+        <?php $requiredDocCurrentUserName = trim((string) ($currentUser['name'] ?? $currentUser['full_name'] ?? $currentUser['email'] ?? 'Usuario')); ?>
+        <section class="required-documents-block" data-required-documents-root data-required-doc-total="<?= (int) $requiredDocumentsTotal ?>" data-required-doc-current-user="<?= htmlspecialchars($requiredDocCurrentUserName) ?>">
             <div class="required-documents-block__header">
-                <div>
-                    <p class="eyebrow">Documentación base</p>
-                    <h3>Documentos obligatorios del proyecto</h3>
-                    <p class="section-muted"><?= $requiredDocumentsCompleted ?> / <?= $requiredDocumentsTotal ?> documentos obligatorios completados</p>
+                <h3>Documentos obligatorios</h3>
+                <div class="required-documents-block__summary">
+                    <span data-required-doc-counter><?= $requiredDocumentsCompleted ?> / <?= $requiredDocumentsTotal ?> completados</span>
+                    <div class="project-progress__bar required-documents-progress--compact" role="progressbar" aria-valuenow="<?= $requiredDocumentsProgress ?>" aria-valuemin="0" aria-valuemax="100" data-required-doc-progressbar>
+                        <div style="width: <?= $requiredDocumentsProgress ?>%;" data-required-doc-progress-fill></div>
+                    </div>
                 </div>
             </div>
-            <div class="required-documents-progress">
-                <div class="project-progress__bar" role="progressbar" aria-valuenow="<?= $requiredDocumentsProgress ?>" aria-valuemin="0" aria-valuemax="100">
-                    <div style="width: <?= $requiredDocumentsProgress ?>%;"></div>
-                </div>
-            </div>
-            <div class="required-documents-grid">
-                <?php foreach ($requiredDocumentsCards as $requiredCard): ?>
-                    <?php
-                    $record = is_array($requiredCard['record'] ?? null) ? $requiredCard['record'] : null;
-                    $isCompleted = !empty($requiredCard['completed']);
-                    $recordedBy = isset($record['created_by']) ? ($userNamesById[(int) $record['created_by']] ?? ('Usuario #' . (int) $record['created_by'])) : 'Sin usuario';
-                    $recordDate = $formatTimestamp($record['created_at'] ?? null);
-                    $isGitCard = !empty($requiredCard['is_git']);
-                    $isScheduleCard = !empty($requiredCard['is_schedule']);
-                    ?>
-                    <article class="required-doc-card">
-                        <div class="required-doc-card__top">
-                            <span class="required-doc-card__icon"><?= htmlspecialchars((string) ($requiredCard['icon'] ?? '📄')) ?></span>
-                            <span class="expected-pill <?= $isCompleted ? 'expected-approved' : 'expected-pending' ?>"><?= $isCompleted ? 'Completado' : 'Pendiente' ?></span>
-                        </div>
-                        <div class="required-doc-card__body">
-                            <strong><?= htmlspecialchars((string) ($requiredCard['name'] ?? 'Documento')) ?></strong>
-                            <small><?= htmlspecialchars((string) ($requiredCard['description'] ?? '')) ?></small>
-                        </div>
-                        <div class="required-doc-card__actions">
-                            <button
-                                type="button"
-                                class="action-btn primary"
-                                data-required-document-action
+            <div class="required-documents-table-wrap">
+                <table class="required-documents-table">
+                    <thead>
+                        <tr>
+                            <th style="width:72px;">Estado</th>
+                            <th>Documento</th>
+                            <th style="width:180px;">Registrado por</th>
+                            <th style="width:120px;">Fecha</th>
+                            <th style="width:160px;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($requiredDocumentsCards as $requiredCard): ?>
+                            <?php
+                            $record = is_array($requiredCard['record'] ?? null) ? $requiredCard['record'] : null;
+                            $isCompleted = !empty($requiredCard['completed']);
+                            $isGitCard = !empty($requiredCard['is_git']);
+                            $isScheduleCard = !empty($requiredCard['is_schedule']);
+                            $recordedBy = '-';
+                            if ($isCompleted && isset($record['created_by']) && (int) $record['created_by'] > 0) {
+                                $recordedBy = $userNamesById[(int) $record['created_by']] ?? ('Usuario #' . (int) $record['created_by']);
+                            }
+                            $recordDate = $isCompleted ? $formatDateShort($record['created_at'] ?? null) : '-';
+                            $documentDescription = (string) ($requiredCard['description'] ?? '');
+                            $repositoryUrl = (string) ($record['storage_path'] ?? '');
+                            $actionLabel = $isScheduleCard
+                                ? ($isCompleted ? 'Ver cronograma' : 'Crear cronograma')
+                                : ($isGitCard
+                                    ? ($isCompleted ? 'Editar' : 'Registrar')
+                                    : ($isCompleted ? 'Ver / Editar' : 'Registrar'));
+                            ?>
+                            <tr
+                                data-required-document-row
                                 data-required-doc-key="<?= htmlspecialchars((string) ($requiredCard['key'] ?? '')) ?>"
                                 data-required-doc-name="<?= htmlspecialchars((string) ($requiredCard['name'] ?? '')) ?>"
                                 data-required-doc-type="<?= htmlspecialchars((string) ($requiredCard['document_type'] ?? '')) ?>"
                                 data-required-doc-tag="<?= htmlspecialchars((string) ($requiredCard['tag'] ?? '')) ?>"
                                 data-required-doc-git="<?= $isGitCard ? '1' : '0' ?>"
                                 data-required-doc-schedule="<?= $isScheduleCard ? '1' : '0' ?>"
-                                data-required-doc-url="<?= htmlspecialchars((string) ($record['storage_path'] ?? '')) ?>"
+                                data-required-doc-completed="<?= $isCompleted ? '1' : '0' ?>"
+                                data-required-doc-url="<?= htmlspecialchars($repositoryUrl) ?>"
+                                data-required-doc-description="<?= htmlspecialchars($documentDescription) ?>"
                             >
-                                <?= $isScheduleCard ? 'Ver cronograma' : ($isCompleted ? 'Ver / Editar' : 'Registrar documento') ?>
-                            </button>
-                            <?php if ($isCompleted && $record): ?>
-                                <div class="required-doc-card__meta">
-                                    <?php if ($isGitCard): ?>
-                                        <a href="<?= htmlspecialchars((string) $record['storage_path']) ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars((string) $record['storage_path']) ?></a>
+                                <td>
+                                    <span class="required-doc-state <?= $isCompleted ? 'required-doc-state--completed' : 'required-doc-state--pending' ?>" data-required-doc-state-icon aria-hidden="true"></span>
+                                </td>
+                                <td class="required-doc-table__document">
+                                    <strong class="required-doc-name"><?= htmlspecialchars((string) ($requiredCard['name'] ?? 'Documento')) ?></strong>
+                                    <?php if ($isGitCard && $isCompleted && $repositoryUrl !== ''): ?>
+                                        <a class="required-doc-description required-doc-description--link" href="<?= htmlspecialchars($repositoryUrl) ?>" target="_blank" rel="noopener noreferrer" data-required-doc-description-node><?= htmlspecialchars($repositoryUrl) ?></a>
                                     <?php else: ?>
-                                        <span><?= htmlspecialchars((string) ($record['file_name'] ?? 'Documento cargado')) ?></span>
+                                        <span class="required-doc-description" data-required-doc-description-node><?= htmlspecialchars($documentDescription) ?></span>
                                     <?php endif; ?>
-                                    <small><?= htmlspecialchars($recordDate) ?> · <?= htmlspecialchars($recordedBy) ?></small>
-                                </div>
+                                </td>
+                                <td><span data-required-doc-registered-by><?= htmlspecialchars($recordedBy) ?></span></td>
+                                <td><span data-required-doc-date><?= htmlspecialchars($recordDate) ?></span></td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="required-doc-action <?= $isCompleted ? 'required-doc-action--completed' : 'required-doc-action--pending' ?>"
+                                        data-required-document-action
+                                        data-required-doc-action-button
+                                    >
+                                        <?= htmlspecialchars($actionLabel) ?>
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php if ($isGitCard): ?>
+                                <tr class="required-doc-git-editor-row" data-required-doc-git-editor-row data-required-doc-key="<?= htmlspecialchars((string) ($requiredCard['key'] ?? '')) ?>">
+                                    <td colspan="5">
+                                        <div class="required-doc-git-editor" data-required-doc-git-editor>
+                                            <div class="required-doc-git-editor__controls">
+                                                <input
+                                                    type="text"
+                                                    value="<?= htmlspecialchars($repositoryUrl) ?>"
+                                                    placeholder="Pega aquí la URL del repositorio (ej: https://github.com/...)"
+                                                    data-required-doc-git-input
+                                                >
+                                                <button type="button" class="required-doc-action required-doc-action--save" data-required-doc-git-save>Guardar</button>
+                                                <button type="button" class="required-doc-action required-doc-action--completed" data-required-doc-git-cancel>Cancelar</button>
+                                            </div>
+                                            <p class="required-doc-git-error" data-required-doc-git-error hidden>Ingresa una URL válida</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             <?php endif; ?>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </section>
-        <div class="required-documents-divider" aria-hidden="true"></div>
+        <div class="required-documents-divider" aria-hidden="true"><span>Gestión documental por fases</span></div>
         <div class="project-layout">
             <aside class="phase-sidebar">
                 <div class="phase-sidebar__header">
@@ -1571,34 +1630,246 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     const toggleHealthPopover = document.querySelector('[data-toggle-health-popover]');
     const openProgressButtons = document.querySelectorAll('[data-open-modal="progress-modal"]');
     const closeProgressButtons = progressModal ? progressModal.querySelectorAll('[data-close-modal]') : [];
-    const requiredDocumentButtons = document.querySelectorAll('[data-required-document-action]');
+    const requiredDocumentsRoot = document.querySelector('[data-required-documents-root]');
+    const requiredDocumentFlowRoot = document.querySelector('[data-document-flow]');
+    let activeRequiredDocumentKey = '';
 
-    requiredDocumentButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-            if (button.dataset.requiredDocSchedule === '1') {
-                const url = new URL(window.location.href);
-                url.searchParams.set('view', 'cronograma');
-                window.location.href = url.toString();
-                return;
+    const getTodayDate = () => {
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
+    const selectorSafeValue = (value) => {
+        if (window.CSS && typeof window.CSS.escape === 'function') {
+            return window.CSS.escape(value);
+        }
+        return String(value).replace(/["\\]/g, '\\$&');
+    };
+
+    const updateRequiredDocumentsSummary = () => {
+        if (!requiredDocumentsRoot) return;
+        const rows = Array.from(requiredDocumentsRoot.querySelectorAll('[data-required-document-row]'));
+        const total = Number(requiredDocumentsRoot.dataset.requiredDocTotal || rows.length || 0);
+        const completed = rows.filter((row) => row.dataset.requiredDocCompleted === '1').length;
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const counter = requiredDocumentsRoot.querySelector('[data-required-doc-counter]');
+        const progressBar = requiredDocumentsRoot.querySelector('[data-required-doc-progressbar]');
+        const progressFill = requiredDocumentsRoot.querySelector('[data-required-doc-progress-fill]');
+        if (counter) {
+            counter.textContent = `${completed} / ${total} completados`;
+        }
+        if (progressBar) {
+            progressBar.setAttribute('aria-valuenow', String(percentage));
+        }
+        if (progressFill) {
+            progressFill.style.width = `${percentage}%`;
+        }
+    };
+
+    const setRequiredDocumentRowCompleted = (row, options = {}) => {
+        if (!row) return;
+        const actionButton = row.querySelector('[data-required-doc-action-button]');
+        const stateIcon = row.querySelector('[data-required-doc-state-icon]');
+        const registeredByNode = row.querySelector('[data-required-doc-registered-by]');
+        const dateNode = row.querySelector('[data-required-doc-date]');
+        const descriptionNode = row.querySelector('[data-required-doc-description-node]');
+        const currentUserName = requiredDocumentsRoot?.dataset.requiredDocCurrentUser || 'Usuario';
+        const documentDescription = row.dataset.requiredDocDescription || '';
+        const repositoryUrl = options.repositoryUrl || row.dataset.requiredDocUrl || '';
+        const isGit = row.dataset.requiredDocGit === '1';
+
+        row.dataset.requiredDocCompleted = '1';
+        if (stateIcon) {
+            stateIcon.classList.remove('required-doc-state--pending');
+            stateIcon.classList.add('required-doc-state--completed');
+        }
+        if (registeredByNode) {
+            registeredByNode.textContent = options.recordedBy || currentUserName;
+        }
+        if (dateNode) {
+            dateNode.textContent = options.recordedDate || getTodayDate();
+        }
+        if (actionButton) {
+            actionButton.classList.remove('required-doc-action--pending');
+            actionButton.classList.add('required-doc-action--completed');
+            actionButton.textContent = isGit ? 'Editar' : 'Ver / Editar';
+        }
+        if (descriptionNode) {
+            if (isGit && repositoryUrl !== '') {
+                const link = document.createElement('a');
+                link.className = 'required-doc-description required-doc-description--link';
+                link.href = repositoryUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.dataset.requiredDocDescriptionNode = '';
+                link.textContent = repositoryUrl;
+                descriptionNode.replaceWith(link);
+            } else if (!isGit) {
+                descriptionNode.textContent = options.description || documentDescription;
             }
-            const documentFlowRoot = document.querySelector('[data-document-flow]');
-            if (!documentFlowRoot) {
-                window.alert('Selecciona una subfase para registrar el documento obligatorio.');
-                return;
-            }
-            documentFlowRoot.dispatchEvent(new CustomEvent('required-document:open', {
-                bubbles: false,
-                detail: {
-                    key: button.dataset.requiredDocKey || '',
-                    name: button.dataset.requiredDocName || '',
-                    documentType: button.dataset.requiredDocType || '',
-                    tag: button.dataset.requiredDocTag || '',
-                    isGit: button.dataset.requiredDocGit === '1',
-                    repositoryUrl: button.dataset.requiredDocUrl || '',
-                },
-            }));
+        }
+        if (isGit && repositoryUrl !== '') {
+            row.dataset.requiredDocUrl = repositoryUrl;
+        }
+        updateRequiredDocumentsSummary();
+    };
+
+    const closeAllGitEditors = () => {
+        if (!requiredDocumentsRoot) return;
+        requiredDocumentsRoot.querySelectorAll('[data-required-doc-git-editor-row]').forEach((editorRow) => {
+            editorRow.classList.remove('is-open');
         });
-    });
+    };
+
+    const openGitEditor = (row) => {
+        if (!requiredDocumentsRoot || !row) return;
+        closeAllGitEditors();
+        const key = row.dataset.requiredDocKey || '';
+        const editorRow = requiredDocumentsRoot.querySelector(`[data-required-doc-git-editor-row][data-required-doc-key="${selectorSafeValue(key)}"]`);
+        if (!editorRow) return;
+        editorRow.classList.add('is-open');
+        const input = editorRow.querySelector('[data-required-doc-git-input]');
+        const error = editorRow.querySelector('[data-required-doc-git-error]');
+        if (error) error.hidden = true;
+        if (input) {
+            input.value = row.dataset.requiredDocUrl || '';
+            input.focus();
+        }
+    };
+
+    if (requiredDocumentsRoot) {
+        requiredDocumentsRoot.addEventListener('click', (event) => {
+            const actionButton = event.target.closest('[data-required-document-action]');
+            if (actionButton) {
+                const row = actionButton.closest('[data-required-document-row]');
+                if (!row) return;
+                const isSchedule = row.dataset.requiredDocSchedule === '1';
+                const isGit = row.dataset.requiredDocGit === '1';
+
+                if (isSchedule) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('view', 'cronograma');
+                    window.location.href = url.toString();
+                    return;
+                }
+
+                if (isGit) {
+                    openGitEditor(row);
+                    return;
+                }
+
+                if (!requiredDocumentFlowRoot) {
+                    window.alert('Selecciona una subfase para registrar el documento obligatorio.');
+                    return;
+                }
+
+                activeRequiredDocumentKey = row.dataset.requiredDocKey || '';
+                requiredDocumentFlowRoot.dispatchEvent(new CustomEvent('required-document:open', {
+                    bubbles: false,
+                    detail: {
+                        key: row.dataset.requiredDocKey || '',
+                        name: row.dataset.requiredDocName || '',
+                        documentType: row.dataset.requiredDocType || '',
+                        tag: row.dataset.requiredDocTag || '',
+                        isGit: false,
+                        repositoryUrl: '',
+                    },
+                }));
+                return;
+            }
+
+            const cancelButton = event.target.closest('[data-required-doc-git-cancel]');
+            if (cancelButton) {
+                const editorRow = cancelButton.closest('[data-required-doc-git-editor-row]');
+                if (editorRow) {
+                    editorRow.classList.remove('is-open');
+                    const error = editorRow.querySelector('[data-required-doc-git-error]');
+                    if (error) error.hidden = true;
+                }
+                return;
+            }
+
+            const saveButton = event.target.closest('[data-required-doc-git-save]');
+            if (!saveButton) return;
+
+            const editorRow = saveButton.closest('[data-required-doc-git-editor-row]');
+            if (!editorRow) return;
+            const key = editorRow.dataset.requiredDocKey || '';
+            const targetRow = requiredDocumentsRoot.querySelector(`[data-required-document-row][data-required-doc-key="${selectorSafeValue(key)}"]`);
+            if (!targetRow) return;
+            const input = editorRow.querySelector('[data-required-doc-git-input]');
+            const error = editorRow.querySelector('[data-required-doc-git-error]');
+            const value = (input?.value || '').trim();
+            const valid = /^https?:\/\//i.test(value);
+            let parsedUrl = null;
+            try {
+                parsedUrl = new URL(value);
+            } catch (_error) {
+                parsedUrl = null;
+            }
+            if (!valid || !parsedUrl) {
+                if (error) {
+                    error.hidden = false;
+                }
+                return;
+            }
+            if (error) {
+                error.hidden = true;
+            }
+
+            const projectId = <?= (int) ($project['id'] ?? 0) ?>;
+            if (saveButton.dataset.loading === '1') return;
+            saveButton.dataset.loading = '1';
+            saveButton.disabled = true;
+            const previousLabel = saveButton.textContent;
+            saveButton.textContent = 'Guardando...';
+
+            const formData = new FormData();
+            formData.append('repository_url', value);
+            fetch(`<?= $basePath ?>/projects/${projectId}/required-documents/git`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData,
+            })
+                .then((response) => response.json())
+                .then((payload) => {
+                    if (!payload.success) {
+                        throw new Error(payload.message || 'No se pudo guardar el repositorio.');
+                    }
+                    targetRow.dataset.requiredDocUrl = value;
+                    setRequiredDocumentRowCompleted(targetRow, { repositoryUrl: value });
+                    editorRow.classList.remove('is-open');
+                })
+                .catch((requestError) => {
+                    if (error) {
+                        error.hidden = false;
+                        error.textContent = requestError.message || 'Ingresa una URL válida';
+                    }
+                })
+                .finally(() => {
+                    saveButton.dataset.loading = '0';
+                    saveButton.disabled = false;
+                    saveButton.textContent = previousLabel;
+                });
+        });
+
+        document.addEventListener('required-document:uploaded', (event) => {
+            const detail = event.detail || {};
+            const key = String(detail.key || activeRequiredDocumentKey || '');
+            if (!key) return;
+            const row = requiredDocumentsRoot.querySelector(`[data-required-document-row][data-required-doc-key="${selectorSafeValue(key)}"]`);
+            if (!row) return;
+            setRequiredDocumentRowCompleted(row, {
+                recordedBy: detail.recordedBy || undefined,
+                recordedDate: detail.recordedDate || undefined,
+            });
+            activeRequiredDocumentKey = '';
+        });
+    }
 
     const toggleProgressModal = (open) => {
         if (!progressModal) return;
@@ -1947,21 +2218,60 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .progress-history { display:flex; }
     .history-card { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; width:100%; }
     .history-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-    .required-documents-block { border:1px solid var(--border); border-radius:16px; padding:16px; background: var(--surface); display:flex; flex-direction:column; gap:14px; margin-bottom:14px; }
-    .required-documents-block__header h3 { margin:4px 0; }
-    .required-documents-progress { display:flex; flex-direction:column; gap:6px; }
-    .required-documents-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
-    .required-doc-card { border:1px solid var(--border); border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px; background: color-mix(in srgb, var(--surface) 92%, var(--background)); }
-    .required-doc-card__top { display:flex; justify-content:space-between; align-items:center; }
-    .required-doc-card__icon { font-size:20px; }
-    .required-doc-card__body strong { display:block; margin-bottom:4px; color: var(--text-primary); }
-    .required-doc-card__body small { color: var(--text-secondary); }
-    .required-doc-card__actions { display:flex; flex-direction:column; gap:8px; }
-    .required-doc-card__meta { display:flex; flex-direction:column; gap:4px; }
-    .required-doc-card__meta span,
-    .required-doc-card__meta a { font-size:12px; color: var(--text-primary); word-break:break-word; }
-    .required-doc-card__meta small { font-size:11px; color: var(--text-secondary); }
-    .required-documents-divider { height:1px; background: var(--border); margin: 2px 0 16px; }
+    .required-documents-block { border:1px solid var(--border); border-radius:16px; padding:14px; background: var(--surface); display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+    .required-documents-block__header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .required-documents-block__header h3 { margin:0; font-size:15px; font-weight:600; }
+    .required-documents-block__summary { display:flex; align-items:center; gap:10px; font-size:12px; color: var(--text-secondary); }
+    .required-documents-progress--compact { width:120px; height:6px; }
+    .required-documents-progress--compact div { background: var(--success); }
+    .required-documents-table-wrap { width:100%; overflow-x:auto; }
+    .required-documents-table { width:100%; border-collapse:collapse; }
+    .required-documents-table thead th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: var(--text-secondary); text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+    .required-documents-table tbody td { padding:9px 10px; border-bottom:1px solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align:middle; font-size:13px; color: var(--text-primary); }
+    .required-documents-table tbody tr:last-child td { border-bottom:none; }
+    .required-doc-table__document { min-width:280px; }
+    .required-doc-name { display:block; font-size:14px; font-weight:500; color: var(--text-primary); line-height:1.25; }
+    .required-doc-description { display:block; margin-top:2px; font-size:12px; color: var(--text-secondary); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .required-doc-description--link { color: var(--primary); text-decoration:none; }
+    .required-doc-description--link:hover { text-decoration:underline; }
+    .required-doc-state { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; position:relative; }
+    .required-doc-state--pending { border:2px solid #f59e0b; background:transparent; }
+    .required-doc-state--completed { border:2px solid var(--success); background: var(--success); }
+    .required-doc-state--completed::after { content:'✓'; color:#fff; font-size:11px; line-height:1; font-weight:700; }
+    .required-doc-action { border:1px solid; border-radius:8px; background:#fff; padding:4px 10px; font-size:12px; font-weight:600; line-height:1.2; cursor:pointer; white-space:nowrap; }
+    .required-doc-action--pending { border-color: var(--primary); color: var(--primary); }
+    .required-doc-action--completed { border-color: var(--border); color: var(--text-secondary); }
+    .required-doc-action--save { border-color: var(--primary); background: var(--primary); color:#fff; }
+    .required-doc-git-editor-row td { padding:0; border-bottom:none; }
+    .required-doc-git-editor {
+        max-height:0;
+        opacity:0;
+        overflow:hidden;
+        padding:0 10px;
+        border:0 solid transparent;
+        border-radius:10px;
+        background: color-mix(in srgb, var(--text-secondary) 6%, var(--background));
+        transition:max-height .22s ease, opacity .2s ease, padding .2s ease, border-width .2s ease;
+    }
+    .required-doc-git-editor-row.is-open td { padding:0 10px 10px; }
+    .required-doc-git-editor-row.is-open .required-doc-git-editor {
+        max-height:140px;
+        opacity:1;
+        padding:10px;
+        border-width:1px;
+        border-color:var(--border);
+    }
+    .required-doc-git-editor-row.is-open .required-doc-git-editor { animation: required-doc-row-expand .18s ease-out; }
+    .required-doc-git-editor__controls { display:flex; gap:8px; align-items:center; }
+    .required-doc-git-editor__controls input { flex:1; min-width:220px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:13px; }
+    .required-doc-git-error { margin:6px 0 0; font-size:12px; color: var(--danger); }
+    @keyframes required-doc-row-expand {
+        from { opacity:0; transform: translateY(-4px); }
+        to { opacity:1; transform: translateY(0); }
+    }
+    .required-documents-divider { position:relative; height:22px; margin: 2px 0 16px; }
+    .required-documents-divider::before { content:''; position:absolute; left:0; right:0; top:50%; height:1px; background: color-mix(in srgb, var(--border) 80%, transparent); }
+    .required-documents-divider span { position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); padding:0 10px; background: var(--background); font-size:12px; letter-spacing:.08em; color: var(--text-secondary); text-transform:uppercase; }
     .project-layout { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
     .phase-sidebar { border:1px solid var(--border); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:12px; max-height:72vh; overflow:auto; }
     .phase-sidebar__header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -2076,7 +2386,9 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .notes-entry { padding:12px; border-radius:12px; border:1px solid var(--border); background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:8px; }
     .notes-entry strong { color: var(--text-primary); }
     @media (max-width: 960px) {
-        .required-documents-grid { grid-template-columns: 1fr; }
+        .required-documents-block__header { align-items:flex-start; flex-direction:column; }
+        .required-documents-block__summary { width:100%; justify-content:space-between; }
+        .required-doc-git-editor__controls { flex-wrap:wrap; }
         .project-layout { grid-template-columns: 1fr; }
         .phase-sidebar { max-height:none; }
     }

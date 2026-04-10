@@ -535,7 +535,19 @@ class ProjectsController extends Controller
         }
 
         $activities = $this->normalizeScheduleActivities($decoded);
-        (new ProjectSchedulesRepository($this->db))->replaceActivities($id, $activities);
+        $scheduleRepo = new ProjectSchedulesRepository($this->db);
+        $hadActivities = $scheduleRepo->hasActivities($id);
+        $scheduleRepo->replaceActivities($id, $activities);
+        (new AuditLogRepository($this->db))->log(
+            (int) ($this->auth->user()['id'] ?? 0),
+            'project_schedule',
+            $id,
+            $hadActivities ? 'updated' : 'created',
+            [
+                'source' => 'manual_editor',
+                'activities_count' => count($activities),
+            ]
+        );
         header('Location: /projects/' . $id . '?view=cronograma');
     }
 
@@ -589,11 +601,23 @@ class ProjectsController extends Controller
         }
 
         $scheduleRepo = new ProjectSchedulesRepository($this->db);
+        $hadActivities = $scheduleRepo->hasActivities($id);
         if ($mode === 'merge') {
             $scheduleRepo->mergeActivities($id, $validated['activities']);
         } else {
             $scheduleRepo->replaceActivities($id, $validated['activities']);
         }
+        (new AuditLogRepository($this->db))->log(
+            (int) ($this->auth->user()['id'] ?? 0),
+            'project_schedule',
+            $id,
+            $hadActivities ? 'updated' : 'created',
+            [
+                'source' => 'excel_import',
+                'mode' => $mode === 'merge' ? 'merge' : 'replace',
+                'activities_count' => count($validated['activities']),
+            ]
+        );
 
         $this->json(['status' => 'ok']);
     }
@@ -1588,8 +1612,8 @@ class ProjectsController extends Controller
 
         try {
             $url = trim((string) ($_POST['repository_url'] ?? ''));
-            if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
-                throw new \InvalidArgumentException('Ingresa una URL de repositorio válida.');
+            if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+                throw new \InvalidArgumentException('Ingresa una URL válida');
             }
 
             $nodesRepo = new ProjectNodesRepository($this->db);
@@ -2098,6 +2122,30 @@ class ProjectsController extends Controller
         $scheduleRepo = new ProjectSchedulesRepository($this->db);
         $scheduleActivities = $scheduleRepo->activitiesForProject($id);
         $scheduleSummary = $scheduleRepo->summary($id);
+        $scheduleAudit = (new AuditLogRepository($this->db))->listForEntity('project_schedule', $id, 200);
+        $scheduleCreatedBy = null;
+        $scheduleCreatedAt = null;
+        if (!empty($scheduleAudit)) {
+            $chronological = array_reverse($scheduleAudit);
+            foreach ($chronological as $entry) {
+                if (($entry['action'] ?? '') !== 'created') {
+                    continue;
+                }
+                $scheduleCreatedBy = isset($entry['user_id']) ? (int) $entry['user_id'] : null;
+                $scheduleCreatedAt = (string) ($entry['created_at'] ?? '');
+                break;
+            }
+            if (!$scheduleCreatedAt) {
+                $firstAudit = $chronological[0] ?? null;
+                if (is_array($firstAudit)) {
+                    $scheduleCreatedBy = isset($firstAudit['user_id']) ? (int) $firstAudit['user_id'] : null;
+                    $scheduleCreatedAt = (string) ($firstAudit['created_at'] ?? '');
+                }
+            }
+        }
+        if (!$scheduleCreatedAt && !empty($scheduleActivities)) {
+            $scheduleCreatedAt = (string) ($scheduleActivities[0]['created_at'] ?? $scheduleActivities[0]['updated_at'] ?? '');
+        }
         $pmoSnapshot = [];
         $pmoAlerts = [];
         $pmoHoursTrend = [];
@@ -2167,6 +2215,8 @@ class ProjectsController extends Controller
             'tasksForSchedule' => $tasksForSchedule,
             'scheduleActivities' => $scheduleActivities,
             'scheduleSummary' => $scheduleSummary,
+            'scheduleCreatedBy' => $scheduleCreatedBy,
+            'scheduleCreatedAt' => $scheduleCreatedAt ?: null,
             'pmoSnapshot' => $pmoSnapshot,
             'pmoAlerts' => $pmoAlerts,
             'pmoHoursTrend' => $pmoHoursTrend,
