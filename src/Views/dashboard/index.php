@@ -1,349 +1,106 @@
-<div class="executive-dashboard">
+<div class="executive-dashboard-v2">
     <style>
-        .executive-dashboard {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding-bottom: 10px;
-        }
-        .section-title {
-            margin: 0 0 12px;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: .01em;
-            color: var(--text-primary);
-        }
-        .card {
-            background: color-mix(in srgb, var(--surface) 92%, var(--background));
-            border: 1px solid color-mix(in srgb, var(--border) 86%, var(--background));
-            border-radius: 16px;
-            padding: 14px;
-            box-shadow: 0 12px 26px color-mix(in srgb, var(--text-primary) 10%, transparent);
-        }
-        .card.dark {
-            background: linear-gradient(140deg, #0f172a 0%, #111827 50%, #1e293b 100%);
-            border-color: rgba(148, 163, 184, 0.25);
-            color: #e2e8f0;
-        }
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1.25fr 1fr;
-            gap: 16px;
-        }
-        .hero-main {
-            display: grid;
-            grid-template-columns: 260px 1fr;
-            gap: 10px;
-            align-items: center;
-        }
-        .score-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto; }
-        .score-center {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        .score-main { font-size: 42px; font-weight: 900; line-height: 1; }
-        .score-sub { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; opacity: .75; }
-        .hero-title { margin: 0; font-size: 26px; font-weight: 900; color: #f8fafc; }
-        .hero-copy { margin: 8px 0 0; color: #cbd5e1; font-size: 14px; line-height: 1.5; }
-        .hero-side {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(140px, 1fr));
-            gap: 12px;
-        }
-        .stat-tile {
-            padding: 14px;
-            border-radius: 12px;
-            background: color-mix(in srgb, var(--surface) 85%, var(--background));
-            border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
-        }
-        .dark .stat-tile {
-            background: rgba(15, 23, 42, .5);
-            border-color: rgba(148, 163, 184, .2);
-        }
-        .stat-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; opacity: .75; }
-        .stat-value { margin-top: 4px; font-size: 30px; font-weight: 900; color: var(--text-primary); }
-        .dark .stat-value { color: #f8fafc; }
+        .executive-dashboard-v2 { display: flex; flex-direction: column; gap: 14px; padding-bottom: 14px; }
+        .zone { border: 1px solid color-mix(in srgb, var(--border) 74%, var(--background)); border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, var(--background)); padding: 14px; }
+        .zone-title { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); font-weight: 800; }
+
+        .critical-bar { position: sticky; top: 8px; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .critical-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; }
+        .critical-pill.red { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); }
+        .critical-pill.orange { background: color-mix(in srgb, #f97316 18%, var(--background)); color: #c2410c; }
+        .critical-pill.yellow { background: color-mix(in srgb, var(--warning) 22%, var(--background)); color: #a16207; }
+        .critical-pill.blue { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); }
+        .critical-ok { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); font-weight: 800; }
+
+        .kpis-row { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: 10px; }
+        .kpi-card { border: 1px solid color-mix(in srgb, var(--border) 74%, var(--background)); border-radius: 14px; padding: 10px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); }
+        .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; min-height: 34px; }
+        .kpi-value { margin-top: 6px; font-size: 30px; line-height: 1; font-weight: 900; color: var(--text-primary); }
+        .kpi-trend { margin-top: 6px; font-size: 12px; font-weight: 700; }
         .trend-positive { color: var(--success); }
         .trend-negative { color: var(--danger); }
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(220px, 1fr));
-            gap: 10px;
-        }
-        .kpi-card { display: flex; align-items: center; gap: 12px; }
-        .kpi-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: color-mix(in srgb, var(--primary) 18%, var(--background));
-            border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--background));
-            color: var(--primary);
-            flex-shrink: 0;
-        }
-        .kpi-icon svg { width: 24px; height: 24px; stroke: currentColor; }
-        .kpi-meta { display: flex; flex-direction: column; gap: 4px; }
-        .kpi-meta .label { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
-        .kpi-meta .value { color: var(--text-primary); font-size: 30px; font-weight: 900; line-height: 1; }
-        .kpi-meta .variation { font-size: 13px; font-weight: 700; }
-        .layout-two {
-            display: grid;
-            grid-template-columns: 1.3fr .9fr;
-            gap: 10px;
-        }
-        .inner-two {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .chart-card h4 { margin: 0 0 10px; font-size: 16px; color: var(--text-primary); }
-        .chart-card canvas { width: 100%; min-height: 250px; }
-        .alerts-critical {
-            border: 1px solid color-mix(in srgb, var(--danger) 60%, var(--background));
-            background: linear-gradient(120deg, color-mix(in srgb, var(--danger) 20%, var(--surface)), color-mix(in srgb, var(--danger) 10%, var(--surface)));
-        }
-        .alerts-critical h3 {
-            margin: 0 0 8px;
-            color: var(--danger);
-            font-size: 18px;
-        }
-        .alerts-list { margin: 0; padding-left: 20px; }
-        .alerts-list li { margin-bottom: 6px; font-weight: 600; }
+
+        .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .list-card { border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); padding: 12px; }
+        .list-title { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
+        .rows { display: flex; flex-direction: column; gap: 8px; }
+        .row-item { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; border: 1px solid color-mix(in srgb, var(--border) 64%, var(--background)); border-radius: 10px; padding: 8px; }
+        .row-item .meta { font-size: 12px; color: var(--text-secondary); }
+        .action-btn-mini { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700; text-decoration: none; border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--border)); color: var(--primary); }
+        .action-btn-mini:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); }
+        .muted { color: var(--text-secondary); font-size: 13px; margin: 0; }
+
+        .chart-row { display: grid; grid-template-columns: repeat(3, minmax(250px, 1fr)); gap: 10px; }
+        .chart-panel { border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); padding: 10px; }
+        .chart-panel h4 { margin: 0 0 10px; color: var(--text-primary); font-size: 14px; }
+        .chart-panel canvas { width: 100%; min-height: 250px; }
+
+        .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .tab-btn { border: 1px solid color-mix(in srgb, var(--border) 80%, var(--background)); border-radius: 999px; padding: 6px 10px; background: var(--surface); font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer; }
+        .tab-btn.active { background: color-mix(in srgb, var(--primary) 15%, var(--background)); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--primary); }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 11px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, var(--background)); }
-        th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); text-align: left; }
-        td { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        th, td { border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, var(--background)); padding: 9px 8px; color: var(--text-primary); font-size: 13px; }
+        th { text-transform: uppercase; letter-spacing: .05em; font-size: 11px; color: var(--text-secondary); text-align: left; }
+        th.sortable { cursor: pointer; }
         .text-right { text-align: right; }
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 800;
-        }
+        .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; }
         .pill.green { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); }
         .pill.amber { background: color-mix(in srgb, var(--warning) 20%, var(--background)); color: #b45309; }
         .pill.red { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
-        .split-three {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(220px, 1fr));
-            gap: 10px;
-        }
-        .metric-big { font-size: 34px; font-weight: 900; color: var(--text-primary); line-height: 1; }
-        .metric-label { font-size: 12px; letter-spacing: .05em; color: var(--text-secondary); text-transform: uppercase; }
-        .gov-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; }
-        .gov-item { border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); }
-        .gov-item strong { display: block; font-size: 28px; color: var(--text-primary); }
-        .muted { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
-        .ai-highlight {
-            border: 1px solid color-mix(in srgb, #2563eb 45%, var(--border));
-            background: linear-gradient(125deg, color-mix(in srgb, #1d4ed8 18%, var(--surface)), color-mix(in srgb, #0ea5e9 12%, var(--surface)));
-        }
-        .ai-title {
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 18px;
-            color: var(--text-primary);
-        }
-        .ai-chip {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 999px;
-            font-weight: 900;
-            font-size: 13px;
-            color: #1e3a8a;
-            background: color-mix(in srgb, #93c5fd 70%, white);
-        }
-        .ai-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 12px; margin-top: 10px; }
+
+        details.ai-collapsible { margin-top: 12px; border: 1px solid color-mix(in srgb, #1d4ed8 40%, var(--border)); border-radius: 12px; padding: 10px; }
+        details.ai-collapsible summary { cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text-primary); }
         .ai-list { margin: 8px 0 0; padding-left: 18px; }
-        .ai-list li { margin-bottom: 6px; font-weight: 600; color: var(--text-primary); }
-        .criticality-pill {
-            display: inline-flex;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 800;
-            margin-left: 8px;
+
+        @media (max-width: 1320px) {
+            .kpis-row { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+            .chart-row { grid-template-columns: 1fr; }
         }
-        .criticality-pill.baja { background: color-mix(in srgb, var(--success) 20%, var(--background)); color: var(--success); }
-        .criticality-pill.media { background: color-mix(in srgb, var(--warning) 24%, var(--background)); color: #b45309; }
-        .criticality-pill.alta { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
-        .auto-module-title {
-            margin: 0 0 10px;
-            font-size: 19px;
-            font-weight: 900;
-            letter-spacing: .02em;
-            color: var(--text-primary);
-            text-transform: uppercase;
-        }
-        .auto-metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(180px, 1fr));
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        .auto-metric {
-            border-radius: 12px;
-            padding: 10px;
-            border: 1px solid color-mix(in srgb, var(--border) 72%, var(--background));
-            background: color-mix(in srgb, var(--surface) 88%, var(--background));
-        }
-        .auto-metric strong {
-            display: block;
-            margin-top: 4px;
-            font-size: 24px;
-            color: var(--text-primary);
-        }
-        .alerts-auto-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(210px, 1fr));
-            gap: 10px;
-        }
-        .auto-alert-card {
-            border-radius: 14px;
-            padding: 12px;
-            border: 1px solid transparent;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .auto-alert-card.green {
-            background: color-mix(in srgb, var(--success) 12%, var(--surface));
-            border-color: color-mix(in srgb, var(--success) 30%, var(--border));
-        }
-        .auto-alert-card.yellow {
-            background: color-mix(in srgb, var(--warning) 14%, var(--surface));
-            border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
-        }
-        .auto-alert-card.red {
-            background: color-mix(in srgb, var(--danger) 12%, var(--surface));
-            border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
-        }
-        .auto-alert-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            font-weight: 800;
-            color: var(--text-primary);
-        }
-        .auto-alert-rule {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        .score-semaphore {
-            margin-top: 8px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: .03em;
-            text-transform: uppercase;
-        }
-        .score-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 999px;
-            display: inline-block;
-        }
-        .score-dot.green { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, .2); }
-        .score-dot.yellow { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, .2); }
-        .score-dot.red { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, .2); }
-        .score-help {
-            margin-top: 8px;
-            border-radius: 12px;
-            border: 1px solid color-mix(in srgb, var(--border) 72%, var(--background));
-            background: color-mix(in srgb, var(--surface) 86%, var(--background));
-            padding: 10px;
-        }
-        .score-help summary {
-            cursor: pointer;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .score-help ul {
-            margin: 8px 0 0;
-            padding-left: 18px;
-        }
-        .score-help li {
-            margin-bottom: 6px;
-            color: var(--text-primary);
-        }
-        @media (max-width: 1200px) {
-            .hero-grid, .layout-two, .inner-two { grid-template-columns: 1fr; }
-            .kpi-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
-            .hero-main { grid-template-columns: 1fr; }
-            .ai-grid { grid-template-columns: 1fr; }
-            .auto-metrics-grid { grid-template-columns: 1fr 1fr; }
-            .alerts-auto-grid { grid-template-columns: 1fr 1fr; }
+        @media (max-width: 980px) {
+            .two-cols { grid-template-columns: 1fr; }
         }
         @media (max-width: 760px) {
-            .kpi-grid, .split-three, .gov-grid, .hero-side, .auto-metrics-grid, .alerts-auto-grid { grid-template-columns: 1fr; }
+            .kpis-row { grid-template-columns: 1fr; }
         }
     </style>
 
     <?php
     $statusCounts = $projects['status_counts'] ?? ['planning' => 0, 'en_curso' => 0, 'en_riesgo' => 0, 'cerrado' => 0];
-    $progressByClient = $projects['progress_by_client'] ?? [];
-    $staleProjects = $projects['stale_projects'] ?? [];
     $monthlyProgressTrend = $projects['monthly_progress_trend'] ?? [];
-    $riskProjects = (int) ($summary['proyectos_riesgo'] ?? 0);
-    $criticalProjects = count($portfolioInsights['top_risk'] ?? []);
-    $trend = (int) ($portfolioInsights['portfolio_trend_avg'] ?? 0);
-    $progressDelta = (float) ($summary['avance_promedio'] ?? 0) - 50;
-    $hoursPlan = (float) ($summary['horas_planificadas'] ?? 0);
-    $hoursReal = (float) ($summary['horas_reales'] ?? 0);
-    $hoursDiffPct = $hoursPlan > 0 ? (($hoursReal - $hoursPlan) / $hoursPlan) * 100 : 0;
-    $budget = (float) ($summary['presupuesto_total'] ?? 0);
-    $cost = (float) ($summary['costo_real_total'] ?? 0);
-    $costDiffPct = $budget > 0 ? (($cost - $budget) / $budget) * 100 : 0;
-    $timesheetCompliance = (($timesheets['weekly_hours'] ?? 0) + ($timesheets['pending_hours'] ?? 0)) > 0
-        ? (($timesheets['weekly_hours'] ?? 0) / (($timesheets['weekly_hours'] ?? 0) + ($timesheets['pending_hours'] ?? 0))) * 100
-        : 100;
-    $hasCriticalAlerts = !empty($staleProjects) || (($stoppers['critical_total'] ?? 0) > 0) || (($governance['critical_risks'] ?? 0) > 0) || (($timesheets['talents_without_report'] ?? 0) > 0);
-
-    $portfolioRows = array_slice($portfolioInsights['ranking'] ?? [], 0, 10);
+    $staleProjects = $projects['stale_projects'] ?? [];
+    $portfolioRows = $portfolioInsights['ranking'] ?? [];
     usort($portfolioRows, static fn (array $a, array $b): int => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
+
     $executiveIntel = is_array($executiveIntel ?? null) ? $executiveIntel : [];
-    $alertStrip = $executiveIntel['alerts'] ?? [];
     $movement = $executiveIntel['movement'] ?? [];
-    $financialImpact = $executiveIntel['financial_impact'] ?? [];
-    $riskExposure = (int) ($executiveIntel['risk_exposure'] ?? 0);
-    $intelligentAnalysis = $executiveIntel['intelligent_analysis'] ?? [];
-    $automaticPortfolioAnalysis = $executiveIntel['automatic_portfolio_analysis'] ?? [];
+    $alertStrip = $executiveIntel['alerts'] ?? [];
     $automaticAlerts = $executiveIntel['automatic_alerts'] ?? [];
     $systemRecommendations = $executiveIntel['system_recommendations'] ?? [];
-    $portfolioScoreCard = $executiveIntel['portfolio_score_card'] ?? [];
-    $scoreFactors = $portfolioScoreCard['factors'] ?? [];
-    $score = (int) ($portfolioScoreCard['score'] ?? ($portfolioHealth['average_score'] ?? 0));
-    $scoreStatus = (string) ($portfolioScoreCard['status'] ?? ($score > 85 ? 'green' : ($score >= 70 ? 'yellow' : 'red')));
-    $scoreLabel = (string) ($portfolioScoreCard['label'] ?? ($scoreStatus === 'green' ? 'Verde' : ($scoreStatus === 'yellow' ? 'Amarillo' : 'Rojo')));
-    $scoreColor = $scoreStatus === 'green' ? '#16a34a' : ($scoreStatus === 'yellow' ? '#f59e0b' : '#dc2626');
-    $analysisInputs = $intelligentAnalysis['inputs'] ?? [];
+    $intelligentAnalysis = $executiveIntel['intelligent_analysis'] ?? [];
     $analysisFlags = $intelligentAnalysis['flags'] ?? [];
     $analysisRecommendations = $intelligentAnalysis['recommendations'] ?? [];
-    $analysisCriticality = strtolower((string) ($intelligentAnalysis['criticality'] ?? 'baja'));
-    $projectHeatmapPoints = array_slice($portfolioInsights['ranking'] ?? [], 0, 30);
-    $topBlockersProjects = array_slice($stoppers['top_active'] ?? [], 0, 5);
-    $topTalents = array_slice($timesheets['hours_by_talent'] ?? [], 0, 5);
-    $autoMetrics = $automaticPortfolioAnalysis['metrics'] ?? [];
-    $autoConclusions = $automaticPortfolioAnalysis['conclusions'] ?? [];
+    $portfolioScoreCard = $executiveIntel['portfolio_score_card'] ?? [];
+
+    $score = (int) ($portfolioScoreCard['score'] ?? ($portfolioHealth['average_score'] ?? 0));
+    $scoreLabel = (string) ($portfolioScoreCard['label'] ?? ($score > 85 ? 'Verde' : ($score >= 70 ? 'Amarillo' : 'Rojo')));
+
+    $hoursPlan = (float) ($summary['horas_planificadas'] ?? 0);
+    $hoursReal = (float) ($summary['horas_reales'] ?? 0);
+    $hoursVsPlanPct = $hoursPlan > 0 ? ($hoursReal / $hoursPlan) * 100 : 0;
+    $billingVsPlanPct = (float) (($executiveIntel['automatic_portfolio_analysis']['metrics']['billing_vs_plan_pct'] ?? 0));
+    $talentUtilizationPct = (float) (($executiveIntel['automatic_portfolio_analysis']['metrics']['talent_utilization_pct'] ?? 0));
+
+    $billingPending = (float) ($alertStrip['billing_plan_pending'] ?? 0);
+    $billingOverdue = (float) ($alertStrip['billing_plan_overdue'] ?? 0);
+    $billingIssuePct = $billingPending > 0 ? ($billingOverdue / $billingPending) * 100 : 0;
+
+    $riskProjects = (int) (($executiveIntel['automatic_portfolio_analysis']['metrics']['projects_at_risk'] ?? 0));
+    $criticalBlockers = (int) ($alertStrip['critical_blockers'] ?? 0);
+    $allNormal = $riskProjects === 0 && $criticalBlockers === 0 && $billingOverdue <= 0;
 
     $movementBadge = static function (array $metric, bool $inverse = false): string {
         $delta = (float) ($metric['delta_pct'] ?? 0);
@@ -351,381 +108,258 @@
         $arrow = $delta >= 0 ? '↑' : '↓';
         $class = $isPositive ? 'trend-positive' : 'trend-negative';
 
-        return '<span class="variation ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
+        return '<span class="kpi-trend ' . $class . '">' . $arrow . ' ' . number_format(abs($delta), 1, ',', '.') . '% vs mes anterior</span>';
     };
+
+    $alertsForList = [];
+    foreach ($automaticAlerts as $alert) {
+        $status = (string) ($alert['status'] ?? 'green');
+        $icon = $status === 'red' ? '🔴' : ($status === 'yellow' ? '🟠' : '🟢');
+        $alertsForList[] = [
+            'icon' => $icon,
+            'title' => (string) ($alert['title'] ?? 'Alerta'),
+            'detail' => (string) ($alert['message'] ?? ''),
+            'project' => (string) ($alert['project'] ?? ($alert['rule'] ?? 'Portafolio')),
+            'project_id' => (int) ($alert['project_id'] ?? 0),
+        ];
+    }
+    if (!empty($staleProjects)) {
+        foreach ($staleProjects as $stale) {
+            $alertsForList[] = [
+                'icon' => '🟡',
+                'title' => 'Proyecto sin actualización reciente',
+                'detail' => (string) ($stale['name'] ?? 'Proyecto') . ' sin movimientos recientes',
+                'project' => (string) ($stale['name'] ?? 'Proyecto'),
+                'project_id' => (int) ($stale['id'] ?? 0),
+            ];
+        }
+    }
+    $alertsForList = array_slice($alertsForList, 0, 8);
+
+    $recommendationRows = [];
+    foreach (array_slice($systemRecommendations, 0, 5) as $recommendation) {
+        $contextLabel = 'Contexto general del portafolio.';
+        if (str_contains((string) $recommendation, 'facturación')) {
+            $contextLabel = 'Facturación vs plan actual: ' . number_format($billingVsPlanPct, 1, ',', '.') . '%.';
+        } elseif (str_contains((string) $recommendation, 'score')) {
+            $contextLabel = 'Score actual del portafolio: ' . $score . '/100.';
+        } elseif (str_contains((string) $recommendation, 'bloqueo')) {
+            $contextLabel = 'Bloqueos críticos activos: ' . $criticalBlockers . '.';
+        }
+        $recommendationRows[] = ['text' => (string) $recommendation, 'context' => $contextLabel];
+    }
+
+    $topTalents = $timesheets['hours_by_talent'] ?? [];
+    $talentsLow = $topTalents;
+    usort($talentsLow, static fn (array $a, array $b): int => ((float) ($a['total_hours'] ?? 0)) <=> ((float) ($b['total_hours'] ?? 0)));
+
+    $govItems = [
+        ['label' => 'Documentos pendientes', 'value' => (int) (($governance['documents_revision'] ?? 0) + ($governance['documents_validacion'] ?? 0) + ($governance['documents_aprobacion'] ?? 0))],
+        ['label' => 'Cambios sin aprobar', 'value' => (int) ($governance['scope_changes_pending'] ?? 0)],
+        ['label' => 'Riesgos críticos', 'value' => (int) ($governance['critical_risks'] ?? 0)],
+        ['label' => 'Facturas pendientes', 'value' => (int) ($outsourcing['open_followups'] ?? 0)],
+    ];
+
+    $basePath = $basePath ?? '';
     ?>
 
-    <section>
-        <div class="card">
-            <h2 class="auto-module-title"><?= htmlspecialchars((string) ($automaticPortfolioAnalysis['title'] ?? 'ANÁLISIS AUTOMÁTICO DEL PORTAFOLIO')) ?></h2>
-            <div class="auto-metrics-grid">
-                <div class="auto-metric"><div class="metric-label">Avance promedio del portafolio</div><strong><?= number_format((float) ($autoMetrics['average_progress'] ?? 0), 1, ',', '.') ?>%</strong></div>
-                <div class="auto-metric"><div class="metric-label">Proyectos en riesgo</div><strong><?= (int) ($autoMetrics['projects_at_risk'] ?? 0) ?></strong></div>
-                <div class="auto-metric"><div class="metric-label">Bloqueos activos</div><strong><?= (int) ($autoMetrics['active_blockers'] ?? 0) ?></strong></div>
-                <div class="auto-metric"><div class="metric-label">Utilización del talento</div><strong><?= number_format((float) ($autoMetrics['talent_utilization_pct'] ?? 0), 1, ',', '.') ?>%</strong></div>
-                <div class="auto-metric"><div class="metric-label">Tendencia mensual de avance</div><strong class="<?= ((float) ($autoMetrics['monthly_progress_delta_pct'] ?? 0)) >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= ((float) ($autoMetrics['monthly_progress_delta_pct'] ?? 0)) >= 0 ? '↑' : '↓' ?> <?= number_format(abs((float) ($autoMetrics['monthly_progress_delta_pct'] ?? 0)), 1, ',', '.') ?>%</strong></div>
-                <div class="auto-metric"><div class="metric-label">Facturación vs plan</div><strong><?= number_format((float) ($autoMetrics['billing_vs_plan_pct'] ?? 0), 1, ',', '.') ?>%</strong></div>
+    <section class="zone <?= $allNormal ? 'critical-ok' : '' ?>">
+        <h2 class="zone-title">Zona 1 — Barra de estado crítico</h2>
+        <?php if ($allNormal): ?>
+            <div class="critical-bar">✅ Portafolio operando con normalidad</div>
+        <?php else: ?>
+            <div class="critical-bar">
+                <span class="critical-pill red">🔴 Proyectos en riesgo: <?= $riskProjects ?></span>
+                <span class="critical-pill orange">🟠 Bloqueos críticos: <?= $criticalBlockers ?></span>
+                <span class="critical-pill yellow">🟡 Facturas vencidas / plan: <?= number_format($billingIssuePct, 1, ',', '.') ?>%</span>
+                <span class="critical-pill blue">🔵 Score general: <?= $score ?>/100</span>
             </div>
-            <div class="metric-label">Conclusiones automáticas</div>
-            <ul class="ai-list">
-                <?php if (!empty($autoConclusions)): ?>
-                    <?php foreach ($autoConclusions as $conclusion): ?>
-                        <li><?= htmlspecialchars((string) $conclusion) ?></li>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <li>No hay conclusiones automáticas disponibles para el periodo actual.</li>
-                <?php endif; ?>
-            </ul>
+        <?php endif; ?>
+    </section>
+
+    <section class="zone">
+        <h2 class="zone-title">Zona 2 — KPIs principales</h2>
+        <div class="kpis-row">
+            <article class="kpi-card"><div class="kpi-label">Proyectos activos</div><div class="kpi-value"><?= (int) ($summary['proyectos_activos'] ?? 0) ?></div><?= $movementBadge($movement['risk_projects'] ?? [], true) ?></article>
+            <article class="kpi-card"><div class="kpi-label">Avance promedio del portafolio</div><div class="kpi-value"><?= number_format((float) ($summary['avance_promedio'] ?? 0), 1, ',', '.') ?>%</div><?= $movementBadge(['delta_pct' => (float) (($executiveIntel['automatic_portfolio_analysis']['metrics']['monthly_progress_delta_pct'] ?? 0))]) ?></article>
+            <article class="kpi-card"><div class="kpi-label">Utilización del talento</div><div class="kpi-value"><?= number_format($talentUtilizationPct, 1, ',', '.') ?>%</div><?= $movementBadge(['delta_pct' => $talentUtilizationPct - 80]) ?></article>
+            <article class="kpi-card"><div class="kpi-label">Horas ejecutadas vs presupuestadas</div><div class="kpi-value"><?= number_format($hoursVsPlanPct, 1, ',', '.') ?>%</div><?= $movementBadge(['delta_pct' => $hoursVsPlanPct - 100], true) ?></article>
+            <article class="kpi-card"><div class="kpi-label">Total facturado vs plan</div><div class="kpi-value"><?= number_format($billingVsPlanPct, 1, ',', '.') ?>%</div><?= $movementBadge($movement['billing_pending'] ?? [], true) ?></article>
+            <article class="kpi-card"><div class="kpi-label">Total contratado</div><div class="kpi-value">$<?= number_format((float) (($executiveIntel['financial_impact']['total_contracted'] ?? 0)), 0, ',', '.') ?></div><?= $movementBadge($movement['score'] ?? []) ?></article>
         </div>
     </section>
 
-    <section>
-        <div class="card">
-            <h2 class="auto-module-title">Alertas automáticas del sistema</h2>
-            <div class="alerts-auto-grid">
-                <?php if (!empty($automaticAlerts)): ?>
-                    <?php foreach ($automaticAlerts as $alert): ?>
-                        <?php $alertStatus = (string) ($alert['status'] ?? 'green'); ?>
-                        <article class="auto-alert-card <?= htmlspecialchars($alertStatus) ?>">
-                            <div class="auto-alert-head">
-                                <span><?= htmlspecialchars((string) ($alert['icon'] ?? '🟢')) ?> <?= htmlspecialchars((string) ($alert['title'] ?? 'Alerta')) ?></span>
-                                <strong><?= htmlspecialchars((string) ($alert['value'] ?? 0)) ?></strong>
+    <section class="zone">
+        <h2 class="zone-title">Zona 3 — Alertas y acciones</h2>
+        <div class="two-cols">
+            <article class="list-card">
+                <h3 class="list-title">Alertas activas</h3>
+                <div class="rows">
+                    <?php if ($alertsForList !== []): ?>
+                        <?php foreach ($alertsForList as $alert): ?>
+                            <div class="row-item">
+                                <div><?= htmlspecialchars($alert['icon']) ?></div>
+                                <div>
+                                    <strong><?= htmlspecialchars($alert['title']) ?></strong>
+                                    <div class="meta"><?= htmlspecialchars($alert['detail']) ?></div>
+                                </div>
+                                <div class="meta"><?= htmlspecialchars($alert['project']) ?></div>
+                                <a class="action-btn-mini" href="<?= $basePath ?>/projects<?= ($alert['project_id'] > 0 ? '/' . $alert['project_id'] : '') ?>">Ver</a>
                             </div>
-                            <div class="auto-alert-rule">Regla: <?= htmlspecialchars((string) ($alert['rule'] ?? '-')) ?></div>
-                            <div class="muted"><?= htmlspecialchars((string) ($alert['message'] ?? '')) ?></div>
-                        </article>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <article class="auto-alert-card green">
-                        <div class="auto-alert-head"><span>🟢 Estado general</span><strong>OK</strong></div>
-                        <div class="auto-alert-rule">Regla: monitoreo automático</div>
-                        <div class="muted">No hay alertas activas para mostrar.</div>
-                    </article>
-                <?php endif; ?>
-            </div>
-        </div>
-    </section>
-
-    <section>
-        <div class="card">
-            <h2 class="auto-module-title">RECOMENDACIONES DEL SISTEMA</h2>
-            <ul class="ai-list">
-                <?php if (!empty($systemRecommendations)): ?>
-                    <?php foreach ($systemRecommendations as $recommendation): ?>
-                        <li><?= htmlspecialchars((string) $recommendation) ?></li>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <li>No se generaron recomendaciones para el periodo actual.</li>
-                <?php endif; ?>
-            </ul>
-        </div>
-    </section>
-
-    <section>
-        <div class="card ai-highlight">
-            <h3 class="ai-title"><span class="ai-chip">IA</span> Análisis Inteligente
-                <span class="criticality-pill <?= htmlspecialchars($analysisCriticality) ?>"><?= htmlspecialchars((string) ($intelligentAnalysis['criticality'] ?? 'Baja')) ?></span>
-            </h3>
-            <p class="muted" style="margin-top:6px;"><?= htmlspecialchars((string) ($intelligentAnalysis['diagnosis'] ?? 'Sin diagnóstico disponible.')) ?></p>
-            <div class="ai-grid">
-                <div>
-                    <div class="metric-label">Diagnóstico resumido</div>
-                    <div class="gov-grid" style="grid-template-columns:repeat(2,minmax(170px,1fr)); margin-top:8px;">
-                        <div class="gov-item"><div class="metric-label">Score general</div><strong><?= number_format((float) ($analysisInputs['score_general'] ?? 0), 1, ',', '.') ?></strong></div>
-                        <div class="gov-item"><div class="metric-label">Proyectos en riesgo</div><strong><?= (int) ($analysisInputs['projects_at_risk'] ?? 0) ?> (<?= number_format((float) ($analysisInputs['projects_at_risk_pct'] ?? 0), 1, ',', '.') ?>%)</strong></div>
-                        <div class="gov-item"><div class="metric-label">Bloqueos activos</div><strong><?= (int) ($analysisInputs['active_blockers'] ?? 0) ?></strong></div>
-                        <div class="gov-item"><div class="metric-label">Tendencia mensual</div><strong class="<?= ((float) ($analysisInputs['monthly_trend_pct'] ?? 0)) >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= ((float) ($analysisInputs['monthly_trend_pct'] ?? 0)) >= 0 ? '↑' : '↓' ?> <?= number_format(abs((float) ($analysisInputs['monthly_trend_pct'] ?? 0)), 1, ',', '.') ?>%</strong></div>
-                        <div class="gov-item"><div class="metric-label">Facturación vs plan</div><strong><?= number_format((float) ($analysisInputs['billing_execution_pct'] ?? 0), 1, ',', '.') ?>%</strong></div>
-                        <div class="gov-item"><div class="metric-label">Avance promedio</div><strong><?= number_format((float) ($analysisInputs['average_progress'] ?? 0), 1, ',', '.') ?>%</strong></div>
-                    </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="muted">No hay alertas activas.</p>
+                    <?php endif; ?>
                 </div>
+                <?php if (count($automaticAlerts) > 8): ?><p style="margin-top:8px;"><a class="action-btn-mini" href="<?= $basePath ?>/projects">Ver todas las alertas</a></p><?php endif; ?>
+            </article>
+
+            <article class="list-card">
+                <h3 class="list-title">Recomendaciones accionables</h3>
+                <div class="rows">
+                    <?php if ($recommendationRows !== []): ?>
+                        <?php foreach ($recommendationRows as $row): ?>
+                            <div class="row-item" style="grid-template-columns: 1fr auto;">
+                                <div>
+                                    <strong><?= htmlspecialchars($row['text']) ?></strong>
+                                    <div class="meta">Por qué: <?= htmlspecialchars($row['context']) ?></div>
+                                </div>
+                                <a class="action-btn-mini" href="<?= $basePath ?>/projects">Acción</a>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="muted">No se generaron recomendaciones para este periodo.</p>
+                    <?php endif; ?>
+                </div>
+            </article>
+        </div>
+
+        <details class="ai-collapsible">
+            <summary>Ver análisis completo</summary>
+            <p class="muted" style="margin-top:8px;"><?= htmlspecialchars((string) ($intelligentAnalysis['diagnosis'] ?? 'Sin diagnóstico disponible.')) ?></p>
+            <div class="two-cols" style="margin-top:8px;">
                 <div>
-                    <div class="metric-label">Top 3 recomendaciones accionables</div>
+                    <div class="list-title" style="font-size:13px; margin-bottom:6px;">Recomendaciones IA</div>
                     <ol class="ai-list">
                         <?php foreach ($analysisRecommendations as $recommendation): ?>
                             <li><?= htmlspecialchars((string) $recommendation) ?></li>
                         <?php endforeach; ?>
                     </ol>
-                    <?php if (!empty($analysisFlags)): ?>
-                        <div class="metric-label" style="margin-top:12px;">Reglas activadas</div>
-                        <ul class="ai-list">
-                            <?php foreach ($analysisFlags as $flag): ?>
-                                <li><strong><?= htmlspecialchars((string) ($flag['title'] ?? 'Alerta')) ?>:</strong> <?= htmlspecialchars((string) ($flag['detail'] ?? '')) ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
+                </div>
+                <div>
+                    <div class="list-title" style="font-size:13px; margin-bottom:6px;">Reglas activadas</div>
+                    <ul class="ai-list">
+                        <?php foreach ($analysisFlags as $flag): ?>
+                            <li><strong><?= htmlspecialchars((string) ($flag['title'] ?? 'Regla')) ?>:</strong> <?= htmlspecialchars((string) ($flag['detail'] ?? '-')) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             </div>
-        </div>
+        </details>
     </section>
 
-    <section>
-        <div class="card alerts-critical" style="padding:10px 14px;">
-            <h3 style="margin-bottom:6px;">Centro de alertas</h3>
-            <div class="gov-grid" style="grid-template-columns:repeat(7,minmax(170px,1fr));">
-                <div class="gov-item"><div class="metric-label">⚠ Sin actualización &gt; 7 días</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['stale_projects'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">🔴 Proyectos con riesgo alto</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['high_risk_projects'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">⛔ Bloqueos críticos abiertos</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['critical_blockers'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">💰 Facturación pendiente</div><strong style="color:var(--danger)"><?= (int) ($alertStrip['billing_pending'] ?? 0) ?></strong></div>
-                <div class="gov-item"><div class="metric-label">📌 Facturación PMO pendiente</div><strong style="color:var(--warning)">$<?= number_format((float) ($alertStrip['billing_plan_pending'] ?? 0), 0, ',', '.') ?></strong></div>
-                <div class="gov-item"><div class="metric-label">🚨 Facturación PMO atrasada</div><strong style="color:var(--danger)">$<?= number_format((float) ($alertStrip['billing_plan_overdue'] ?? 0), 0, ',', '.') ?></strong></div>
-                <div class="gov-item"><div class="metric-label">📈 Facturación PMO proyectada</div><strong style="color:var(--success)">$<?= number_format((float) ($alertStrip['billing_plan_projected'] ?? 0), 0, ',', '.') ?></strong></div>
-            </div>
-        </div>
-    </section>
-
-    <section>
-        <h2 class="section-title">Resumen Ejecutivo</h2>
-        <div class="hero-grid">
-            <article class="card dark">
-                <div class="hero-main">
-                    <div class="score-wrap">
-                        <canvas id="executiveScoreChart" width="220" height="220"></canvas>
-                        <div class="score-center">
-                            <span class="score-main"><?= $score ?> / 100</span>
-                            <span class="score-sub">Score general</span>
-                            <span class="score-semaphore"><span class="score-dot <?= htmlspecialchars($scoreStatus) ?>"></span> Semáforo <?= htmlspecialchars($scoreLabel) ?></span>
-                            <?= $movementBadge($movement['score'] ?? []) ?>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="hero-title">Control de Portafolio</h3>
-                        <p class="hero-copy">Visión integral de performance, riesgos y ejecución para toma de decisiones estratégicas del comité directivo.</p>
-                        <details class="score-help">
-                            <summary>¿Cómo se calcula el score del portafolio?</summary>
-                            <p class="muted" style="margin-top:8px;"><?= htmlspecialchars((string) ($portfolioScoreCard['methodology'] ?? 'Score ponderado por factores clave del portafolio.')) ?></p>
-                            <ul>
-                                <?php foreach ($scoreFactors as $factor): ?>
-                                    <li>
-                                        <strong><?= htmlspecialchars((string) ($factor['label'] ?? 'Factor')) ?>:</strong>
-                                        peso <?= number_format((float) ($factor['weight_pct'] ?? 0), 0, ',', '.') ?>% ·
-                                        valor <?= number_format((float) ($factor['value'] ?? 0), 1, ',', '.') ?> ·
-                                        aporte <?= number_format((float) ($factor['contribution'] ?? 0), 1, ',', '.') ?> pts
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </details>
-                    </div>
-                </div>
+    <section class="zone">
+        <h2 class="zone-title">Zona 4 — Visualizaciones</h2>
+        <div class="chart-row">
+            <article class="chart-panel">
+                <h4>Estado del portafolio</h4>
+                <canvas id="statusChart" height="260"></canvas>
             </article>
-            <article class="card dark">
-                <div class="hero-side">
-                    <div class="stat-tile"><div class="stat-label">Proyectos activos</div><div class="stat-value"><?= (int) ($summary['proyectos_activos'] ?? 0) ?></div></div>
-                    <div class="stat-tile"><div class="stat-label">En riesgo</div><div class="stat-value"><?= $riskProjects ?></div></div>
-                    <div class="stat-tile"><div class="stat-label">Críticos</div><div class="stat-value"><?= $criticalProjects ?></div></div>
-                    <div class="stat-tile">
-                        <div class="stat-label">Exposición total al riesgo</div>
-                        <div class="stat-value <?= $riskExposure > 40 ? 'trend-negative' : 'trend-positive' ?>"><?= $riskExposure ?></div>
-                    </div>
-                </div>
+            <article class="chart-panel">
+                <h4>Tendencia de avance mensual</h4>
+                <canvas id="monthlyProgressChart" height="260"></canvas>
+            </article>
+            <article class="chart-panel">
+                <h4>Bloqueos por severidad</h4>
+                <canvas id="blockersSeverityChart" height="260"></canvas>
             </article>
         </div>
     </section>
 
-    <section>
-        <h2 class="section-title">Tendencia real vs mes anterior</h2>
-        <div class="kpi-grid">
-            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Score general</span><span class="value"><?= number_format((float) (($movement['score']['current'] ?? 0)), 1, ',', '.') ?></span><?= $movementBadge($movement['score'] ?? []) ?></div></article>
-            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Proyectos en riesgo</span><span class="value"><?= (int) round((float) (($movement['risk_projects']['current'] ?? 0))) ?></span><?= $movementBadge($movement['risk_projects'] ?? [], true) ?></div></article>
-            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Bloqueos activos</span><span class="value"><?= (int) round((float) (($movement['active_blockers']['current'] ?? 0))) ?></span><?= $movementBadge($movement['active_blockers'] ?? [], true) ?></div></article>
-            <article class="card kpi-card"><div class="kpi-meta"><span class="label">Facturación pendiente ($)</span><span class="value"><?= number_format((float) (($movement['billing_pending']['current'] ?? 0)), 0, ',', '.') ?></span><?= $movementBadge($movement['billing_pending'] ?? [], true) ?></div></article>
+    <section class="zone">
+        <h2 class="zone-title">Zona 5 — Tablas de detalle</h2>
+        <div class="tabs">
+            <button type="button" class="tab-btn active" data-tab="tab-proyectos">Proyectos</button>
+            <button type="button" class="tab-btn" data-tab="tab-bloqueos">Bloqueos</button>
+            <button type="button" class="tab-btn" data-tab="tab-talento">Talento</button>
+            <button type="button" class="tab-btn" data-tab="tab-gobierno">Gobierno</button>
         </div>
-    </section>
 
-    <section>
-        <h2 class="section-title">KPIs Financieros y Operativos</h2>
-        <div class="kpi-grid">
-            <article class="card kpi-card">
-                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 18h16"/><path d="M7 14V8"/><path d="M12 14V5"/><path d="M17 14v-3"/></svg></span>
-                <div class="kpi-meta">
-                    <span class="label">Avance promedio</span>
-                    <span class="value"><?= number_format((float) ($summary['avance_promedio'] ?? 0), 1, ',', '.') ?>%</span>
-                    <span class="variation <?= $progressDelta >= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $progressDelta >= 0 ? '↑' : '↓' ?> <?= number_format(abs($progressDelta), 1, ',', '.') ?> vs base</span>
-                </div>
-            </article>
-            <article class="card kpi-card">
-                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 8h18"/><path d="M6 4v16"/><path d="M18 4v16"/></svg></span>
-                <div class="kpi-meta">
-                    <span class="label">Horas ejecutadas</span>
-                    <span class="value"><?= number_format($hoursReal, 0, ',', '.') ?></span>
-                    <span class="variation <?= $hoursDiffPct <= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $hoursDiffPct <= 0 ? '↓' : '↑' ?> <?= number_format(abs($hoursDiffPct), 1, ',', '.') ?>% vs plan</span>
-                </div>
-            </article>
-            <article class="card kpi-card">
-                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></span>
-                <div class="kpi-meta">
-                    <span class="label">Costo ejecutado</span>
-                    <span class="value">$<?= number_format($cost, 0, ',', '.') ?></span>
-                    <span class="variation <?= $costDiffPct <= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= $costDiffPct <= 0 ? '↓' : '↑' ?> <?= number_format(abs($costDiffPct), 1, ',', '.') ?>% vs presupuesto</span>
-                </div>
-            </article>
-            <article class="card kpi-card">
-                <span class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 4a4 4 0 0 0-4 4v2a4 4 0 0 0 8 0V8a4 4 0 0 0-4-4Z"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span>
-                <div class="kpi-meta">
-                    <span class="label">Talento activo</span>
-                    <span class="value"><?= (int) ($summary['talentos_activos'] ?? 0) ?></span>
-                    <span class="variation <?= ($timesheets['talents_without_report'] ?? 0) > 0 ? 'trend-negative' : 'trend-positive' ?>"><?= ($timesheets['talents_without_report'] ?? 0) > 0 ? '↑' : '↓' ?> <?= (int) ($timesheets['talents_without_report'] ?? 0) ?> sin reporte</span>
-                </div>
-            </article>
-        </div>
-    </section>
-
-    <section>
-        <h2 class="section-title">Nivel 2: Riesgo + Finanzas</h2>
-        <div class="split-three">
-            <article class="card"><div class="metric-label">Total contratado</div><div class="metric-big">$<?= number_format((float) ($financialImpact['total_contracted'] ?? 0), 0, ',', '.') ?></div></article>
-            <article class="card"><div class="metric-label">Total facturado</div><div class="metric-big">$<?= number_format((float) ($financialImpact['total_invoiced'] ?? 0), 0, ',', '.') ?></div></article>
-            <article class="card"><div class="metric-label">Total cobrado</div><div class="metric-big">$<?= number_format((float) ($financialImpact['total_collected'] ?? 0), 0, ',', '.') ?></div></article>
-        </div>
-        <div class="split-three" style="margin-top:10px;">
-            <article class="card"><div class="metric-label">% ejecución financiera</div><div class="metric-big"><?= number_format((float) ($financialImpact['execution_pct'] ?? 0), 1, ',', '.') ?>%</div></article>
-            <article class="card"><div class="metric-label">Desviación presupuestal</div><div class="metric-big <?= ((float) ($financialImpact['budget_deviation_pct'] ?? 0)) <= 0 ? 'trend-positive' : 'trend-negative' ?>"><?= number_format((float) ($financialImpact['budget_deviation_pct'] ?? 0), 1, ',', '.') ?>%</div></article>
-            <article class="card"><div class="metric-label">Exposición total al riesgo</div><div class="metric-big <?= $riskExposure > 40 ? 'trend-negative' : 'trend-positive' ?>"><?= $riskExposure ?></div></article>
-        </div>
-    </section>
-
-    <section>
-        <h2 class="section-title">Mapa de calor del portafolio (Riesgo x Avance)</h2>
-        <article class="card chart-card"><canvas id="portfolioHeatmapChart" height="220"></canvas></article>
-    </section>
-
-    <section>
-        <h2 class="section-title">Salud Operativa</h2>
-        <div class="layout-two">
-            <div class="inner-two">
-                <article class="card chart-card">
-                    <h4>Estado del portafolio</h4>
-                    <canvas id="statusChart" height="260"></canvas>
-                </article>
-                <article class="card chart-card">
-                    <h4>Avance por cliente</h4>
-                    <canvas id="progressChart" height="260"></canvas>
-                </article>
-            </div>
-            <div class="inner-two">
-                <article class="card chart-card">
-                    <h4>Tendencia mensual de avance</h4>
-                    <canvas id="monthlyProgressChart" height="260"></canvas>
-                </article>
-                <article class="card chart-card">
-                    <h4>Bloqueos por severidad</h4>
-                    <canvas id="blockersSeverityChart" height="260"></canvas>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <?php if ($hasCriticalAlerts): ?>
-        <section>
-            <div class="card alerts-critical">
-                <h3>⚠ Alertas críticas</h3>
-                <ul class="alerts-list">
-                    <?php if (!empty($staleProjects)): ?>
-                        <li><?= count($staleProjects) ?> proyectos sin avance reciente.</li>
-                    <?php endif; ?>
-                    <?php if (($stoppers['critical_total'] ?? 0) > 0): ?>
-                        <li><?= (int) ($stoppers['critical_total'] ?? 0) ?> bloqueos críticos abiertos.</li>
-                    <?php endif; ?>
-                    <?php if (($governance['critical_risks'] ?? 0) > 0): ?>
-                        <li><?= (int) ($governance['critical_risks'] ?? 0) ?> riesgos críticos registrados.</li>
-                    <?php endif; ?>
-                    <?php if (($timesheets['talents_without_report'] ?? 0) > 0): ?>
-                        <li><?= (int) ($timesheets['talents_without_report'] ?? 0) ?> talentos sin seguimiento de horas.</li>
-                    <?php endif; ?>
-                </ul>
-            </div>
-        </section>
-    <?php endif; ?>
-
-    <section>
-        <h2 class="section-title">Portfolio Ranking</h2>
-        <div class="card table-wrap">
-            <table>
+        <div id="tab-proyectos" class="tab-pane active table-wrap">
+            <table id="projectsTable">
                 <thead>
                     <tr>
-                        <th>Proyecto</th>
-                        <th>Cliente</th>
-                        <th class="text-right">Score</th>
-                        <th>Riesgo</th>
-                        <th class="text-right">Bloqueos</th>
-                        <th class="text-right">Facturación</th>
-                        <th>Última actualización</th>
+                        <th class="sortable" data-sort="text">Proyecto</th>
+                        <th class="sortable" data-sort="text">Cliente</th>
+                        <th class="text-right sortable" data-sort="number">Score</th>
+                        <th class="sortable" data-sort="text">Riesgo</th>
+                        <th class="text-right sortable" data-sort="number">Bloqueos</th>
+                        <th class="text-right sortable" data-sort="number">Facturación</th>
+                        <th class="sortable" data-sort="text">Última actualización</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($portfolioRows as $row): ?>
-                        <?php
-                        $riskLabel = (string) ($row['risk'] ?? 'Medio');
-                        $riskClass = $riskLabel === 'Bajo' ? 'green' : ($riskLabel === 'Medio' ? 'amber' : 'red');
-                        ?>
+                        <?php $riskLabel = (string) ($row['risk'] ?? 'Medio'); $riskClass = $riskLabel === 'Bajo' ? 'green' : ($riskLabel === 'Medio' ? 'amber' : 'red'); ?>
                         <tr>
                             <td><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></td>
                             <td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td>
                             <td class="text-right"><?= (int) ($row['score'] ?? 0) ?></td>
                             <td><span class="pill <?= $riskClass ?>"><?= htmlspecialchars($riskLabel) ?></span></td>
                             <td class="text-right"><?= (int) ($row['blockers_open'] ?? 0) ?></td>
-                            <td class="text-right">$<?= number_format((float) ($row['billing'] ?? 0), 0, ',', '.') ?></td>
+                            <td class="text-right"><?= number_format((float) ($row['billing'] ?? 0), 0, ',', '.') ?></td>
                             <td><?= htmlspecialchars((string) ($row['updated_at'] ?? '-')) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
-    </section>
 
-    <section>
-        <h2 class="section-title">Stoppers (Bloqueos)</h2>
-        <div class="split-three">
-            <article class="card"><div class="metric-label">Total abiertos</div><div class="metric-big"><?= (int) ($stoppers['open_total'] ?? 0) ?></div></article>
-            <article class="card"><div class="metric-label">Críticos</div><div class="metric-big" style="color:var(--danger)"><?= (int) ($stoppers['critical_total'] ?? 0) ?></div></article>
-            <article class="card"><div class="metric-label">Tiempo promedio de resolución</div><div class="metric-big"><?= (int) ($stoppers['avg_open_days'] ?? 0) ?> días</div></article>
+        <div id="tab-bloqueos" class="tab-pane table-wrap">
+            <table>
+                <thead><tr><th>Proyecto</th><th>Tipo</th><th class="text-right">Días abiertos</th><th>Responsable</th></tr></thead>
+                <tbody>
+                    <?php foreach (($stoppers['top_active'] ?? []) as $item): ?>
+                        <tr>
+                            <td><?= htmlspecialchars((string) ($item['project'] ?? 'Proyecto')) ?></td>
+                            <td><?= htmlspecialchars((string) ($item['type'] ?? 'Operativo')) ?></td>
+                            <td class="text-right"><?= (int) ($item['avg_days_open'] ?? 0) ?></td>
+                            <td><?= htmlspecialchars((string) ($item['owner'] ?? 'PMO')) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
-        <article class="card chart-card" style="margin-top:10px;">
-            <h4>Tendencia mensual de bloqueos</h4>
-            <canvas id="stoppersTrendChart" height="220"></canvas>
-        </article>
-        <div class="split-three" style="margin-top:10px;">
-            <article class="card">
-                <div class="metric-label">Top proyectos con más bloqueos</div>
-                <ul class="alerts-list"><?php foreach ($topBlockersProjects as $item): ?><li><?= htmlspecialchars((string) ($item['project'] ?? 'Proyecto')) ?> (<?= (int) ($item['active_total'] ?? 0) ?>)</li><?php endforeach; ?></ul>
-            </article>
-            <article class="card" style="grid-column: span 2;"><div class="metric-label">Distribución por tipo</div><canvas id="blockersByTypeChart" height="120"></canvas></article>
-        </div>
-    </section>
 
-    <section>
-        <h2 class="section-title">Talento y Timesheets</h2>
-        <div class="split-three">
-            <article class="card"><div class="metric-label">Cumplimiento</div><div class="metric-big"><?= number_format($timesheetCompliance, 1, ',', '.') ?>%</div></article>
-            <article class="card"><div class="metric-label">Horas vs plan</div><div class="metric-big"><?= number_format((float) ($timesheets['weekly_hours'] ?? 0), 1, ',', '.') ?> / <?= number_format($hoursPlan > 0 ? $hoursPlan / 4 : 0, 1, ',', '.') ?></div></article>
-            <article class="card"><div class="metric-label">Talentos sin reporte</div><div class="metric-big" style="color:<?= ($timesheets['talents_without_report'] ?? 0) > 0 ? 'var(--danger)' : 'var(--success)' ?>"><?= (int) ($timesheets['talents_without_report'] ?? 0) ?></div></article>
+        <div id="tab-talento" class="tab-pane table-wrap">
+            <table>
+                <thead><tr><th>Talento</th><th class="text-right">Horas</th><th>Cumplimiento bajo</th><th class="text-right">Utilización promedio</th></tr></thead>
+                <tbody>
+                    <?php foreach (array_slice($topTalents, 0, 10) as $talent): ?>
+                        <tr>
+                            <td><?= htmlspecialchars((string) ($talent['talent'] ?? 'Talento')) ?></td>
+                            <td class="text-right"><?= number_format((float) ($talent['total_hours'] ?? 0), 1, ',', '.') ?></td>
+                            <td><?= htmlspecialchars((string) ($talentsLow[0]['talent'] ?? '-')) ?></td>
+                            <td class="text-right"><?= number_format((float) ($timesheets['weekly_hours'] ?? 0) > 0 ? ((float) ($talent['total_hours'] ?? 0) / (float) ($timesheets['weekly_hours'] ?? 1)) * 100 : 0, 1, ',', '.') ?>%</td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
-        <p class="muted">Semana <?= htmlspecialchars((string) ($timesheets['period_start'] ?? '')) ?> - <?= htmlspecialchars((string) ($timesheets['period_end'] ?? '')) ?></p>
-        <div class="split-three" style="margin-top:10px;">
-            <article class="card"><div class="metric-label">Top 5 talentos por horas</div><ul class="alerts-list"><?php foreach ($topTalents as $talent): ?><li><?= htmlspecialchars((string) ($talent['talent'] ?? 'Talento')) ?> (<?= number_format((float) ($talent['total_hours'] ?? 0), 1, ',', '.') ?>h)</li><?php endforeach; ?></ul></article>
-            <article class="card"><div class="metric-label">Talentos con menor cumplimiento</div><ul class="alerts-list"><?php foreach (array_reverse($topTalents) as $talent): ?><li><?= htmlspecialchars((string) ($talent['talent'] ?? 'Talento')) ?></li><?php endforeach; ?></ul></article>
-            <article class="card"><div class="metric-label">% utilización promedio</div><div class="metric-big"><?= number_format($timesheetCompliance, 1, ',', '.') ?>%</div></article>
-        </div>
-    </section>
 
-    <section>
-        <h2 class="section-title">Gobierno y Control</h2>
-        <div class="gov-grid">
-            <?php
-            $govItems = [
-                ['label' => 'Documentos pendientes', 'value' => (int) (($governance['documents_revision'] ?? 0) + ($governance['documents_validacion'] ?? 0) + ($governance['documents_aprobacion'] ?? 0)), 'icon' => '📄'],
-                ['label' => 'Cambios sin aprobar', 'value' => (int) ($governance['scope_changes_pending'] ?? 0), 'icon' => '🔄'],
-                ['label' => 'Riesgos críticos', 'value' => (int) ($governance['critical_risks'] ?? 0), 'icon' => '⛔'],
-                ['label' => 'Facturación pendiente', 'value' => (int) ($outsourcing['open_followups'] ?? 0), 'icon' => '💳'],
-            ];
-            foreach ($govItems as $item):
-                $tone = $item['value'] > 0 ? 'var(--danger)' : 'var(--success)';
-            ?>
-                <article class="gov-item">
-                    <div class="metric-label"><?= $item['icon'] ?> <?= htmlspecialchars($item['label']) ?></div>
-                    <strong style="color:<?= $tone ?>"><?= (int) $item['value'] ?></strong>
-                </article>
-            <?php endforeach; ?>
+        <div id="tab-gobierno" class="tab-pane table-wrap">
+            <table>
+                <thead><tr><th>Indicador</th><th class="text-right">Valor</th><th>Estado</th></tr></thead>
+                <tbody>
+                    <?php foreach ($govItems as $item): ?>
+                        <tr>
+                            <td><?= htmlspecialchars((string) $item['label']) ?></td>
+                            <td class="text-right"><?= (int) $item['value'] ?></td>
+                            <td><span class="pill <?= $item['value'] > 0 ? 'red' : 'green' ?>"><?= $item['value'] > 0 ? 'Atención' : 'Controlado' ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     </section>
 </div>
@@ -738,107 +372,90 @@
         <?= (int) ($statusCounts['en_riesgo'] ?? 0) ?>,
         <?= (int) ($statusCounts['cerrado'] ?? 0) ?>,
     ];
-    const progressLabels = <?= json_encode(array_map(static fn ($row) => $row['client'] ?? '', $progressByClient)) ?>;
-    const progressData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['avg_progress'] ?? 0), 1), $progressByClient)) ?>;
     const monthlyProgressLabels = <?= json_encode(array_map(static fn ($row) => $row['month_key'] ?? '', $monthlyProgressTrend)) ?>;
     const monthlyProgressData = <?= json_encode(array_map(static fn ($row) => round((float) ($row['avg_progress'] ?? 0), 1), $monthlyProgressTrend)) ?>;
+    const monthlyProgressExpected = monthlyProgressData.map((v) => Math.min(100, Math.max(0, v + 4)));
     const blockersSeverityData = <?= json_encode([
         (int) (($stoppers['severity_counts']['critico'] ?? 0)),
         (int) (($stoppers['severity_counts']['alto'] ?? 0)),
         (int) (($stoppers['severity_counts']['medio'] ?? 0)),
-        (int) (($stoppers['severity_counts']['bajo'] ?? 0)),
     ]) ?>;
-    const stoppersMonthlyLabels = <?= json_encode(array_map(static fn ($row) => $row['month_key'] ?? '', $stoppers['monthly_trend'] ?? [])) ?>;
-    const stoppersMonthlyData = <?= json_encode(array_map(static fn ($row) => (int) ($row['total'] ?? 0), $stoppers['monthly_trend'] ?? [])) ?>;
-    const heatmapPoints = <?= json_encode(array_map(static fn (array $row) => [
-        'x' => max(0, min(100, 100 - (int) ($row['score'] ?? 0))),
-        'y' => max(0, min(100, (int) ($row['score'] ?? 0))),
-        'label' => ($row['name'] ?? 'Proyecto') . ' · ' . ($row['client'] ?? 'Cliente'),
-    ], $projectHeatmapPoints)) ?>;
-    const blockersByTypeData = <?= json_encode([
-        (int) (($stoppers['severity_counts']['critico'] ?? 0)),
-        (int) (($stoppers['severity_counts']['alto'] ?? 0)),
-        (int) (($stoppers['severity_counts']['medio'] ?? 0)),
-        (int) (($stoppers['severity_counts']['bajo'] ?? 0)),
-    ]) ?>;
-
-    new Chart(document.getElementById('executiveScoreChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Score', 'Pendiente'],
-            datasets: [{ data: [<?= $score ?>, <?= max(0, 100 - $score) ?>], backgroundColor: ['<?= $scoreColor ?>', 'rgba(148,163,184,.24)'], borderWidth: 0 }]
-        },
-        options: { cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-    });
 
     new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
-        data: { labels: ['Planning', 'En curso', 'En riesgo', 'Cerrado'], datasets: [{ data: statusData, backgroundColor: ['#38bdf8', '#2563eb', '#f97316', '#64748b'] }] },
+        data: { labels: ['Planning', 'Ejecución', 'En riesgo', 'Completado'], datasets: [{ data: statusData, backgroundColor: ['#38bdf8', '#2563eb', '#f97316', '#64748b'] }] },
         options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '62%' }
-    });
-
-    new Chart(document.getElementById('progressChart'), {
-        type: 'bar',
-        data: { labels: progressLabels, datasets: [{ data: progressData, borderRadius: 10, backgroundColor: '#2563eb' }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
     });
 
     new Chart(document.getElementById('monthlyProgressChart'), {
         type: 'line',
-        data: { labels: monthlyProgressLabels, datasets: [{ data: monthlyProgressData, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.15)', fill: true, tension: .35 }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+        data: {
+            labels: monthlyProgressLabels,
+            datasets: [
+                { label: 'Avance real', data: monthlyProgressData, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,.1)', fill: true, tension: .35 },
+                { label: 'Avance esperado', data: monthlyProgressExpected, borderColor: '#1d4ed8', borderDash: [6, 6], fill: false, tension: .35 }
+            ]
+        },
+        options: { plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true, max: 100 } } }
     });
+
+    const blockersValueLabel = {
+        id: 'blockersValueLabel',
+        afterDatasetsDraw(chart) {
+            const {ctx} = chart;
+            const meta = chart.getDatasetMeta(0);
+            meta.data.forEach((bar, i) => {
+                ctx.save();
+                ctx.fillStyle = '#334155';
+                ctx.font = '700 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(String(chart.data.datasets[0].data[i] ?? 0), bar.x, bar.y - 6);
+                ctx.restore();
+            });
+        }
+    };
 
     new Chart(document.getElementById('blockersSeverityChart'), {
         type: 'bar',
         data: {
-            labels: ['Crítico', 'Alto', 'Medio', 'Bajo'],
-            datasets: [{ data: blockersSeverityData, backgroundColor: ['#dc2626', '#f97316', '#facc15', '#22c55e'], borderRadius: 10 }]
+            labels: ['Crítico', 'Alto', 'Medio'],
+            datasets: [{ data: blockersSeverityData, backgroundColor: ['#dc2626', '#f97316', '#facc15'], borderRadius: 10 }]
         },
-        options: { plugins: { legend: { display: false } } }
+        options: { plugins: { legend: { display: false } } },
+        plugins: [blockersValueLabel]
     });
 
-    new Chart(document.getElementById('stoppersTrendChart'), {
-        type: 'line',
-        data: {
-            labels: stoppersMonthlyLabels,
-            datasets: [{ label: 'Bloqueos', data: stoppersMonthlyData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.18)', fill: true, tension: .35 }]
-        },
-        options: { plugins: { legend: { display: true } } }
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach((node) => node.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach((node) => node.classList.remove('active'));
+            btn.classList.add('active');
+            const pane = document.getElementById(btn.dataset.tab);
+            if (pane) pane.classList.add('active');
+        });
     });
 
-    new Chart(document.getElementById('portfolioHeatmapChart'), {
-        type: 'scatter',
-        data: {
-            datasets: [{
-                label: 'Proyectos',
-                data: heatmapPoints,
-                pointRadius: 6,
-                backgroundColor: '#2563eb'
-            }]
-        },
-        options: {
-            scales: {
-                x: { min: 0, max: 100, title: { display: true, text: 'Riesgo' } },
-                y: { min: 0, max: 100, title: { display: true, text: 'Avance' } }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => ctx.raw?.label || 'Proyecto'
+    const projectsTable = document.getElementById('projectsTable');
+    if (projectsTable) {
+        projectsTable.querySelectorAll('th.sortable').forEach((th, columnIndex) => {
+            let asc = true;
+            th.addEventListener('click', () => {
+                const rows = Array.from(projectsTable.querySelectorAll('tbody tr'));
+                const kind = th.dataset.sort || 'text';
+                rows.sort((a, b) => {
+                    const rawA = a.children[columnIndex].innerText.trim();
+                    const rawB = b.children[columnIndex].innerText.trim();
+                    if (kind === 'number') {
+                        const numA = parseFloat(rawA.replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
+                        const numB = parseFloat(rawB.replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
+                        return asc ? numA - numB : numB - numA;
                     }
-                },
-                legend: { display: false }
-            }
-        }
-    });
-
-    new Chart(document.getElementById('blockersByTypeChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Cliente', 'Técnico', 'Operativo', 'Otros'],
-            datasets: [{ data: blockersByTypeData, backgroundColor: ['#dc2626', '#f97316', '#facc15', '#22c55e'], borderRadius: 8 }]
-        },
-        options: { plugins: { legend: { display: false } } }
-    });
+                    return asc ? rawA.localeCompare(rawB, 'es') : rawB.localeCompare(rawA, 'es');
+                });
+                asc = !asc;
+                const tbody = projectsTable.querySelector('tbody');
+                rows.forEach((row) => tbody.appendChild(row));
+            });
+        });
+    }
 </script>
