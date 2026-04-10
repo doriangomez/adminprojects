@@ -2310,6 +2310,7 @@ class ProjectsController extends Controller
         $billingPlanItems = $billingRepo->billingPlan($id);
         $billingFinancialSummary = $billingRepo->financialSummary($id, $billingConfig);
         $availablePlanItemsForInvoice = $billingRepo->availablePlanItemsForInvoicing($id);
+        $stoppersRepo = new ProjectStoppersRepository($this->db);
         $stopperMetrics = $stoppersRepo->metricsForProject($id);
         $stopperBoard = $stoppersRepo->byImpactOpen($id);
         $tasksForSchedule = (new TasksRepository($this->db))->forProject($id, $user);
