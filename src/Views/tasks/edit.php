@@ -2,6 +2,7 @@
 $basePath = $basePath ?? '';
 $task = is_array($task ?? null) ? $task : [];
 $talents = is_array($talents ?? null) ? $talents : [];
+$scheduleActivities = is_array($scheduleActivities ?? null) ? $scheduleActivities : [];
 $statusOptions = [
     'todo' => 'Pendiente',
     'pending' => 'Pendiente',
@@ -80,6 +81,17 @@ $priorityOptions = [
                     <?php foreach ($talents as $talent): ?>
                         <option value="<?= (int) ($talent['id'] ?? 0) ?>" <?= (int) ($task['assignee_id'] ?? 0) === (int) ($talent['id'] ?? 0) ? 'selected' : '' ?>>
                             <?= htmlspecialchars($talent['name'] ?? '') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+
+            <label>Actividad del cronograma (opcional)
+                <select name="schedule_activity_id">
+                    <option value="0">Sin vincular</option>
+                    <?php foreach ($scheduleActivities as $activity): ?>
+                        <option value="<?= (int) ($activity['id'] ?? 0) ?>" <?= (int) ($task['schedule_activity_id'] ?? 0) === (int) ($activity['id'] ?? 0) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string) ($activity['name'] ?? 'Actividad')) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>

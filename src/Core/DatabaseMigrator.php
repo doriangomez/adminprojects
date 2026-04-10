@@ -990,7 +990,7 @@ class DatabaseMigrator
 
     public function ensureProjectScheduleModule(): void
     {
-        if (!$this->db->tableExists('projects')) {
+        if (!$this->db->tableExists('projects') || !$this->db->tableExists('tasks')) {
             return;
         }
 
@@ -1016,6 +1016,11 @@ class DatabaseMigrator
                         CONSTRAINT fk_project_schedule_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
                 );
+            }
+
+            if (!$this->db->columnExists('tasks', 'schedule_activity_id')) {
+                $this->db->execute('ALTER TABLE tasks ADD COLUMN schedule_activity_id BIGINT NULL AFTER due_date');
+                $this->db->execute('ALTER TABLE tasks ADD INDEX idx_tasks_schedule_activity (schedule_activity_id)');
             }
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de cronograma: ' . $e->getMessage());

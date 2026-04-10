@@ -410,9 +410,11 @@ CREATE TABLE tasks (
     estimated_hours DECIMAL(8,2) DEFAULT 0,
     actual_hours DECIMAL(8,2) DEFAULT 0,
     due_date DATE,
+    schedule_activity_id BIGINT NULL,
     completed_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_tasks_schedule_activity (schedule_activity_id),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 

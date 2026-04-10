@@ -134,6 +134,7 @@ class TasksController extends Controller
             'title' => 'Editar tarea',
             'task' => $task,
             'talents' => $talents,
+            'scheduleActivities' => $repo->scheduleActivitiesForProject((int) ($task['project_id'] ?? 0)),
         ]);
     }
 
@@ -155,10 +156,15 @@ class TasksController extends Controller
         $estimatedHours = (float) ($_POST['estimated_hours'] ?? 0);
         $dueDate = trim((string) ($_POST['due_date'] ?? ''));
         $assigneeId = (int) ($_POST['assignee_id'] ?? 0);
+        $scheduleActivityId = (int) ($_POST['schedule_activity_id'] ?? 0);
 
         if ($title === '' || !in_array($status, self::ALLOWED_STATUSES, true) || !in_array($priority, self::ALLOWED_PRIORITIES, true)) {
             http_response_code(400);
             exit('Completa los campos requeridos para editar la tarea.');
+        }
+        if ($scheduleActivityId > 0 && !$repo->scheduleActivityBelongsToProject((int) ($task['project_id'] ?? 0), $scheduleActivityId)) {
+            http_response_code(400);
+            exit('La actividad del cronograma seleccionada no pertenece al proyecto de esta tarea.');
         }
 
         $repo->updateTask($taskId, [
@@ -168,6 +174,7 @@ class TasksController extends Controller
             'estimated_hours' => $estimatedHours,
             'due_date' => $dueDate !== '' ? $dueDate : null,
             'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
+            'schedule_activity_id' => $scheduleActivityId > 0 ? $scheduleActivityId : null,
         ]);
 
         header('Location: /tasks');

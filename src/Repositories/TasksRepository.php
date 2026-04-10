@@ -47,7 +47,7 @@ class TasksRepository
         [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
 
         return $this->db->fetchAll(
-            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.schedule_activity_id,
                     p.id AS project_id, p.name AS project, p.phase AS project_phase,
                     t.assignee_id, ta.user_id AS assignee_user_id, ta.name AS assignee,
                     ' . $stopperSelect . '
@@ -70,7 +70,7 @@ class TasksRepository
         [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
 
         $row = $this->db->fetchOne(
-            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.assignee_id,
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.assignee_id, t.schedule_activity_id,
                     ta.user_id AS assignee_user_id,
                     p.id AS project_id, p.name AS project, p.phase AS project_phase,
                     ' . $stopperSelect . '
@@ -96,6 +96,7 @@ class TasksRepository
             'estimated_hours = :estimated',
             'due_date = :due_date',
             'assignee_id = :assignee',
+            'schedule_activity_id = :schedule_activity_id',
             'updated_at = NOW()',
         ];
         $params = [
@@ -105,6 +106,7 @@ class TasksRepository
             ':estimated' => $payload['estimated_hours'],
             ':due_date' => $payload['due_date'],
             ':assignee' => $payload['assignee_id'],
+            ':schedule_activity_id' => (int) ($payload['schedule_activity_id'] ?? 0) > 0 ? (int) $payload['schedule_activity_id'] : null,
             ':id' => $taskId,
         ];
         if ($this->db->columnExists('tasks', 'completed_at')) {
@@ -123,8 +125,8 @@ class TasksRepository
     public function createForProject(int $projectId, array $payload): int
     {
         return $this->db->insert(
-            'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, due_date, assignee_id, created_at, updated_at)
-             VALUES (:project_id, :title, :status, :priority, :estimated, :actual, :due_date, :assignee, NOW(), NOW())',
+            'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, due_date, assignee_id, schedule_activity_id, created_at, updated_at)
+             VALUES (:project_id, :title, :status, :priority, :estimated, :actual, :due_date, :assignee, :schedule_activity_id, NOW(), NOW())',
             [
                 ':project_id' => $projectId,
                 ':title' => $payload['title'],
@@ -134,6 +136,7 @@ class TasksRepository
                 ':actual' => 0,
                 ':due_date' => $payload['due_date'],
                 ':assignee' => $payload['assignee_id'],
+                ':schedule_activity_id' => (int) ($payload['schedule_activity_id'] ?? 0) > 0 ? (int) $payload['schedule_activity_id'] : null,
             ]
         );
     }
@@ -164,7 +167,7 @@ class TasksRepository
         [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
 
         return $this->db->fetchAll(
-            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date,
+            'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.schedule_activity_id,
                     t.assignee_id, ta.user_id AS assignee_user_id, ta.name AS assignee,
                     ' . $stopperSelect . '
              FROM tasks t
@@ -285,6 +288,39 @@ class TasksRepository
              ORDER BY p.name ASC',
             [':user' => $userId]
         );
+    }
+
+    public function scheduleActivitiesForProject(int $projectId): array
+    {
+        if ($projectId <= 0 || !$this->db->tableExists('project_schedule_activities')) {
+            return [];
+        }
+
+        return $this->db->fetchAll(
+            'SELECT id, name
+             FROM project_schedule_activities
+             WHERE project_id = :project
+             ORDER BY sort_order ASC, id ASC',
+            [':project' => $projectId]
+        );
+    }
+
+    public function scheduleActivityBelongsToProject(int $projectId, int $activityId): bool
+    {
+        if ($projectId <= 0 || $activityId <= 0 || !$this->db->tableExists('project_schedule_activities')) {
+            return false;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT 1
+             FROM project_schedule_activities
+             WHERE project_id = :project
+               AND id = :activity
+             LIMIT 1',
+            [':project' => $projectId, ':activity' => $activityId]
+        );
+
+        return $row !== null;
     }
 
     public function talentIdForUser(int $userId): ?int
