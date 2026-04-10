@@ -22,18 +22,23 @@ class ProjectSchedulesRepository
             'SELECT a.id, a.project_id, a.sort_order, a.name, a.item_type, a.start_date, a.end_date,
                     a.duration_days, a.responsible_name, a.progress_percent, a.linked_task_id,
                     a.created_at, a.updated_at,
-                    t.title AS linked_task_title, t.status AS linked_task_status
+                    COUNT(t.id) AS linked_tasks_total,
+                    SUM(CASE WHEN LOWER(COALESCE(t.status, \'\')) IN (\'done\', \'completed\') THEN 1 ELSE 0 END) AS linked_tasks_completed
              FROM project_schedule_activities a
-             LEFT JOIN tasks t ON t.id = a.linked_task_id
+             LEFT JOIN tasks t ON t.schedule_activity_id = a.id
              WHERE a.project_id = :project
+             GROUP BY a.id, a.project_id, a.sort_order, a.name, a.item_type, a.start_date, a.end_date,
+                      a.duration_days, a.responsible_name, a.progress_percent, a.linked_task_id, a.created_at, a.updated_at
              ORDER BY a.sort_order ASC, a.id ASC',
             [':project' => $projectId]
         );
 
         foreach ($rows as &$row) {
-            $taskStatus = strtolower((string) ($row['linked_task_status'] ?? ''));
-            if ((int) ($row['linked_task_id'] ?? 0) > 0) {
-                $row['progress_percent'] = $this->progressFromTaskStatus($taskStatus);
+            $linkedTotal = (int) ($row['linked_tasks_total'] ?? 0);
+            $linkedCompleted = (int) ($row['linked_tasks_completed'] ?? 0);
+            $row['progress_locked'] = $linkedTotal > 0;
+            if ($linkedTotal > 0) {
+                $row['progress_percent'] = round(($linkedCompleted / max(1, $linkedTotal)) * 100, 1);
             }
             $row['derived_status'] = $this->activityStatus(
                 (string) ($row['start_date'] ?? ''),
@@ -181,15 +186,6 @@ class ProjectSchedulesRepository
         }
     }
 
-    private function progressFromTaskStatus(string $status): int
-    {
-        return match ($status) {
-            'done', 'completed' => 100,
-            'in_progress', 'review' => 50,
-            default => 0,
-        };
-    }
-
     private function activityStatus(string $startDate, string $endDate, float $progress): string
     {
         $today = strtotime(date('Y-m-d')) ?: 0;
@@ -204,7 +200,8 @@ class ProjectSchedulesRepository
         $elapsed = max(0, min($total, (int) floor(($today - $startTs) / 86400) + 1));
         $expected = min(100, ($elapsed / $total) * 100);
 
-        if ($progress + 10 < $expected) {
+        $daysToDeadline = (int) floor(($endTs - $today) / 86400);
+        if (($daysToDeadline < 3 && $progress < 80) || ($expected - $progress > 20)) {
             return 'yellow';
         }
 

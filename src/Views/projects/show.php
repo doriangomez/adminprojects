@@ -870,13 +870,12 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                         <button class="action-btn small" data-zoom="week">Semanas</button>
                         <button class="action-btn small" data-zoom="month">Meses</button>
                         <button class="action-btn small" data-zoom="quarter">Trimestres</button>
-                        <button class="action-btn small" data-export="png">Exportar PNG</button>
-                        <button class="action-btn small" data-export="pdf">Exportar PDF</button>
+                        <button class="action-btn small" data-export="png">Exportar</button>
                     </div>
                     <div class="gantt-grid" data-zoom="<?= htmlspecialchars((string) $zoom) ?>">
                         <div class="gantt-table">
                             <table>
-                                <thead><tr><th>Nº</th><th>Nombre</th><th>Tipo</th><th>Responsable</th><th>Inicio</th><th>Fin</th><th>Avance</th><th>Estado</th></tr></thead>
+                                <thead><tr><th>Nº</th><th>Nombre</th><th>Tipo</th><th>Responsable</th><th>Inicio</th><th>Fin</th><th>Avance</th><th>Estado</th><th>Acciones</th></tr></thead>
                                 <tbody>
                                 <?php foreach ($scheduleActivities as $i => $activity): ?>
                                     <tr>
@@ -886,8 +885,12 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                         <td><?= htmlspecialchars((string) ($activity['responsible_name'] ?? 'Sin asignar')) ?></td>
                                         <td><?= htmlspecialchars((string) ($activity['start_date'] ?? '')) ?></td>
                                         <td><?= htmlspecialchars((string) ($activity['end_date'] ?? '')) ?></td>
-                                        <td><?= number_format((float) ($activity['progress_percent'] ?? 0), 0) ?>%</td>
+                                        <td><?= number_format((float) ($activity['progress_percent'] ?? 0), 0) ?>% <?= !empty($activity['progress_locked']) ? '🔒' : '' ?></td>
                                         <td><?= htmlspecialchars((string) ($activity['derived_status'] ?? 'green')) ?></td>
+                                        <td>
+                                            <button type="button" class="action-btn small" data-schedule-edit-row="<?= (int) $i ?>" title="Editar">✏️</button>
+                                            <button type="button" class="action-btn small danger" data-schedule-delete-row="<?= (int) $i ?>" title="Eliminar">🗑️</button>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                                 </tbody>
@@ -897,24 +900,41 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                     </div>
                 </article>
             <?php endif; ?>
+            <article class="schedule-editor-panel" id="schedule-editor-panel" hidden>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/schedule/save" class="schedule-form">
+                    <h3>Editor de cronograma</h3>
+                    <p class="section-muted">Edita cada celda directamente. El avance se bloquea cuando hay tareas vinculadas.</p>
+                    <datalist id="schedule-talents">
+                        <?php foreach ($talentNames as $talentName): ?>
+                            <option value="<?= htmlspecialchars((string) $talentName) ?>"></option>
+                        <?php endforeach; ?>
+                    </datalist>
+                    <div class="table-wrapper schedule-editor-table-wrap">
+                        <table class="schedule-editor-table">
+                            <thead>
+                                <tr>
+                                    <th>N°</th>
+                                    <th>Nombre de la actividad</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha inicio</th>
+                                    <th>Fecha fin</th>
+                                    <th>Días</th>
+                                    <th>Responsable</th>
+                                    <th>Avance %</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="schedule-editor-rows" data-existing='<?= htmlspecialchars(json_encode($scheduleActivities, JSON_UNESCAPED_UNICODE), ENT_QUOTES, "UTF-8") ?>'></tbody>
+                        </table>
+                    </div>
+                    <input type="hidden" name="activities_json" id="schedule-activities-json" />
+                    <div class="schedule-editor-footer">
+                        <button type="button" class="action-btn" data-schedule-add-row>＋ Agregar actividad</button>
+                        <button type="submit" class="action-btn primary">Guardar cronograma</button>
+                    </div>
+                </form>
+            </article>
         </section>
-        <dialog id="schedule-editor-modal">
-            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/schedule/save" class="schedule-form">
-                <h3>Editor de cronograma</h3>
-                <p class="section-muted">Agrega hitos o actividades y guarda para generar el Gantt.</p>
-                <datalist id="schedule-talents">
-                    <?php foreach ($talentNames as $talentName): ?>
-                        <option value="<?= htmlspecialchars((string) $talentName) ?>"></option>
-                    <?php endforeach; ?>
-                </datalist>
-                <div id="schedule-editor-rows" data-existing='<?= htmlspecialchars(json_encode($scheduleActivities, JSON_UNESCAPED_UNICODE), ENT_QUOTES, "UTF-8") ?>'></div>
-                <input type="hidden" name="activities_json" id="schedule-activities-json" />
-                <div class="schedule-actions">
-                    <button type="button" class="action-btn" data-schedule-add-row>Agregar actividad</button>
-                    <button type="submit" class="action-btn primary">Guardar cronograma</button>
-                </div>
-            </form>
-        </dialog>
         <dialog id="schedule-import-modal">
             <form class="schedule-form" id="schedule-import-form" enctype="multipart/form-data">
                 <h3>Importar cronograma desde Excel</h3>
@@ -1636,59 +1656,83 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
 
     const scheduleRoot = document.querySelector('[data-schedule-root]');
     if (scheduleRoot) {
-        const editorModal = document.getElementById('schedule-editor-modal');
+        const editorPanel = document.getElementById('schedule-editor-panel');
         const importModal = document.getElementById('schedule-import-modal');
         const editorRows = document.getElementById('schedule-editor-rows');
         const hiddenActivities = document.getElementById('schedule-activities-json');
         const projectId = Number(scheduleRoot.dataset.projectId || 0);
-        const talents = <?= json_encode($talentNames ?? [], JSON_UNESCAPED_UNICODE) ?>;
         const tasks = <?= json_encode($tasksForSchedule ?? [], JSON_UNESCAPED_UNICODE) ?>;
 
-        const renderRow = (row = {}) => {
-            const wrapper = document.createElement('div');
+        const normalizeDate = (value) => value || '';
+        const diffDays = (startDate, endDate) => {
+            if (!startDate || !endDate) return 0;
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+            return Math.floor((end - start) / 86400000) + 1;
+        };
+
+        const linkedProgress = (activityId) => {
+            const linked = tasks.filter((task) => Number(task.schedule_activity_id || 0) === Number(activityId || 0));
+            if (!linked.length) return null;
+            const completed = linked.filter((task) => ['done', 'completed'].includes(String(task.status || '').toLowerCase())).length;
+            return Math.round((completed / linked.length) * 100);
+        };
+
+        const renderRow = (row = {}, index = 0) => {
+            const wrapper = document.createElement('tr');
             wrapper.className = 'schedule-row';
+            const activityId = Number(row.id || 0);
+            const calculatedProgress = linkedProgress(activityId);
+            const isLocked = calculatedProgress !== null;
             wrapper.innerHTML = `
-                <input placeholder="Nombre" data-field="name" value="${row.name || ''}" />
-                <select data-field="item_type"><option value="activity">Actividad</option><option value="milestone">Hito</option></select>
-                <input type="date" data-field="start_date" value="${row.start_date || ''}" />
-                <input type="date" data-field="end_date" value="${row.end_date || ''}" />
-                <input type="number" min="0" max="100" data-field="progress_percent" value="${Number(row.progress_percent || 0)}" />
-                <input list="schedule-talents" placeholder="Responsable" data-field="responsible_name" value="${row.responsible_name || ''}" />
-                <select data-field="linked_task_id"><option value="">Tarea vinculada</option>${tasks.map((t) => `<option value="${t.id}">${t.title}</option>`).join('')}</select>
-                <button type="button" class="action-btn" data-remove-row>Eliminar</button>
+                <td class="schedule-num">${index + 1}</td>
+                <td><input placeholder="Nombre" data-field="name" value="${row.name || ''}" /></td>
+                <td><select data-field="item_type"><option value="activity">Actividad</option><option value="milestone">Hito</option></select></td>
+                <td><input type="date" data-field="start_date" value="${normalizeDate(row.start_date)}" /></td>
+                <td><input type="date" data-field="end_date" value="${normalizeDate(row.end_date)}" /></td>
+                <td><input type="number" data-field="duration_days" value="${Number(row.duration_days || diffDays(row.start_date, row.end_date))}" readonly /></td>
+                <td><input list="schedule-talents" placeholder="Responsable" data-field="responsible_name" value="${row.responsible_name || ''}" /></td>
+                <td class="schedule-progress-cell"><input type="number" min="0" max="100" data-field="progress_percent" value="${Number(isLocked ? calculatedProgress : (row.progress_percent || 0))}" ${isLocked ? 'readonly' : ''} />${isLocked ? '<span title="Calculado desde tareas vinculadas">🔒</span>' : ''}</td>
+                <td><button type="button" class="action-btn danger" data-remove-row>Eliminar</button></td>
             `;
             wrapper.querySelector('[data-field="item_type"]').value = row.item_type || 'activity';
-            if (row.linked_task_id) wrapper.querySelector('[data-field="linked_task_id"]').value = String(row.linked_task_id);
             wrapper.querySelector('[data-remove-row]').addEventListener('click', () => wrapper.remove());
-            const progressInput = wrapper.querySelector('[data-field="progress_percent"]');
-            const taskSelect = wrapper.querySelector('[data-field="linked_task_id"]');
-            taskSelect.addEventListener('change', () => {
-                const task = tasks.find((t) => Number(t.id) === Number(taskSelect.value));
-                if (!task) {
-                    progressInput.readOnly = false;
-                    return;
-                }
-                const status = String(task.status || '').toLowerCase();
-                progressInput.value = (status === 'done' || status === 'completed') ? '100' : ((status === 'in_progress' || status === 'review') ? '50' : '0');
-                progressInput.readOnly = true;
-            });
+            const startInput = wrapper.querySelector('[data-field="start_date"]');
+            const endInput = wrapper.querySelector('[data-field="end_date"]');
+            const durationInput = wrapper.querySelector('[data-field="duration_days"]');
+            const updateDuration = () => { durationInput.value = String(diffDays(startInput.value, endInput.value)); };
+            startInput.addEventListener('change', updateDuration);
+            endInput.addEventListener('change', updateDuration);
             return wrapper;
         };
 
-        const openEditor = () => {
-            if (!editorModal || !editorRows) return;
+        const openEditor = (rowToFocus = null) => {
+            if (!editorPanel || !editorRows) return;
             editorRows.innerHTML = '';
             const existing = JSON.parse(editorRows.dataset.existing || '[]');
-            (existing.length ? existing : [{}]).forEach((row) => editorRows.appendChild(renderRow(row)));
-            editorModal.showModal();
+            (existing.length ? existing : [{}]).forEach((row, index) => editorRows.appendChild(renderRow(row, index)));
+            editorPanel.hidden = false;
+            if (rowToFocus !== null) {
+                editorRows.querySelectorAll('.schedule-row')[rowToFocus]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         };
 
         scheduleRoot.querySelectorAll('[data-schedule-action]').forEach((btn) => btn.addEventListener('click', () => {
             if (btn.dataset.scheduleAction === 'create') openEditor();
             if (btn.dataset.scheduleAction === 'import' && importModal) importModal.showModal();
         }));
-        document.querySelector('[data-schedule-add-row]')?.addEventListener('click', () => editorRows.appendChild(renderRow({})));
-        editorModal?.querySelector('form')?.addEventListener('submit', () => {
+        scheduleRoot.querySelectorAll('[data-schedule-edit-row]').forEach((btn) => btn.addEventListener('click', () => openEditor(Number(btn.dataset.scheduleEditRow || 0))));
+        scheduleRoot.querySelectorAll('[data-schedule-delete-row]').forEach((btn) => btn.addEventListener('click', async () => {
+            openEditor();
+            const idx = Number(btn.dataset.scheduleDeleteRow || -1);
+            editorRows.querySelectorAll('.schedule-row')[idx]?.remove();
+        }));
+        document.querySelector('[data-schedule-add-row]')?.addEventListener('click', () => {
+            const nextIndex = editorRows.querySelectorAll('.schedule-row').length;
+            editorRows.appendChild(renderRow({}, nextIndex));
+        });
+        editorPanel?.querySelector('form')?.addEventListener('submit', () => {
             const rows = Array.from(editorRows.querySelectorAll('.schedule-row')).map((row, index) => ({
                 sort_order: index + 1,
                 name: row.querySelector('[data-field="name"]').value,
@@ -1697,7 +1741,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                 end_date: row.querySelector('[data-field="end_date"]').value,
                 progress_percent: Number(row.querySelector('[data-field="progress_percent"]').value || 0),
                 responsible_name: row.querySelector('[data-field="responsible_name"]').value,
-                linked_task_id: Number(row.querySelector('[data-field="linked_task_id"]').value || 0),
+                duration_days: Number(row.querySelector('[data-field="duration_days"]').value || 0),
             }));
             hiddenActivities.value = JSON.stringify(rows);
         });
@@ -1744,24 +1788,40 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         const ganttBars = document.querySelector('.gantt-bars');
         if (ganttBars) {
             const items = JSON.parse(ganttBars.dataset.ganttBars || '[]');
-            if (items.length > 0) {
+            const zoomContainer = document.querySelector('.gantt-grid');
+            const zoomFactor = () => {
+                const zoom = zoomContainer?.dataset.zoom || 'month';
+                if (zoom === 'week') return 1.8;
+                if (zoom === 'quarter') return 0.75;
+                return 1;
+            };
+            const renderGantt = () => {
+                if (!items.length) return;
                 const starts = items.map((i) => new Date(i.start_date));
                 const ends = items.map((i) => new Date(i.end_date));
                 const min = new Date(Math.min(...starts));
                 const max = new Date(Math.max(...ends));
                 const totalDays = Math.max(1, Math.ceil((max - min) / 86400000) + 1);
+                const scale = zoomFactor();
                 const rows = items.map((item, idx) => {
                     const s = new Date(item.start_date);
                     const e = new Date(item.end_date || item.start_date);
                     const left = Math.max(0, Math.floor((s - min) / 86400000));
                     const width = Math.max(1, Math.floor((e - s) / 86400000) + 1);
                     const color = item.derived_status === 'red' ? '#ef4444' : (item.derived_status === 'yellow' ? '#f59e0b' : '#10b981');
+                    const tooltip = `${item.name || 'Actividad'} · ${item.start_date || ''} → ${item.end_date || ''} · ${item.responsible_name || 'Sin asignar'} · ${Number(item.progress_percent || 0)}%`;
                     return item.item_type === 'milestone'
-                        ? `<polygon points="${(left / totalDays) * 100}%,${idx * 28 + 6} ${(left / totalDays) * 100 + 1}%,${idx * 28 + 12} ${(left / totalDays) * 100}%,${idx * 28 + 18} ${(left / totalDays) * 100 - 1}%,${idx * 28 + 12}" fill="${color}"><title>${item.name}</title></polygon>`
-                        : `<rect x="${(left / totalDays) * 100}%" y="${idx * 28 + 6}" width="${(width / totalDays) * 100}%" height="12" rx="4" fill="${color}"><title>${item.name} · ${item.start_date} → ${item.end_date}</title></rect>`;
+                        ? `<polygon points="${(left / totalDays) * 100 * scale}%,${idx * 28 + 6} ${(left / totalDays) * 100 * scale + 1}%,${idx * 28 + 12} ${(left / totalDays) * 100 * scale}%,${idx * 28 + 18} ${(left / totalDays) * 100 * scale - 1}%,${idx * 28 + 12}" fill="${color}"><title>${tooltip}</title></polygon>`
+                        : `<rect x="${(left / totalDays) * 100 * scale}%" y="${idx * 28 + 6}" width="${(width / totalDays) * 100 * scale}%" height="12" rx="4" fill="${color}"><title>${tooltip}</title></rect>`;
                 }).join('');
-                ganttBars.innerHTML = `<svg viewBox="0 0 100 ${items.length * 28 + 20}" preserveAspectRatio="none"><line x1="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100}" x2="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100}" y1="0" y2="${items.length * 28 + 20}" stroke="#3b82f6" stroke-dasharray="2 2" />${rows}</svg>`;
-            }
+                ganttBars.innerHTML = `<svg viewBox="0 0 ${100 * scale} ${items.length * 28 + 20}" preserveAspectRatio="none"><line x1="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100 * scale}" x2="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100 * scale}" y1="0" y2="${items.length * 28 + 20}" stroke="#3b82f6" stroke-dasharray="2 2" />${rows}</svg>`;
+            };
+            renderGantt();
+            document.querySelectorAll('[data-zoom]').forEach((button) => button.addEventListener('click', () => {
+                if (!zoomContainer) return;
+                zoomContainer.dataset.zoom = button.dataset.zoom;
+                renderGantt();
+            }));
         }
     }
 </script>
@@ -1832,15 +1892,19 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .schedule-summary-grid span { font-size:12px; color:var(--text-secondary); text-transform:uppercase; font-weight:700; }
     .schedule-summary-grid strong { color:var(--text-primary); }
     .schedule-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .schedule-editor-panel { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--surface) 90%, var(--background)); }
+    .schedule-editor-table-wrap { overflow:auto; }
+    .schedule-editor-table input, .schedule-editor-table select { width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); }
+    .schedule-editor-table td { vertical-align:middle; }
+    .schedule-progress-cell { display:flex; align-items:center; gap:6px; }
+    .schedule-editor-footer { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
     .gantt-wrapper { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
     .gantt-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .gantt-grid { display:grid; grid-template-columns: minmax(420px, 1.2fr) minmax(320px, 1fr); gap:10px; }
     .gantt-table { overflow:auto; border:1px solid var(--border); border-radius:10px; }
     .gantt-bars { border:1px solid var(--border); border-radius:10px; min-height:220px; padding:4px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); }
     .gantt-bars svg { width:100%; height:100%; min-height:220px; }
-    .schedule-form { display:flex; flex-direction:column; gap:10px; min-width:min(980px, 95vw); }
-    .schedule-row { display:grid; grid-template-columns: 1.4fr repeat(4, minmax(100px, 1fr)) 1.1fr 1.2fr auto; gap:8px; }
-    .schedule-row input, .schedule-row select { padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text-primary); }
+    .schedule-form { display:flex; flex-direction:column; gap:10px; width:100%; min-width:0; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
     .pill.methodology { border:1px solid var(--background); }
     .pill.methodology.scrum { background: color-mix(in srgb, var(--info) 18%, var(--background)); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, var(--background)); }

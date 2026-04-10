@@ -414,10 +414,8 @@ class ProjectsController extends Controller
 
         $tasksRepo = new TasksRepository($this->db);
         $tasks = $tasksRepo->forProject($id, $user);
-        $scheduleActivities = (new ProjectSchedulesRepository($this->db))->activitiesForProject($id);
-        $linkedTaskIds = array_values(array_unique(array_filter(array_map(static fn (array $activity): int => (int) ($activity['linked_task_id'] ?? 0), $scheduleActivities))));
         foreach ($tasks as &$task) {
-            $task['in_schedule'] = in_array((int) ($task['id'] ?? 0), $linkedTaskIds, true);
+            $task['in_schedule'] = (int) ($task['schedule_activity_id'] ?? 0) > 0;
         }
         unset($task);
         $canManage = $this->auth->can('projects.manage');
@@ -4164,8 +4162,6 @@ POST crudo:
 
     private function validateImportedScheduleRows(array $rows, int $projectId): array
     {
-        $projectTasks = (new TasksRepository($this->db))->forProject($projectId, $this->auth->user() ?? []);
-        $taskTitles = array_map(static fn (array $task): string => mb_strtolower(trim((string) ($task['title'] ?? ''))), $projectTasks);
         $errors = [];
         $activities = [];
         foreach ($rows as $idx => $row) {
@@ -4190,9 +4186,6 @@ POST crudo:
                 if (!$existsTalent) {
                     $errors[] = ['row' => $idx + 1, 'message' => 'Responsable no existe en Talento para este proyecto.'];
                 }
-            }
-            if (!empty($row['tarea_vinculada']) && !in_array(mb_strtolower(trim((string) $row['tarea_vinculada'])), $taskTitles, true)) {
-                $errors[] = ['row' => $idx + 1, 'message' => 'Tarea vinculada no encontrada en el proyecto.'];
             }
             $activities[] = $activity;
         }
