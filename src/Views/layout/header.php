@@ -694,6 +694,10 @@ error_log(sprintf(
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h7"/><path d="M9 12h7"/><path d="M9 16h5"/><path d="m6.5 8 .5.5 1-1"/><path d="m6.5 12 .5.5 1-1"/><path d="m6.5 16 .5.5 1-1"/></svg></span>
                 <span class="nav-label">Tareas</span>
             </a>
+            <a href="<?= $basePath ?>/tasks/kanban" class="nav-link <?= str_starts_with($normalizedPath, '/tasks/kanban') ? 'active' : '' ?>" data-tone="pink">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="16" rx="1.5"/><rect x="10" y="7" width="6" height="13" rx="1.5"/><rect x="17" y="10" width="4" height="10" rx="1.5"/></svg></span>
+                <span class="nav-label">Kanban</span>
+            </a>
             <?php if ($timesheetsEnabled): ?>
                 <a href="<?= $basePath ?>/timesheets" class="nav-link <?= str_starts_with($normalizedPath, '/timesheets') ? 'active' : '' ?>" data-tone="pink">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="m12 13 3 2"/><path d="M9 3h6"/><path d="M12 3v2"/></svg></span>
@@ -727,6 +731,10 @@ error_log(sprintf(
                 <a href="<?= $basePath ?>/pmo/decision-center" class="nav-link <?= str_starts_with($normalizedPath, '/pmo/decision-center') ? 'active' : '' ?>" data-tone="violet">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 15V9"/><path d="M12 15V5"/><path d="M17 15v-3"/><path d="M4 9h3"/><path d="M10 11h4"/><path d="M16 7h4"/></svg></span>
                     <span class="nav-label">Centro de decisiones</span>
+                </a>
+                <a href="<?= $basePath ?>/pmo/gantt-global" class="nav-link <?= str_starts_with($normalizedPath, '/pmo/gantt-global') ? 'active' : '' ?>" data-tone="sky">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 19h18"/><rect x="4" y="7" width="6" height="4" rx="1"/><rect x="11" y="10" width="6" height="4" rx="1"/><circle cx="20" cy="8" r="2"/></svg></span>
+                    <span class="nav-label">Gantt global</span>
                 </a>
             <?php endif; ?>
 

@@ -2544,40 +2544,183 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
 
         const ganttBars = document.querySelector('.gantt-bars');
         if (ganttBars) {
-            const items = JSON.parse(ganttBars.dataset.ganttBars || '[]');
+            let items = JSON.parse(ganttBars.dataset.ganttBars || '[]');
             const zoomContainer = document.querySelector('.gantt-grid');
+            const root = document.querySelector('[data-schedule-root]');
+            const projectId = Number(root?.dataset.projectId || 0);
             const zoomFactor = () => {
                 const zoom = zoomContainer?.dataset.zoom || 'month';
                 if (zoom === 'week') return 1.8;
                 if (zoom === 'quarter') return 0.75;
                 return 1;
             };
+            const addDays = (dateValue, days) => {
+                const date = new Date(dateValue);
+                if (Number.isNaN(date.getTime())) {
+                    return null;
+                }
+                date.setDate(date.getDate() + days);
+                return date;
+            };
+            const toIsoDate = (date) => {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                    return '';
+                }
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            let ganttContext = null;
+            let dragging = null;
+
+            const persistDates = async (activityId, startDate, endDate) => {
+                const response = await fetch(`/api/projects/${projectId}/schedule/activities/${activityId}/dates`, {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        start_date: startDate,
+                        end_date: endDate,
+                    }),
+                });
+                const payload = await response.json();
+                if (!response.ok || payload.status !== 'ok') {
+                    throw new Error(payload.message || 'No se pudo actualizar la actividad.');
+                }
+            };
+
             const renderGantt = () => {
                 if (!items.length) return;
-                const starts = items.map((i) => new Date(i.start_date));
-                const ends = items.map((i) => new Date(i.end_date));
+                const starts = items.map((i) => new Date(i.start_date)).filter((d) => !Number.isNaN(d.getTime()));
+                const ends = items.map((i) => new Date(i.end_date || i.start_date)).filter((d) => !Number.isNaN(d.getTime()));
+                if (!starts.length || !ends.length) return;
                 const min = new Date(Math.min(...starts));
                 const max = new Date(Math.max(...ends));
                 const totalDays = Math.max(1, Math.ceil((max - min) / 86400000) + 1);
                 const scale = zoomFactor();
+                ganttContext = { min, totalDays, scale };
+
                 const rows = items.map((item, idx) => {
                     const s = new Date(item.start_date);
                     const e = new Date(item.end_date || item.start_date);
+                    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) {
+                        return '';
+                    }
                     const left = Math.max(0, Math.floor((s - min) / 86400000));
                     const width = Math.max(1, Math.floor((e - s) / 86400000) + 1);
+                    const x = (left / totalDays) * 100 * scale;
+                    const w = (width / totalDays) * 100 * scale;
                     const color = item.derived_status === 'red' ? '#ef4444' : (item.derived_status === 'yellow' ? '#f59e0b' : '#10b981');
                     const tooltip = `${item.name || 'Actividad'} · ${item.start_date || ''} → ${item.end_date || ''} · ${item.responsible_name || 'Sin asignar'} · ${Number(item.progress_percent || 0)}%`;
-                    return item.item_type === 'milestone'
-                        ? `<polygon points="${(left / totalDays) * 100 * scale}%,${idx * 28 + 6} ${(left / totalDays) * 100 * scale + 1}%,${idx * 28 + 12} ${(left / totalDays) * 100 * scale}%,${idx * 28 + 18} ${(left / totalDays) * 100 * scale - 1}%,${idx * 28 + 12}" fill="${color}"><title>${tooltip}</title></polygon>`
-                        : `<rect x="${(left / totalDays) * 100 * scale}%" y="${idx * 28 + 6}" width="${(width / totalDays) * 100 * scale}%" height="12" rx="4" fill="${color}"><title>${tooltip}</title></rect>`;
+                    if (item.item_type === 'milestone') {
+                        return `<polygon class="gantt-milestone-point" data-gantt-index="${idx}" points="${x},${idx * 28 + 6} ${x + 1},${idx * 28 + 12} ${x},${idx * 28 + 18} ${x - 1},${idx * 28 + 12}" fill="${color}"><title>${tooltip}</title></polygon>`;
+                    }
+                    return `<g data-gantt-index="${idx}">
+                        <rect class="gantt-activity-bar" data-gantt-index="${idx}" x="${x}" y="${idx * 28 + 6}" width="${w}" height="12" rx="4" fill="${color}"><title>${tooltip}</title></rect>
+                        <circle class="gantt-resize-handle" data-gantt-index="${idx}" data-edge="start" cx="${x}" cy="${idx * 28 + 12}" r="1.15"></circle>
+                        <circle class="gantt-resize-handle" data-gantt-index="${idx}" data-edge="end" cx="${x + w}" cy="${idx * 28 + 12}" r="1.15"></circle>
+                    </g>`;
                 }).join('');
                 ganttBars.innerHTML = `<svg viewBox="0 0 ${100 * scale} ${items.length * 28 + 20}" preserveAspectRatio="none"><line x1="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100 * scale}" x2="${((Date.now() - min.getTime()) / 86400000) / totalDays * 100 * scale}" y1="0" y2="${items.length * 28 + 20}" stroke="#3b82f6" stroke-dasharray="2 2" />${rows}</svg>`;
             };
-            renderGantt();
+
+            const mouseToOffset = (event) => {
+                const svg = ganttBars.querySelector('svg');
+                if (!svg || !ganttContext) return 0;
+                const rect = svg.getBoundingClientRect();
+                if (rect.width <= 0) return 0;
+                const x = ((event.clientX - rect.left) / rect.width) * (100 * ganttContext.scale);
+                const day = Math.round((x / (100 * ganttContext.scale)) * ganttContext.totalDays);
+                return Math.max(0, Math.min(ganttContext.totalDays - 1, day));
+            };
+
+            const onMouseMove = (event) => {
+                if (!dragging || !ganttContext) return;
+                const item = items[dragging.index];
+                if (!item) return;
+                const offset = mouseToOffset(event);
+                let startOffset = Math.floor((new Date(item.start_date) - ganttContext.min) / 86400000);
+                let endOffset = Math.floor((new Date(item.end_date || item.start_date) - ganttContext.min) / 86400000);
+                if (dragging.edge === 'start') {
+                    startOffset = Math.min(offset, endOffset);
+                } else {
+                    endOffset = Math.max(offset, startOffset);
+                }
+                const nextStart = addDays(ganttContext.min, startOffset);
+                const nextEnd = addDays(ganttContext.min, endOffset);
+                item.start_date = toIsoDate(nextStart);
+                item.end_date = toIsoDate(nextEnd);
+                renderGantt();
+            };
+
+            const onMouseUp = async () => {
+                if (!dragging) return;
+                const item = items[dragging.index];
+                dragging = null;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                if (!item || !item.id) {
+                    return;
+                }
+                try {
+                    await persistDates(Number(item.id), String(item.start_date || ''), String(item.end_date || item.start_date || ''));
+                } catch (error) {
+                    window.alert(error instanceof Error ? error.message : 'No se pudieron guardar las fechas.');
+                }
+            };
+
+            const bindGanttInteractions = () => {
+                const svg = ganttBars.querySelector('svg');
+                if (!svg) return;
+                svg.querySelectorAll('.gantt-resize-handle').forEach((handle) => {
+                    handle.addEventListener('mousedown', (event) => {
+                        const index = Number(handle.getAttribute('data-gantt-index') || -1);
+                        const edge = String(handle.getAttribute('data-edge') || '');
+                        if (index < 0 || !['start', 'end'].includes(edge)) return;
+                        event.preventDefault();
+                        dragging = { index, edge };
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    });
+                });
+                svg.querySelectorAll('.gantt-milestone-point').forEach((milestone) => {
+                    milestone.addEventListener('click', async () => {
+                        const index = Number(milestone.getAttribute('data-gantt-index') || -1);
+                        if (index < 0) return;
+                        const item = items[index];
+                        if (!item || !item.id) return;
+                        const currentDate = String(item.start_date || item.end_date || '');
+                        const picked = window.prompt('Fecha del hito (YYYY-MM-DD)', currentDate);
+                        if (!picked || !/^\d{4}-\d{2}-\d{2}$/.test(picked)) {
+                            return;
+                        }
+                        item.start_date = picked;
+                        item.end_date = picked;
+                        renderGantt();
+                        try {
+                            await persistDates(Number(item.id), picked, picked);
+                        } catch (error) {
+                            window.alert(error instanceof Error ? error.message : 'No se pudo actualizar el hito.');
+                        }
+                    });
+                });
+            };
+
+            const rerender = () => {
+                renderGantt();
+                bindGanttInteractions();
+            };
+
+            rerender();
             document.querySelectorAll('[data-zoom]').forEach((button) => button.addEventListener('click', () => {
                 if (!zoomContainer) return;
                 zoomContainer.dataset.zoom = button.dataset.zoom;
-                renderGantt();
+                rerender();
             }));
         }
     }
@@ -2661,6 +2804,9 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .gantt-table { overflow:auto; border:1px solid var(--border); border-radius:10px; }
     .gantt-bars { border:1px solid var(--border); border-radius:10px; min-height:220px; padding:4px; background: color-mix(in srgb, var(--surface) 85%, var(--background)); }
     .gantt-bars svg { width:100%; height:100%; min-height:220px; }
+    .gantt-activity-bar { cursor: move; }
+    .gantt-resize-handle { fill: #0f172a; stroke: #ffffff; stroke-width: 0.2; cursor: ew-resize; }
+    .gantt-milestone-point { cursor: pointer; }
     .schedule-form { display:flex; flex-direction:column; gap:10px; width:100%; min-width:0; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; }
     .pill.methodology { border:1px solid var(--background); }

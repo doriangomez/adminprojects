@@ -10,6 +10,14 @@ class TasksController extends Controller
 {
     private const ALLOWED_STATUSES = ['todo', 'pending', 'in_progress', 'review', 'blocked', 'done', 'completed'];
     private const ALLOWED_PRIORITIES = ['low', 'medium', 'high'];
+    private const KANBAN_STATUS_ORDER = ['todo', 'in_progress', 'review', 'blocked', 'done'];
+    private const KANBAN_STATUS_META = [
+        'todo' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-muted', 'accent' => 'var(--text-secondary)'],
+        'in_progress' => ['label' => 'En progreso', 'icon' => '🔄', 'class' => 'status-info', 'accent' => 'var(--info)'],
+        'review' => ['label' => 'En revisión', 'icon' => '📝', 'class' => 'status-warning', 'accent' => 'var(--warning)'],
+        'blocked' => ['label' => 'Bloqueada', 'icon' => '⛔', 'class' => 'status-danger', 'accent' => 'var(--danger)'],
+        'done' => ['label' => 'Completada', 'icon' => '✅', 'class' => 'status-success', 'accent' => 'var(--success)'],
+    ];
 
     public function index(): void
     {
@@ -40,6 +48,75 @@ class TasksController extends Controller
             'canCreateTasks' => $canManage || $isTalent,
             'canDeleteTasks' => $this->auth->hasRole('Administrador'),
             'isTalentUser' => $isTalent,
+        ]);
+    }
+
+    public function kanban(): void
+    {
+        $this->requirePermission('tasks.view');
+        $repo = new TasksRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $userId = (int) ($user['id'] ?? 0);
+        $canManage = $this->auth->can('projects.manage');
+        $isTalent = $this->isTalent($user);
+        $tasks = $repo->listAll($user);
+
+        $projectOptions = [];
+        if ($canManage) {
+            $projectOptions = (new ProjectsRepository($this->db))->summary($user);
+        } elseif ($isTalent) {
+            $projectOptions = $repo->assignedProjectsForUser($userId);
+        }
+
+        $selectedProjectId = (int) ($_GET['project_id'] ?? 0);
+        $selectedAssigneeId = (int) ($_GET['assignee_id'] ?? 0);
+        $selectedPriority = strtolower(trim((string) ($_GET['priority'] ?? '')));
+        if (!in_array($selectedPriority, self::ALLOWED_PRIORITIES, true)) {
+            $selectedPriority = '';
+        }
+
+        $filteredTasks = array_values(array_filter($tasks, function (array $task) use ($selectedProjectId, $selectedAssigneeId, $selectedPriority): bool {
+            if ($selectedProjectId > 0 && (int) ($task['project_id'] ?? 0) !== $selectedProjectId) {
+                return false;
+            }
+            if ($selectedAssigneeId > 0 && (int) ($task['assignee_id'] ?? 0) !== $selectedAssigneeId) {
+                return false;
+            }
+            if ($selectedPriority !== '' && strtolower((string) ($task['priority'] ?? '')) !== $selectedPriority) {
+                return false;
+            }
+
+            return true;
+        }));
+
+        $assigneeOptions = [];
+        foreach ($tasks as $task) {
+            $assigneeId = (int) ($task['assignee_id'] ?? 0);
+            if ($assigneeId <= 0 || isset($assigneeOptions[$assigneeId])) {
+                continue;
+            }
+            $assigneeOptions[$assigneeId] = [
+                'id' => $assigneeId,
+                'name' => trim((string) ($task['assignee'] ?? '')) !== '' ? (string) $task['assignee'] : 'Sin asignar',
+            ];
+        }
+        ksort($assigneeOptions);
+
+        $this->render('tasks/kanban', [
+            'title' => 'Kanban',
+            'tasks' => $tasks,
+            'kanbanColumns' => $this->buildKanbanColumns($filteredTasks),
+            'projectOptions' => $projectOptions,
+            'assigneeOptions' => array_values($assigneeOptions),
+            'selectedProjectId' => $selectedProjectId,
+            'selectedAssigneeId' => $selectedAssigneeId,
+            'selectedPriority' => $selectedPriority,
+            'kanbanStatusOrder' => self::KANBAN_STATUS_ORDER,
+            'kanbanStatusMeta' => self::KANBAN_STATUS_META,
+            'canManage' => $canManage,
+            'canCreateTasks' => $canManage || $isTalent,
+            'isTalentUser' => $isTalent,
+            'talents' => $canManage ? (new TalentsRepository($this->db))->assignmentOptions() : [],
         ]);
     }
 
@@ -85,6 +162,7 @@ class TasksController extends Controller
         $estimatedHours = (float) ($_POST['estimated_hours'] ?? 0);
         $dueDate = trim((string) ($_POST['due_date'] ?? ''));
         $assigneeId = (int) ($_POST['assignee_id'] ?? 0);
+        $status = $this->normalizeStatus((string) ($_POST['status'] ?? 'todo'));
 
         if ($title === '') {
             http_response_code(400);
@@ -94,6 +172,10 @@ class TasksController extends Controller
         if (!in_array($priority, self::ALLOWED_PRIORITIES, true)) {
             http_response_code(400);
             exit('Prioridad de tarea inválida.');
+        }
+        if (!in_array($status, self::ALLOWED_STATUSES, true)) {
+            http_response_code(400);
+            exit('Estado de tarea inválido.');
         }
 
         if ($isTalent && !$canManage) {
@@ -107,13 +189,20 @@ class TasksController extends Controller
 
         $repo->createForProject($projectId, [
             'title' => $title,
+            'status' => $status,
             'priority' => $priority,
             'estimated_hours' => $estimatedHours,
             'due_date' => $dueDate !== '' ? $dueDate : null,
             'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
         ]);
 
-        header('Location: /tasks');
+        if ($this->wantsJson()) {
+            $this->json(['status' => 'ok']);
+            return;
+        }
+
+        $redirectTo = trim((string) ($_POST['redirect_to'] ?? ''));
+        header('Location: ' . ($redirectTo !== '' ? $redirectTo : '/tasks'));
     }
 
     public function edit(int $taskId): void
@@ -177,7 +266,17 @@ class TasksController extends Controller
             'schedule_activity_id' => $scheduleActivityId > 0 ? $scheduleActivityId : null,
         ]);
 
-        header('Location: /tasks');
+        if ($this->wantsJson()) {
+            $updatedTask = $repo->find($taskId, $user);
+            $this->json([
+                'status' => 'ok',
+                'task' => $updatedTask,
+            ]);
+            return;
+        }
+
+        $redirectTo = trim((string) ($_POST['redirect_to'] ?? ''));
+        header('Location: ' . ($redirectTo !== '' ? $redirectTo : '/tasks'));
     }
 
     public function updateStatus(int $taskId): void
@@ -205,7 +304,89 @@ class TasksController extends Controller
         }
 
         $repo->updateStatus($taskId, $status);
-        header('Location: /tasks');
+        if ($this->wantsJson()) {
+            $this->json([
+                'status' => 'ok',
+                'task_id' => $taskId,
+                'task_status' => $status,
+            ]);
+            return;
+        }
+
+        $redirectTo = trim((string) ($_POST['redirect_to'] ?? ''));
+        header('Location: ' . ($redirectTo !== '' ? $redirectTo : '/tasks'));
+    }
+
+    public function showApi(int $taskId): void
+    {
+        $this->requirePermission('tasks.view');
+        $repo = new TasksRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $task = $repo->find($taskId, $user);
+        if (!$task) {
+            $this->json(['status' => 'error', 'message' => 'Tarea no encontrada.'], 404);
+            return;
+        }
+
+        $canManage = $this->auth->can('projects.manage');
+        $this->json([
+            'status' => 'ok',
+            'task' => $task,
+            'can_manage' => $canManage,
+            'talents' => $canManage ? (new TalentsRepository($this->db))->assignmentOptions() : [],
+            'schedule_activities' => $repo->scheduleActivitiesForProject((int) ($task['project_id'] ?? 0)),
+            'status_options' => self::KANBAN_STATUS_META,
+            'priority_options' => [
+                'low' => 'Baja',
+                'medium' => 'Media',
+                'high' => 'Alta',
+            ],
+        ]);
+    }
+
+    public function updateApi(int $taskId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new TasksRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $task = $repo->find($taskId, $user);
+        if (!$task) {
+            $this->json(['status' => 'error', 'message' => 'Tarea no encontrada.'], 404);
+            return;
+        }
+
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $status = $this->normalizeStatus((string) ($_POST['status'] ?? ''));
+        $priority = strtolower(trim((string) ($_POST['priority'] ?? '')));
+        $estimatedHours = (float) ($_POST['estimated_hours'] ?? 0);
+        $dueDate = trim((string) ($_POST['due_date'] ?? ''));
+        $assigneeId = (int) ($_POST['assignee_id'] ?? 0);
+        $scheduleActivityId = (int) ($_POST['schedule_activity_id'] ?? 0);
+
+        if ($title === '' || !in_array($status, self::ALLOWED_STATUSES, true) || !in_array($priority, self::ALLOWED_PRIORITIES, true)) {
+            $this->json(['status' => 'error', 'message' => 'Completa los campos requeridos.'], 400);
+            return;
+        }
+        if ($scheduleActivityId > 0 && !$repo->scheduleActivityBelongsToProject((int) ($task['project_id'] ?? 0), $scheduleActivityId)) {
+            $this->json(['status' => 'error', 'message' => 'La actividad seleccionada no pertenece al proyecto.'], 400);
+            return;
+        }
+
+        $repo->updateTask($taskId, [
+            'title' => $title,
+            'status' => $status,
+            'priority' => $priority,
+            'estimated_hours' => $estimatedHours,
+            'due_date' => $dueDate !== '' ? $dueDate : null,
+            'assignee_id' => $assigneeId > 0 ? $assigneeId : null,
+            'schedule_activity_id' => $scheduleActivityId > 0 ? $scheduleActivityId : null,
+        ]);
+
+        $updatedTask = $repo->find($taskId, $user);
+        $this->json([
+            'status' => 'ok',
+            'task' => $updatedTask,
+        ]);
     }
 
     public function destroy(int $taskId): void
@@ -249,26 +430,19 @@ class TasksController extends Controller
 
     private function buildKanbanColumns(array $tasks): array
     {
-        $columns = [
-            'todo' => [],
-            'in_progress' => [],
-            'blocked' => [],
-            'review' => [],
-            'done' => [],
-        ];
+        $columns = [];
+        foreach (self::KANBAN_STATUS_ORDER as $statusKey) {
+            $columns[$statusKey] = [];
+        }
 
         foreach ($tasks as $task) {
             $status = $this->normalizeStatus((string) ($task['status'] ?? 'todo'));
-            $hasStopper = (int) ($task['open_stoppers'] ?? 0) > 0;
-            if ($hasStopper && $status !== 'done') {
-                $status = 'blocked';
-            }
             if (!array_key_exists($status, $columns)) {
                 $status = 'todo';
             }
 
             $task['kanban_status'] = $status;
-            $task['has_stopper'] = $hasStopper;
+            $task['has_stopper'] = (int) ($task['open_stoppers'] ?? 0) > 0;
             $columns[$status][] = $task;
         }
 
@@ -281,26 +455,19 @@ class TasksController extends Controller
         foreach ($tasks as $task) {
             $project = trim((string) ($task['project'] ?? 'Sin proyecto'));
             if (!isset($grouped[$project])) {
-                $grouped[$project] = [
-                    'todo' => [],
-                    'in_progress' => [],
-                    'blocked' => [],
-                    'review' => [],
-                    'done' => [],
-                ];
+                $grouped[$project] = [];
+                foreach (self::KANBAN_STATUS_ORDER as $statusKey) {
+                    $grouped[$project][$statusKey] = [];
+                }
             }
 
             $status = $this->normalizeStatus((string) ($task['status'] ?? 'todo'));
-            $hasStopper = (int) ($task['open_stoppers'] ?? 0) > 0;
-            if ($hasStopper && $status !== 'done') {
-                $status = 'blocked';
-            }
             if (!isset($grouped[$project][$status])) {
                 $status = 'todo';
             }
 
             $task['kanban_status'] = $status;
-            $task['has_stopper'] = $hasStopper;
+            $task['has_stopper'] = (int) ($task['open_stoppers'] ?? 0) > 0;
             $grouped[$project][$status][] = $task;
         }
 
@@ -331,10 +498,6 @@ class TasksController extends Controller
             $summary[$assignee]['estimated_hours'] += (float) ($task['estimated_hours'] ?? 0);
 
             $status = $this->normalizeStatus((string) ($task['status'] ?? 'todo'));
-            $hasStopper = (int) ($task['open_stoppers'] ?? 0) > 0;
-            if ($hasStopper && $status !== 'done') {
-                $status = 'blocked';
-            }
             if ($status === 'blocked') {
                 $summary[$assignee]['blocked_count']++;
             }
@@ -350,5 +513,16 @@ class TasksController extends Controller
         });
 
         return $summary;
+    }
+
+    private function wantsJson(): bool
+    {
+        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+        $requestedWith = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+
+        return str_contains($accept, 'application/json')
+            || $requestedWith === 'xmlhttprequest'
+            || str_starts_with($path, '/api/');
     }
 }

@@ -102,6 +102,11 @@ class App
             return;
         }
 
+        if ($path === '/pmo/gantt-global' && $method === 'GET') {
+            (new ProjectsController($this->db, $this->auth))->ganttGlobal();
+            return;
+        }
+
         if ($path === '/api/pmo/decision-center' && $method === 'GET') {
             (new DecisionCenterController($this->db, $this->auth))->summaryApi();
             return;
@@ -405,7 +410,7 @@ class App
                 $controller->importScheduleConfirm((int) $matches[1]);
                 return;
             }
-                        if (preg_match('#^/projects/(\d+)/requirements$#', $path, $matches) && $method === 'GET') {
+            if (preg_match('#^/projects/(\d+)/requirements$#', $path, $matches) && $method === 'GET') {
                 $controller->requirements((int) $matches[1]);
                 return;
             }
@@ -421,7 +426,7 @@ class App
                 $controller->deleteRequirement((int) $matches[1], (int) $matches[2]);
                 return;
             }
-if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method === 'GET') {
+            if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method === 'GET') {
                 $controller->outsourcing((int) $matches[1]);
                 return;
             }
@@ -454,8 +459,24 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
             return;
         }
 
+        if (str_starts_with($path, '/api/projects')) {
+            $controller = new ProjectsController($this->db, $this->auth);
+            if (preg_match('#^/api/projects/(\\d+)/tasks/(\\d+)/status$#', $path, $matches) && $method === 'POST') {
+                $controller->updateTaskStatusApi((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/api/projects/(\\d+)/schedule/activities/(\\d+)/dates$#', $path, $matches) && $method === 'POST') {
+                $controller->updateScheduleActivityDatesApi((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+        }
+
         if (str_starts_with($path, '/tasks')) {
             $controller = new TasksController($this->db, $this->auth);
+            if ($path === '/tasks/kanban' && $method === 'GET') {
+                $controller->kanban();
+                return;
+            }
             if ($path === '/tasks/create' && $method === 'POST') {
                 $controller->store();
                 return;
@@ -477,6 +498,21 @@ if (preg_match('#^/projects/(\\d+)/outsourcing$#', $path, $matches) && $method =
                 return;
             }
             $controller->index();
+            return;
+        }
+
+        if (str_starts_with($path, '/api/tasks')) {
+            $controller = new TasksController($this->db, $this->auth);
+            if (preg_match('#^/api/tasks/(\\d+)$#', $path, $matches) && $method === 'GET') {
+                $controller->showApi((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/api/tasks/(\\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateApi((int) $matches[1]);
+                return;
+            }
+            http_response_code(404);
+            echo 'Ruta API de tareas no encontrada';
             return;
         }
 

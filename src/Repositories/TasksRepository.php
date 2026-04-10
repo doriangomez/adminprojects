@@ -45,12 +45,14 @@ class TasksRepository
         [$conditions, $params] = $this->visibilityConditions($user, 't', 'p');
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
         [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
+        $subtasksSelect = $this->taskSubtasksSelect('t');
 
         return $this->db->fetchAll(
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.schedule_activity_id,
                     p.id AS project_id, p.name AS project, p.phase AS project_phase,
                     t.assignee_id, ta.user_id AS assignee_user_id, ta.name AS assignee,
-                    ' . $stopperSelect . '
+                    ' . $stopperSelect . ',
+                    ' . $subtasksSelect . '
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              LEFT JOIN talents ta ON ta.id = t.assignee_id
@@ -68,12 +70,14 @@ class TasksRepository
         $params[':id'] = $taskId;
         $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
         [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
+        $subtasksSelect = $this->taskSubtasksSelect('t');
 
         $row = $this->db->fetchOne(
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.assignee_id, t.schedule_activity_id,
                     ta.user_id AS assignee_user_id,
                     p.id AS project_id, p.name AS project, p.phase AS project_phase,
-                    ' . $stopperSelect . '
+                    ' . $stopperSelect . ',
+                    ' . $subtasksSelect . '
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              LEFT JOIN talents ta ON ta.id = t.assignee_id
@@ -88,7 +92,8 @@ class TasksRepository
 
     public function updateTask(int $taskId, array $payload): void
     {
-        $isCompleted = in_array((string) ($payload['status'] ?? ''), ['done', 'completed'], true);
+        $status = $this->normalizeStatus((string) ($payload['status'] ?? 'todo'));
+        $isCompleted = $this->isCompletedStatus($status);
         $set = [
             'title = :title',
             'status = :status',
@@ -101,7 +106,7 @@ class TasksRepository
         ];
         $params = [
             ':title' => $payload['title'],
-            ':status' => $payload['status'],
+            ':status' => $status,
             ':priority' => $payload['priority'],
             ':estimated' => $payload['estimated_hours'],
             ':due_date' => $payload['due_date'],
@@ -124,13 +129,14 @@ class TasksRepository
 
     public function createForProject(int $projectId, array $payload): int
     {
+        $status = $this->normalizeStatus((string) ($payload['status'] ?? 'todo'));
         return $this->db->insert(
             'INSERT INTO tasks (project_id, title, status, priority, estimated_hours, actual_hours, due_date, assignee_id, schedule_activity_id, created_at, updated_at)
              VALUES (:project_id, :title, :status, :priority, :estimated, :actual, :due_date, :assignee, :schedule_activity_id, NOW(), NOW())',
             [
                 ':project_id' => $projectId,
                 ':title' => $payload['title'],
-                ':status' => 'todo',
+                ':status' => $status,
                 ':priority' => $payload['priority'],
                 ':estimated' => $payload['estimated_hours'],
                 ':actual' => 0,
@@ -143,14 +149,15 @@ class TasksRepository
 
     public function updateStatus(int $taskId, string $status): void
     {
+        $normalizedStatus = $this->normalizeStatus($status);
         $params = [
-            ':status' => $status,
+            ':status' => $normalizedStatus,
             ':id' => $taskId,
         ];
         $set = 'status = :status, updated_at = NOW()';
         if ($this->db->columnExists('tasks', 'completed_at')) {
             $set .= ', completed_at = :completed_at';
-            $params[':completed_at'] = in_array($status, ['done', 'completed'], true) ? date('Y-m-d H:i:s') : null;
+            $params[':completed_at'] = $this->isCompletedStatus($normalizedStatus) ? date('Y-m-d H:i:s') : null;
         }
 
         $this->db->execute(
@@ -165,11 +172,13 @@ class TasksRepository
         $params[':project'] = $projectId;
         $where = $conditions ? ' AND ' . implode(' AND ', $conditions) : '';
         [$stopperJoin, $stopperSelect] = $this->taskStopperSql('t');
+        $subtasksSelect = $this->taskSubtasksSelect('t');
 
         return $this->db->fetchAll(
             'SELECT t.id, t.title, t.status, t.priority, t.estimated_hours, t.actual_hours, t.due_date, t.schedule_activity_id,
                     t.assignee_id, ta.user_id AS assignee_user_id, ta.name AS assignee,
-                    ' . $stopperSelect . '
+                    ' . $stopperSelect . ',
+                    ' . $subtasksSelect . '
              FROM tasks t
              JOIN projects p ON p.id = t.project_id
              LEFT JOIN talents ta ON ta.id = t.assignee_id
@@ -393,6 +402,32 @@ class TasksRepository
                  ) ps ON ps.task_id = ' . $taskAlias . '.id';
 
         return [$join, 'COALESCE(ps.open_stoppers, 0) AS open_stoppers'];
+    }
+
+    private function taskSubtasksSelect(string $taskAlias): string
+    {
+        $hasCompleted = $this->db->columnExists('tasks', 'subtasks_completed');
+        $hasTotal = $this->db->columnExists('tasks', 'subtasks_total');
+
+        if ($hasCompleted && $hasTotal) {
+            return 'COALESCE(' . $taskAlias . '.subtasks_completed, 0) AS subtasks_completed, COALESCE(' . $taskAlias . '.subtasks_total, 0) AS subtasks_total';
+        }
+
+        return '0 AS subtasks_completed, 0 AS subtasks_total';
+    }
+
+    private function normalizeStatus(string $status): string
+    {
+        return match (strtolower(trim($status))) {
+            'pending' => 'todo',
+            'completed' => 'done',
+            default => strtolower(trim($status)),
+        };
+    }
+
+    private function isCompletedStatus(string $status): bool
+    {
+        return in_array($status, ['done', 'completed'], true);
     }
 
     private function isPrivileged(array $user): bool
