@@ -440,15 +440,131 @@ class ProjectsController extends Controller
             $talents = (new TalentsRepository($this->db))->assignmentOptions();
         }
 
+        $kanbanStatusOrder = ['todo', 'in_progress', 'review', 'blocked', 'done'];
+        $kanbanStatusMeta = $this->taskStatusMeta();
+        $kanbanColumns = [];
+        foreach ($kanbanStatusOrder as $statusKey) {
+            $kanbanColumns[$statusKey] = [];
+        }
+        foreach ($tasks as $task) {
+            $taskStatus = strtolower(trim((string) ($task['status'] ?? 'todo')));
+            $taskStatus = match ($taskStatus) {
+                'pending' => 'todo',
+                'completed' => 'done',
+                default => $taskStatus,
+            };
+            if (!array_key_exists($taskStatus, $kanbanColumns)) {
+                $taskStatus = 'todo';
+            }
+            $task['kanban_status'] = $taskStatus;
+            $task['has_stopper'] = (int) ($task['open_stoppers'] ?? 0) > 0;
+            $kanbanColumns[$taskStatus][] = $task;
+        }
+
         $this->render('projects/tasks', [
             'title' => 'Tareas del proyecto',
             'project' => $project,
             'tasks' => $tasks,
+            'kanbanColumns' => $kanbanColumns,
+            'kanbanStatusOrder' => $kanbanStatusOrder,
+            'kanbanStatusMeta' => $kanbanStatusMeta,
             'canManage' => $canManage,
             'canCreateTask' => $canCreateTask,
             'isClosed' => $isClosed,
             'talents' => $talents,
         ]);
+    }
+
+    public function updateTaskStatusApi(int $projectId, int $taskId): void
+    {
+        $this->requirePermission('projects.view');
+        $user = $this->auth->user() ?? [];
+        $canManage = $this->auth->can('projects.manage');
+        $isTalent = $this->auth->hasRole('Talento');
+        if (!$canManage && !$isTalent) {
+            $this->json(['status' => 'error', 'message' => 'Acceso denegado.'], 403);
+            return;
+        }
+
+        $projectsRepo = new ProjectsRepository($this->db);
+        $project = $projectsRepo->findForUser($projectId, $user);
+        if (!$project) {
+            $this->json(['status' => 'error', 'message' => 'Proyecto no encontrado.'], 404);
+            return;
+        }
+
+        $tasksRepo = new TasksRepository($this->db);
+        $task = $tasksRepo->find($taskId, $user);
+        if (!$task || (int) ($task['project_id'] ?? 0) !== $projectId) {
+            $this->json(['status' => 'error', 'message' => 'Tarea no encontrada.'], 404);
+            return;
+        }
+
+        if ($isTalent && !$canManage) {
+            $userId = (int) ($user['id'] ?? 0);
+            if (!$tasksRepo->canTalentUpdateTaskStatus($taskId, $userId)) {
+                $this->json(['status' => 'error', 'message' => 'No puedes cambiar tareas asignadas a otros usuarios.'], 403);
+                return;
+            }
+        }
+
+        $status = strtolower(trim((string) ($_POST['status'] ?? '')));
+        $status = match ($status) {
+            'pending' => 'todo',
+            'completed' => 'done',
+            default => $status,
+        };
+        if (!in_array($status, ['todo', 'in_progress', 'review', 'blocked', 'done'], true)) {
+            $this->json(['status' => 'error', 'message' => 'Estado inválido.'], 400);
+            return;
+        }
+
+        $tasksRepo->updateStatus($taskId, $status);
+        $updated = $tasksRepo->find($taskId, $user);
+        $this->json([
+            'status' => 'ok',
+            'task' => $updated,
+        ]);
+    }
+
+    public function updateScheduleActivityDatesApi(int $projectId, int $activityId): void
+    {
+        $this->requirePermission('projects.manage');
+        $user = $this->auth->user() ?? [];
+        $repo = new ProjectsRepository($this->db);
+        $project = $repo->findForUser($projectId, $user);
+        if (!$project) {
+            $this->json(['status' => 'error', 'message' => 'Proyecto no encontrado.'], 404);
+            return;
+        }
+
+        $startDate = trim((string) ($_POST['start_date'] ?? ''));
+        $endDate = trim((string) ($_POST['end_date'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+            $this->json(['status' => 'error', 'message' => 'Formato de fecha inválido.'], 400);
+            return;
+        }
+
+        try {
+            $scheduleRepo = new ProjectSchedulesRepository($this->db);
+            $activity = $scheduleRepo->updateActivityDates($projectId, $activityId, $startDate, $endDate);
+            if (!$activity) {
+                $this->json(['status' => 'error', 'message' => 'Actividad no encontrada.'], 404);
+                return;
+            }
+
+            $this->json([
+                'status' => 'ok',
+                'activity' => $activity,
+            ]);
+            return;
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['status' => 'error', 'message' => $e->getMessage()], 400);
+            return;
+        } catch (\Throwable $e) {
+            $this->json(['status' => 'error', 'message' => 'No se pudieron actualizar las fechas.'], 500);
+            return;
+        }
     }
 
     public function billing(int $id): void
@@ -460,6 +576,142 @@ class ProjectsController extends Controller
         }
 
         $this->render('projects/billing', $this->projectDetailData($id));
+    }
+
+    public function ganttGlobal(): void
+    {
+        $this->requirePermission('projects.view');
+        $user = $this->auth->user() ?? [];
+        $projectsRepo = new ProjectsRepository($this->db);
+        $scheduleRepo = new ProjectSchedulesRepository($this->db);
+        $projects = $projectsRepo->summary($user);
+
+        $activeFilter = strtolower(trim((string) ($_GET['active'] ?? 'active')));
+        $activeFilter = $activeFilter === 'all' ? 'all' : 'active';
+        $selectedClient = trim((string) ($_GET['client'] ?? ''));
+        $selectedPm = trim((string) ($_GET['pm'] ?? ''));
+        $zoom = strtolower(trim((string) ($_GET['zoom'] ?? 'month')));
+        if (!in_array($zoom, ['week', 'month', 'quarter'], true)) {
+            $zoom = 'month';
+        }
+
+        $clientOptions = [];
+        $pmOptions = [];
+        foreach ($projects as $project) {
+            $clientName = trim((string) ($project['client'] ?? ''));
+            $pmName = trim((string) ($project['pm_name'] ?? ''));
+            if ($clientName !== '') {
+                $clientOptions[$clientName] = $clientName;
+            }
+            if ($pmName !== '') {
+                $pmOptions[$pmName] = $pmName;
+            }
+        }
+        ksort($clientOptions);
+        ksort($pmOptions);
+
+        $filteredProjects = array_values(array_filter($projects, function (array $project) use ($activeFilter, $selectedClient, $selectedPm): bool {
+            if ($selectedClient !== '' && trim((string) ($project['client'] ?? '')) !== $selectedClient) {
+                return false;
+            }
+            if ($selectedPm !== '' && trim((string) ($project['pm_name'] ?? '')) !== $selectedPm) {
+                return false;
+            }
+            if ($activeFilter === 'active') {
+                $status = strtolower(trim((string) ($project['status'] ?? $project['status_label'] ?? '')));
+                if (in_array($status, ['closed', 'cancelled', 'cancelado', 'cerrado', 'finalizado', 'finalized'], true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+
+        $projectIds = array_values(array_filter(array_map(static fn (array $project): int => (int) ($project['id'] ?? 0), $filteredProjects), static fn (int $id): bool => $id > 0));
+        $activitiesByProject = $scheduleRepo->activitiesForProjects($projectIds);
+
+        $ganttProjects = [];
+        foreach ($filteredProjects as $project) {
+            $projectId = (int) ($project['id'] ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+
+            $activities = $activitiesByProject[$projectId] ?? [];
+            $projectStart = (string) ($project['start_date'] ?? '');
+            $projectEnd = (string) ($project['end_date'] ?? '');
+            if (($projectStart === '' || $projectEnd === '') && $activities !== []) {
+                $starts = array_values(array_filter(array_map(static fn (array $activity): string => (string) ($activity['start_date'] ?? ''), $activities), static fn (string $value): bool => $value !== ''));
+                $ends = array_values(array_filter(array_map(static fn (array $activity): string => (string) ($activity['end_date'] ?? ''), $activities), static fn (string $value): bool => $value !== ''));
+                if ($projectStart === '' && $starts !== []) {
+                    sort($starts);
+                    $projectStart = $starts[0];
+                }
+                if ($projectEnd === '' && $ends !== []) {
+                    sort($ends);
+                    $projectEnd = $ends[count($ends) - 1];
+                }
+            }
+
+            $children = [];
+            foreach ($activities as $activity) {
+                $children[] = [
+                    'id' => (int) ($activity['id'] ?? 0),
+                    'name' => (string) ($activity['name'] ?? 'Actividad'),
+                    'item_type' => (string) ($activity['item_type'] ?? 'activity'),
+                    'start_date' => (string) ($activity['start_date'] ?? ''),
+                    'end_date' => (string) ($activity['end_date'] ?? ''),
+                    'responsible_name' => (string) ($activity['responsible_name'] ?? ''),
+                    'progress_percent' => (float) ($activity['progress_percent'] ?? 0),
+                ];
+            }
+
+            $ganttProjects[] = [
+                'id' => $projectId,
+                'name' => (string) ($project['name'] ?? ''),
+                'client' => (string) ($project['client'] ?? ''),
+                'pm' => (string) ($project['pm_name'] ?? 'Sin PM'),
+                'progress_percent' => (float) ($project['progress'] ?? 0),
+                'status_label' => (string) ($project['status_label'] ?? $project['status'] ?? 'Sin estado'),
+                'health' => $this->normalizeProjectHealth((string) ($project['health'] ?? $project['health_label'] ?? '')),
+                'start_date' => $projectStart,
+                'end_date' => $projectEnd,
+                'children' => $children,
+            ];
+        }
+
+        $this->render('pmo/gantt_global', [
+            'title' => 'Gantt global',
+            'projects' => $ganttProjects,
+            'zoom' => $zoom,
+            'activeFilter' => $activeFilter,
+            'selectedClient' => $selectedClient,
+            'selectedPm' => $selectedPm,
+            'clientOptions' => array_values($clientOptions),
+            'pmOptions' => array_values($pmOptions),
+        ]);
+    }
+
+    private function normalizeProjectHealth(string $health): string
+    {
+        $normalized = strtolower(trim($health));
+
+        return match ($normalized) {
+            'critical', 'red', 'alto', 'high' => 'red',
+            'at_risk', 'yellow', 'medio', 'medium' => 'yellow',
+            default => 'green',
+        };
+    }
+
+    private function taskStatusMeta(): array
+    {
+        return [
+            'todo' => ['label' => 'Pendiente', 'icon' => '⏳', 'class' => 'status-muted', 'accent' => '#94a3b8'],
+            'in_progress' => ['label' => 'En progreso', 'icon' => '🔄', 'class' => 'status-info', 'accent' => '#0ea5e9'],
+            'review' => ['label' => 'En revisión', 'icon' => '📝', 'class' => 'status-warning', 'accent' => '#f59e0b'],
+            'blocked' => ['label' => 'Bloqueada', 'icon' => '⛔', 'class' => 'status-danger', 'accent' => '#ef4444'],
+            'done' => ['label' => 'Completada', 'icon' => '✅', 'class' => 'status-success', 'accent' => '#22c55e'],
+        ];
     }
 
     public function storeTask(int $id): void
@@ -494,6 +746,12 @@ class ProjectsController extends Controller
         }
 
         $title = trim((string) ($_POST['title'] ?? ''));
+        $status = strtolower(trim((string) ($_POST['status'] ?? 'todo')));
+        $status = match ($status) {
+            'pending' => 'todo',
+            'completed' => 'done',
+            default => $status,
+        };
         $priority = strtolower(trim((string) ($_POST['priority'] ?? 'medium')));
         $estimatedHours = (float) ($_POST['estimated_hours'] ?? 0);
         $dueDate = trim((string) ($_POST['due_date'] ?? ''));
@@ -509,6 +767,10 @@ class ProjectsController extends Controller
             http_response_code(400);
             exit('Prioridad de tarea inválida.');
         }
+        if (!in_array($status, ['todo', 'pending', 'in_progress', 'review', 'blocked', 'done', 'completed'], true)) {
+            http_response_code(400);
+            exit('Estado de tarea inválido.');
+        }
 
         if ($isTalent && !$canManage) {
             $talentId = $tasksRepo->talentIdForUser((int) ($user['id'] ?? 0));
@@ -521,6 +783,7 @@ class ProjectsController extends Controller
 
         $tasksRepo->createForProject($id, [
             'title' => $title,
+            'status' => $status,
             'priority' => $priority,
             'estimated_hours' => $estimatedHours,
             'due_date' => $dueDate !== '' ? $dueDate : null,

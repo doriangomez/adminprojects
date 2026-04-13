@@ -51,6 +51,51 @@ class ProjectSchedulesRepository
         return $rows;
     }
 
+    /**
+     * @param int[] $projectIds
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public function activitiesForProjects(array $projectIds): array
+    {
+        $projectIds = array_values(array_filter(array_map(static fn ($id): int => (int) $id, $projectIds), static fn (int $id): bool => $id > 0));
+        if ($projectIds === [] || !$this->db->tableExists('project_schedule_activities')) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($projectIds as $index => $projectId) {
+            $key = ':project_' . $index;
+            $placeholders[] = $key;
+            $params[$key] = $projectId;
+        }
+
+        $rows = $this->db->fetchAll(
+            'SELECT a.id, a.project_id, a.sort_order, a.name, a.item_type, a.start_date, a.end_date,
+                    a.duration_days, a.responsible_name, a.progress_percent, a.linked_task_id,
+                    a.created_at, a.updated_at
+             FROM project_schedule_activities a
+             WHERE a.project_id IN (' . implode(', ', $placeholders) . ')
+             ORDER BY a.project_id ASC, a.sort_order ASC, a.id ASC',
+            $params
+        );
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $projectId = (int) ($row['project_id'] ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+
+            if (!isset($grouped[$projectId])) {
+                $grouped[$projectId] = [];
+            }
+            $grouped[$projectId][] = $row;
+        }
+
+        return $grouped;
+    }
+
     public function hasActivities(int $projectId): bool
     {
         if (!$this->db->tableExists('project_schedule_activities')) {
@@ -63,6 +108,104 @@ class ProjectSchedulesRepository
         );
 
         return (int) ($row['total'] ?? 0) > 0;
+    }
+
+    public function updateActivityDates(int $projectId, int $activityId, string $startDate, string $endDate): ?array
+    {
+        if (
+            $projectId <= 0
+            || $activityId <= 0
+            || !$this->db->tableExists('project_schedule_activities')
+        ) {
+            return null;
+        }
+
+        $activity = $this->db->fetchOne(
+            'SELECT id, project_id, item_type, start_date, end_date
+             FROM project_schedule_activities
+             WHERE project_id = :project
+               AND id = :activity
+             LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':activity' => $activityId,
+            ]
+        );
+
+        if (!$activity) {
+            return null;
+        }
+
+        if ((string) ($activity['item_type'] ?? 'activity') === 'milestone') {
+            $start = strtotime($startDate) ?: null;
+            if ($start === null) {
+                throw new \InvalidArgumentException('Fecha inválida para el hito.');
+            }
+            $milestoneDate = date('Y-m-d', $start);
+            $this->db->execute(
+                'UPDATE project_schedule_activities
+                 SET start_date = :date_value,
+                     end_date = :date_value,
+                     duration_days = 0,
+                     updated_at = NOW()
+                 WHERE project_id = :project
+                   AND id = :activity',
+                [
+                    ':date_value' => $milestoneDate,
+                    ':project' => $projectId,
+                    ':activity' => $activityId,
+                ]
+            );
+
+            return $this->db->fetchOne(
+                'SELECT id, project_id, item_type, start_date, end_date, duration_days, progress_percent
+                 FROM project_schedule_activities
+                 WHERE project_id = :project
+                   AND id = :activity
+                 LIMIT 1',
+                [
+                    ':project' => $projectId,
+                    ':activity' => $activityId,
+                ]
+            ) ?: null;
+        }
+
+        $start = strtotime($startDate) ?: null;
+        $end = strtotime($endDate) ?: null;
+        if ($start === null || $end === null || $end < $start) {
+            throw new \InvalidArgumentException('Rango de fechas inválido para la actividad.');
+        }
+
+        $duration = (int) floor(($end - $start) / 86400) + 1;
+
+        $this->db->execute(
+            'UPDATE project_schedule_activities
+             SET start_date = :start_date,
+                 end_date = :end_date,
+                 duration_days = :duration_days,
+                 updated_at = NOW()
+             WHERE project_id = :project
+               AND id = :activity',
+            [
+                ':start_date' => date('Y-m-d', $start),
+                ':end_date' => date('Y-m-d', $end),
+                ':duration_days' => $duration,
+                ':project' => $projectId,
+                ':activity' => $activityId,
+            ]
+        );
+
+        return $this->db->fetchOne(
+            'SELECT id, project_id, item_type, start_date, end_date, duration_days, progress_percent
+             FROM project_schedule_activities
+             WHERE project_id = :project
+               AND id = :activity
+             LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':activity' => $activityId,
+            ]
+        ) ?: null;
     }
 
     public function replaceActivities(int $projectId, array $activities): void
