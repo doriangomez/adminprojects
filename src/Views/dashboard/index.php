@@ -48,9 +48,21 @@
         th.sortable { cursor: pointer; }
         .text-right { text-align: right; }
         .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; }
-        .pill.green { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); }
-        .pill.amber { background: color-mix(in srgb, var(--warning) 20%, var(--background)); color: #b45309; }
-        .pill.red { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); }
+        .pill.green {
+          background: color-mix(in srgb, var(--success) 15%, transparent);
+          color: var(--success);
+          font-weight: 600;
+        }
+        .pill.amber {
+          background: color-mix(in srgb, var(--warning) 15%, transparent);
+          color: var(--warning);
+          font-weight: 600;
+        }
+        .pill.red {
+          background: color-mix(in srgb, var(--danger) 15%, transparent);
+          color: var(--danger);
+          font-weight: 600;
+        }
 
         details.ai-collapsible { margin-top: 12px; border: 1px solid color-mix(in srgb, #1d4ed8 40%, var(--border)); border-radius: 12px; padding: 10px; }
         details.ai-collapsible summary { cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text-primary); }
