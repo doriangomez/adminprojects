@@ -472,6 +472,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .project-table tbody td {
         background: #ffffff;
+        color: #111827;
         border-top: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
         border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, var(--background));
     }
@@ -499,7 +500,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     }
 
     .project-title { font-weight: 700; color: var(--text-primary); margin: 0; }
+    .project-table tbody .project-title { color: #0f172a; }
     .project-client { color: var(--text-secondary); font-size: 12px; margin: 2px 0 0; }
+    .project-table tbody .project-client { color: #475569; }
     .project-cell { min-width: 320px; }
     .project-main { display: flex; flex-direction: column; gap: 2px; }
 
