@@ -533,17 +533,17 @@ error_log(sprintf(
         }
         .pill.green { 
           background: color-mix(in srgb, var(--success) 15%, transparent); 
-          color: var(--success); 
+          color: #1a5c0a; 
           border-color: transparent; 
         }
         .pill.amber { 
           background: color-mix(in srgb, var(--warning) 15%, transparent); 
-          color: var(--warning); 
+          color: #7c3d00; 
           border-color: transparent; 
         }
         .pill.red { 
           background: color-mix(in srgb, var(--danger) 15%, transparent); 
-          color: var(--danger); 
+          color: #7f1d1d; 
           border-color: transparent; 
         }
         .pillset { display:flex; gap:6px; flex-wrap:wrap; }
