@@ -45,23 +45,28 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, var(--background)); padding: 9px 8px; color: var(--text-primary); font-size: 13px; }
         th { text-transform: uppercase; letter-spacing: .05em; font-size: 11px; color: var(--text-secondary); text-align: left; }
+        .table-wrap tbody td { color: #0f172a; }
+        .table-wrap th { color: #475569; }
         th.sortable { cursor: pointer; }
         .text-right { text-align: right; }
-        .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; }
+        .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; border: 1px solid transparent; }
         .pill.green {
-          background: color-mix(in srgb, var(--success) 15%, transparent);
-          color: var(--success);
-          font-weight: 600;
+          background: #dcfce7;
+          color: #166534;
+          border-color: #86efac;
+          font-weight: 700;
         }
         .pill.amber {
-          background: color-mix(in srgb, var(--warning) 15%, transparent);
-          color: var(--warning);
-          font-weight: 600;
+          background: #fef3c7;
+          color: #92400e;
+          border-color: #fcd34d;
+          font-weight: 700;
         }
         .pill.red {
-          background: color-mix(in srgb, var(--danger) 15%, transparent);
-          color: var(--danger);
-          font-weight: 600;
+          background: #fee2e2;
+          color: #991b1b;
+          border-color: #fca5a5;
+          font-weight: 700;
         }
 
         details.ai-collapsible { margin-top: 12px; border: 1px solid color-mix(in srgb, #1d4ed8 40%, var(--border)); border-radius: 12px; padding: 10px; }
