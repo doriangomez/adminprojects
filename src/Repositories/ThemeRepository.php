@@ -70,39 +70,42 @@ class ThemeRepository
 
     private function normalizeTheme(array $theme, array $defaultTheme): array
     {
-        $theme['primary'] = $theme['primary'] ?? $defaultTheme['primary'] ?? '';
-        $theme['secondary'] = $theme['secondary'] ?? $defaultTheme['secondary'] ?? '';
-        $theme['accent'] = $theme['accent'] ?? $defaultTheme['accent'] ?? $theme['primary'];
-        $theme['background'] = $theme['background'] ?? $defaultTheme['background'] ?? '';
-        $theme['surface'] = $theme['surface'] ?? $defaultTheme['surface'] ?? '';
-        $theme['border'] = $theme['border'] ?? $defaultTheme['border'] ?? '';
-        $theme['success'] = $theme['success'] ?? $defaultTheme['success'] ?? $theme['accent'];
-        $theme['warning'] = $theme['warning'] ?? $defaultTheme['warning'] ?? $theme['accent'];
-        $theme['danger'] = $theme['danger'] ?? $defaultTheme['danger'] ?? $theme['secondary'];
-        $theme['info'] = $theme['info'] ?? $defaultTheme['info'] ?? $theme['primary'];
-        $theme['neutral'] = $theme['neutral'] ?? $defaultTheme['neutral'] ?? $theme['secondary'];
+        $theme['primary'] = $this->pickThemeValue($theme['primary'] ?? null, $defaultTheme['primary'] ?? null);
+        $theme['secondary'] = $this->pickThemeValue($theme['secondary'] ?? null, $defaultTheme['secondary'] ?? null);
+        $theme['accent'] = $this->pickThemeValue($theme['accent'] ?? null, $defaultTheme['accent'] ?? null, $theme['primary']);
+        $theme['background'] = $this->pickThemeValue($theme['background'] ?? null, $defaultTheme['background'] ?? null);
+        $theme['surface'] = $this->pickThemeValue($theme['surface'] ?? null, $defaultTheme['surface'] ?? null);
+        $theme['border'] = $this->pickThemeValue($theme['border'] ?? null, $defaultTheme['border'] ?? null);
+        $theme['success'] = $this->pickThemeValue($theme['success'] ?? null, $defaultTheme['success'] ?? null, $theme['accent']);
+        $theme['warning'] = $this->pickThemeValue($theme['warning'] ?? null, $defaultTheme['warning'] ?? null, $theme['accent']);
+        $theme['danger'] = $this->pickThemeValue($theme['danger'] ?? null, $defaultTheme['danger'] ?? null, $theme['secondary']);
+        $theme['info'] = $this->pickThemeValue($theme['info'] ?? null, $defaultTheme['info'] ?? null, $theme['primary']);
+        $theme['neutral'] = $this->pickThemeValue($theme['neutral'] ?? null, $defaultTheme['neutral'] ?? null, $theme['secondary']);
 
-        $textPrimary = $theme['textPrimary']
-            ?? $theme['text_primary']
-            ?? $theme['text_main']
-            ?? $defaultTheme['textPrimary']
-            ?? $defaultTheme['text_primary']
-            ?? $defaultTheme['text_main']
-            ?? '';
-        $textSecondary = $theme['textSecondary']
-            ?? $theme['text_secondary']
-            ?? $theme['text_muted']
-            ?? $defaultTheme['textSecondary']
-            ?? $defaultTheme['text_secondary']
-            ?? $defaultTheme['text_muted']
-            ?? '';
-        $disabled = $theme['disabled']
-            ?? $theme['text_disabled']
-            ?? $theme['text_soft']
-            ?? $defaultTheme['disabled']
-            ?? $defaultTheme['text_disabled']
-            ?? $defaultTheme['text_soft']
-            ?? '';
+        $textPrimary = $this->pickThemeValue(
+            $theme['textPrimary'] ?? null,
+            $theme['text_primary'] ?? null,
+            $theme['text_main'] ?? null,
+            $defaultTheme['textPrimary'] ?? null,
+            $defaultTheme['text_primary'] ?? null,
+            $defaultTheme['text_main'] ?? null
+        );
+        $textSecondary = $this->pickThemeValue(
+            $theme['textSecondary'] ?? null,
+            $theme['text_secondary'] ?? null,
+            $theme['text_muted'] ?? null,
+            $defaultTheme['textSecondary'] ?? null,
+            $defaultTheme['text_secondary'] ?? null,
+            $defaultTheme['text_muted'] ?? null
+        );
+        $disabled = $this->pickThemeValue(
+            $theme['disabled'] ?? null,
+            $theme['text_disabled'] ?? null,
+            $theme['text_soft'] ?? null,
+            $defaultTheme['disabled'] ?? null,
+            $defaultTheme['text_disabled'] ?? null,
+            $defaultTheme['text_soft'] ?? null
+        );
 
         $theme['textPrimary'] = $textPrimary;
         $theme['textSecondary'] = $textSecondary;
@@ -113,5 +116,21 @@ class ThemeRepository
         $theme['text_disabled'] = $disabled;
 
         return $theme;
+    }
+
+    private function pickThemeValue(mixed ...$values): string
+    {
+        foreach ($values as $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            $candidate = trim((string) $value);
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 }
