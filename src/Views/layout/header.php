@@ -522,7 +522,30 @@ error_log(sprintf(
         .column { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-shadow: none; }
         .column h3 { margin: 0 0 10px 0; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
         .card-task { background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); border-radius: 10px; padding: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
-        .pill { border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 600; background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); color: var(--text-primary); border: 1px solid var(--border); }
+        .pill { 
+          border-radius: 999px; 
+          padding: 6px 12px; 
+          font-size: 11px; 
+          font-weight: 600; 
+          background: color-mix(in srgb, var(--surface) 90%, var(--background) 10%); 
+          color: var(--text-primary); 
+          border: 1px solid var(--border); 
+        }
+        .pill.green { 
+          background: color-mix(in srgb, var(--success) 15%, transparent); 
+          color: var(--success); 
+          border-color: transparent; 
+        }
+        .pill.amber { 
+          background: color-mix(in srgb, var(--warning) 15%, transparent); 
+          color: var(--warning); 
+          border-color: transparent; 
+        }
+        .pill.red { 
+          background: color-mix(in srgb, var(--danger) 15%, transparent); 
+          color: var(--danger); 
+          border-color: transparent; 
+        }
         .pillset { display:flex; gap:6px; flex-wrap:wrap; }
         .text-muted { color: var(--text-secondary); }
         .alert { padding:12px; border-radius: 12px; border:1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--background) 8%); color: var(--text-primary); }
