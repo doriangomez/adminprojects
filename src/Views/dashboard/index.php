@@ -5,12 +5,12 @@
         .zone-title { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); font-weight: 800; }
 
         .critical-bar { position: sticky; top: 8px; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .critical-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; }
-        .critical-pill.red { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); }
-        .critical-pill.orange { background: color-mix(in srgb, #f97316 18%, var(--background)); color: #c2410c; }
-        .critical-pill.yellow { background: color-mix(in srgb, var(--warning) 22%, var(--background)); color: #a16207; }
-        .critical-pill.blue { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); }
-        .critical-ok { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); font-weight: 800; }
+        .critical-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; border: 1px solid transparent; }
+        .critical-pill.red { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+        .critical-pill.orange { background: #ffedd5; border-color: #fed7aa; color: #9a3412; }
+        .critical-pill.yellow { background: #fef3c7; border-color: #fde68a; color: #854d0e; }
+        .critical-pill.blue { background: #dbeafe; border-color: #bfdbfe; color: #1e3a8a; }
+        .critical-ok { border-color: #86efac; background: #dcfce7; color: #166534; font-weight: 800; }
 
         .kpis-row { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: 10px; }
         .kpi-card { border: 1px solid color-mix(in srgb, var(--border) 74%, var(--background)); border-radius: 14px; padding: 10px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); }
