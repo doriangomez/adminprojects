@@ -639,6 +639,19 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .badge.blocker-critical { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
     .badge.blocker-high { background: color-mix(in srgb, #f59e0b 22%, var(--background)); color: #b45309; border-color: color-mix(in srgb, #f59e0b 36%, var(--background)); }
 
+    /* Fuerza contraste legible en la grilla aunque un tema global sobreescriba `.badge`. */
+    .project-table tbody .badge { color: #0f172a !important; background: #e2e8f0 !important; border-color: #cbd5e1 !important; }
+    .project-table tbody .badge.neutral { background: #e2e8f0 !important; color: #334155 !important; border-color: #cbd5e1 !important; }
+    .project-table tbody .badge.status-active { background: #dbeafe !important; color: #1d4ed8 !important; border-color: #93c5fd !important; }
+    .project-table tbody .badge.status-completed { background: #dcfce7 !important; color: #166534 !important; border-color: #86efac !important; }
+    .project-table tbody .badge.status-blocked { background: #fee2e2 !important; color: #991b1b !important; border-color: #fca5a5 !important; }
+    .project-table tbody .badge.status-planning { background: #fef3c7 !important; color: #92400e !important; border-color: #fcd34d !important; }
+    .project-table tbody .badge.risk-low { background: #dcfce7 !important; color: #166534 !important; border-color: #86efac !important; }
+    .project-table tbody .badge.risk-medium { background: #fef3c7 !important; color: #92400e !important; border-color: #fcd34d !important; }
+    .project-table tbody .badge.risk-high { background: #fee2e2 !important; color: #991b1b !important; border-color: #fca5a5 !important; }
+    .project-table tbody .badge.billable-on { background: #dcfce7 !important; color: #166534 !important; border-color: #86efac !important; }
+    .project-table tbody .badge.billable-off { background: #e2e8f0 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
+
     .table-actions-menu {
         display: inline-flex;
         position: relative;
