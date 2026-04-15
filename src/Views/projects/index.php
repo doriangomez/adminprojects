@@ -600,17 +600,19 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         border-radius: 999px;
         font-weight: 700;
         font-size: 12px;
-        border: 1px solid var(--background);
+        color: #0f172a;
+        background: #e2e8f0;
+        border: 1px solid #cbd5e1;
     }
 
-    .badge.neutral { background: color-mix(in srgb, var(--text-secondary) 18%, var(--background)); color: var(--text-primary); }
-    .badge.status-active { background: color-mix(in srgb, var(--primary) 18%, var(--background)); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--background)); }
-    .badge.status-completed { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
-    .badge.status-blocked { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
-    .badge.status-planning { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--background)); }
-    .badge.risk-low { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: color-mix(in srgb, var(--success) 70%, var(--text-primary)); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
-    .badge.risk-medium { background: color-mix(in srgb, var(--warning) 18%, var(--background)); color: color-mix(in srgb, var(--warning) 75%, var(--text-primary)); border-color: color-mix(in srgb, var(--warning) 35%, var(--background)); }
-    .badge.risk-high { background: color-mix(in srgb, var(--danger) 18%, var(--background)); color: color-mix(in srgb, var(--danger) 75%, var(--text-primary)); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
+    .badge.neutral { background: #e2e8f0; color: #334155; border-color: #cbd5e1; }
+    .badge.status-active { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+    .badge.status-completed { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .badge.status-blocked { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .badge.status-planning { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .badge.risk-low { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .badge.risk-medium { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .badge.risk-high { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
     .badge.billable-on { background: color-mix(in srgb, var(--success) 18%, var(--background)); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--background)); }
     .badge.billable-off { background: color-mix(in srgb, var(--text-secondary) 16%, var(--background)); color: var(--text-secondary); border-color: color-mix(in srgb, var(--text-secondary) 35%, var(--background)); }
 
@@ -619,6 +621,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .progress-compact { display: flex; flex-direction: column; gap: 5px; }
     .progress-value { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
     .pm-cell-text { font-weight: 600; color: var(--text-primary); }
+    .project-table tbody .pm-cell-text { color: #0f172a; }
+    .project-table tbody .progress-value,
+    .project-table tbody .tiny-meta { color: #475569; }
 
     .signal-list, .note-cell, .stopper-cell { display: flex; flex-direction: column; gap: 4px; }
     .signal-pill { font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--warning) 80%, var(--text-primary)); }
