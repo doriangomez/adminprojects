@@ -530,7 +530,7 @@ class ConfigService
             }
         }
 
-        $this->themeDefaults = array_merge($themeDefaults, $this->defaults['theme']);
+        $this->themeDefaults = array_merge($this->defaults['theme'], $themeDefaults);
 
         return $this->themeDefaults;
     }
