@@ -2976,6 +2976,35 @@ class ProjectsController extends Controller
         readfile($resolvedPath);
     }
 
+    public function downloadExecutiveReportPdf(int $projectId): void
+    {
+        $this->requirePermission('projects.view');
+        $user = $this->auth->user() ?? [];
+
+        try {
+            $report = (new ProjectExecutiveReportService($this->db))->buildForProject($projectId, $user);
+        } catch (\RuntimeException $e) {
+            http_response_code(404);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.executive_report] Error al generar reporte (%d): %s', $projectId, $e->getMessage()));
+            http_response_code(500);
+            exit('No se pudo generar el informe gerencial. Intenta nuevamente.');
+        }
+
+        $pdf = (string) ($report['content'] ?? '');
+        if ($pdf === '') {
+            http_response_code(500);
+            exit('No fue posible construir el PDF del informe gerencial.');
+        }
+
+        $fileName = trim((string) ($report['filename'] ?? 'informe-gerencial.pdf')) ?: 'informe-gerencial.pdf';
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+        header('Content-Length: ' . strlen($pdf));
+        echo $pdf;
+    }
+
     public function deleteInvoice(int $projectId, int $invoiceId): void
     {
         if (!$this->auth->hasRole('Administrador')) {

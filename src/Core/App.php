@@ -352,6 +352,10 @@ class App
                 $controller->billing((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/executive-report\\.pdf$#', $path, $matches) && $method === 'GET') {
+                $controller->downloadExecutiveReportPdf((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)$#', $path, $matches) && $method === 'GET') {
                 $controller->show((int) $matches[1]);
                 return;

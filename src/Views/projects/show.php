@@ -593,6 +593,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         </div>
         <div class="project-actions">
             <a class="action-btn" href="<?= htmlspecialchars($returnUrl) ?>">Volver al listado</a>
+            <a class="action-btn primary" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/executive-report.pdf">Exportar informe<br>gerencial</a>
             <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit">Editar proyecto</a>
             <?php if ($canDelete || $canInactivate): ?>
                 <a class="action-btn danger" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit#zona-critica">
