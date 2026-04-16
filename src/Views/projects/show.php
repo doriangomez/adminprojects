@@ -488,6 +488,7 @@ foreach ($allNodes as $node) {
 $gitRepositoryUrl = trim((string) ($requiredDocumentsMeta['git_repository_url'] ?? ''));
 $gitRepositoryUpdatedAt = $requiredDocumentsMeta['updated_at'] ?? null;
 $gitRepositoryUpdatedBy = isset($requiredDocumentsMeta['updated_by']) ? (int) $requiredDocumentsMeta['updated_by'] : null;
+$contractEndDate = trim((string) ($requiredDocumentsMeta['contract_end_date'] ?? ''));
 
 $requiredDocumentsCards = [];
 foreach ($requiredDocuments as $requiredDocument) {
@@ -524,6 +525,9 @@ foreach ($requiredDocuments as $requiredDocument) {
 
     $fileCode = $requiredDocumentsFilesCode . '-FILE-' . strtoupper((string) ($requiredDocument['key'] ?? ''));
     $latest = is_array($requiredDocumentsFilesByCode[$fileCode] ?? null) ? $requiredDocumentsFilesByCode[$fileCode] : null;
+    if (($requiredDocument['key'] ?? '') === 'contrato' && $latest !== null) {
+        $latest['contract_end_date'] = $contractEndDate;
+    }
     $requiredDocumentsCards[] = array_merge($requiredDocument, [
         'completed' => $latest !== null,
         'record' => $latest,
@@ -1302,6 +1306,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                             $repositoryUrl = (string) ($record['storage_path'] ?? '');
                             $recordFileId = isset($record['id']) ? (int) $record['id'] : 0;
                             $recordFileName = trim((string) ($record['file_name'] ?? ''));
+                            $recordContractEndDate = trim((string) ($record['contract_end_date'] ?? ''));
                             $recordFileDownloadUrl = (!$isGitCard && $recordFileId > 0)
                                 ? ($basePath . '/projects/' . (int) ($project['id'] ?? 0) . '/nodes/' . $recordFileId . '/download')
                                 : '';
@@ -1330,6 +1335,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                 data-required-doc-file-name="<?= htmlspecialchars($recordFileName) ?>"
                                 data-required-doc-file-url="<?= htmlspecialchars($recordFileDownloadUrl) ?>"
                                 data-required-doc-has-file="<?= $hasRecordFile ? '1' : '0' ?>"
+                                data-required-doc-contract-end-date="<?= htmlspecialchars($recordContractEndDate) ?>"
                             >
                                 <td>
                                     <span class="required-doc-state <?= $isCompleted ? 'required-doc-state--completed' : 'required-doc-state--pending' ?>" data-required-doc-state-icon aria-hidden="true"></span>
@@ -1438,6 +1444,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                 <input type="text" name="document_version" placeholder="v1, v2, final" required>
                             </label>
                         </div>
+                        <label class="field" data-required-doc-contract-end-date-field hidden>
+                            <span>Fecha de finalización del contrato *</span>
+                            <input type="date" name="contract_end_date" data-required-doc-contract-end-date-input>
+                        </label>
                         <label class="field">
                             <span>Tags *</span>
                             <select multiple data-required-doc-upload-tag-select>
@@ -1742,6 +1752,8 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     const requiredDocumentCurrentFileRemoveButton = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file-remove]') : null;
     const requiredDocumentCurrentFileRemovedNote = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-current-file-removed-note]') : null;
     const requiredDocumentRemoveFileHidden = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-remove-file-hidden]') : null;
+    const requiredDocumentContractEndDateField = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-contract-end-date-field]') : null;
+    const requiredDocumentContractEndDateInput = requiredDocumentModal ? requiredDocumentModal.querySelector('[data-required-doc-contract-end-date-input]') : null;
     let activeRequiredDocumentKey = '';
     let requiredDocumentRemoveFileRequested = false;
     const requiredDocumentTypePresetsByKey = {
@@ -1984,6 +1996,13 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             requiredDocumentCurrentFileDownload.href = '#';
             requiredDocumentCurrentFileDownload.removeAttribute('download');
         }
+        if (requiredDocumentContractEndDateField) {
+            requiredDocumentContractEndDateField.hidden = true;
+        }
+        if (requiredDocumentContractEndDateInput) {
+            requiredDocumentContractEndDateInput.required = false;
+            requiredDocumentContractEndDateInput.value = '';
+        }
         activeRequiredDocumentKey = '';
     };
 
@@ -2004,7 +2023,9 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         const existingDescription = String(row.dataset.requiredDocModalDescription || row.dataset.requiredDocDescription || '').trim();
         const existingFileName = String(row.dataset.requiredDocFileName || '').trim();
         const existingFileUrl = String(row.dataset.requiredDocFileUrl || '').trim();
+        const existingContractEndDate = String(row.dataset.requiredDocContractEndDate || '').trim();
         const hasExistingFile = row.dataset.requiredDocHasFile === '1' && existingFileUrl !== '';
+        const isContractDocument = key === 'contrato';
         activeRequiredDocumentKey = key;
         requiredDocumentRemoveFileRequested = false;
         syncRequiredDocumentCurrentFileUI();
@@ -2071,6 +2092,13 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             } else {
                 requiredDocumentCurrentFileDownload.removeAttribute('download');
             }
+        }
+        if (requiredDocumentContractEndDateField) {
+            requiredDocumentContractEndDateField.hidden = !isContractDocument;
+        }
+        if (requiredDocumentContractEndDateInput) {
+            requiredDocumentContractEndDateInput.required = isContractDocument;
+            requiredDocumentContractEndDateInput.value = isContractDocument ? existingContractEndDate : '';
         }
         syncRequiredDocumentCurrentFileUI();
         setRequiredDocumentValidation('');
@@ -2139,6 +2167,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             const tags = collectRequiredDocumentTags();
             const versionValue = (requiredDocumentUploadForm.querySelector('input[name="document_version"]')?.value || '').trim();
             const descriptionValue = (requiredDocumentUploadForm.querySelector('textarea[name="document_description"]')?.value || '').trim();
+            const contractEndDateValue = (requiredDocumentContractEndDateInput?.value || '').trim();
             const fileInput = requiredDocumentUploadForm.querySelector('input[type="file"][name="required_document_file"]');
             const hasFile = Boolean(fileInput?.files && fileInput.files.length > 0);
             const targetRow = requiredDocumentsRoot
@@ -2163,6 +2192,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             }
             if (!descriptionValue) {
                 setRequiredDocumentValidation('Ingresa una descripción corta.');
+                return;
+            }
+            if (key === 'contrato' && !contractEndDateValue) {
+                setRequiredDocumentValidation('Ingresa la fecha de finalización del contrato.');
                 return;
             }
             if (hiddenType) hiddenType.value = documentType;
@@ -2217,6 +2250,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                         if (payloadTags.length > 0) {
                             targetRow.dataset.requiredDocTags = payloadTags.join('|');
                             targetRow.dataset.requiredDocTag = payloadTags[0];
+                        }
+                        const payloadContractEndDate = String(requiredDocumentPayload.contract_end_date || '').trim();
+                        if (payloadContractEndDate !== '') {
+                            targetRow.dataset.requiredDocContractEndDate = payloadContractEndDate;
                         }
                         const payloadFileId = Number(requiredDocumentPayload.file_id || 0);
                         const payloadFileName = String(requiredDocumentPayload.file_name || '').trim();

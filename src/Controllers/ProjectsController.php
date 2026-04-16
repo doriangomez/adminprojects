@@ -1910,34 +1910,12 @@ class ProjectsController extends Controller
             }
 
             $userId = (int) ($this->auth->user()['id'] ?? 0);
-            $metaNode = $nodesRepo->findNodeByCode($projectId, self::REQUIRED_DOCUMENTS_META_CODE);
             $payload = [
                 'git_repository_url' => $url,
                 'updated_at' => date('c'),
                 'updated_by' => $userId > 0 ? $userId : null,
             ];
-
-            if ($metaNode) {
-                $this->db->execute(
-                    'UPDATE project_nodes SET description = :description WHERE id = :id AND project_id = :project_id',
-                    [
-                        ':description' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-                        ':id' => (int) ($metaNode['id'] ?? 0),
-                        ':project_id' => $projectId,
-                    ]
-                );
-            } else {
-                $nodesRepo->createNode([
-                    'project_id' => $projectId,
-                    'parent_id' => (int) ($rootNode['id'] ?? 0),
-                    'code' => self::REQUIRED_DOCUMENTS_META_CODE,
-                    'node_type' => 'metadata',
-                    'title' => 'Documentos obligatorios del proyecto',
-                    'description' => json_encode($payload, JSON_UNESCAPED_UNICODE),
-                    'sort_order' => 999,
-                    'created_by' => $userId > 0 ? $userId : null,
-                ]);
-            }
+            $this->upsertRequiredDocumentsMeta($projectId, (int) ($rootNode['id'] ?? 0), $payload, $userId);
 
             $this->json([
                 'success' => true,
@@ -1966,7 +1944,7 @@ class ProjectsController extends Controller
                 throw new \InvalidArgumentException('Documento obligatorio inválido.');
             }
 
-            $meta = $this->collectDocumentUploadMeta();
+            $meta = $this->collectDocumentUploadMeta($key);
             $upload = $_FILES['required_document_file'] ?? null;
             $hasUpload = is_array($upload) && (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
 
@@ -2149,6 +2127,21 @@ class ProjectsController extends Controller
                 ? 'Archivo eliminado. El documento obligatorio quedó pendiente.'
                 : 'Documento obligatorio guardado.';
 
+            $contractEndDate = null;
+            if ($key === 'contrato') {
+                $contractEndDate = (string) ($meta['contract_end_date'] ?? '');
+                $this->upsertRequiredDocumentsMeta(
+                    $projectId,
+                    (int) ($rootNode['id'] ?? 0),
+                    [
+                        'contract_end_date' => $contractEndDate,
+                        'contract_notifications_updated_at' => date('c'),
+                        'contract_notifications_updated_by' => $userId > 0 ? $userId : null,
+                    ],
+                    $userId
+                );
+            }
+
             $this->json([
                 'success' => true,
                 'message' => $message,
@@ -2167,6 +2160,7 @@ class ProjectsController extends Controller
                     'file_url' => $fileUrl,
                     'has_file' => $hasFile,
                     'completed' => $hasFile,
+                    'contract_end_date' => $contractEndDate,
                 ],
             ]);
             return;
@@ -3366,7 +3360,7 @@ class ProjectsController extends Controller
         return $count;
     }
 
-    private function collectDocumentUploadMeta(): array
+    private function collectDocumentUploadMeta(?string $requiredDocumentKey = null): array
     {
         $documentType = trim((string) ($_POST['document_type'] ?? ''));
         $documentTags = $_POST['document_tags'] ?? null;
@@ -3399,6 +3393,18 @@ class ProjectsController extends Controller
             $approverId = null;
         }
 
+        $contractEndDate = null;
+        if ($requiredDocumentKey === 'contrato') {
+            $contractEndDate = trim((string) ($_POST['contract_end_date'] ?? ''));
+            if ($contractEndDate === '') {
+                throw new \InvalidArgumentException('La fecha de finalización del contrato es obligatoria.');
+            }
+            $normalizedContractEndDate = \DateTimeImmutable::createFromFormat('Y-m-d', $contractEndDate);
+            if (!$normalizedContractEndDate || $normalizedContractEndDate->format('Y-m-d') !== $contractEndDate) {
+                throw new \InvalidArgumentException('Ingresa una fecha de finalización del contrato válida.');
+            }
+        }
+
         return [
             'document_type' => $documentType,
             'document_tags' => $documentTags,
@@ -3408,7 +3414,49 @@ class ProjectsController extends Controller
             'reviewer_id' => $reviewerId,
             'validator_id' => $validatorId,
             'approver_id' => $approverId,
+            'contract_end_date' => $contractEndDate,
         ];
+    }
+
+    private function upsertRequiredDocumentsMeta(int $projectId, int $rootNodeId, array $payload, int $userId = 0): void
+    {
+        if ($projectId <= 0 || $rootNodeId <= 0) {
+            return;
+        }
+
+        $nodesRepo = new ProjectNodesRepository($this->db);
+        $metaNode = $nodesRepo->findNodeByCode($projectId, self::REQUIRED_DOCUMENTS_META_CODE);
+        $existingMeta = [];
+        if ($metaNode) {
+            $decoded = json_decode((string) ($metaNode['description'] ?? ''), true);
+            if (is_array($decoded)) {
+                $existingMeta = $decoded;
+            }
+        }
+
+        $merged = array_merge($existingMeta, $payload);
+        if ($metaNode) {
+            $this->db->execute(
+                'UPDATE project_nodes SET description = :description WHERE id = :id AND project_id = :project_id',
+                [
+                    ':description' => json_encode($merged, JSON_UNESCAPED_UNICODE),
+                    ':id' => (int) ($metaNode['id'] ?? 0),
+                    ':project_id' => $projectId,
+                ]
+            );
+            return;
+        }
+
+        $nodesRepo->createNode([
+            'project_id' => $projectId,
+            'parent_id' => $rootNodeId,
+            'code' => self::REQUIRED_DOCUMENTS_META_CODE,
+            'node_type' => 'metadata',
+            'title' => 'Documentos obligatorios del proyecto',
+            'description' => json_encode($merged, JSON_UNESCAPED_UNICODE),
+            'sort_order' => 999,
+            'created_by' => $userId > 0 ? $userId : null,
+        ]);
     }
 
     private function auditActionForDocument(string $action, string $documentStatus): string
