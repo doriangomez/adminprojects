@@ -2809,6 +2809,29 @@ class ProjectsController extends Controller
 
             $invoiceId = (new ProjectBillingRepository($this->db))->createInvoice($projectId, $payload, (int) ($this->auth->user()['id'] ?? 0));
             (new AuditLogRepository($this->db))->log((int) ($this->auth->user()['id'] ?? 0), 'project_invoice', $invoiceId, 'created', ['project_id' => $projectId] + $payload);
+            try {
+                (new PmoAutomationService($this->db))->syncBillingPlanAlertsForProject($projectId, new DateTimeImmutable('today'));
+            } catch (\Throwable $e) {
+                error_log(sprintf('[projects.invoice.create] No se pudo sincronizar alertas de facturación (%d): %s', $projectId, $e->getMessage()));
+            }
+            try {
+                (new NotificationService($this->db))->notify(
+                    'project.billing_invoice_registered',
+                    [
+                        'project_id' => $projectId,
+                        'project_name' => $project['name'] ?? null,
+                        'invoice_id' => $invoiceId,
+                        'invoice_number' => $payload['invoice_number'] ?? null,
+                        'issued_at' => $payload['issued_at'] ?? null,
+                        'amount' => $payload['amount'] ?? null,
+                        'currency_code' => $payload['currency_code'] ?? null,
+                        'plan_item_ids' => $payload['plan_item_ids'] ?? [],
+                    ],
+                    (int) ($this->auth->user()['id'] ?? 0)
+                );
+            } catch (\Throwable $e) {
+                error_log(sprintf('[projects.invoice.create] No se pudo notificar factura registrada (%d): %s', $projectId, $e->getMessage()));
+            }
             header('Location: /projects/' . $projectId . '/billing');
         } catch (\InvalidArgumentException $e) {
             http_response_code(422);
@@ -2904,6 +2927,11 @@ class ProjectsController extends Controller
             trim((string) ($currentInvoice['attachment_path'] ?? '')),
             trim((string) ($payload['attachment_path'] ?? ''))
         );
+        try {
+            (new PmoAutomationService($this->db))->syncBillingPlanAlertsForProject($projectId, new DateTimeImmutable('today'));
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.invoice.update] No se pudo sincronizar alertas de facturación (%d): %s', $projectId, $e->getMessage()));
+        }
         header('Location: /projects/' . $projectId . '/billing');
     }
 
@@ -2955,6 +2983,11 @@ class ProjectsController extends Controller
             exit('Solo administradores pueden eliminar facturas.');
         }
         (new ProjectBillingRepository($this->db))->deleteInvoice($projectId, $invoiceId);
+        try {
+            (new PmoAutomationService($this->db))->syncBillingPlanAlertsForProject($projectId, new DateTimeImmutable('today'));
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.invoice.delete] No se pudo sincronizar alertas de facturación (%d): %s', $projectId, $e->getMessage()));
+        }
         header('Location: /projects/' . $projectId . '/billing');
     }
 

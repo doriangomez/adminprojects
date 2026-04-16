@@ -55,6 +55,30 @@ class NotificationCatalog
                     'roles' => ['Administrador', 'PMO'],
                 ],
             ],
+            'project.billing_item_upcoming' => [
+                'label' => 'Ítem de facturación próximo',
+                'description' => 'Aviso de ítem del plan de facturación que debe emitirse dentro de 7 días.',
+                'default_enabled' => true,
+                'default_recipients' => [
+                    'roles' => ['Administrador', 'PMO'],
+                ],
+            ],
+            'project.billing_item_overdue' => [
+                'label' => 'Ítem de facturación vencido',
+                'description' => 'Aviso de ítem del plan de facturación vencido sin factura registrada.',
+                'default_enabled' => true,
+                'default_recipients' => [
+                    'roles' => ['Administrador', 'PMO'],
+                ],
+            ],
+            'project.billing_invoice_registered' => [
+                'label' => 'Factura registrada',
+                'description' => 'Confirmación de registro de una factura asociada al proyecto.',
+                'default_enabled' => true,
+                'default_recipients' => [
+                    'roles' => ['Administrador', 'PMO'],
+                ],
+            ],
             'document.sent_approval' => [
                 'label' => 'Documento enviado a aprobación',
                 'description' => 'Documento listo para aprobación final.',

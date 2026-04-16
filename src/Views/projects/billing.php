@@ -36,6 +36,17 @@ $counts = is_array($billingFinancialSummary['counts'] ?? null) ? $billingFinanci
 $nextItemsCount = (int) ($counts['proximo'] ?? 0);
 $readyItemsCount = (int) ($counts['listo_para_emitir'] ?? 0);
 $overdueItemsCount = (int) ($counts['atrasado'] ?? 0);
+$controlSummary = is_array($billingFinancialSummary['control_summary'] ?? null) ? $billingFinancialSummary['control_summary'] : [];
+$onTrackCount = (int) ($controlSummary['on_track'] ?? 0);
+$upcomingControlCount = (int) ($controlSummary['upcoming'] ?? 0);
+$overdueControlCount = (int) ($controlSummary['overdue'] ?? 0);
+$invoicedVsPlanPercentage = (float) ($billingFinancialSummary['invoiced_vs_plan_percentage'] ?? 0);
+$trafficLightLabels = [
+    'green' => 'Al día',
+    'yellow' => 'Próximo a emitir',
+    'red' => 'Vencido',
+    'gray' => 'Futuro',
+];
 $invoiceAnchorMap = [];
 foreach ($projectInvoices as $invoice) {
     $invoiceAnchorMap[(string) ($invoice['invoice_number'] ?? '')] = 'invoice-row-' . (int) ($invoice['id'] ?? 0);
@@ -119,6 +130,13 @@ foreach ($projectInvoices as $invoice) {
                     </div>
                 <?php endif; ?>
 
+                <div class="kpi-grid billing-control-grid">
+                    <article class="kpi-card"><span>Ítems al día</span><strong><?= $onTrackCount ?></strong></article>
+                    <article class="kpi-card"><span>Ítems próximos (7 días)</span><strong><?= $upcomingControlCount ?></strong></article>
+                    <article class="kpi-card"><span>Ítems vencidos sin factura</span><strong><?= $overdueControlCount ?></strong></article>
+                    <article class="kpi-card"><span>Facturado vs plan</span><strong><?= number_format($invoicedVsPlanPercentage, 2) ?>%</strong></article>
+                </div>
+
                 <?php if ($canManageBilling): ?>
                     <form id="new-plan-item" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form inline-form" hidden>
                         <label>Tipo de facturación
@@ -190,6 +208,7 @@ foreach ($projectInvoices as $invoice) {
                                         $status = (string) ($item['status'] ?? 'pendiente');
                                         $invoiceNumber = (string) ($item['linked_invoice_number'] ?? '');
                                         $invoiceAnchor = $invoiceNumber !== '' ? ($invoiceAnchorMap[$invoiceNumber] ?? null) : null;
+                                        $trafficLight = (string) ($item['traffic_light'] ?? 'gray');
                                     ?>
                                     <tr id="plan-item-<?= $itemId ?>">
                                         <td><?= htmlspecialchars((string) ($item['type_label'] ?? ($typeLabels[$item['item_type'] ?? ''] ?? '-'))) ?></td>
@@ -197,7 +216,10 @@ foreach ($projectInvoices as $invoice) {
                                         <td><?= $fmtMoney((float) ($item['resolved_amount'] ?? 0)) ?></td>
                                         <td><?= htmlspecialchars((string) ($item['expected_date'] ?? '-')) ?></td>
                                         <td><?= htmlspecialchars((string) ($item['condition_text'] ?? '-')) ?></td>
-                                        <td><span class="status-pill status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $status))) ?></span></td>
+                                        <td>
+                                            <span class="traffic-light traffic-<?= htmlspecialchars($trafficLight) ?>" title="<?= htmlspecialchars($trafficLightLabels[$trafficLight] ?? 'Sin estado') ?>"></span>
+                                            <span class="status-pill status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $status))) ?></span>
+                                        </td>
                                         <td>
                                             <?php if ($invoiceNumber !== '' && $invoiceAnchor): ?>
                                                 <a href="#<?= htmlspecialchars($invoiceAnchor) ?>"><?= htmlspecialchars($invoiceNumber) ?></a>
@@ -373,7 +395,7 @@ foreach ($projectInvoices as $invoice) {
                                                                 foreach ($billingPlanItems as $planItem):
                                                                     $planId = (int) ($planItem['id'] ?? 0);
                                                                     $status = (string) ($planItem['status'] ?? '');
-                                                                    $selectable = in_array($status, ['listo_para_emitir', 'atrasado'], true)
+                                                                    $selectable = empty($planItem['invoice_id'])
                                                                         || in_array($planId, $selectedIds, true);
                                                                     if (!$selectable) {
                                                                         continue;
@@ -500,6 +522,21 @@ if (planTypeSelector) {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
+.billing-control-grid {
+  margin-bottom: 14px;
+}
+.traffic-light {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.traffic-green { background: #16a34a; }
+.traffic-yellow { background: #f59e0b; }
+.traffic-red { background: #dc2626; }
+.traffic-gray { background: #9ca3af; }
 .status-pill {
   border-radius: 999px;
   padding: 4px 10px;
