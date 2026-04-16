@@ -47,6 +47,14 @@ class NotificationCatalog
                     'include_project_manager' => true,
                 ],
             ],
+            'project.contract_expiration' => [
+                'label' => 'Vencimiento de contrato',
+                'description' => 'Recordatorio de contrato próximo a vencer o vencido.',
+                'default_enabled' => true,
+                'default_recipients' => [
+                    'roles' => ['Administrador', 'PMO'],
+                ],
+            ],
             'document.sent_approval' => [
                 'label' => 'Documento enviado a aprobación',
                 'description' => 'Documento listo para aprobación final.',
@@ -94,7 +102,7 @@ class NotificationCatalog
 
         foreach (self::events() as $code => $meta) {
             $defaults[$code] = [
-                'enabled' => false,
+                'enabled' => (bool) ($meta['default_enabled'] ?? false),
                 'channels' => [
                     'email' => [
                         'enabled' => true,

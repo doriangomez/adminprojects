@@ -11,13 +11,17 @@ class PmoAutomationService
     public function ensureTodaySnapshotForProject(int $projectId): array
     {
         try {
-            $today = (new DateTimeImmutable('today'))->format('Y-m-d');
+            $todayDate = new DateTimeImmutable('today');
+            $today = $todayDate->format('Y-m-d');
             $existing = $this->latestSnapshotForProject($projectId);
             if ($existing && (string) ($existing['snapshot_date'] ?? '') === $today) {
+                $this->syncContractExpirationAlertsForProject($projectId, $todayDate);
                 return $existing;
             }
 
-            return $this->captureSnapshotForProject($projectId, new DateTimeImmutable('today'));
+            $snapshot = $this->captureSnapshotForProject($projectId, $todayDate);
+            $this->syncContractExpirationAlertsForProject($projectId, $todayDate);
+            return $snapshot;
         } catch (\Throwable $e) {
             error_log(sprintf('[PmoAutomationService] ensureTodaySnapshotForProject error (%d): %s', $projectId, $e->getMessage()));
 
@@ -258,7 +262,9 @@ class PmoAutomationService
             if ($projectId <= 0) {
                 continue;
             }
-            $this->captureSnapshotForProject($projectId, new DateTimeImmutable('today'));
+            $today = new DateTimeImmutable('today');
+            $this->captureSnapshotForProject($projectId, $today);
+            $this->syncContractExpirationAlertsForProject($projectId, $today);
             $total++;
         }
 
@@ -289,6 +295,159 @@ class PmoAutomationService
         }
 
         return $total;
+    }
+
+    private function syncContractExpirationAlertsForProject(int $projectId, DateTimeImmutable $today): void
+    {
+        if (
+            $projectId <= 0
+            || !$this->db->tableExists('project_pmo_alerts')
+            || !$this->db->tableExists('project_nodes')
+            || !$this->db->tableExists('projects')
+        ) {
+            return;
+        }
+
+        $project = $this->db->fetchOne(
+            'SELECT id, name
+             FROM projects
+             WHERE id = :id
+             LIMIT 1',
+            [':id' => $projectId]
+        );
+        if (!$project) {
+            return;
+        }
+
+        $metaNode = $this->db->fetchOne(
+            'SELECT description
+             FROM project_nodes
+             WHERE project_id = :project_id
+               AND code = :code
+             LIMIT 1',
+            [
+                ':project_id' => $projectId,
+                ':code' => '99-REQDOCS-META',
+            ]
+        );
+        $meta = json_decode((string) ($metaNode['description'] ?? ''), true);
+        $contractEndDateRaw = trim((string) ($meta['contract_end_date'] ?? ''));
+        $contractDate = null;
+        if ($contractEndDateRaw !== '') {
+            $parsed = DateTimeImmutable::createFromFormat('Y-m-d', $contractEndDateRaw);
+            if ($parsed && $parsed->format('Y-m-d') === $contractEndDateRaw) {
+                $contractDate = $parsed->setTime(0, 0);
+            }
+        }
+
+        $supportedAlertTypes = [
+            'contract_expiration_30',
+            'contract_expiration_15',
+            'contract_expiration_7',
+            'contract_expiration_1',
+            'contract_expiration_0',
+        ];
+        if (!$contractDate) {
+            $this->resolveContractExpirationAlerts($projectId, $supportedAlertTypes);
+            return;
+        }
+
+        $daysRemaining = (int) $today->diff($contractDate)->format('%r%a');
+        $milestones = [30, 15, 7, 1, 0];
+        $activeTypes = [];
+        if (in_array($daysRemaining, $milestones, true)) {
+            $activeTypes[] = 'contract_expiration_' . $daysRemaining;
+        }
+        $this->resolveContractExpirationAlerts($projectId, array_diff($supportedAlertTypes, $activeTypes));
+
+        if ($activeTypes === []) {
+            return;
+        }
+
+        $projectName = trim((string) ($project['name'] ?? ''));
+        $projectName = $projectName !== '' ? $projectName : ('Proyecto #' . $projectId);
+        $message = $daysRemaining === 0
+            ? sprintf('El contrato del proyecto %s vence hoy', $projectName)
+            : sprintf('El contrato del proyecto %s vence en %d días', $projectName, $daysRemaining);
+        $severity = $daysRemaining <= 1 ? 'red' : ($daysRemaining <= 7 ? 'yellow' : 'green');
+        $alertType = $activeTypes[0];
+        $existing = $this->db->fetchOne(
+            'SELECT id
+             FROM project_pmo_alerts
+             WHERE project_id = :project
+               AND alert_type = :type
+               AND status = "open"
+             LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':type' => $alertType,
+            ]
+        );
+
+        if ($existing) {
+            $this->db->execute(
+                'UPDATE project_pmo_alerts
+                 SET severity = :severity,
+                     title = :title,
+                     message = :message,
+                     resolved_at = NULL
+                 WHERE id = :id',
+                [
+                    ':severity' => $severity,
+                    ':title' => 'Vencimiento de contrato',
+                    ':message' => $message,
+                    ':id' => (int) ($existing['id'] ?? 0),
+                ]
+            );
+            return;
+        }
+
+        $this->db->insert(
+            'INSERT INTO project_pmo_alerts (project_id, snapshot_id, alert_type, severity, title, message, status, created_at)
+             VALUES (:project_id, NULL, :alert_type, :severity, :title, :message, "open", NOW())',
+            [
+                ':project_id' => $projectId,
+                ':alert_type' => $alertType,
+                ':severity' => $severity,
+                ':title' => 'Vencimiento de contrato',
+                ':message' => $message,
+            ]
+        );
+
+        try {
+            (new NotificationService($this->db))->notify(
+                'project.contract_expiration',
+                [
+                    'project_id' => $projectId,
+                    'project_name' => $projectName,
+                    'days_remaining' => $daysRemaining,
+                    'message' => $message,
+                    'contract_end_date' => $contractDate->format('Y-m-d'),
+                ],
+                null
+            );
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] contract expiration notify error (%d): %s', $projectId, $e->getMessage()));
+        }
+    }
+
+    private function resolveContractExpirationAlerts(int $projectId, array $types): void
+    {
+        $types = array_values(array_filter(array_map(static fn (mixed $type): string => trim((string) $type), $types)));
+        if ($projectId <= 0 || $types === []) {
+            return;
+        }
+
+        $quotedTypes = array_map(static fn (string $type): string => '"' . addslashes($type) . '"', $types);
+        $this->db->execute(
+            'UPDATE project_pmo_alerts
+             SET status = "resolved",
+                 resolved_at = NOW()
+             WHERE project_id = :project
+               AND status = "open"
+               AND alert_type IN (' . implode(', ', $quotedTypes) . ')',
+            [':project' => $projectId]
+        );
     }
 
     private function approvedHours(int $projectId, string $snapshotDate): float
