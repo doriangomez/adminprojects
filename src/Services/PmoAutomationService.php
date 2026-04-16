@@ -16,11 +16,13 @@ class PmoAutomationService
             $existing = $this->latestSnapshotForProject($projectId);
             if ($existing && (string) ($existing['snapshot_date'] ?? '') === $today) {
                 $this->syncContractExpirationAlertsForProject($projectId, $todayDate);
+                $this->syncBillingPlanAlertsForProject($projectId, $todayDate);
                 return $existing;
             }
 
             $snapshot = $this->captureSnapshotForProject($projectId, $todayDate);
             $this->syncContractExpirationAlertsForProject($projectId, $todayDate);
+            $this->syncBillingPlanAlertsForProject($projectId, $todayDate);
             return $snapshot;
         } catch (\Throwable $e) {
             error_log(sprintf('[PmoAutomationService] ensureTodaySnapshotForProject error (%d): %s', $projectId, $e->getMessage()));
@@ -265,10 +267,140 @@ class PmoAutomationService
             $today = new DateTimeImmutable('today');
             $this->captureSnapshotForProject($projectId, $today);
             $this->syncContractExpirationAlertsForProject($projectId, $today);
+            $this->syncBillingPlanAlertsForProject($projectId, $today);
             $total++;
         }
 
         return $total;
+    }
+
+    public function syncBillingPlanAlertsForProject(int $projectId, ?DateTimeImmutable $todayDate = null): void
+    {
+        try {
+            if (
+                $projectId <= 0
+                || !$this->db->tableExists('project_pmo_alerts')
+                || !$this->db->tableExists('project_billing_plan')
+                || !$this->db->tableExists('projects')
+            ) {
+                return;
+            }
+
+            $project = $this->db->fetchOne(
+                'SELECT id, name
+                 FROM projects
+                 WHERE id = :id
+                 LIMIT 1',
+                [':id' => $projectId]
+            );
+            if (!$project) {
+                return;
+            }
+
+            $today = ($todayDate ?? new DateTimeImmutable('today'))->setTime(0, 0);
+            $todayStr = $today->format('Y-m-d');
+            $projectName = trim((string) ($project['name'] ?? ''));
+            $projectName = $projectName !== '' ? $projectName : ('Proyecto #' . $projectId);
+            $items = (new ProjectBillingRepository($this->db))->billingPlan($projectId);
+            $activeAlertTypes = [];
+
+            foreach ($items as $item) {
+                $itemId = (int) ($item['id'] ?? 0);
+                if ($itemId <= 0) {
+                    continue;
+                }
+
+                $upcomingType = 'billing_upcoming_item_' . $itemId;
+                $overdueType = 'billing_overdue_item_' . $itemId;
+                $hasInvoice = !empty($item['invoice_id']);
+                if ($hasInvoice) {
+                    continue;
+                }
+
+                $expectedDate = trim((string) ($item['expected_date'] ?? ''));
+                if ($expectedDate === '') {
+                    continue;
+                }
+                $expected = DateTimeImmutable::createFromFormat('Y-m-d', $expectedDate);
+                if (!$expected || $expected->format('Y-m-d') !== $expectedDate) {
+                    continue;
+                }
+                $expected = $expected->setTime(0, 0);
+                $daysToIssue = (int) $today->diff($expected)->format('%r%a');
+                $concept = trim((string) ($item['concept'] ?? ''));
+                $concept = $concept !== '' ? $concept : ('Ítem #' . $itemId);
+
+                if ($daysToIssue < 0) {
+                    $activeAlertTypes[] = $overdueType;
+                    $this->upsertBillingAlert(
+                        $projectId,
+                        $overdueType,
+                        'red',
+                        'Ítem de facturación vencido',
+                        sprintf(
+                            'El ítem %s del proyecto %s tenía emisión el %s y no tiene factura registrada.',
+                            $concept,
+                            $projectName,
+                            $expected->format('Y-m-d')
+                        ),
+                        [
+                            'project_id' => $projectId,
+                            'project_name' => $projectName,
+                            'plan_item_id' => $itemId,
+                            'concept' => $concept,
+                            'expected_date' => $expected->format('Y-m-d'),
+                            'days_to_issue' => $daysToIssue,
+                            'alert_kind' => 'overdue',
+                        ],
+                        'project.billing_item_overdue'
+                    );
+                    continue;
+                }
+
+                if ($daysToIssue <= 7) {
+                    $activeAlertTypes[] = $upcomingType;
+                    $this->upsertBillingAlert(
+                        $projectId,
+                        $upcomingType,
+                        'yellow',
+                        'Ítem de facturación próximo',
+                        sprintf(
+                            'El ítem %s del proyecto %s debe emitirse el %s.',
+                            $concept,
+                            $projectName,
+                            $expected->format('Y-m-d')
+                        ),
+                        [
+                            'project_id' => $projectId,
+                            'project_name' => $projectName,
+                            'plan_item_id' => $itemId,
+                            'concept' => $concept,
+                            'expected_date' => $expected->format('Y-m-d'),
+                            'days_to_issue' => $daysToIssue,
+                            'alert_kind' => 'upcoming',
+                        ],
+                        'project.billing_item_upcoming'
+                    );
+                }
+            }
+
+            $resolvedTypes = $this->billingAlertTypesForProject($projectId);
+            $typesToResolve = array_diff($resolvedTypes, $activeAlertTypes);
+            if ($typesToResolve !== []) {
+                $quotedTypes = array_map(static fn (string $type): string => '"' . addslashes($type) . '"', $typesToResolve);
+                $this->db->execute(
+                    'UPDATE project_pmo_alerts
+                     SET status = "resolved",
+                         resolved_at = NOW()
+                     WHERE project_id = :project
+                       AND status = "open"
+                       AND alert_type IN (' . implode(', ', $quotedTypes) . ')',
+                    [':project' => $projectId]
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] syncBillingPlanAlertsForProject error (%d): %s', $projectId, $e->getMessage()));
+        }
     }
 
     public function runCriticalBlockersPulse(): int
@@ -448,6 +580,85 @@ class PmoAutomationService
                AND alert_type IN (' . implode(', ', $quotedTypes) . ')',
             [':project' => $projectId]
         );
+    }
+
+    private function upsertBillingAlert(
+        int $projectId,
+        string $alertType,
+        string $severity,
+        string $title,
+        string $message,
+        array $notificationPayload,
+        string $notificationType
+    ): void {
+        $existing = $this->db->fetchOne(
+            'SELECT id
+             FROM project_pmo_alerts
+             WHERE project_id = :project
+               AND alert_type = :type
+               AND status = "open"
+             LIMIT 1',
+            [
+                ':project' => $projectId,
+                ':type' => $alertType,
+            ]
+        );
+
+        if ($existing) {
+            $this->db->execute(
+                'UPDATE project_pmo_alerts
+                 SET severity = :severity,
+                     title = :title,
+                     message = :message,
+                     resolved_at = NULL
+                 WHERE id = :id',
+                [
+                    ':severity' => $severity,
+                    ':title' => $title,
+                    ':message' => $message,
+                    ':id' => (int) ($existing['id'] ?? 0),
+                ]
+            );
+            return;
+        }
+
+        $this->db->insert(
+            'INSERT INTO project_pmo_alerts (project_id, snapshot_id, alert_type, severity, title, message, status, created_at)
+             VALUES (:project_id, NULL, :alert_type, :severity, :title, :message, "open", NOW())',
+            [
+                ':project_id' => $projectId,
+                ':alert_type' => $alertType,
+                ':severity' => $severity,
+                ':title' => $title,
+                ':message' => $message,
+            ]
+        );
+
+        try {
+            (new NotificationService($this->db))->notify($notificationType, $notificationPayload, null);
+        } catch (\Throwable $e) {
+            error_log(sprintf('[PmoAutomationService] billing alert notify error (%d/%s): %s', $projectId, $alertType, $e->getMessage()));
+        }
+    }
+
+    private function billingAlertTypesForProject(int $projectId): array
+    {
+        $rows = $this->db->fetchAll(
+            'SELECT alert_type
+             FROM project_pmo_alerts
+             WHERE project_id = :project
+               AND status = "open"
+               AND (
+                    alert_type LIKE "billing_upcoming_item_%"
+                    OR alert_type LIKE "billing_overdue_item_%"
+               )',
+            [':project' => $projectId]
+        );
+
+        return array_values(array_filter(array_map(
+            static fn (array $row): string => trim((string) ($row['alert_type'] ?? '')),
+            $rows
+        )));
     }
 
     private function approvedHours(int $projectId, string $snapshotDate): float

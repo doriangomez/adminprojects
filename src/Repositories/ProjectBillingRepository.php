@@ -263,7 +263,7 @@ class ProjectBillingRepository
                 'concept' => (string) ($item['concept'] ?? ''),
                 'status' => $status,
                 'invoice_id' => isset($item['invoice_id']) && $item['invoice_id'] !== null ? (int) $item['invoice_id'] : null,
-                'selectable_for_new' => in_array($status, ['listo_para_emitir', 'atrasado'], true) && empty($item['invoice_id']),
+                'selectable_for_new' => empty($item['invoice_id']),
             ];
         }
 
@@ -274,8 +274,7 @@ class ProjectBillingRepository
     {
         return array_values(array_filter(
             $this->billingPlan($projectId),
-            static fn (array $item): bool => in_array((string) ($item['status'] ?? ''), ['listo_para_emitir', 'atrasado'], true)
-                && empty($item['invoice_id'])
+            static fn (array $item): bool => empty($item['invoice_id'])
         ));
     }
 
@@ -310,6 +309,10 @@ class ProjectBillingRepository
                 : null;
             $row['percentage'] = isset($row['percentage']) && $row['percentage'] !== null ? (float) $row['percentage'] : null;
             $row['amount'] = isset($row['amount']) && $row['amount'] !== null ? (float) $row['amount'] : null;
+            $traffic = $this->billingTrafficLight($row, date('Y-m-d'));
+            $row['traffic_light'] = $traffic['light'];
+            $row['days_to_issue'] = $traffic['days_to_issue'];
+            $row['is_invoice_linked'] = !empty($row['invoice_id']);
         }
         unset($row);
 
@@ -454,6 +457,12 @@ class ProjectBillingRepository
             'emitido' => 0,
             'atrasado' => 0,
         ];
+        $control = [
+            'on_track' => 0,
+            'upcoming' => 0,
+            'overdue' => 0,
+            'future' => 0,
+        ];
 
         foreach ($items as $item) {
             $totalPlan += (float) ($item['resolved_amount'] ?? 0);
@@ -461,11 +470,24 @@ class ProjectBillingRepository
             if (isset($counts[$status])) {
                 $counts[$status]++;
             }
+            $light = (string) ($item['traffic_light'] ?? 'gray');
+            if ($light === 'green') {
+                $control['on_track']++;
+            } elseif ($light === 'yellow') {
+                $control['upcoming']++;
+            } elseif ($light === 'red') {
+                $control['overdue']++;
+            } else {
+                $control['future']++;
+            }
         }
 
         $totalContract = (float) ($config['contract_value'] ?? 0);
         $totalInvoiced = (float) ($totals['total_invoiced'] ?? 0);
         $planDifference = $totalContract - $totalPlan;
+        $invoicedVsPlanPercent = $totalPlan > 0
+            ? round(min(100.0, ($totalInvoiced / $totalPlan) * 100), 2)
+            : 0.0;
 
         return [
             'total_contract' => $totalContract,
@@ -477,6 +499,8 @@ class ProjectBillingRepository
             'attention_items_count' => $counts['proximo'] + $counts['listo_para_emitir'] + $counts['atrasado'],
             'plan_difference' => $planDifference,
             'counts' => $counts,
+            'control_summary' => $control,
+            'invoiced_vs_plan_percentage' => $invoicedVsPlanPercent,
         ];
     }
 
@@ -923,6 +947,28 @@ class ProjectBillingRepository
         }
 
         return 0.0;
+    }
+
+    private function billingTrafficLight(array $item, string $today): array
+    {
+        if (!empty($item['invoice_id'])) {
+            return ['light' => 'green', 'days_to_issue' => null];
+        }
+
+        $expectedDate = $this->normalizeDate($item['expected_date'] ?? null);
+        if ($expectedDate === null) {
+            return ['light' => 'gray', 'days_to_issue' => null];
+        }
+
+        $deltaDays = (int) floor((strtotime($expectedDate) - strtotime($today)) / 86400);
+        if ($deltaDays < 0) {
+            return ['light' => 'red', 'days_to_issue' => $deltaDays];
+        }
+        if ($deltaDays <= 7) {
+            return ['light' => 'yellow', 'days_to_issue' => $deltaDays];
+        }
+
+        return ['light' => 'gray', 'days_to_issue' => $deltaDays];
     }
 
     private function planTypeLabel(string $type): string
