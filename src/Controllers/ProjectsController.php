@@ -66,6 +66,9 @@ class ProjectsController extends Controller
     private const REQUIRED_DOCUMENTS_FILES_CODE = '99-REQDOCS-FILES';
     private const REQUIRED_DOCUMENT_UPLOAD_KEYS = [
         'propuesta_aceptada',
+        'contrato',
+        'acuerdo_confidencialidad',
+        'presupuesto',
         'acta_inicio',
         'kickoff',
         'actas_seguimiento',

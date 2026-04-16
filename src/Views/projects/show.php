@@ -425,6 +425,9 @@ $requiredDocumentsMetaCode = '99-REQDOCS-META';
 $requiredDocumentsFilesCode = '99-REQDOCS-FILES';
 $requiredDocuments = [
     ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta comercial', 'tag' => 'Propuesta comercial', 'match_tags' => ['Propuesta comercial', 'Propuesta aceptada por el cliente']],
+    ['key' => 'contrato', 'name' => 'Contrato', 'description' => 'Documento legal del acuerdo con el cliente.', 'icon' => '📑', 'document_type' => 'Contrato', 'tag' => 'Contrato', 'match_types' => ['Contrato', 'Documento legal'], 'match_tags' => ['Contrato']],
+    ['key' => 'acuerdo_confidencialidad', 'name' => 'Acuerdo de confidencialidad', 'description' => 'NDA firmado entre las partes para proteger información sensible.', 'icon' => '🔐', 'document_type' => 'NDA', 'tag' => 'Confidencialidad', 'match_types' => ['NDA', 'Acuerdo de confidencialidad'], 'match_tags' => ['NDA', 'Confidencialidad', 'Acuerdo de confidencialidad']],
+    ['key' => 'presupuesto', 'name' => 'Presupuesto', 'description' => 'Documento formal del presupuesto aprobado.', 'icon' => '💵', 'document_type' => 'Presupuesto', 'tag' => 'Presupuesto', 'match_types' => ['Presupuesto'], 'match_tags' => ['Presupuesto']],
     ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio', 'match_tags' => ['Acta de inicio', 'Acta de inicio de proyecto']],
     ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Kickoff', 'tag' => 'Kickoff'],
     ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Seguimiento', 'match_tags' => ['Seguimiento', 'Actas de seguimiento']],
@@ -1743,6 +1746,9 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     let requiredDocumentRemoveFileRequested = false;
     const requiredDocumentTypePresetsByKey = {
         propuesta_aceptada: 'Propuesta comercial',
+        contrato: 'Contrato',
+        acuerdo_confidencialidad: 'NDA',
+        presupuesto: 'Presupuesto',
         acta_inicio: 'Acta',
         kickoff: 'Kickoff',
         actas_seguimiento: 'Acta',
