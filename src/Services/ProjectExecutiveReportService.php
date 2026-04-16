@@ -106,6 +106,15 @@ class ExecutivePdfRenderer
 
     public function render(array $d): string
     {
+        if (class_exists(\Dompdf\Dompdf::class)) {
+            return $this->renderWithDompdf($d);
+        }
+
+        return $this->renderLegacy($d);
+    }
+
+    private function renderLegacy(array $d): string
+    {
         $this->projectName = (string) (($d['project'] ?? [])['name'] ?? 'Proyecto');
         $this->generatedAt = (string) ($d['generated_at'] ?? date('d/m/Y H:i'));
 
@@ -132,6 +141,174 @@ class ExecutivePdfRenderer
 
         $this->decoratePages();
         return $this->pdf->output();
+    }
+
+    private function renderWithDompdf(array $d): string
+    {
+        $project = (array) ($d['project'] ?? []);
+        $this->projectName = (string) ($project['name'] ?? 'Proyecto');
+        $this->generatedAt = (string) ($d['generated_at'] ?? date('d/m/Y H:i'));
+
+        $html = $this->buildHtmlTemplate($d);
+
+        $options = new \Dompdf\Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $dompdf->output();
+    }
+
+    private function buildHtmlTemplate(array $d): string
+    {
+        $project = (array) ($d['project'] ?? []);
+        $billingSummary = (array) ($d['billing_summary'] ?? []);
+        $currency = (string) ($billingSummary['currency_code'] ?? ($project['currency_code'] ?? 'USD'));
+        $planRows = array_slice((array) ($d['billing_plan'] ?? []), 0, 10);
+        $invoiceRows = array_slice((array) ($d['invoices'] ?? []), 0, 12);
+        $alertRows = array_slice((array) ($d['alerts'] ?? []), 0, 12);
+
+        $kpis = [
+            ['Score de salud', (string) ((int) (($d['health']['total_score'] ?? 0))) . ' / 100'],
+            ['Estado general', $this->projectStatusLabel((string) ($project['status'] ?? ''))],
+            ['Avance', number_format((float) ($project['progress'] ?? 0), 1) . '%'],
+            ['Saldo por facturar', $this->fmtMoney((float) ($billingSummary['balance_to_invoice'] ?? 0), $currency)],
+            ['Presupuesto', $this->fmtMoney((float) ($project['budget'] ?? 0), (string) ($project['currency_code'] ?? 'USD'))],
+            ['Costo actual', $this->fmtMoney((float) ($project['actual_cost'] ?? 0), (string) ($project['currency_code'] ?? 'USD'))],
+        ];
+
+        $kpiHtml = '';
+        foreach ($kpis as [$label, $value]) {
+            $kpiHtml .= '<div class="kpi-card"><div class="kpi-label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</div></div>';
+        }
+
+        $billingPlanHtml = '';
+        foreach ($planRows as $idx => $item) {
+            $status = (string) ($item['status'] ?? 'pendiente');
+            $statusLabel = match ($status) {
+                'atrasado' => 'Vencido',
+                'proximo' => 'Próximo',
+                default => 'Al día',
+            };
+            $billingPlanHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
+                . '<td>' . htmlspecialchars((string) ($item['concept'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($this->fmtDate($item['expected_date'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td><span class="badge ' . $this->badgeClass($statusLabel) . '">' . htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') . '</span></td>'
+                . '</tr>';
+        }
+        if ($billingPlanHtml === '') {
+            $billingPlanHtml = '<tr><td colspan="3">Sin datos disponibles.</td></tr>';
+        }
+
+        $invoiceHtml = '';
+        foreach ($invoiceRows as $idx => $inv) {
+            $invoiceHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
+                . '<td>' . htmlspecialchars((string) ($inv['invoice_number'] ?? '#'), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($this->fmtDate($inv['issued_at'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($this->fmtMoney((float) ($inv['amount'] ?? 0), (string) ($inv['currency_code'] ?? $currency)), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '</tr>';
+        }
+        if ($invoiceHtml === '') {
+            $invoiceHtml = '<tr><td colspan="3">Sin datos disponibles.</td></tr>';
+        }
+
+        $alertHtml = '';
+        foreach ($alertRows as $idx => $a) {
+            $alertHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
+                . '<td>' . htmlspecialchars(strtoupper((string) ($a['severity'] ?? 'info')), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars((string) ($a['title'] ?? 'Alerta'), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars(trim((string) ($a['message'] ?? 'Sin detalle')), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '</tr>';
+        }
+        if ($alertHtml === '') {
+            $alertHtml = '<tr><td colspan="3">Sin datos disponibles.</td></tr>';
+        }
+
+        return '<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: DejaVu Sans, sans-serif; margin: 0; color: #1f1f1f; }
+    * { font-family: DejaVu Sans, sans-serif; box-sizing: border-box; }
+    @page { margin: 20mm 12mm 16mm 12mm; }
+    .page-break { page-break-before: always; }
+    .header { position: fixed; top: -16mm; left: 0; right: 0; height: 8mm; background: #7F77DD; color: #fff; font-size: 10px; padding: 2mm 4mm; }
+    .header-right { float: right; }
+    .footer { position: fixed; bottom: -12mm; left: 0; right: 0; border-top: 1px solid #D9D9D9; color: #6E6E6E; font-size: 9px; padding-top: 2mm; }
+    .footer-right { float: right; }
+    .section-title { color: #7F77DD; font-size: 16px; text-transform: uppercase; font-weight: 700; margin: 12px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #7F77DD; }
+    .kpi-grid { width: 100%; font-size: 0; }
+    .kpi-card { display: inline-block; vertical-align: top; width: 32%; margin: 0 1% 10px 0; background: #fff; border-left: 5px solid #7F77DD; border: 1px solid #E8E8E8; padding: 8px 10px; }
+    .kpi-label { color: #8B8B8B; font-size: 10px; text-transform: uppercase; }
+    .kpi-value { color: #1e1e1e; font-size: 18px; font-weight: 700; margin-top: 4px; }
+    table.report { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
+    table.report th { background: #7F77DD; color: #fff; text-align: left; padding: 7px; border: 1px solid #D8D6F2; }
+    table.report td { padding: 7px; border: 1px solid #ECECEC; }
+    table.report tr.alt td { background: #F7F7F5; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .badge-success { background: #DDF8E6; color: #137C3A; }
+    .badge-warning { background: #FFF2C7; color: #9E6E00; }
+    .badge-danger { background: #FFDCDC; color: #A52222; }
+  </style>
+</head>
+<body>
+  <table style="width:100%; height:297mm; background-color:#2D2A6E; margin:0; padding:0; border:none;">
+    <tr>
+      <td style="text-align:center; vertical-align:middle; color:white; padding:40px;">
+        <div style="font-size:52px; font-weight:700; letter-spacing:1px;">AOS</div>
+        <div style="font-size:28px; margin-top:28px; font-weight:700;">' . htmlspecialchars((string) ($project['name'] ?? 'Proyecto'), ENT_QUOTES, 'UTF-8') . '</div>
+        <table style="width:100%; margin-top:120px; background:#fff; color:#1E1E1E; border-collapse:collapse;">
+          <tr>
+            <td style="padding:14px;"><strong>Cliente</strong><br>' . htmlspecialchars((string) ($project['client_name'] ?? 'Sin cliente'), ENT_QUOTES, 'UTF-8') . '</td>
+            <td style="padding:14px;"><strong>Fecha</strong><br>' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</td>
+            <td style="padding:14px;"><strong>Estado</strong><br>' . htmlspecialchars($this->projectStatusLabel((string) ($project['status'] ?? '')), ENT_QUOTES, 'UTF-8') . '</td>
+            <td style="padding:14px;"><strong>PM</strong><br>' . htmlspecialchars((string) ($project['pm_name'] ?? 'No asignado'), ENT_QUOTES, 'UTF-8') . '</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+  <div class="header">' . htmlspecialchars($this->projectName, ENT_QUOTES, 'UTF-8') . '<span class="header-right">{PAGE_NUM}</span></div>
+  <div class="footer">Generado por AOS Prompt Maestro PMO<span class="footer-right">' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</span></div>
+
+  <div class="section-title">Sección 1 · Resumen Ejecutivo</div>
+  <div class="kpi-grid">' . $kpiHtml . '</div>
+
+  <div class="section-title">Sección 2 · Facturación</div>
+  <table class="report">
+    <thead><tr><th>Concepto</th><th>Fecha esperada</th><th>Estado</th></tr></thead>
+    <tbody>' . $billingPlanHtml . '</tbody>
+  </table>
+  <table class="report">
+    <thead><tr><th>Factura</th><th>Fecha</th><th>Monto</th></tr></thead>
+    <tbody>' . $invoiceHtml . '</tbody>
+  </table>
+
+  <div class="section-title">Sección 5 · Alertas y Riesgos</div>
+  <table class="report">
+    <thead><tr><th>Severidad</th><th>Título</th><th>Detalle</th></tr></thead>
+    <tbody>' . $alertHtml . '</tbody>
+  </table>
+</body>
+</html>';
+    }
+
+    private function badgeClass(string $status): string
+    {
+        return match ($this->statusTone($status)) {
+            'success' => 'badge-success',
+            'warning' => 'badge-warning',
+            'danger' => 'badge-danger',
+            default => 'badge-warning',
+        };
     }
 
     private function drawCover(array $d): void
