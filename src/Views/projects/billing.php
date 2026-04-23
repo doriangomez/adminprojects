@@ -119,7 +119,7 @@ foreach ($projectInvoices as $invoice) {
                 <div class="billing-section-head">
                     <h3>B. Plan de facturación</h3>
                     <?php if ($canManageBilling): ?>
-                        <button class="action-btn primary" type="button" data-toggle-inline-form="new-plan-item">＋ Agregar ítem de facturación</button>
+                        <button class="action-btn primary" type="button" data-open-modal="plan-item-modal">＋ Agregar ítem</button>
                     <?php endif; ?>
                 </div>
 
@@ -138,50 +138,72 @@ foreach ($projectInvoices as $invoice) {
                 </div>
 
                 <?php if ($canManageBilling): ?>
-                    <form id="new-plan-item" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form inline-form" hidden>
-                        <label>Tipo de facturación
-                            <select name="item_type" required data-plan-type="true">
-                                <?php foreach ($planItemTypes as $planType): ?>
-                                    <option value="<?= htmlspecialchars((string) $planType) ?>"><?= htmlspecialchars($typeLabels[$planType] ?? (string) $planType) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
+                    <dialog id="plan-item-modal" class="billing-modal">
+                        <form id="new-plan-item" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan" class="grid-form inline-form js-preserve-context">
+                            <input type="hidden" name="return_to" value="">
+                            <div class="billing-modal-head">
+                                <h4>Agregar ítem de facturación</h4>
+                                <button class="action-btn small" type="button" data-close-modal="plan-item-modal">✕</button>
+                            </div>
+                            <label>Tipo de facturación
+                                <select name="item_type" required data-plan-type="true">
+                                    <?php foreach ($planItemTypes as $planType): ?>
+                                        <option value="<?= htmlspecialchars((string) $planType) ?>"><?= htmlspecialchars($typeLabels[$planType] ?? (string) $planType) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
 
-                        <div class="plan-type-fields" data-plan-fields="anticipo">
-                            <label>Concepto<input type="text" name="concept"></label>
-                            <label>Valor<input type="number" step="0.01" min="0" name="amount"></label>
-                            <label>Fecha esperada de emisión<input type="date" name="expected_date"></label>
-                            <label>Condición<input type="text" name="condition_text"></label>
-                        </div>
+                            <div class="plan-type-fields" data-plan-fields="anticipo">
+                                <label>Concepto<input type="text" name="concept" data-required-types="anticipo,hito_entregable,mensualidad_fija,porcentaje_avance"></label>
+                                <label>Valor<input type="number" step="0.01" min="0" name="amount" data-required-types="anticipo,mensualidad_fija,porcentaje_avance"></label>
+                                <label>Fecha esperada de emisión<input type="date" name="expected_date" data-required-types="anticipo,hito_entregable"></label>
+                                <label>Estado
+                                    <select name="status">
+                                        <?php foreach ($statusLabels as $statusKey => $statusLabel): ?>
+                                            <option value="<?= htmlspecialchars($statusKey) ?>" <?= $statusKey === 'pendiente' ? 'selected' : '' ?>><?= htmlspecialchars($statusLabel) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                                <label>Condición (opcional)<input type="text" name="condition_text"></label>
+                            </div>
 
-                        <div class="plan-type-fields" data-plan-fields="mensualidad_fija" hidden>
-                            <label>Concepto<input type="text" name="concept"></label>
-                            <label>Valor mensual<input type="number" step="0.01" min="0" name="amount"></label>
-                            <label>Fecha de inicio<input type="date" name="start_date"></label>
-                            <label>Fecha de fin<input type="date" name="end_date"></label>
-                            <label>Día del mes (1-28)<input type="number" min="1" max="28" name="day_of_month"></label>
-                        </div>
+                            <div class="plan-type-fields" data-plan-fields="mensualidad_fija" hidden>
+                                <label>Concepto<input type="text" name="concept"></label>
+                                <label>Valor mensual<input type="number" step="0.01" min="0" name="amount"></label>
+                                <label>Fecha de inicio<input type="date" name="start_date" data-required-types="mensualidad_fija"></label>
+                                <label>Fecha de fin<input type="date" name="end_date" data-required-types="mensualidad_fija"></label>
+                                <label>Recurrencia (día 1-28)<input type="number" min="1" max="28" name="day_of_month" data-required-types="mensualidad_fija"></label>
+                                <label>Condición (opcional)<input type="text" name="condition_text"></label>
+                            </div>
 
-                        <div class="plan-type-fields" data-plan-fields="hito_entregable" hidden>
-                            <label>Nombre del hito<input type="text" name="milestone_name"></label>
-                            <label>Concepto<input type="text" name="concept"></label>
-                            <label>Valor (monto)<input type="number" step="0.01" min="0" name="amount"></label>
-                            <label>Porcentaje del contrato<input type="number" step="0.01" min="0" max="100" name="percentage"></label>
-                            <label>Fecha esperada de emisión<input type="date" name="expected_date"></label>
-                            <label>Condición de emisión<input type="text" name="condition_text"></label>
-                            <label>Hito vinculado al cronograma (opcional)<input type="number" min="1" name="linked_schedule_activity_id"></label>
-                        </div>
+                            <div class="plan-type-fields" data-plan-fields="hito_entregable" hidden>
+                                <label>Nombre del hito<input type="text" name="milestone_name" data-required-types="hito_entregable"></label>
+                                <label>Concepto<input type="text" name="concept"></label>
+                                <label>Valor (monto)<input type="number" step="0.01" min="0" name="amount"></label>
+                                <label>Porcentaje del contrato<input type="number" step="0.01" min="0" max="100" name="percentage"></label>
+                                <label>Fecha esperada de emisión<input type="date" name="expected_date"></label>
+                                <label>Estado
+                                    <select name="status">
+                                        <?php foreach ($statusLabels as $statusKey => $statusLabel): ?>
+                                            <option value="<?= htmlspecialchars($statusKey) ?>" <?= $statusKey === 'pendiente' ? 'selected' : '' ?>><?= htmlspecialchars($statusLabel) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                                <label>Condición de emisión (opcional)<input type="text" name="condition_text"></label>
+                                <label>Hito vinculado al cronograma (opcional)<input type="number" min="1" name="linked_schedule_activity_id"></label>
+                            </div>
 
-                        <div class="plan-type-fields" data-plan-fields="porcentaje_avance" hidden>
-                            <label>Concepto<input type="text" name="concept"></label>
-                            <label>Porcentaje de avance requerido (1-100)<input type="number" min="1" max="100" step="0.01" name="progress_required_percentage"></label>
-                            <label>Valor a facturar<input type="number" step="0.01" min="0" name="amount"></label>
-                            <label>Condición adicional<input type="text" name="condition_text"></label>
-                        </div>
+                            <div class="plan-type-fields" data-plan-fields="porcentaje_avance" hidden>
+                                <label>Concepto<input type="text" name="concept"></label>
+                                <label>Fórmula o referencia (%)<input type="number" min="1" max="100" step="0.01" name="progress_required_percentage" data-required-types="porcentaje_avance"></label>
+                                <label>Valor a facturar<input type="number" step="0.01" min="0" name="amount"></label>
+                                <label>Condición adicional<input type="text" name="condition_text"></label>
+                            </div>
 
-                        <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"></textarea></label>
-                        <div><button class="action-btn primary" type="submit">Guardar ítem</button></div>
-                    </form>
+                            <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"></textarea></label>
+                            <div><button class="action-btn primary" type="submit">Guardar ítem</button></div>
+                        </form>
+                    </dialog>
                 <?php endif; ?>
 
                 <div class="table-wrapper">
@@ -243,28 +265,20 @@ foreach ($projectInvoices as $invoice) {
                                     <?php if ($canManageBilling): ?>
                                         <tr class="inline-edit-row" id="edit-plan-<?= $itemId ?>" hidden>
                                             <td colspan="8">
-                                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan/<?= $itemId ?>/update" class="grid-form inline-form">
-                                                    <label>Tipo
-                                                        <select name="item_type" required>
-                                                            <?php foreach ($planItemTypes as $planType): ?>
-                                                                <option value="<?= htmlspecialchars((string) $planType) ?>" <?= ($item['item_type'] ?? '') === $planType ? 'selected' : '' ?>>
-                                                                    <?= htmlspecialchars($typeLabels[$planType] ?? (string) $planType) ?>
-                                                                </option>
+                                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/billing-plan/<?= $itemId ?>/update" class="grid-form inline-form js-preserve-context">
+                                                    <input type="hidden" name="item_type" value="<?= htmlspecialchars((string) ($item['item_type'] ?? '')) ?>">
+                                                    <input type="hidden" name="return_to" value="">
+                                                    <label>Concepto<input type="text" name="concept" value="<?= htmlspecialchars((string) ($item['concept'] ?? '')) ?>"></label>
+                                                    <label>Valor<input type="number" step="0.01" min="0" name="amount" value="<?= htmlspecialchars((string) ($item['amount'] ?? '')) ?>"></label>
+                                                    <label>Fecha esperada<input type="date" name="expected_date" value="<?= htmlspecialchars((string) ($item['expected_date'] ?? '')) ?>"></label>
+                                                    <label>Condición<input type="text" name="condition_text" value="<?= htmlspecialchars((string) ($item['condition_text'] ?? '')) ?>"></label>
+                                                    <label>Estado
+                                                        <select name="status">
+                                                            <?php foreach ($statusLabels as $statusKey => $statusLabel): ?>
+                                                                <option value="<?= htmlspecialchars($statusKey) ?>" <?= $status === $statusKey ? 'selected' : '' ?>><?= htmlspecialchars($statusLabel) ?></option>
                                                             <?php endforeach; ?>
                                                         </select>
                                                     </label>
-                                                    <label>Concepto<input type="text" name="concept" value="<?= htmlspecialchars((string) ($item['concept'] ?? '')) ?>"></label>
-                                                    <label>Nombre hito<input type="text" name="milestone_name" value="<?= htmlspecialchars((string) ($item['milestone_name'] ?? '')) ?>"></label>
-                                                    <label>Valor<input type="number" step="0.01" min="0" name="amount" value="<?= htmlspecialchars((string) ($item['amount'] ?? '')) ?>"></label>
-                                                    <label>Porcentaje<input type="number" step="0.01" min="0" max="100" name="percentage" value="<?= htmlspecialchars((string) ($item['percentage'] ?? '')) ?>"></label>
-                                                    <label>% avance requerido<input type="number" step="0.01" min="1" max="100" name="progress_required_percentage" value="<?= htmlspecialchars((string) ($item['progress_required_percentage'] ?? '')) ?>"></label>
-                                                    <label>Fecha esperada<input type="date" name="expected_date" value="<?= htmlspecialchars((string) ($item['expected_date'] ?? '')) ?>"></label>
-                                                    <label>Condición<input type="text" name="condition_text" value="<?= htmlspecialchars((string) ($item['condition_text'] ?? '')) ?>"></label>
-                                                    <label>Inicio mensualidad<input type="date" name="start_date"></label>
-                                                    <label>Fin mensualidad<input type="date" name="end_date"></label>
-                                                    <label>Día mes (1-28)<input type="number" min="1" max="28" name="day_of_month" value="<?= htmlspecialchars((string) ($item['day_of_month'] ?? '')) ?>"></label>
-                                                    <label>Hito cronograma<input type="number" min="1" name="linked_schedule_activity_id" value="<?= htmlspecialchars((string) ($item['linked_schedule_activity_id'] ?? '')) ?>"></label>
-                                                    <label style="grid-column:1/-1;">Notas<textarea name="notes" rows="2"><?= htmlspecialchars((string) ($item['notes'] ?? '')) ?></textarea></label>
                                                     <div><button class="action-btn primary" type="submit">Guardar</button></div>
                                                 </form>
                                             </td>
@@ -466,17 +480,55 @@ document.addEventListener('click', (event) => {
   target.hidden = !target.hidden;
 });
 
+document.querySelectorAll('[data-open-modal]').forEach((trigger) => {
+  trigger.addEventListener('click', () => {
+    const modal = document.getElementById(trigger.getAttribute('data-open-modal'));
+    if (!modal || typeof modal.showModal !== 'function') {
+      return;
+    }
+    modal.showModal();
+  });
+});
+
+document.querySelectorAll('[data-close-modal]').forEach((trigger) => {
+  trigger.addEventListener('click', () => {
+    const modal = document.getElementById(trigger.getAttribute('data-close-modal'));
+    if (!modal) {
+      return;
+    }
+    modal.close();
+  });
+});
+
 const planTypeSelector = document.querySelector('[data-plan-type="true"]');
 if (planTypeSelector) {
   const syncPlanType = () => {
     const value = planTypeSelector.value;
     document.querySelectorAll('[data-plan-fields]').forEach((block) => {
-      block.hidden = block.getAttribute('data-plan-fields') !== value;
+      const isActive = block.getAttribute('data-plan-fields') === value;
+      block.hidden = !isActive;
+      block.querySelectorAll('input, select, textarea').forEach((field) => {
+        field.disabled = !isActive;
+      });
+    });
+    document.querySelectorAll('[data-required-types]').forEach((field) => {
+      const requiredFor = (field.getAttribute('data-required-types') || '').split(',').map((entry) => entry.trim());
+      field.required = requiredFor.includes(value);
     });
   };
   planTypeSelector.addEventListener('change', syncPlanType);
   syncPlanType();
 }
+
+document.querySelectorAll('form.js-preserve-context').forEach((form) => {
+  form.addEventListener('submit', () => {
+    const returnTo = form.querySelector('input[name="return_to"]');
+    if (!returnTo) {
+      return;
+    }
+    returnTo.value = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  });
+});
 </script>
 
 <style>
@@ -515,6 +567,30 @@ if (planTypeSelector) {
   border: 1px dashed #d1d5db;
   border-radius: 8px;
   background: #f9fafb;
+}
+.billing-modal {
+  border: 0;
+  border-radius: 12px;
+  padding: 0;
+  width: min(920px, 92vw);
+}
+.billing-modal::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+.billing-modal .inline-form {
+  margin: 0;
+  border: 0;
+  border-radius: 12px;
+  padding: 16px;
+}
+.billing-modal-head {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.billing-modal-head h4 {
+  margin: 0;
 }
 .plan-type-fields {
   grid-column: 1 / -1;

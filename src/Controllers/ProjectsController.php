@@ -2859,7 +2859,7 @@ class ProjectsController extends Controller
                 'created',
                 ['created_ids' => $createdIds, 'payload' => $payload]
             );
-            header('Location: /projects/' . $projectId . '/billing');
+            header('Location: ' . $this->billingReturnUrl($projectId));
         } catch (\InvalidArgumentException $e) {
             http_response_code(422);
             exit($e->getMessage());
@@ -2877,8 +2877,14 @@ class ProjectsController extends Controller
         }
 
         try {
-            $payload = $this->planItemPayloadFromRequest();
-            (new ProjectBillingRepository($this->db))->updatePlanItem($projectId, $itemId, $payload);
+            $billingRepo = new ProjectBillingRepository($this->db);
+            $currentItem = $billingRepo->findPlanItem($projectId, $itemId);
+            if (!$currentItem) {
+                http_response_code(404);
+                exit('Ítem de facturación no encontrado.');
+            }
+            $payload = $this->planItemPayloadFromRequest($currentItem);
+            $billingRepo->updatePlanItem($projectId, $itemId, $payload);
             (new AuditLogRepository($this->db))->log(
                 (int) ($this->auth->user()['id'] ?? 0),
                 'project_billing_plan',
@@ -2886,7 +2892,7 @@ class ProjectsController extends Controller
                 'updated',
                 $payload
             );
-            header('Location: /projects/' . $projectId . '/billing');
+            header('Location: ' . $this->billingReturnUrl($projectId));
         } catch (\InvalidArgumentException $e) {
             http_response_code(422);
             exit($e->getMessage());
@@ -3187,22 +3193,25 @@ class ProjectsController extends Controller
         ];
     }
 
-    private function planItemPayloadFromRequest(): array
+    private function planItemPayloadFromRequest(?array $currentItem = null): array
     {
-        $type = strtolower(trim((string) ($_POST['item_type'] ?? '')));
+        $type = strtolower(trim((string) ($_POST['item_type'] ?? ($currentItem['item_type'] ?? ''))));
         if (!in_array($type, self::PLAN_ITEM_TYPES, true)) {
             throw new \InvalidArgumentException('Selecciona un tipo de ítem de facturación válido.');
         }
 
-        $concept = trim((string) ($_POST['concept'] ?? ''));
-        $amountRaw = trim((string) ($_POST['amount'] ?? ''));
+        $concept = trim((string) ($_POST['concept'] ?? ($currentItem['concept'] ?? '')));
+        $amountRaw = trim((string) ($_POST['amount'] ?? ($currentItem['amount'] ?? '')));
         $amount = $amountRaw !== '' ? (float) $amountRaw : null;
-        $percentageRaw = trim((string) ($_POST['percentage'] ?? ''));
+        $percentageRaw = trim((string) ($_POST['percentage'] ?? ($currentItem['percentage'] ?? '')));
         $percentage = $percentageRaw !== '' ? (float) $percentageRaw : null;
-        $expectedDate = $this->nullableDate($_POST['expected_date'] ?? null);
-        $conditionText = trim((string) ($_POST['condition_text'] ?? ''));
-        $notes = trim((string) ($_POST['notes'] ?? ''));
-        $linkedScheduleActivityId = (int) ($_POST['linked_schedule_activity_id'] ?? 0);
+        $expectedDate = $this->nullableDate($_POST['expected_date'] ?? ($currentItem['expected_date'] ?? null));
+        $conditionText = trim((string) ($_POST['condition_text'] ?? ($currentItem['condition_text'] ?? '')));
+        $notes = trim((string) ($_POST['notes'] ?? ($currentItem['notes'] ?? '')));
+        $linkedScheduleActivityId = (int) ($_POST['linked_schedule_activity_id'] ?? ($currentItem['linked_schedule_activity_id'] ?? 0));
+        $statusRequested = strtolower(trim((string) ($_POST['status'] ?? '')));
+        $conditionMetFromStatus = in_array($statusRequested, ['listo_para_emitir', 'emitido'], true) ? 1 : 0;
+        $defaultConditionMet = (int) ($currentItem['condition_met'] ?? 0);
 
         if ($type === 'anticipo') {
             if ($concept === '' || $amount === null || $expectedDate === null) {
@@ -3211,9 +3220,9 @@ class ProjectsController extends Controller
         }
 
         if ($type === 'mensualidad_fija') {
-            $startDate = $this->nullableDate($_POST['start_date'] ?? null);
-            $endDate = $this->nullableDate($_POST['end_date'] ?? null);
-            $dayOfMonth = (int) ($_POST['day_of_month'] ?? 0);
+            $startDate = $this->nullableDate($_POST['start_date'] ?? ($currentItem['start_date'] ?? null));
+            $endDate = $this->nullableDate($_POST['end_date'] ?? ($currentItem['end_date'] ?? null));
+            $dayOfMonth = (int) ($_POST['day_of_month'] ?? ($currentItem['day_of_month'] ?? 0));
             if ($concept === '' || $amount === null || $startDate === null || $endDate === null || $dayOfMonth < 1 || $dayOfMonth > 28) {
                 throw new \InvalidArgumentException('La mensualidad fija requiere concepto, valor mensual, fechas y día del mes (1-28).');
             }
@@ -3226,11 +3235,12 @@ class ProjectsController extends Controller
                 'day_of_month' => $dayOfMonth,
                 'condition_text' => $conditionText,
                 'notes' => $notes,
+                'condition_met' => $statusRequested === '' ? $defaultConditionMet : $conditionMetFromStatus,
             ];
         }
 
         if ($type === 'hito_entregable') {
-            $milestoneName = trim((string) ($_POST['milestone_name'] ?? ''));
+            $milestoneName = trim((string) ($_POST['milestone_name'] ?? ($currentItem['milestone_name'] ?? '')));
             if ($milestoneName === '' || ($amount === null && $percentage === null) || $expectedDate === null) {
                 throw new \InvalidArgumentException('El hito requiere nombre, valor (monto o porcentaje) y fecha esperada.');
             }
@@ -3244,10 +3254,11 @@ class ProjectsController extends Controller
                 'condition_text' => $conditionText,
                 'notes' => $notes,
                 'linked_schedule_activity_id' => $linkedScheduleActivityId > 0 ? $linkedScheduleActivityId : null,
+                'condition_met' => $statusRequested === '' ? $defaultConditionMet : $conditionMetFromStatus,
             ];
         }
 
-        $progressRequiredRaw = trim((string) ($_POST['progress_required_percentage'] ?? ''));
+        $progressRequiredRaw = trim((string) ($_POST['progress_required_percentage'] ?? ($currentItem['progress_required_percentage'] ?? '')));
         $progressRequired = $progressRequiredRaw !== '' ? (float) $progressRequiredRaw : null;
         if ($concept === '' || $progressRequired === null || $progressRequired < 1 || $progressRequired > 100 || $amount === null) {
             throw new \InvalidArgumentException('El ítem por porcentaje de avance requiere concepto, porcentaje (1-100) y valor.');
@@ -3260,9 +3271,31 @@ class ProjectsController extends Controller
             'amount' => $amount,
             'condition_text' => $conditionText,
             'notes' => $notes,
-            'condition_met' => isset($_POST['condition_met']) ? 1 : 0,
+            'condition_met' => isset($_POST['condition_met'])
+                ? 1
+                : ($statusRequested === '' ? $defaultConditionMet : $conditionMetFromStatus),
             'expected_date' => $expectedDate,
         ];
+    }
+
+    private function billingReturnUrl(int $projectId): string
+    {
+        $fallback = '/projects/' . $projectId . '/billing';
+        $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+        if ($returnTo === '') {
+            return $fallback;
+        }
+
+        $parts = parse_url($returnTo);
+        $path = (string) ($parts['path'] ?? '');
+        if ($path === '' || strpos($path, '/projects/' . $projectId . '/billing') !== 0) {
+            return $fallback;
+        }
+
+        $query = isset($parts['query']) && $parts['query'] !== '' ? ('?' . $parts['query']) : '';
+        $fragment = isset($parts['fragment']) && $parts['fragment'] !== '' ? ('#' . $parts['fragment']) : '';
+
+        return $path . $query . $fragment;
     }
 
     private function invoicePayloadFromRequest(int $projectId, ?array $currentInvoice = null): array
