@@ -106,6 +106,10 @@ class ExecutivePdfRenderer
 
     public function render(array $d): string
     {
+        if (class_exists(\Mpdf\Mpdf::class)) {
+            return $this->renderWithMpdf($d);
+        }
+
         if (class_exists(\Dompdf\Dompdf::class)) {
             return $this->renderWithDompdf($d);
         }
@@ -164,6 +168,25 @@ class ExecutivePdfRenderer
         return $dompdf->output();
     }
 
+    private function renderWithMpdf(array $d): string
+    {
+        $project = (array) ($d['project'] ?? []);
+        $this->projectName = (string) ($project['name'] ?? 'Proyecto');
+        $this->generatedAt = (string) ($d['generated_at'] ?? date('d/m/Y H:i'));
+
+        $html = $this->buildHtmlTemplate($d);
+        $mpdf = new \Mpdf\Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'margin_top' => 18,
+            'margin_bottom' => 16,
+            'margin_left' => 12,
+            'margin_right' => 12,
+        ]);
+        $mpdf->WriteHTML($html);
+        return (string) $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+    }
+
     private function buildHtmlTemplate(array $d): string
     {
         $project = (array) ($d['project'] ?? []);
@@ -181,11 +204,6 @@ class ExecutivePdfRenderer
             ['Presupuesto', $this->fmtMoney((float) ($project['budget'] ?? 0), (string) ($project['currency_code'] ?? 'USD'))],
             ['Costo actual', $this->fmtMoney((float) ($project['actual_cost'] ?? 0), (string) ($project['currency_code'] ?? 'USD'))],
         ];
-
-        $kpiHtml = '';
-        foreach ($kpis as [$label, $value]) {
-            $kpiHtml .= '<div class="kpi-card"><div class="kpi-label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</div></div>';
-        }
 
         $billingPlanHtml = '';
         foreach ($planRows as $idx => $item) {
@@ -236,20 +254,22 @@ class ExecutivePdfRenderer
   <style>
     body { font-family: DejaVu Sans, sans-serif; margin: 0; color: #1f1f1f; }
     * { font-family: DejaVu Sans, sans-serif; box-sizing: border-box; }
-    @page { margin: 20mm 12mm 16mm 12mm; }
+    @page { margin: 18mm 12mm 16mm 12mm; }
     .page-break { page-break-before: always; }
-    .header { position: fixed; top: -16mm; left: 0; right: 0; height: 8mm; background: #7F77DD; color: #fff; font-size: 10px; padding: 2mm 4mm; }
+    .header { position: fixed; top: -12mm; left: 0; right: 0; font-size: 10px; color: #7A7A7A; }
     .header-right { float: right; }
-    .footer { position: fixed; bottom: -12mm; left: 0; right: 0; border-top: 1px solid #D9D9D9; color: #6E6E6E; font-size: 9px; padding-top: 2mm; }
+    .header-line { margin-top: 2mm; border-top: 1px solid #D6D6D6; }
+    .footer { position: fixed; bottom: -10mm; left: 0; right: 0; border-top: 1px solid #D6D6D6; color: #8A8A8A; font-size: 9px; padding-top: 2mm; }
     .footer-right { float: right; }
-    .section-title { color: #7F77DD; font-size: 16px; text-transform: uppercase; font-weight: 700; margin: 12px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #7F77DD; }
-    .kpi-grid { width: 100%; font-size: 0; }
-    .kpi-card { display: inline-block; vertical-align: top; width: 32%; margin: 0 1% 10px 0; background: #fff; border-left: 5px solid #7F77DD; border: 1px solid #E8E8E8; padding: 8px 10px; }
+    .section-title { color: #000; font-size: 14px; text-transform: uppercase; font-weight: 700; margin: 14px 0 8px; padding-bottom: 5px; border-bottom: 1px solid #D6D6D6; letter-spacing: 0.5px; }
+    .kpi-grid { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    .kpi-grid td { width: 33.33%; padding: 8px 10px 10px 0; vertical-align: top; }
+    .kpi-grid td + td { border-left: 1px solid #D9D9D9; padding-left: 12px; }
     .kpi-label { color: #8B8B8B; font-size: 10px; text-transform: uppercase; }
-    .kpi-value { color: #1e1e1e; font-size: 18px; font-weight: 700; margin-top: 4px; }
-    table.report { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
-    table.report th { background: #7F77DD; color: #fff; text-align: left; padding: 7px; border: 1px solid #D8D6F2; }
-    table.report td { padding: 7px; border: 1px solid #ECECEC; }
+    .kpi-value { color: #111; font-size: 18px; font-weight: 700; margin-top: 2px; }
+    table.report { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 10px; table-layout: fixed; }
+    table.report th { background: #4C4C4C; color: #fff; text-align: left; padding: 7px; border: 1px solid #5C5C5C; }
+    table.report td { padding: 7px; border: 1px solid #E5E5E5; word-wrap: break-word; }
     table.report tr.alt td { background: #F7F7F5; }
     .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
     .badge-success { background: #DDF8E6; color: #137C3A; }
@@ -258,17 +278,18 @@ class ExecutivePdfRenderer
   </style>
 </head>
 <body>
-  <table style="width:100%; height:297mm; background-color:#2D2A6E; margin:0; padding:0; border:none;">
+  <table style="width:100%; height:297mm; background-color:#FFFFFF; margin:0; padding:0; border:none;">
     <tr>
-      <td style="text-align:center; vertical-align:middle; color:white; padding:40px;">
-        <div style="font-size:52px; font-weight:700; letter-spacing:1px;">AOS</div>
-        <div style="font-size:28px; margin-top:28px; font-weight:700;">' . htmlspecialchars((string) ($project['name'] ?? 'Proyecto'), ENT_QUOTES, 'UTF-8') . '</div>
-        <table style="width:100%; margin-top:120px; background:#fff; color:#1E1E1E; border-collapse:collapse;">
+      <td style="vertical-align:top; color:#111; padding:34px 28px;">
+        <div style="font-size:26px; font-weight:700; color:#111;">AOS</div>
+        <div style="text-align:center; margin-top:110px; font-size:34px; font-weight:700; color:#111;">' . htmlspecialchars((string) ($project['name'] ?? 'Proyecto'), ENT_QUOTES, 'UTF-8') . '</div>
+        <div style="margin:14px auto 0; width:78%; border-top:1px solid #D6D6D6;"></div>
+        <table style="width:100%; margin-top:36px; color:#1E1E1E; border-collapse:collapse;">
           <tr>
-            <td style="padding:14px;"><strong>Cliente</strong><br>' . htmlspecialchars((string) ($project['client_name'] ?? 'Sin cliente'), ENT_QUOTES, 'UTF-8') . '</td>
-            <td style="padding:14px;"><strong>Fecha</strong><br>' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</td>
-            <td style="padding:14px;"><strong>Estado</strong><br>' . htmlspecialchars($this->projectStatusLabel((string) ($project['status'] ?? '')), ENT_QUOTES, 'UTF-8') . '</td>
-            <td style="padding:14px;"><strong>PM</strong><br>' . htmlspecialchars((string) ($project['pm_name'] ?? 'No asignado'), ENT_QUOTES, 'UTF-8') . '</td>
+            <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">Cliente</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars((string) ($project['client_name'] ?? 'Sin cliente'), ENT_QUOTES, 'UTF-8') . '</div></td>
+            <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">Fecha</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</div></td>
+            <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">Estado</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars($this->projectStatusLabel((string) ($project['status'] ?? '')), ENT_QUOTES, 'UTF-8') . '</div></td>
+            <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">PM</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars((string) ($project['pm_name'] ?? 'No asignado'), ENT_QUOTES, 'UTF-8') . '</div></td>
           </tr>
         </table>
       </td>
@@ -276,24 +297,35 @@ class ExecutivePdfRenderer
   </table>
 
   <div class="page-break"></div>
-  <div class="header">' . htmlspecialchars($this->projectName, ENT_QUOTES, 'UTF-8') . '<span class="header-right">{PAGE_NUM}</span></div>
+  <div class="header">' . htmlspecialchars($this->projectName, ENT_QUOTES, 'UTF-8') . '<span class="header-right">Página {PAGENO}</span><div class="header-line"></div></div>
   <div class="footer">Generado por AOS Prompt Maestro PMO<span class="footer-right">' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</span></div>
 
   <div class="section-title">Sección 1 · Resumen Ejecutivo</div>
-  <div class="kpi-grid">' . $kpiHtml . '</div>
+  <table class="kpi-grid"><tr>
+    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[0][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[0][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
+    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[1][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[1][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
+    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[2][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[2][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
+  </tr><tr>
+    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[3][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[3][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
+    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[4][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[4][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
+    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[5][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[5][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
+  </tr></table>
 
   <div class="section-title">Sección 2 · Facturación</div>
   <table class="report">
+    <colgroup><col style="width:45%"><col style="width:25%"><col style="width:30%"></colgroup>
     <thead><tr><th>Concepto</th><th>Fecha esperada</th><th>Estado</th></tr></thead>
     <tbody>' . $billingPlanHtml . '</tbody>
   </table>
   <table class="report">
+    <colgroup><col style="width:35%"><col style="width:25%"><col style="width:40%"></colgroup>
     <thead><tr><th>Factura</th><th>Fecha</th><th>Monto</th></tr></thead>
     <tbody>' . $invoiceHtml . '</tbody>
   </table>
 
   <div class="section-title">Sección 5 · Alertas y Riesgos</div>
   <table class="report">
+    <colgroup><col style="width:20%"><col style="width:30%"><col style="width:50%"></colgroup>
     <thead><tr><th>Severidad</th><th>Título</th><th>Detalle</th></tr></thead>
     <tbody>' . $alertHtml . '</tbody>
   </table>
