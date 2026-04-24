@@ -10,7 +10,7 @@ class ProjectBillingRepository
 {
     private const CONTRACT_CURRENCIES = ['COP', 'USD', 'EUR', 'MXN'];
     private const PLAN_TYPES = ['anticipo', 'mensualidad_fija', 'hito_entregable', 'porcentaje_avance'];
-    private const PLAN_STATUSES = ['pendiente', 'proximo', 'listo_para_emitir', 'emitido', 'atrasado'];
+    private const PLAN_STATUSES = ['pendiente', 'proximo', 'listo_para_emitir', 'emitido', 'pagado', 'atrasado'];
 
     public function __construct(private Database $db)
     {
@@ -422,6 +422,21 @@ class ProjectBillingRepository
             ]
         );
 
+        if (($payload['status_override'] ?? '') === 'pagado') {
+            $this->db->execute(
+                'UPDATE project_billing_plan
+                 SET status = "pagado",
+                     updated_at = NOW()
+                 WHERE id = :id
+                   AND project_id = :project_id
+                   AND invoice_id IS NOT NULL',
+                [
+                    ':id' => $itemId,
+                    ':project_id' => $projectId,
+                ]
+            );
+        }
+
         $this->syncPlanStatuses($projectId);
     }
 
@@ -455,8 +470,10 @@ class ProjectBillingRepository
             'proximo' => 0,
             'listo_para_emitir' => 0,
             'emitido' => 0,
+            'pagado' => 0,
             'atrasado' => 0,
         ];
+        $totalPaid = 0.0;
         $control = [
             'on_track' => 0,
             'upcoming' => 0,
@@ -469,6 +486,9 @@ class ProjectBillingRepository
             $status = (string) ($item['status'] ?? 'pendiente');
             if (isset($counts[$status])) {
                 $counts[$status]++;
+            }
+            if ($status === 'pagado') {
+                $totalPaid += (float) ($item['resolved_amount'] ?? 0);
             }
             $light = (string) ($item['traffic_light'] ?? 'gray');
             if ($light === 'green') {
@@ -493,6 +513,7 @@ class ProjectBillingRepository
             'total_contract' => $totalContract,
             'total_plan' => $totalPlan,
             'total_invoiced' => $totalInvoiced,
+            'total_paid' => $totalPaid,
             'balance_to_invoice' => $totalContract - $totalInvoiced,
             'overdue_items_count' => $counts['atrasado'],
             'upcoming_items_count' => $counts['proximo'],
@@ -814,7 +835,7 @@ class ProjectBillingRepository
              WHERE project_id = :project_id
                AND id IN (' . $idsSql . ')
                AND (invoice_id IS NULL OR invoice_id = :invoice_id)
-               AND status IN ("listo_para_emitir", "atrasado", "emitido")',
+               AND status IN ("listo_para_emitir", "atrasado", "emitido", "pagado")',
             [':project_id' => $projectId, ':invoice_id' => $invoiceId]
         );
         $eligibleIds = array_map(static fn (array $row): int => (int) ($row['id'] ?? 0), $eligible);
@@ -866,6 +887,7 @@ class ProjectBillingRepository
             $normalizedStatus = $this->mapLegacyStatus((string) ($row['status'] ?? 'pendiente'));
             $nextStatus = $this->resolvePlanStatus(
                 [
+                    'current_status' => $normalizedStatus,
                     'invoice_id' => $row['invoice_id'] ?? null,
                     'expected_date' => $row['expected_date'] ?? null,
                     'condition_met' => $row['condition_met'] ?? 0,
@@ -896,6 +918,9 @@ class ProjectBillingRepository
     private function resolvePlanStatus(array $item, string $today, float $projectProgress): string
     {
         if (!empty($item['invoice_id'])) {
+            if (($item['current_status'] ?? '') === 'pagado') {
+                return 'pagado';
+            }
             return 'emitido';
         }
 
@@ -1012,7 +1037,7 @@ class ProjectBillingRepository
         $normalized = strtolower(trim($status));
         return match ($normalized) {
             'listo_para_facturar' => 'listo_para_emitir',
-            'facturado', 'pagado' => 'emitido',
+            'facturado' => 'emitido',
             default => in_array($normalized, self::PLAN_STATUSES, true) ? $normalized : 'pendiente',
         };
     }

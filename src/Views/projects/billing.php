@@ -23,6 +23,7 @@ $statusLabels = [
     'proximo' => 'Próximo',
     'listo_para_emitir' => 'Listo para emitir',
     'emitido' => 'Emitido',
+    'pagado' => 'Pagado',
     'atrasado' => 'Atrasado',
 ];
 $typeLabels = [
@@ -451,6 +452,7 @@ foreach ($projectInvoices as $invoice) {
                     <article class="kpi-card"><span>Total contrato</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_contract'] ?? 0)) ?></strong></article>
                     <article class="kpi-card"><span>Total plan</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_plan'] ?? 0)) ?></strong></article>
                     <article class="kpi-card"><span>Total facturado</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_invoiced'] ?? 0)) ?></strong></article>
+                    <article class="kpi-card"><span>Total cobrado / pagado</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['total_paid'] ?? 0)) ?></strong></article>
                     <article class="kpi-card"><span>Saldo por facturar</span><strong><?= $fmtMoney((float) ($billingFinancialSummary['balance_to_invoice'] ?? 0)) ?></strong></article>
                     <article class="kpi-card"><span>Ítems atrasados</span><strong><?= (int) ($billingFinancialSummary['overdue_items_count'] ?? 0) ?></strong></article>
                     <article class="kpi-card"><span>Ítems próximos</span><strong><?= (int) ($billingFinancialSummary['upcoming_items_count'] ?? 0) ?></strong></article>
@@ -623,6 +625,7 @@ document.querySelectorAll('form.js-preserve-context').forEach((form) => {
 .status-proximo { background: #f59e0b1f; color: #b45309; }
 .status-listo_para_emitir { background: #2563eb1f; color: #1d4ed8; }
 .status-emitido { background: #16a34a1f; color: #15803d; }
+.status-pagado { background: #15803d1f; color: #166534; }
 .status-atrasado { background: #dc26261f; color: #b91c1c; }
 .actions {
   display: flex;
