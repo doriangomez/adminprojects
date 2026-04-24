@@ -195,6 +195,20 @@ class ExecutivePdfRenderer
         $planRows = array_slice((array) ($d['billing_plan'] ?? []), 0, 10);
         $invoiceRows = array_slice((array) ($d['invoices'] ?? []), 0, 12);
         $alertRows = array_slice((array) ($d['alerts'] ?? []), 0, 12);
+        $stopperRows = array_slice((array) ($d['stoppers_open'] ?? []), 0, 10);
+        $requirements = (array) ($d['requirements'] ?? []);
+
+        $requirementsCounts = ['aprobado' => 0, 'en_revision' => 0, 'rechazado' => 0];
+        foreach ($requirements as $req) {
+            $status = (string) ($req['status'] ?? '');
+            if (isset($requirementsCounts[$status])) {
+                $requirementsCounts[$status]++;
+            }
+        }
+
+        $requirementsIndicator = (array) ($d['requirements_indicator'] ?? []);
+        $requirementsValue = (float) ($requirementsIndicator['value'] ?? 0.0);
+        $requirementsTarget = (float) ($d['requirements_target'] ?? 95.0);
 
         $kpis = [
             ['Score de salud', (string) ((int) (($d['health']['total_score'] ?? 0))) . ' / 100'],
@@ -214,7 +228,7 @@ class ExecutivePdfRenderer
                 default => 'Al día',
             };
             $billingPlanHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
-                . '<td>' . htmlspecialchars((string) ($item['concept'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td><span class="truncate">' . htmlspecialchars((string) ($item['concept'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span></td>'
                 . '<td>' . htmlspecialchars($this->fmtDate($item['expected_date'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
                 . '<td><span class="badge ' . $this->badgeClass($statusLabel) . '">' . htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') . '</span></td>'
                 . '</tr>';
@@ -228,7 +242,7 @@ class ExecutivePdfRenderer
             $invoiceHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
                 . '<td>' . htmlspecialchars((string) ($inv['invoice_number'] ?? '#'), ENT_QUOTES, 'UTF-8') . '</td>'
                 . '<td>' . htmlspecialchars($this->fmtDate($inv['issued_at'] ?? null), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars($this->fmtMoney((float) ($inv['amount'] ?? 0), (string) ($inv['currency_code'] ?? $currency)), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="align-right">' . htmlspecialchars($this->fmtMoney((float) ($inv['amount'] ?? 0), (string) ($inv['currency_code'] ?? $currency)), ENT_QUOTES, 'UTF-8') . '</td>'
                 . '</tr>';
         }
         if ($invoiceHtml === '') {
@@ -237,55 +251,85 @@ class ExecutivePdfRenderer
 
         $alertHtml = '';
         foreach ($alertRows as $idx => $a) {
+            $severity = strtoupper((string) ($a['severity'] ?? 'info'));
+            $severityTone = match (strtolower((string) ($a['severity'] ?? ''))) {
+                'high', 'critical' => 'badge-danger',
+                'medium' => 'badge-warning',
+                default => 'badge-success',
+            };
             $alertHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
-                . '<td>' . htmlspecialchars(strtoupper((string) ($a['severity'] ?? 'info')), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars((string) ($a['title'] ?? 'Alerta'), ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars(trim((string) ($a['message'] ?? 'Sin detalle')), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td><span class="badge ' . $severityTone . '">' . htmlspecialchars($severity, ENT_QUOTES, 'UTF-8') . '</span></td>'
+                . '<td><span class="truncate">' . htmlspecialchars((string) ($a['title'] ?? 'Alerta'), ENT_QUOTES, 'UTF-8') . '</span></td>'
+                . '<td><span class="wrap">' . htmlspecialchars(trim((string) ($a['message'] ?? 'Sin detalle')), ENT_QUOTES, 'UTF-8') . '</span></td>'
                 . '</tr>';
         }
         if ($alertHtml === '') {
             $alertHtml = '<tr><td colspan="3">Sin datos disponibles.</td></tr>';
         }
 
+        $stopperHtml = '';
+        foreach ($stopperRows as $idx => $stopper) {
+            $stopperHtml .= '<tr class="' . (($idx % 2 === 1) ? 'alt' : '') . '">'
+                . '<td><span class="truncate">' . htmlspecialchars((string) ($stopper['title'] ?? 'Bloqueo'), ENT_QUOTES, 'UTF-8') . '</span></td>'
+                . '<td>' . htmlspecialchars($this->fmtDate((string) ($stopper['detected_at'] ?? null)), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td><span class="wrap">' . htmlspecialchars(trim((string) ($stopper['description'] ?? 'Sin descripción')), ENT_QUOTES, 'UTF-8') . '</span></td>'
+                . '</tr>';
+        }
+        if ($stopperHtml === '') {
+            $stopperHtml = '<tr><td colspan="3">Sin bloqueos abiertos.</td></tr>';
+        }
+
+        $reqComplianceTone = $requirementsValue >= $requirementsTarget ? 'badge-success' : 'badge-warning';
+
         return '<!doctype html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <style>
-    body { font-family: DejaVu Sans, sans-serif; margin: 0; color: #1f1f1f; }
-    * { font-family: DejaVu Sans, sans-serif; box-sizing: border-box; }
+    body { font-family: DejaVu Sans, sans-serif; margin: 0; color: #1f1f1f; font-size: 10px; }
+    * { font-family: DejaVu Sans, sans-serif; box-sizing: border-box; line-height: 1.38; }
     @page { margin: 18mm 12mm 16mm 12mm; }
     .page-break { page-break-before: always; }
-    .header { position: fixed; top: -12mm; left: 0; right: 0; font-size: 10px; color: #7A7A7A; }
+    .avoid-break { page-break-inside: avoid; }
+    .header { position: fixed; top: -12mm; left: 0; right: 0; font-size: 9px; color: #7A7A7A; }
     .header-right { float: right; }
     .header-line { margin-top: 2mm; border-top: 1px solid #D6D6D6; }
     .footer { position: fixed; bottom: -10mm; left: 0; right: 0; border-top: 1px solid #D6D6D6; color: #8A8A8A; font-size: 9px; padding-top: 2mm; }
     .footer-right { float: right; }
-    .section-title { color: #000; font-size: 14px; text-transform: uppercase; font-weight: 700; margin: 14px 0 8px; padding-bottom: 5px; border-bottom: 1px solid #D6D6D6; letter-spacing: 0.5px; }
-    .kpi-grid { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-    .kpi-grid td { width: 33.33%; padding: 8px 10px 10px 0; vertical-align: top; }
-    .kpi-grid td + td { border-left: 1px solid #D9D9D9; padding-left: 12px; }
-    .kpi-label { color: #8B8B8B; font-size: 10px; text-transform: uppercase; }
-    .kpi-value { color: #111; font-size: 18px; font-weight: 700; margin-top: 2px; }
-    table.report { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 10px; table-layout: fixed; }
-    table.report th { background: #4C4C4C; color: #fff; text-align: left; padding: 7px; border: 1px solid #5C5C5C; }
-    table.report td { padding: 7px; border: 1px solid #E5E5E5; word-wrap: break-word; }
-    table.report tr.alt td { background: #F7F7F5; }
+    .section-title { color: #2A3150; font-size: 12px; text-transform: uppercase; font-weight: 700; margin: 14px 0 8px; letter-spacing: 0.5px; }
+    .section-subtitle { color: #667085; font-size: 9px; margin: -3px 0 10px; }
+    .cards { width: 100%; margin: 0 -5px 8px; }
+    .cards:after { content: ""; display: table; clear: both; }
+    .card { float: left; width: calc(33.333% - 10px); margin: 0 5px 10px; border: 1px solid #DFE3EC; border-radius: 8px; background: #FAFBFF; padding: 9px; min-height: 64px; }
+    .card-label { color: #667085; font-size: 8px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .card-value { color: #111827; font-size: 14px; font-weight: 700; margin-top: 4px; word-wrap: break-word; }
+    .card-value.small { font-size: 12px; }
+    .dual { width: 100%; margin: 0 -5px; }
+    .dual:after { content: ""; display: table; clear: both; }
+    .panel { float: left; width: calc(50% - 10px); margin: 0 5px 10px; border: 1px solid #DFE3EC; border-radius: 8px; background: #FFFFFF; padding: 9px; }
+    .panel h4 { margin: 0 0 7px; color: #344054; font-size: 10px; text-transform: uppercase; }
+    table.report { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9px; table-layout: fixed; border: 1px solid #E4E7EC; }
+    table.report th { background: #344054; color: #fff; text-align: left; padding: 6px; border: 1px solid #344054; text-transform: uppercase; font-size: 8px; }
+    table.report td { padding: 6px; border: 1px solid #E4E7EC; vertical-align: top; }
+    table.report tr.alt td { background: #F9FAFB; }
     .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
     .badge-success { background: #DDF8E6; color: #137C3A; }
     .badge-warning { background: #FFF2C7; color: #9E6E00; }
     .badge-danger { background: #FFDCDC; color: #A52222; }
+    .align-right { text-align: right; white-space: nowrap; }
+    .truncate { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wrap { white-space: normal; word-wrap: break-word; }
   </style>
 </head>
 <body>
-  <table style="width:100%; height:297mm; background-color:#FFFFFF; margin:0; padding:0; border:none;">
+  <table style="width:100%; height:297mm; background-color:#FFFFFF; margin:0; padding:0; border:none;" class="avoid-break">
     <tr>
       <td style="vertical-align:top; color:#111; padding:34px 28px;">
         <div style="font-size:26px; font-weight:700; color:#111;">AOS</div>
-        <div style="text-align:center; margin-top:110px; font-size:34px; font-weight:700; color:#111;">' . htmlspecialchars((string) ($project['name'] ?? 'Proyecto'), ENT_QUOTES, 'UTF-8') . '</div>
+        <div style="text-align:center; margin-top:110px; font-size:30px; font-weight:700; color:#111;"><span class="wrap">' . htmlspecialchars((string) ($project['name'] ?? 'Proyecto'), ENT_QUOTES, 'UTF-8') . '</span></div>
         <div style="margin:14px auto 0; width:78%; border-top:1px solid #D6D6D6;"></div>
         <table style="width:100%; margin-top:36px; color:#1E1E1E; border-collapse:collapse;">
-          <tr>
+          <tr class="avoid-break">
             <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">Cliente</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars((string) ($project['client_name'] ?? 'Sin cliente'), ENT_QUOTES, 'UTF-8') . '</div></td>
             <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">Fecha</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</div></td>
             <td style="padding:10px; width:25%; vertical-align:top;"><div style="color:#9A9A9A; font-size:10px; text-transform:uppercase;">Estado</div><div style="color:#111; font-size:12px; margin-top:4px;">' . htmlspecialchars($this->projectStatusLabel((string) ($project['status'] ?? '')), ENT_QUOTES, 'UTF-8') . '</div></td>
@@ -300,31 +344,66 @@ class ExecutivePdfRenderer
   <div class="header">' . htmlspecialchars($this->projectName, ENT_QUOTES, 'UTF-8') . '<span class="header-right">Página {PAGENO}</span><div class="header-line"></div></div>
   <div class="footer">Generado por AOS Prompt Maestro PMO<span class="footer-right">' . htmlspecialchars($this->generatedAt, ENT_QUOTES, 'UTF-8') . '</span></div>
 
-  <div class="section-title">Sección 1 · Resumen Ejecutivo</div>
-  <table class="kpi-grid"><tr>
-    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[0][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[0][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
-    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[1][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[1][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
-    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[2][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[2][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
-  </tr><tr>
-    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[3][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[3][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
-    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[4][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[4][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
-    <td><div class="kpi-label">' . htmlspecialchars((string) ($kpis[5][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="kpi-value">' . htmlspecialchars((string) ($kpis[5][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></td>
-  </tr></table>
+  <div class="section-title">Resumen Ejecutivo</div>
+  <div class="section-subtitle">Indicadores clave del estado general del proyecto.</div>
+  <div class="cards avoid-break">
+    <div class="card"><div class="card-label">' . htmlspecialchars((string) ($kpis[0][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="card-value">' . htmlspecialchars((string) ($kpis[0][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></div>
+    <div class="card"><div class="card-label">' . htmlspecialchars((string) ($kpis[1][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="card-value small">' . htmlspecialchars((string) ($kpis[1][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></div>
+    <div class="card"><div class="card-label">' . htmlspecialchars((string) ($kpis[2][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="card-value">' . htmlspecialchars((string) ($kpis[2][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></div>
+    <div class="card"><div class="card-label">' . htmlspecialchars((string) ($kpis[3][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="card-value small align-right">' . htmlspecialchars((string) ($kpis[3][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></div>
+    <div class="card"><div class="card-label">' . htmlspecialchars((string) ($kpis[4][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="card-value small align-right">' . htmlspecialchars((string) ($kpis[4][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></div>
+    <div class="card"><div class="card-label">' . htmlspecialchars((string) ($kpis[5][0] ?? ''), ENT_QUOTES, 'UTF-8') . '</div><div class="card-value small align-right">' . htmlspecialchars((string) ($kpis[5][1] ?? ''), ENT_QUOTES, 'UTF-8') . '</div></div>
+  </div>
 
-  <div class="section-title">Sección 2 · Facturación</div>
-  <table class="report">
+  <div class="section-title">Facturación</div>
+  <div class="section-subtitle">Resumen financiero y estado del plan de cobros.</div>
+  <div class="dual avoid-break">
+    <div class="panel">
+      <h4>Resumen financiero</h4>
+      <table class="report">
+        <colgroup><col style="width:60%"><col style="width:40%"></colgroup>
+        <tbody>
+          <tr><td>Total contrato</td><td class="align-right">' . htmlspecialchars($this->fmtMoney((float) ($billingSummary['total_contract'] ?? 0), $currency), ENT_QUOTES, 'UTF-8') . '</td></tr>
+          <tr class="alt"><td>Total facturado</td><td class="align-right">' . htmlspecialchars($this->fmtMoney((float) ($billingSummary['total_invoiced'] ?? 0), $currency), ENT_QUOTES, 'UTF-8') . '</td></tr>
+          <tr><td>Saldo por facturar</td><td class="align-right">' . htmlspecialchars($this->fmtMoney((float) ($billingSummary['balance_to_invoice'] ?? 0), $currency), ENT_QUOTES, 'UTF-8') . '</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h4>Cumplimiento de requisitos</h4>
+      <table class="report">
+        <tbody>
+          <tr><td>Total requisitos</td><td class="align-right">' . htmlspecialchars((string) count($requirements), ENT_QUOTES, 'UTF-8') . '</td></tr>
+          <tr class="alt"><td>Aprobados</td><td class="align-right">' . htmlspecialchars((string) $requirementsCounts['aprobado'], ENT_QUOTES, 'UTF-8') . '</td></tr>
+          <tr><td>En revisión</td><td class="align-right">' . htmlspecialchars((string) $requirementsCounts['en_revision'], ENT_QUOTES, 'UTF-8') . '</td></tr>
+          <tr class="alt"><td>Rechazados</td><td class="align-right">' . htmlspecialchars((string) $requirementsCounts['rechazado'], ENT_QUOTES, 'UTF-8') . '</td></tr>
+          <tr><td>Cumplimiento actual</td><td class="align-right"><span class="badge ' . $reqComplianceTone . '">' . htmlspecialchars(number_format($requirementsValue, 1) . '%', ENT_QUOTES, 'UTF-8') . '</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <table class="report avoid-break">
     <colgroup><col style="width:45%"><col style="width:25%"><col style="width:30%"></colgroup>
     <thead><tr><th>Concepto</th><th>Fecha esperada</th><th>Estado</th></tr></thead>
     <tbody>' . $billingPlanHtml . '</tbody>
   </table>
-  <table class="report">
+  <table class="report avoid-break">
     <colgroup><col style="width:35%"><col style="width:25%"><col style="width:40%"></colgroup>
     <thead><tr><th>Factura</th><th>Fecha</th><th>Monto</th></tr></thead>
     <tbody>' . $invoiceHtml . '</tbody>
   </table>
 
-  <div class="section-title">Sección 5 · Alertas y Riesgos</div>
-  <table class="report">
+  <div class="section-title">Bloqueos</div>
+  <div class="section-subtitle">Elementos operativos que impactan avance y entrega.</div>
+  <table class="report avoid-break">
+    <colgroup><col style="width:36%"><col style="width:20%"><col style="width:44%"></colgroup>
+    <thead><tr><th>Bloqueo</th><th>Detectado</th><th>Detalle</th></tr></thead>
+    <tbody>' . $stopperHtml . '</tbody>
+  </table>
+
+  <div class="section-title">Riesgos y alertas</div>
+  <div class="section-subtitle">Alertas recientes para seguimiento gerencial.</div>
+  <table class="report avoid-break">
     <colgroup><col style="width:20%"><col style="width:30%"><col style="width:50%"></colgroup>
     <thead><tr><th>Severidad</th><th>Título</th><th>Detalle</th></tr></thead>
     <tbody>' . $alertHtml . '</tbody>
