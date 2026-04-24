@@ -1029,13 +1029,20 @@ class CorporatePdf
         }
 
         $mime = strtolower((string) ($info['mime'] ?? ''));
-        $img = match ($mime) {
-            'image/jpeg', 'image/jpg' => @imagecreatefromjpeg($path),
-            'image/png' => @imagecreatefrompng($path),
-            'image/gif' => @imagecreatefromgif($path),
-            'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
-            default => false,
-        };
+        if (!function_exists('imagejpeg')) {
+            return null;
+        }
+
+        $img = false;
+        if (in_array($mime, ['image/jpeg', 'image/jpg'], true) && function_exists('imagecreatefromjpeg')) {
+            $img = @imagecreatefromjpeg($path);
+        } elseif ($mime === 'image/png' && function_exists('imagecreatefrompng')) {
+            $img = @imagecreatefrompng($path);
+        } elseif ($mime === 'image/gif' && function_exists('imagecreatefromgif')) {
+            $img = @imagecreatefromgif($path);
+        } elseif ($mime === 'image/webp' && function_exists('imagecreatefromwebp')) {
+            $img = @imagecreatefromwebp($path);
+        }
 
         if (!$img) {
             return null;
