@@ -185,11 +185,12 @@ class ExecutivePdfRenderer
 {
     private CorporatePdf $pdf;
     private float $cursorY = 0.0;
-    private float $margin = 36.0;
-    private float $contentWidth = 523.0;
+    private float $margin = 40.0;
+    private float $contentWidth = 515.0;
     private string $projectName = 'Proyecto';
     private string $generatedAt = '';
     private ?string $logoPath = null;
+    private int $sectionIndex = 0;
     private array $brand = [
         'primary' => [37, 99, 235],
         'secondary' => [15, 23, 42],
@@ -203,20 +204,16 @@ class ExecutivePdfRenderer
 
     public function render(array $d): string
     {
-        return $this->renderLegacy($d);
-    }
-
-    private function renderLegacy(array $d): string
-    {
         $this->projectName = (string) (($d['project'] ?? [])['name'] ?? 'Proyecto');
         $this->generatedAt = (string) ($d['generated_at'] ?? date('d/m/Y H:i'));
         $this->logoPath = is_string($d['logo_path'] ?? null) ? (string) $d['logo_path'] : null;
+        $this->sectionIndex = 0;
         $this->initBrand((array) ($d['brand_palette'] ?? []));
 
         $this->pdf->addPage();
-        $this->cursorY = 806;
-
         $this->drawCover($d);
+
+        $this->newPage();
         $this->drawExecutiveSummary($d);
         $this->drawBilling($d);
         $this->drawRequirements($d);
@@ -261,30 +258,33 @@ class ExecutivePdfRenderer
         $project = (array) ($d['project'] ?? []);
         $statusLabel = $this->projectStatusLabel((string) ($project['status'] ?? ''));
         $statusTone = $this->statusTone($statusLabel);
+
         $heroTop = 842.0;
-        $heroHeight = 286.0;
+        $heroHeight = 322.0;
         $heroBottom = $heroTop - $heroHeight;
 
-        $this->pdf->fillRect(0, 0, 595, 842, [245, 248, 253]);
+        $this->pdf->fillRect(0, 0, 595, 842, [246, 249, 254]);
         $this->pdf->fillRect(0, $heroBottom, 595, $heroHeight, $this->brand['secondary']);
-        $this->pdf->fillRect(0, $heroBottom + 10, 595, 8, $this->brand['primary']);
+        $this->pdf->fillRect(0, $heroBottom + 14, 595, 6, $this->brand['primary']);
+        $this->pdf->fillRect(0, $heroBottom + 4, 595, 2, $this->mix($this->brand['primary'], [255, 255, 255], 0.25));
 
         $logoCardTop = 808.0;
-        $this->drawPanel($this->margin, $logoCardTop, 144, 64, [255, 255, 255], [255, 255, 255]);
+        $this->drawElevatedPanel($this->margin, $logoCardTop, 156, 72, [255, 255, 255], [255, 255, 255]);
         if (is_string($this->logoPath) && $this->logoPath !== '') {
-            $this->pdf->drawImage($this->logoPath, $this->margin + 14, $logoCardTop - 48, 116, 38);
+            $this->pdf->drawImage($this->logoPath, $this->margin + 14, $logoCardTop - 50, 126, 44);
         } else {
-            $this->pdf->text($this->margin + 22, $logoCardTop - 38, 'Marca no disponible', 8, [71, 85, 108]);
+            $this->pdf->text($this->margin + 24, $logoCardTop - 40, 'Marca corporativa', 9, [71, 85, 108]);
         }
 
-        $this->pdf->text($this->margin + 164, 801, 'INFORME EJECUTIVO DE PROYECTO', 11, [196, 219, 249]);
-        $nameLines = $this->wrapText($this->safeText((string) ($project['name'] ?? 'Proyecto')), 34, 3);
-        $nameY = 770.0;
+        $titleX = $this->margin + 182;
+        $this->pdf->text($titleX, 806, 'INFORME EJECUTIVO', 11, [198, 222, 255]);
+        $nameLines = $this->wrapText($this->safeText((string) ($project['name'] ?? 'Proyecto')), 30, 3);
+        $nameY = 774.0;
         foreach ($nameLines as $line) {
-            $this->pdf->text($this->margin + 164, $nameY, $line, 18, [255, 255, 255]);
-            $nameY -= 24;
+            $this->pdf->text($titleX, $nameY, $line, 21, [255, 255, 255]);
+            $nameY -= 26;
         }
-        $this->pdf->text($this->margin + 164, $nameY - 2, 'Dashboard gerencial para toma de decisiones', 10, [210, 222, 242]);
+        $this->pdf->text($titleX, $nameY - 2, 'Reporte gerencial para cliente y direccion', 10, [210, 225, 246]);
 
         $meta = [
             ['Cliente', (string) ($project['client_name'] ?? 'Sin cliente')],
@@ -293,30 +293,35 @@ class ExecutivePdfRenderer
             ['Fecha', $this->generatedAt],
         ];
 
-        $gap = 12.0;
-        $metaTop = 628.0;
-        $metaH = 76.0;
+        $gap = 14.0;
+        $metaTop = 640.0;
+        $metaH = 82.0;
         $metaW = ($this->contentWidth - $gap) / 2;
-        foreach ($meta as $i => [$label, $value]) {
+        foreach ($meta as $i => $item) {
+            $label = (string) ($item[0] ?? '');
+            $value = (string) ($item[1] ?? '-');
             $row = intdiv($i, 2);
             $col = $i % 2;
             $x = $this->margin + ($col * ($metaW + $gap));
-            $top = $metaTop - ($row * ($metaH + 10));
-            $this->drawPanel($x, $top, $metaW, $metaH, [255, 255, 255], [217, 227, 241]);
-            $this->pdf->text($x + 14, $top - 22, mb_strtoupper($label), 8, [93, 107, 132]);
+            $top = $metaTop - ($row * ($metaH + 12));
+            $this->drawElevatedPanel($x, $top, $metaW, $metaH, [255, 255, 255], [219, 228, 243]);
+            $this->pdf->text($x + 14, $top - 22, $this->strUpper($label), 8, [93, 107, 132]);
+
             if ($label === 'Estado') {
-                $this->drawStatusBadge($x + 14, $top - 54, $this->safeTrim($value, 28), $statusTone);
-            } else {
-                $valueLines = $this->wrapText($this->safeText($value), 36, 2);
-                $valueY = $top - 46;
-                foreach ($valueLines as $line) {
-                    $this->pdf->text($x + 14, $valueY, $line, 10, [31, 46, 73]);
-                    $valueY -= 12;
-                }
+                $this->drawStatusBadge($x + 14, $top - 56, $this->safeTrim($value, 26), $statusTone);
+                continue;
+            }
+
+            $valueLines = $this->wrapText($this->safeText($value), 34, 2);
+            $valueY = $top - 48;
+            foreach ($valueLines as $line) {
+                $this->pdf->text($x + 14, $valueY, $line, 10, [31, 46, 73]);
+                $valueY -= 12;
             }
         }
 
-        $this->cursorY = 460;
+        $this->pdf->text($this->margin, 72, 'Entrega ejecutiva - PMO AOS', 9, [89, 103, 128]);
+        $this->newPage();
     }
 
     private function drawExecutiveSummary(array $d): void
@@ -330,7 +335,7 @@ class ExecutivePdfRenderer
         $progress = (float) ($project['progress'] ?? 0);
         $balance = (float) ($billingSummary['balance_to_invoice'] ?? 0);
 
-        $this->drawSectionTitle('RESUMEN EJECUTIVO', 'Vista consolidada para direccion y cliente');
+        $this->drawSectionTitle('Resumen ejecutivo', 'Vista consolidada de rendimiento, alcance y presupuesto');
 
         $cards = [
             ['Score de salud', $score . ' / 100', $score >= 80 ? 'success' : ($score >= 60 ? 'warning' : 'danger')],
@@ -348,7 +353,7 @@ class ExecutivePdfRenderer
         $summary = (array) ($d['billing_summary'] ?? []);
         $currency = (string) ($summary['currency_code'] ?? 'USD');
 
-        $this->drawSectionTitle('FACTURACION', 'Resumen financiero y plan de cobro');
+        $this->drawSectionTitle('Gestion financiera', 'Contrato, facturacion y plan de cobro');
 
         $summaryCards = [
             ['Contrato total', $this->fmtMoney((float) ($summary['total_contract'] ?? 0), $currency)],
@@ -373,10 +378,10 @@ class ExecutivePdfRenderer
         }, array_slice((array) ($d['billing_plan'] ?? []), 0, 10));
 
         $this->drawTableCard(
-            'Items del plan de facturacion',
+            'Plan de facturacion',
             ['Concepto', 'Fecha esperada', 'Estado'],
             $billingPlanRows,
-            [290, 120, 93],
+            [287, 120, 96],
             8,
             'Sin items de facturacion registrados.',
             ['left', 'center', 'center'],
@@ -395,7 +400,7 @@ class ExecutivePdfRenderer
             'Facturas emitidas',
             ['Factura', 'Fecha', 'Monto'],
             $invoiceRows,
-            [165, 116, 222],
+            [166, 112, 225],
             8,
             'No hay facturas emitidas en el periodo.',
             ['left', 'center', 'right']
@@ -419,34 +424,34 @@ class ExecutivePdfRenderer
         $tone = $value >= $target ? 'success' : ($value >= ($target - 10) ? 'warning' : 'danger');
         $palette = $this->tonePalette($tone);
 
-        $this->drawSectionTitle('CUMPLIMIENTO', 'Seguimiento grafico de requisitos');
+        $this->drawSectionTitle('Cumplimiento de requisitos', 'Indicadores de calidad documental y aprobaciones');
 
-        $panelH = 162.0;
+        $panelH = 174.0;
         $this->ensureSpace($panelH + 20);
-        $this->drawPanel($this->margin, $this->cursorY, $this->contentWidth, $panelH, [255, 255, 255], [216, 226, 241]);
+        $this->drawElevatedPanel($this->margin, $this->cursorY, $this->contentWidth, $panelH, [255, 255, 255], [214, 223, 236]);
 
-        $leftX = $this->margin + 16;
-        $top = $this->cursorY - 24;
+        $leftX = $this->margin + 18;
+        $top = $this->cursorY - 26;
         $this->pdf->text($leftX, $top, 'Cumplimiento actual', 10, [67, 84, 115]);
-        $this->pdf->text($leftX, $top - 26, number_format($value, 1) . '%', 26, [26, 43, 72]);
-        $this->drawStatusBadge($leftX + 154, $top - 32, 'Meta ' . number_format($target, 1) . '%', $tone);
+        $this->pdf->text($leftX, $top - 30, number_format($value, 1) . '%', 28, [22, 39, 67]);
+        $this->drawStatusBadge($leftX + 168, $top - 36, 'Meta ' . number_format($target, 1) . '%', $tone);
 
         $barX = $leftX;
-        $barY = $top - 68;
-        $barW = 330.0;
+        $barY = $top - 76;
+        $barW = 322.0;
         $barH = 18.0;
-        $this->pdf->fillRect($barX, $barY, $barW, $barH, [230, 236, 247]);
+        $this->pdf->fillRect($barX, $barY, $barW, $barH, [231, 237, 248]);
         $fill = max(0.0, min(100.0, $value));
         $this->pdf->fillRect($barX, $barY, $barW * ($fill / 100), $barH, $palette[0]);
         $this->pdf->text($barX, $barY - 18, '0%', 8, [95, 109, 133]);
         $this->pdf->text($barX + $barW - 20, $barY - 18, '100%', 8, [95, 109, 133]);
 
-        $statsX = $this->margin + 370;
-        $statsW = 136.0;
-        $this->drawMiniStat($statsX, $this->cursorY - 24, $statsW, 'Total', (string) count($requirements));
-        $this->drawMiniStat($statsX, $this->cursorY - 56, $statsW, 'Aprobados', (string) $counts['aprobado']);
-        $this->drawMiniStat($statsX, $this->cursorY - 88, $statsW, 'En revision', (string) $counts['en_revision']);
-        $this->drawMiniStat($statsX, $this->cursorY - 120, $statsW, 'Rechazados', (string) $counts['rechazado']);
+        $statsX = $this->margin + 368;
+        $statsW = 130.0;
+        $this->drawMiniStat($statsX, $this->cursorY - 26, $statsW, 'Total', (string) count($requirements));
+        $this->drawMiniStat($statsX, $this->cursorY - 60, $statsW, 'Aprobados', (string) $counts['aprobado']);
+        $this->drawMiniStat($statsX, $this->cursorY - 94, $statsW, 'En revision', (string) $counts['en_revision']);
+        $this->drawMiniStat($statsX, $this->cursorY - 128, $statsW, 'Rechazados', (string) $counts['rechazado']);
 
         $this->cursorY -= ($panelH + 18);
     }
@@ -461,7 +466,7 @@ class ExecutivePdfRenderer
             ];
         }, array_slice((array) ($d['stoppers_open'] ?? []), 0, 8));
 
-        $this->drawSectionTitle('BLOQUEOS ACTIVOS', 'Impedimentos operativos con seguimiento');
+        $this->drawSectionTitle('Bloqueos activos', 'Impedimentos operativos priorizados para decision');
         $this->drawTableCard(
             'Bloqueos',
             ['Bloqueo', 'Detectado', 'Detalle'],
@@ -478,13 +483,13 @@ class ExecutivePdfRenderer
     {
         $alerts = array_slice((array) ($d['alerts'] ?? []), 0, 6);
 
-        $this->drawSectionTitle('RIESGOS Y ALERTAS', 'Tarjetas ejecutivas para priorizacion');
+        $this->drawSectionTitle('Riesgos y alertas', 'Monitoreo ejecutivo de eventos criticos');
 
-        if (count($alerts) === 0) {
+        if ($alerts === []) {
             $this->ensureSpace(84);
-            $this->drawPanel($this->margin, $this->cursorY, $this->contentWidth, 72, [248, 251, 255], [214, 223, 236]);
+            $this->drawElevatedPanel($this->margin, $this->cursorY, $this->contentWidth, 72, [249, 252, 255], [214, 223, 236]);
             $this->pdf->text($this->margin + 18, $this->cursorY - 40, 'No se registran alertas activas.', 11, [72, 87, 116]);
-            $this->cursorY -= 88;
+            $this->cursorY -= 86;
             return;
         }
 
@@ -496,16 +501,16 @@ class ExecutivePdfRenderer
                 default => 'success',
             };
 
-            $titleLines = $this->wrapText($this->safeText((string) ($alert['title'] ?? 'Alerta')), 62, 2);
-            $msgLines = $this->wrapText($this->safeText((string) ($alert['message'] ?? 'Sin detalle')), 94, 3);
+            $titleLines = $this->wrapText($this->safeText((string) ($alert['title'] ?? 'Alerta')), 60, 2);
+            $msgLines = $this->wrapText($this->safeText((string) ($alert['message'] ?? 'Sin detalle')), 90, 3);
             $lineCount = count($titleLines) + count($msgLines);
-            $cardH = max(74.0, 24.0 + ($lineCount * 11.0));
+            $cardH = max(80.0, 28.0 + ($lineCount * 11.0));
             $this->ensureSpace($cardH + 14);
 
-            $this->drawPanel($this->margin, $this->cursorY, $this->contentWidth, $cardH, [255, 255, 255], [214, 223, 236]);
-            $this->drawStatusBadge($this->margin + 14, $this->cursorY - 32, strtoupper($severity), $tone);
+            $this->drawElevatedPanel($this->margin, $this->cursorY, $this->contentWidth, $cardH, [255, 255, 255], [214, 223, 236]);
+            $this->drawStatusBadge($this->margin + 16, $this->cursorY - 34, $this->strUpper($severity), $tone);
 
-            $textX = $this->margin + 128;
+            $textX = $this->margin + 130;
             $textY = $this->cursorY - 24;
             foreach ($titleLines as $line) {
                 $this->pdf->text($textX, $textY, $line, 10, [31, 47, 76]);
@@ -523,24 +528,28 @@ class ExecutivePdfRenderer
 
     private function drawSectionTitle(string $title, string $subtitle = ''): void
     {
-        $this->ensureSpace(62);
-        $lineY = $this->cursorY + 6;
-        $this->pdf->fillRect($this->margin, $lineY, $this->contentWidth, 1, [218, 227, 241]);
-        $this->pdf->fillRect($this->margin, $lineY - 1, 30, 3, $this->brand['primary']);
-        $this->pdf->text($this->margin, $this->cursorY - 10, mb_strtoupper($title), 13, [22, 39, 67]);
+        $this->ensureSpace(66);
+        $this->sectionIndex++;
+        $idx = str_pad((string) $this->sectionIndex, 2, '0', STR_PAD_LEFT);
+
+        $lineY = $this->cursorY + 8;
+        $this->pdf->fillRect($this->margin, $lineY, $this->contentWidth, 1, [219, 228, 243]);
+        $this->pdf->fillRect($this->margin, $lineY - 1, 38, 3, $this->brand['primary']);
+        $this->pdf->text($this->margin, $this->cursorY - 10, $idx, 9, [83, 103, 133]);
+        $this->pdf->text($this->margin + 28, $this->cursorY - 10, $this->strUpper($title), 13, [22, 39, 67]);
         if ($subtitle !== '') {
-            $this->pdf->text($this->margin, $this->cursorY - 26, $subtitle, 9, [99, 114, 141]);
+            $this->pdf->text($this->margin + 28, $this->cursorY - 26, $subtitle, 9, [99, 114, 141]);
         }
-        $this->cursorY -= 44;
+        $this->cursorY -= 46;
     }
 
     private function drawKpiCards(array $cards): void
     {
-        $this->ensureSpace(184);
+        $this->ensureSpace(196);
         $gap = 12.0;
-
         $w3 = ($this->contentWidth - (2 * $gap)) / 3;
-        $h = 78.0;
+        $h = 84.0;
+
         for ($i = 0; $i < 3 && isset($cards[$i]); $i++) {
             $x = $this->margin + ($i * ($w3 + $gap));
             $this->drawMetricCard($x, $this->cursorY, $w3, $h, $cards[$i]);
@@ -553,7 +562,7 @@ class ExecutivePdfRenderer
             $this->drawMetricCard($x, $row2Top, $w2, $h, $cards[$i]);
         }
 
-        $this->cursorY -= 176;
+        $this->cursorY -= 184;
     }
 
     private function drawMetricCard(float $x, float $top, float $w, float $h, array $card): void
@@ -561,11 +570,11 @@ class ExecutivePdfRenderer
         [$label, $value, $tone] = $card;
         $palette = $this->tonePalette((string) $tone);
 
-        $this->drawPanel($x, $top, $w, $h, [255, 255, 255], [214, 223, 236]);
+        $this->drawElevatedPanel($x, $top, $w, $h, [255, 255, 255], [214, 223, 236]);
         $this->pdf->fillRect($x + 1, $top - 5, $w - 2, 5, $palette[0]);
-        $this->pdf->text($x + 12, $top - 24, mb_strtoupper($this->safeTrim((string) $label, 34)), 8, [95, 109, 133]);
-        $valueLines = $this->wrapText($this->safeText((string) $value), 26, 2);
-        $valueY = $top - 50;
+        $this->pdf->text($x + 12, $top - 24, $this->strUpper($this->safeTrim((string) $label, 34)), 8, [95, 109, 133]);
+        $valueLines = $this->wrapText($this->safeText((string) $value), 24, 2);
+        $valueY = $top - 52;
         foreach ($valueLines as $line) {
             $this->pdf->text($x + 12, $valueY, $line, 13, [27, 44, 74]);
             $valueY -= 14;
@@ -574,17 +583,22 @@ class ExecutivePdfRenderer
 
     private function drawSummaryStrip(array $items): void
     {
-        $this->ensureSpace(94);
+        $this->ensureSpace(98);
         $gap = 12.0;
-        $w = ($this->contentWidth - 2 * $gap) / 3;
-        $h = 68.0;
+        $w = ($this->contentWidth - (2 * $gap)) / 3;
+        $h = 70.0;
         foreach ($items as $idx => $item) {
             $x = $this->margin + ($idx * ($w + $gap));
-            $this->drawPanel($x, $this->cursorY, $w, $h, [249, 251, 255], [214, 223, 236]);
-            $this->pdf->text($x + 12, $this->cursorY - 22, mb_strtoupper($this->safeTrim((string) ($item[0] ?? ''), 28)), 8, [95, 109, 133]);
-            $this->pdf->text($x + 12, $this->cursorY - 46, $this->safeTrim((string) ($item[1] ?? '-'), 32), 11, [25, 42, 70]);
+            $this->drawElevatedPanel($x, $this->cursorY, $w, $h, [250, 252, 255], [214, 223, 236]);
+            $this->pdf->text($x + 12, $this->cursorY - 22, $this->strUpper($this->safeTrim((string) ($item[0] ?? ''), 28)), 8, [95, 109, 133]);
+            $valueLines = $this->wrapText($this->safeText((string) ($item[1] ?? '-')), 24, 2);
+            $textY = $this->cursorY - 46;
+            foreach ($valueLines as $line) {
+                $this->pdf->text($x + 12, $textY, $line, 11, [25, 42, 70]);
+                $textY -= 12;
+            }
         }
-        $this->cursorY -= 84;
+        $this->cursorY -= 88;
     }
 
     private function drawTableCard(
@@ -611,13 +625,14 @@ class ExecutivePdfRenderer
             }
         }
 
-        $rowPaddingTop = 8.0;
-        $rowPaddingBottom = 8.0;
+        $rowPaddingTop = 9.0;
+        $rowPaddingBottom = 9.0;
         $lineHeight = 10.0;
-        $headerH = 28.0;
-        $titleH = 32.0;
+        $headerH = 30.0;
+        $titleH = 34.0;
         $preparedRows = [];
         $rowsHeight = 0.0;
+
         foreach ($slice as $row) {
             $preparedCells = [];
             $maxContentH = 14.0;
@@ -629,7 +644,7 @@ class ExecutivePdfRenderer
                     continue;
                 }
 
-                $maxChars = max(8, (int) floor(($width - 12) / 4.2));
+                $maxChars = max(8, (int) floor(($width - 12) / 4.15));
                 $maxLines = max(1, (int) ($lineLimits[$col] ?? 1));
                 $lines = $this->wrapText($this->safeText((string) $cell), $maxChars, $maxLines);
                 $preparedCells[$col] = ['type' => 'text', 'lines' => $lines];
@@ -640,12 +655,12 @@ class ExecutivePdfRenderer
             $preparedRows[] = ['cells' => $preparedCells, 'height' => $rowH];
             $rowsHeight += $rowH;
         }
+
         $panelH = $titleH + $headerH + $rowsHeight + 14;
+        $this->ensureSpace($panelH + 12);
+        $this->drawElevatedPanel($this->margin, $this->cursorY, $this->contentWidth, $panelH, [255, 255, 255], [214, 223, 236]);
 
-        $this->ensureSpace($panelH + 10);
-        $this->drawPanel($this->margin, $this->cursorY, $this->contentWidth, $panelH, [255, 255, 255], [214, 223, 236]);
-
-        $this->pdf->text($this->margin + 14, $this->cursorY - 20, $title, 10, [42, 60, 91]);
+        $this->pdf->text($this->margin + 14, $this->cursorY - 21, $title, 10, [42, 60, 91]);
 
         $tableTop = $this->cursorY - $titleH;
         $this->pdf->fillRect($this->margin + 1, $tableTop - $headerH, $this->contentWidth - 2, $headerH, $this->brand['secondary']);
@@ -654,14 +669,14 @@ class ExecutivePdfRenderer
         foreach ($headers as $idx => $header) {
             $width = (float) ($widths[$idx] ?? 100.0);
             $align = (string) ($aligns[$idx] ?? 'left');
-            $headerText = mb_strtoupper((string) $header);
-            $this->drawAlignedText($x, $tableTop - 18, $width, $headerText, 8, [255, 255, 255], $align);
+            $headerText = $this->strUpper((string) $header);
+            $this->drawAlignedText($x, $tableTop - 19, $width, $headerText, 8, [255, 255, 255], $align);
             $x += $width;
         }
 
         $rowTop = $tableTop - $headerH;
         foreach ($preparedRows as $i => $rowData) {
-            $rowH = (float) $rowData['height'];
+            $rowH = (float) ($rowData['height'] ?? 24.0);
             $bg = $i % 2 === 0 ? [255, 255, 255] : [248, 251, 255];
             $this->pdf->fillRect($this->margin + 1, $rowTop - $rowH, $this->contentWidth - 2, $rowH, $bg);
             $this->pdf->fillRect($this->margin + 1, $rowTop - $rowH, $this->contentWidth - 2, 1, [231, 236, 246]);
@@ -669,14 +684,13 @@ class ExecutivePdfRenderer
             $x = $this->margin + 10;
             foreach ($widths as $col => $width) {
                 $cellData = $rowData['cells'][$col] ?? ['type' => 'text', 'lines' => ['-']];
-                if (($cellData['type'] ?? 'text') === 'badge') {
+                if (($cellData['type'] ?? '') === 'badge') {
                     $badgeY = $rowTop - (($rowH - 16) / 2) - 2;
                     $badge = (array) ($cellData['data'] ?? []);
-                    $badgeText = $this->safeTrim((string) ($badge['text'] ?? ''), 16);
                     $this->drawStatusBadge(
                         $x + 4,
                         $badgeY,
-                        $badgeText,
+                        $this->safeTrim((string) ($badge['text'] ?? ''), 16),
                         (string) ($badge['tone'] ?? 'neutral')
                     );
                 } else {
@@ -698,9 +712,16 @@ class ExecutivePdfRenderer
 
     private function drawMiniStat(float $x, float $top, float $w, string $label, string $value): void
     {
-        $this->drawPanel($x, $top, $w, 26, [248, 251, 255], [214, 223, 236]);
-        $this->pdf->text($x + 8, $top - 17, $this->safeTrim($label, 14), 8, [95, 109, 133]);
-        $this->drawAlignedText($x + 70, $top - 17, $w - 78, $this->safeTrim($value, 8), 9, [26, 43, 72], 'right');
+        $this->drawPanel($x, $top, $w, 27, [248, 251, 255], [214, 223, 236]);
+        $this->pdf->text($x + 8, $top - 17, $this->safeTrim($label, 16), 8, [95, 109, 133]);
+        $this->drawAlignedText($x + 70, $top - 17, $w - 78, $this->safeTrim($value, 10), 9, [26, 43, 72], 'right');
+    }
+
+    private function drawElevatedPanel(float $x, float $top, float $w, float $h, array $bg, array $border): void
+    {
+        $shadow = $this->mix([224, 232, 245], [255, 255, 255], 0.2);
+        $this->pdf->fillRect($x + 2, $top - $h - 2, $w, $h, $shadow);
+        $this->drawPanel($x, $top, $w, $h, $bg, $border);
     }
 
     private function drawPanel(float $x, float $top, float $w, float $h, array $bg, array $border): void
@@ -714,7 +735,7 @@ class ExecutivePdfRenderer
     private function drawStatusBadge(float $x, float $y, string $text, string $tone): void
     {
         $palette = $this->tonePalette($tone);
-        $safe = mb_strtoupper($this->safeTrim($text, 16));
+        $safe = $this->strUpper($this->safeTrim($text, 16));
         $w = max(54.0, (float) (strlen($safe) * 4.8) + 16.0);
         $this->drawPanel($x, $y + 14, $w, 16, $palette[0], $palette[0]);
         $this->pdf->text($x + 6, $y + 3, $safe, 8, $palette[1]);
@@ -726,7 +747,10 @@ class ExecutivePdfRenderer
             'success' => [[220, 247, 229], [17, 112, 61]],
             'warning' => [[255, 242, 207], [145, 95, 0]],
             'danger' => [[255, 226, 226], [159, 36, 36]],
-            'primary' => [$this->mix($this->brand['primary'], [255, 255, 255], 0.78), $this->mix($this->brand['primary'], [15, 23, 42], 0.15)],
+            'primary' => [
+                $this->mix($this->brand['primary'], [255, 255, 255], 0.78),
+                $this->mix($this->brand['primary'], [15, 23, 42], 0.15),
+            ],
             default => [[234, 239, 247], [60, 76, 108]],
         };
     }
@@ -743,7 +767,7 @@ class ExecutivePdfRenderer
 
     private function ensureSpace(float $needed): void
     {
-        if ($this->cursorY - $needed > 66) {
+        if ($this->cursorY - $needed > 70) {
             return;
         }
         $this->newPage();
@@ -752,7 +776,7 @@ class ExecutivePdfRenderer
     private function newPage(): void
     {
         $this->pdf->addPage();
-        $this->cursorY = 784;
+        $this->cursorY = 782;
     }
 
     private function fmtDate(?string $date): string
@@ -811,14 +835,14 @@ class ExecutivePdfRenderer
                 $this->brand['primary'][2] / 255
             ) . "\n";
             if (is_string($this->logoPath) && $this->logoPath !== '') {
-                $img = $this->pdf->buildImageCommand($this->logoPath, $this->margin, 818, 60, 18);
+                $img = $this->pdf->buildImageCommand($this->logoPath, $this->margin, 818, 56, 16);
                 if ($img !== null) {
                     $header .= $img . "\n";
                 }
             }
 
-            $header .= $this->pdf->buildText($this->margin + 68, 825, $this->safeTrim($this->projectName, 58), 8.8, [245, 248, 255]);
-            $header .= $this->pdf->buildText(512, 825, 'Pag ' . $page, 9, [245, 248, 255]);
+            $header .= $this->pdf->buildText($this->margin + 62, 825, $this->safeTrim($this->projectName, 44), 8.6, [245, 248, 255]);
+            $header .= $this->pdf->buildText(508, 825, 'Pag ' . $page, 9, [245, 248, 255]);
             $this->pdf->prependToPage($i, $header);
 
             $footer = '';
@@ -832,7 +856,7 @@ class ExecutivePdfRenderer
     private function safeTrim(string $value, int $limit): string
     {
         $clean = $this->safeText($value);
-        return mb_strimwidth($clean, 0, $limit, '');
+        return $this->strTrimWidth($clean, $limit);
     }
 
     private function safeText(string $value): string
@@ -859,7 +883,7 @@ class ExecutivePdfRenderer
             }
 
             $candidate = $current === '' ? $word : ($current . ' ' . $word);
-            if (mb_strlen($candidate) <= $maxChars) {
+            if ($this->strLen($candidate) <= $maxChars) {
                 $current = $candidate;
                 continue;
             }
@@ -872,14 +896,14 @@ class ExecutivePdfRenderer
                 $current = '';
             }
 
-            if (mb_strlen($word) <= $maxChars) {
+            if ($this->strLen($word) <= $maxChars) {
                 $current = $word;
                 continue;
             }
 
             $offset = 0;
-            while ($offset < mb_strlen($word)) {
-                $lines[] = mb_substr($word, $offset, $maxChars);
+            while ($offset < $this->strLen($word)) {
+                $lines[] = $this->strSubstr($word, $offset, $maxChars);
                 if (count($lines) >= $maxLines) {
                     return $lines;
                 }
@@ -897,7 +921,7 @@ class ExecutivePdfRenderer
     private function drawAlignedText(float $x, float $y, float $width, string $text, float $fontSize, array $rgb, string $align): void
     {
         $safe = $this->safeText($text);
-        $textW = (float) mb_strlen($safe) * $fontSize * 0.42;
+        $textW = (float) $this->strLen($safe) * $fontSize * 0.42;
         $posX = $x + 4;
         if ($align === 'center') {
             $posX = $x + max(4.0, ($width - $textW) / 2);
@@ -905,6 +929,41 @@ class ExecutivePdfRenderer
             $posX = $x + max(4.0, $width - $textW - 4);
         }
         $this->pdf->text($posX, $y, $safe, $fontSize, $rgb);
+    }
+
+    private function strUpper(string $text): string
+    {
+        if (function_exists('mb_strtoupper')) {
+            return (string) mb_strtoupper($text, 'UTF-8');
+        }
+        return strtoupper($text);
+    }
+
+    private function strLen(string $text): int
+    {
+        if (function_exists('mb_strlen')) {
+            return (int) mb_strlen($text, 'UTF-8');
+        }
+        return strlen($text);
+    }
+
+    private function strSubstr(string $text, int $start, int $length): string
+    {
+        if (function_exists('mb_substr')) {
+            return (string) mb_substr($text, $start, $length, 'UTF-8');
+        }
+        return substr($text, $start, $length);
+    }
+
+    private function strTrimWidth(string $text, int $limit): string
+    {
+        if ($limit <= 0) {
+            return '';
+        }
+        if (function_exists('mb_strimwidth')) {
+            return (string) mb_strimwidth($text, 0, $limit, '', 'UTF-8');
+        }
+        return substr($text, 0, $limit);
     }
 }
 
