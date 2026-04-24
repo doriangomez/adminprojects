@@ -2849,7 +2849,7 @@ class DatabaseMigrator
             if ($this->db->columnExists('project_billing_plan', 'status')) {
                 $this->db->execute(
                     'ALTER TABLE project_billing_plan
-                     MODIFY COLUMN status ENUM("pendiente","proximo","listo_para_emitir","emitido","atrasado")
+                     MODIFY COLUMN status ENUM("pendiente","proximo","listo_para_emitir","emitido","pagado","atrasado")
                      NOT NULL DEFAULT "pendiente"'
                 );
             }
@@ -2873,7 +2873,6 @@ class DatabaseMigrator
                  SET status = CASE
                     WHEN status = "listo_para_facturar" THEN "listo_para_emitir"
                     WHEN status = "facturado" THEN "emitido"
-                    WHEN status = "pagado" THEN "emitido"
                     ELSE status
                  END'
             );

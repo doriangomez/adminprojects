@@ -3210,7 +3210,8 @@ class ProjectsController extends Controller
         $notes = trim((string) ($_POST['notes'] ?? ($currentItem['notes'] ?? '')));
         $linkedScheduleActivityId = (int) ($_POST['linked_schedule_activity_id'] ?? ($currentItem['linked_schedule_activity_id'] ?? 0));
         $statusRequested = strtolower(trim((string) ($_POST['status'] ?? '')));
-        $conditionMetFromStatus = in_array($statusRequested, ['listo_para_emitir', 'emitido'], true) ? 1 : 0;
+        $conditionMetFromStatus = in_array($statusRequested, ['listo_para_emitir', 'emitido', 'pagado'], true) ? 1 : 0;
+        $statusOverride = $statusRequested === 'pagado' ? 'pagado' : null;
         $defaultConditionMet = (int) ($currentItem['condition_met'] ?? 0);
 
         if ($type === 'anticipo') {
@@ -3236,6 +3237,7 @@ class ProjectsController extends Controller
                 'condition_text' => $conditionText,
                 'notes' => $notes,
                 'condition_met' => $statusRequested === '' ? $defaultConditionMet : $conditionMetFromStatus,
+                'status_override' => $statusOverride,
             ];
         }
 
@@ -3255,6 +3257,7 @@ class ProjectsController extends Controller
                 'notes' => $notes,
                 'linked_schedule_activity_id' => $linkedScheduleActivityId > 0 ? $linkedScheduleActivityId : null,
                 'condition_met' => $statusRequested === '' ? $defaultConditionMet : $conditionMetFromStatus,
+                'status_override' => $statusOverride,
             ];
         }
 
@@ -3275,6 +3278,7 @@ class ProjectsController extends Controller
                 ? 1
                 : ($statusRequested === '' ? $defaultConditionMet : $conditionMetFromStatus),
             'expected_date' => $expectedDate,
+            'status_override' => $statusOverride,
         ];
     }
 
