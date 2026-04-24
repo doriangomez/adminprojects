@@ -2554,6 +2554,10 @@ class ProjectsController extends Controller
         if (!in_array($assignmentStatus, $allowedStatuses, true)) {
             $assignmentStatus = 'active';
         }
+        $teamType = strtolower(trim((string) ($_POST['team_type'] ?? 'desarrollo')));
+        if (!in_array($teamType, ['desarrollo', 'soporte'], true)) {
+            $teamType = 'desarrollo';
+        }
 
         return [
             'project_id' => $projectId ?? (int) ($_POST['project_id'] ?? 0),
@@ -2566,6 +2570,7 @@ class ProjectsController extends Controller
             'cost_type' => $_POST['cost_type'] ?? 'por_horas',
             'cost_value' => (float) ($_POST['cost_value'] ?? 0),
             'is_external' => isset($_POST['is_external']) ? 1 : 0,
+            'team_type' => $teamType,
             'assignment_status' => $assignmentStatus,
             'created_by' => (int) ($this->auth->user()['id'] ?? 0),
         ];

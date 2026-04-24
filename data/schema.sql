@@ -524,6 +524,7 @@ CREATE TABLE project_talent_assignments (
     is_external TINYINT(1) DEFAULT 0,
     requires_timesheet TINYINT(1) DEFAULT 0,
     requires_timesheet_approval TINYINT(1) DEFAULT 0,
+    team_type ENUM('desarrollo', 'soporte') NOT NULL DEFAULT 'desarrollo',
     assignment_status VARCHAR(20) DEFAULT 'active',
     active TINYINT(1) DEFAULT 1,
     start_date DATE,

@@ -794,6 +794,7 @@ class ProjectsRepository
             $select[] = 't.requiere_reporte_horas';
             $select[] = 't.requiere_aprobacion_horas';
             $select[] = 't.tipo_talento';
+            $select[] = $this->db->columnExists('project_talent_assignments', 'team_type') ? 'COALESCE(a.team_type, "desarrollo") AS team_type' : '"desarrollo" AS team_type';
             $select[] = 'COALESCE(tload.total_allocation_percent, 0) AS total_allocation_percent';
             $select[] = '(100 - COALESCE(tload.total_allocation_percent, 0)) AS available_allocation_percent';
             $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
@@ -811,6 +812,7 @@ class ProjectsRepository
             $select[] = '0 AS requiere_reporte_horas';
             $select[] = '0 AS requiere_aprobacion_horas';
             $select[] = '\'interno\' AS tipo_talento';
+            $select[] = $this->db->columnExists('project_talent_assignments', 'team_type') ? 'COALESCE(a.team_type, "desarrollo") AS team_type' : '"desarrollo" AS team_type';
             $select[] = 'a.user_id AS talent_id';
             $select[] = '0 AS total_allocation_percent';
             $select[] = '0 AS available_allocation_percent';
@@ -846,6 +848,7 @@ class ProjectsRepository
             $select[] = 't.requiere_reporte_horas';
             $select[] = 't.requiere_aprobacion_horas';
             $select[] = 't.tipo_talento';
+            $select[] = $this->db->columnExists('project_talent_assignments', 'team_type') ? 'COALESCE(a.team_type, "desarrollo") AS team_type' : '"desarrollo" AS team_type';
             $joins[] = 'LEFT JOIN talents t ON t.id = a.talent_id';
         } else {
             $select[] = 'u.name AS talent_name';
@@ -853,6 +856,7 @@ class ProjectsRepository
             $select[] = '0 AS requiere_reporte_horas';
             $select[] = '0 AS requiere_aprobacion_horas';
             $select[] = '\'interno\' AS tipo_talento';
+            $select[] = $this->db->columnExists('project_talent_assignments', 'team_type') ? 'COALESCE(a.team_type, "desarrollo") AS team_type' : '"desarrollo" AS team_type';
             $select[] = 'a.user_id AS talent_id';
             $joins[] = 'LEFT JOIN users u ON u.id = a.user_id';
         }
@@ -1015,6 +1019,10 @@ class ProjectsRepository
 
         $requiresTimesheet = (int) ($talentTimesheetConfig['requiere_reporte_horas'] ?? 0);
         $requiresApproval = (int) ($talentTimesheetConfig['requiere_aprobacion_horas'] ?? 0);
+        $teamType = strtolower(trim((string) ($payload['team_type'] ?? 'desarrollo')));
+        if (!in_array($teamType, ['desarrollo', 'soporte'], true)) {
+            $teamType = 'desarrollo';
+        }
 
         $columns = [
             'project_id',
@@ -1050,6 +1058,10 @@ class ProjectsRepository
             ':assignment_status' => $assignmentStatus,
             ':active' => $activeFlag,
         ];
+        if ($this->db->columnExists('project_talent_assignments', 'team_type')) {
+            $columns[] = 'team_type';
+            $params[':team_type'] = $teamType;
+        }
         if ($hasTalentColumn) {
             $columns[] = 'talent_id';
             $params[':talent_id'] = $talentId;
