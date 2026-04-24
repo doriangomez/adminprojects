@@ -8,6 +8,22 @@ $assignmentLabels = [
     'paused' => 'Inactivo',
     'removed' => 'Retirado',
 ];
+$teamLabels = [
+    'desarrollo' => 'Equipo de Desarrollo',
+    'soporte' => 'Equipo de Soporte / Apoyo',
+];
+$teamOrder = ['desarrollo', 'soporte'];
+$groupedAssignments = [
+    'desarrollo' => [],
+    'soporte' => [],
+];
+foreach ($assignments as $assignment) {
+    $teamType = strtolower(trim((string) ($assignment['team_type'] ?? 'desarrollo')));
+    if (!array_key_exists($teamType, $groupedAssignments)) {
+        $teamType = 'desarrollo';
+    }
+    $groupedAssignments[$teamType][] = $assignment;
+}
 $assignmentBadge = static function (string $status): string {
     return match ($status) {
         'active' => 'status-success',
@@ -39,23 +55,33 @@ $assignmentBadge = static function (string $status): string {
     <section class="talent-overview">
         <div>
             <p class="eyebrow">Talentos asignados</p>
-            <h4>Roles y dedicación</h4>
+            <h4>Roles, dedicación y equipos</h4>
         </div>
         <?php if (empty($assignments)): ?>
             <p class="section-muted">Sin asignaciones actuales.</p>
         <?php else: ?>
-            <div class="talent-table">
-                <div class="talent-row talent-head">
-                    <span>Talento</span>
-                    <span>Rol</span>
-                    <span>Dedicación</span>
-                    <span>Estado</span>
-                    <span>Reporte</span>
-                    <span>Aprobación</span>
-                    <span>Acciones</span>
-                </div>
-                <?php foreach ($assignments as $assignment): ?>
-                    <?php
+            <?php foreach ($teamOrder as $teamType): ?>
+                <?php $teamAssignments = $groupedAssignments[$teamType] ?? []; ?>
+                <article class="team-group-card">
+                    <header class="team-group-header">
+                        <h5><?= htmlspecialchars($teamLabels[$teamType] ?? 'Equipo') ?></h5>
+                        <span class="badge status-muted"><?= count($teamAssignments) ?> asignación(es)</span>
+                    </header>
+                    <?php if (empty($teamAssignments)): ?>
+                        <p class="section-muted">Sin asignaciones en este equipo.</p>
+                    <?php else: ?>
+                        <div class="talent-table">
+                            <div class="talent-row talent-head">
+                                <span>Talento</span>
+                                <span>Rol</span>
+                                <span>Dedicación</span>
+                                <span>Estado</span>
+                                <span>Reporte</span>
+                                <span>Aprobación</span>
+                                <span>Acciones</span>
+                            </div>
+                            <?php foreach ($teamAssignments as $assignment): ?>
+                                <?php
                     $assignmentStatus = (string) ($assignment['assignment_status'] ?? 'active');
                     $isEditable = $assignmentStatus !== 'removed';
                     $assignmentId = (int) ($assignment['id'] ?? 0);
@@ -104,13 +130,13 @@ $assignmentBadge = static function (string $status): string {
                         . '/talent/assignments/' . $assignmentId
                         . '/workload';
                     ?>
-                    <div class="talent-row">
-                        <div>
-                            <strong><?= htmlspecialchars($assignment['talent_name'] ?? 'Talento') ?></strong>
-                            <small class="section-muted"><?= htmlspecialchars($assignment['start_date'] ?? 'N/A') ?> → <?= htmlspecialchars($assignment['end_date'] ?? 'N/A') ?></small>
-                        </div>
-                        <span><?= htmlspecialchars($assignment['role'] ?? '') ?></span>
-                        <div class="dedication-editor"
+                                <div class="talent-row">
+                                    <div>
+                                        <strong><?= htmlspecialchars($assignment['talent_name'] ?? 'Talento') ?></strong>
+                                        <small class="section-muted"><?= htmlspecialchars($assignment['start_date'] ?? 'N/A') ?> → <?= htmlspecialchars($assignment['end_date'] ?? 'N/A') ?></small>
+                                    </div>
+                                    <span><?= htmlspecialchars($assignment['role'] ?? '') ?></span>
+                                    <div class="dedication-editor"
                              data-assignment-id="<?= $assignmentId ?>"
                              data-endpoint="<?= htmlspecialchars($workloadEndpoint) ?>"
                              data-capacity-week="<?= htmlspecialchars(number_format($capacityWeek, 2, '.', '')) ?>">
@@ -200,36 +226,39 @@ $assignmentBadge = static function (string $status): string {
                                     <?= $isEditable ? '' : 'Asignación retirada (solo lectura).' ?>
                                 </small>
                             </div>
+                                    </div>
+                                    <span class="badge <?= $assignmentBadge($assignmentStatus) ?>">
+                                        <?= htmlspecialchars($assignmentLabels[$assignmentStatus] ?? ucfirst($assignmentStatus)) ?>
+                                    </span>
+                                    <span class="badge <?= !empty($assignment['requiere_reporte_horas']) ? 'status-success' : 'status-muted' ?>">
+                                        <?= !empty($assignment['requiere_reporte_horas']) ? 'Sí' : 'No' ?>
+                                    </span>
+                                    <span class="badge <?= !empty($assignment['requiere_aprobacion_horas']) ? 'status-warning' : 'status-muted' ?>">
+                                        <?= !empty($assignment['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?>
+                                    </span>
+                                    <div class="row-actions">
+                                        <?php if ($assignmentStatus === 'active'): ?>
+                                            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Inactivar este talento en el proyecto?');">
+                                                <input type="hidden" name="assignment_status" value="paused">
+                                                <button type="submit" class="action-btn warning">Inactivar</button>
+                                            </form>
+                                        <?php elseif ($assignmentStatus === 'paused'): ?>
+                                            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Retirar este talento del proyecto?');">
+                                                <input type="hidden" name="assignment_status" value="removed">
+                                                <button type="submit" class="action-btn danger">Retirar</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar definitivamente esta asignación retirada? Esta acción no se puede deshacer.');">
+                                                <button type="submit" class="action-btn danger">Eliminar definitivo</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
-                        <span class="badge <?= $assignmentBadge($assignmentStatus) ?>">
-                            <?= htmlspecialchars($assignmentLabels[$assignmentStatus] ?? ucfirst($assignmentStatus)) ?>
-                        </span>
-                        <span class="badge <?= !empty($assignment['requiere_reporte_horas']) ? 'status-success' : 'status-muted' ?>">
-                            <?= !empty($assignment['requiere_reporte_horas']) ? 'Sí' : 'No' ?>
-                        </span>
-                        <span class="badge <?= !empty($assignment['requiere_aprobacion_horas']) ? 'status-warning' : 'status-muted' ?>">
-                            <?= !empty($assignment['requiere_aprobacion_horas']) ? 'Sí' : 'No' ?>
-                        </span>
-                        <div class="row-actions">
-                            <?php if ($assignmentStatus === 'active'): ?>
-                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Inactivar este talento en el proyecto?');">
-                                    <input type="hidden" name="assignment_status" value="paused">
-                                    <button type="submit" class="action-btn warning">Inactivar</button>
-                                </form>
-                            <?php elseif ($assignmentStatus === 'paused'): ?>
-                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/status" onsubmit="return confirm('¿Retirar este talento del proyecto?');">
-                                    <input type="hidden" name="assignment_status" value="removed">
-                                    <button type="submit" class="action-btn danger">Retirar</button>
-                                </form>
-                            <?php else: ?>
-                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent/assignments/<?= (int) ($assignment['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar definitivamente esta asignación retirada? Esta acción no se puede deshacer.');">
-                                    <button type="submit" class="action-btn danger">Eliminar definitivo</button>
-                                </form>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+                    <?php endif; ?>
+                </article>
+            <?php endforeach; ?>
         <?php endif; ?>
     </section>
 
@@ -249,6 +278,12 @@ $assignmentBadge = static function (string $status): string {
             </label>
             <label>Rol en el proyecto
                 <input name="role" required placeholder="Ej. Líder técnico">
+            </label>
+            <label>Equipo
+                <select name="team_type" required>
+                    <option value="desarrollo">Equipo de Desarrollo</option>
+                    <option value="soporte">Equipo de Soporte / Apoyo</option>
+                </select>
             </label>
         </div>
         <div class="grid">
@@ -304,6 +339,9 @@ $assignmentBadge = static function (string $status): string {
     .project-title-block h2 { margin:0; color: var(--text-primary); }
     .project-actions { display:flex; gap:8px; flex-wrap:wrap; }
     .talent-overview, .talent-form { border:1px solid var(--border); padding:16px; border-radius:16px; background: var(--surface); display:flex; flex-direction:column; gap:12px; }
+    .team-group-card { border:1px solid var(--border); border-radius:14px; padding:12px; background: color-mix(in srgb, var(--text-secondary) 8%, var(--background)); display:flex; flex-direction:column; gap:10px; }
+    .team-group-header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .team-group-header h5 { margin:0; }
     .talent-table { display:grid; gap:8px; }
     .talent-row { display:grid; grid-template-columns: minmax(160px, 1.3fr) minmax(110px, 0.8fr) minmax(320px, 2fr) minmax(100px, 0.7fr) minmax(90px, 0.6fr) minmax(90px, 0.6fr) minmax(140px, 0.8fr); gap:10px; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background: color-mix(in srgb, var(--text-secondary) 10%, var(--background)); }
     .talent-head { background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); font-weight:700; font-size:12px; text-transform:uppercase; color: var(--text-secondary); }

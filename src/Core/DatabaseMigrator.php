@@ -192,6 +192,7 @@ class DatabaseMigrator
         try {
             $this->createAssignmentsTableIfMissing();
             $this->ensureAssignmentTimesheetApprovalColumn();
+            $this->ensureAssignmentTeamTypeColumn();
             $this->ensureAssignmentStatusColumn();
         } catch (\PDOException $e) {
             error_log('Error asegurando tabla project_talent_assignments: ' . $e->getMessage());
@@ -1949,6 +1950,7 @@ class DatabaseMigrator
                 is_external TINYINT(1) DEFAULT 0,
                 requires_timesheet TINYINT(1) DEFAULT 0,
                 requires_timesheet_approval TINYINT(1) DEFAULT 0,
+                team_type ENUM("desarrollo", "soporte") NOT NULL DEFAULT "desarrollo",
                 assignment_status VARCHAR(20) DEFAULT "active",
                 active TINYINT(1) DEFAULT 1,
                 start_date DATE,
@@ -2002,6 +2004,28 @@ class DatabaseMigrator
                 'UPDATE project_talent_assignments SET requires_timesheet_approval = requires_approval'
             );
         }
+    }
+
+    private function ensureAssignmentTeamTypeColumn(): void
+    {
+        if (!$this->db->tableExists('project_talent_assignments')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('project_talent_assignments', 'team_type')) {
+            $this->db->execute(
+                'ALTER TABLE project_talent_assignments ADD COLUMN team_type ENUM("desarrollo", "soporte") NOT NULL DEFAULT "desarrollo" AFTER requires_timesheet_approval'
+            );
+            $this->db->clearColumnCache();
+        }
+
+        $this->db->execute(
+            "UPDATE project_talent_assignments
+             SET team_type = CASE
+                 WHEN team_type IS NULL OR team_type = '' THEN 'desarrollo'
+                 ELSE team_type
+             END"
+        );
     }
 
     private function createOutsourcingSettingsTable(): void
