@@ -63,7 +63,12 @@ class ProjectExecutiveReportService
         ];
 
         $renderer = new ExecutivePdfRenderer();
-        $pdf = $renderer->render($reportData);
+        try {
+            $pdf = $renderer->render($reportData);
+        } catch (\Throwable $e) {
+            error_log(sprintf('[projects.executive_report] Renderer fallback (%d): %s', $projectId, $e->getMessage()));
+            $pdf = $this->renderFallbackPdf($reportData);
+        }
 
         return [
             'filename' => 'informe-gerencial-' . $this->slug((string) ($project['name'] ?? ('proyecto-' . $projectId))) . '-' . date('Ymd') . '.pdf',
@@ -109,6 +114,70 @@ class ProjectExecutiveReportService
         $text = strtolower(trim($value));
         $text = preg_replace('/[^a-z0-9]+/i', '-', $text) ?? 'reporte';
         return trim($text, '-') ?: 'reporte';
+    }
+
+    private function renderFallbackPdf(array $data): string
+    {
+        $project = (array) ($data['project'] ?? []);
+        $health = (array) ($data['health'] ?? []);
+        $billingSummary = (array) ($data['billing_summary'] ?? []);
+        $requirements = (array) ($data['requirements'] ?? []);
+        $alerts = (array) ($data['alerts'] ?? []);
+
+        $pdf = new CorporatePdf();
+        $pdf->addPage();
+        $pdf->fillRect(0, 792, 595, 50, [15, 23, 42]);
+        $pdf->text(32, 812, 'Informe gerencial de proyecto (modo contingencia)', 12, [255, 255, 255]);
+        $pdf->text(32, 786, 'Si visualizas este formato, hubo un error no bloqueante en el render corporativo.', 8, [71, 85, 105]);
+
+        $y = 744.0;
+        $lineGap = 16.0;
+        $sectionGap = 24.0;
+
+        $writeLine = static function (CorporatePdf $p, float $x, float $lineY, string $label, string $value): void {
+            $safeLabel = trim($label);
+            $safeValue = trim($value);
+            if ($safeValue === '') {
+                $safeValue = '-';
+            }
+            if (strlen($safeValue) > 90) {
+                $safeValue = substr($safeValue, 0, 90);
+            }
+            $p->text($x, $lineY, $safeLabel . ': ' . $safeValue, 10, [31, 41, 55]);
+        };
+
+        $pdf->text(32, $y, 'Datos generales', 11, [15, 23, 42]);
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Proyecto', (string) ($project['name'] ?? 'Proyecto'));
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Cliente', (string) ($project['client_name'] ?? 'Sin cliente'));
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'PM', (string) ($project['pm_name'] ?? 'No asignado'));
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Estado', (string) ($project['status'] ?? 'Sin definir'));
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Fecha de generacion', (string) ($data['generated_at'] ?? date('d/m/Y H:i')));
+
+        $y -= $sectionGap;
+        $pdf->text(32, $y, 'Indicadores clave', 11, [15, 23, 42]);
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Score de salud', (string) (($health['total_score'] ?? 0) . ' / 100'));
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Avance', number_format((float) ($project['progress'] ?? 0), 1) . '%');
+        $y -= $lineGap;
+        $writeLine(
+            $pdf,
+            32,
+            $y,
+            'Saldo por facturar',
+            strtoupper((string) ($billingSummary['currency_code'] ?? 'USD')) . ' ' . number_format((float) ($billingSummary['balance_to_invoice'] ?? 0), 2, ',', '.')
+        );
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Requisitos registrados', (string) count($requirements));
+        $y -= $lineGap;
+        $writeLine($pdf, 32, $y, 'Alertas registradas', (string) count($alerts));
+
+        return $pdf->output();
     }
 }
 
@@ -1029,13 +1098,20 @@ class CorporatePdf
         }
 
         $mime = strtolower((string) ($info['mime'] ?? ''));
-        $img = match ($mime) {
-            'image/jpeg', 'image/jpg' => @imagecreatefromjpeg($path),
-            'image/png' => @imagecreatefrompng($path),
-            'image/gif' => @imagecreatefromgif($path),
-            'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
-            default => false,
-        };
+        if (!function_exists('imagejpeg')) {
+            return null;
+        }
+
+        $img = false;
+        if (in_array($mime, ['image/jpeg', 'image/jpg'], true) && function_exists('imagecreatefromjpeg')) {
+            $img = @imagecreatefromjpeg($path);
+        } elseif ($mime === 'image/png' && function_exists('imagecreatefrompng')) {
+            $img = @imagecreatefrompng($path);
+        } elseif ($mime === 'image/gif' && function_exists('imagecreatefromgif')) {
+            $img = @imagecreatefromgif($path);
+        } elseif ($mime === 'image/webp' && function_exists('imagecreatefromwebp')) {
+            $img = @imagecreatefromwebp($path);
+        }
 
         if (!$img) {
             return null;
