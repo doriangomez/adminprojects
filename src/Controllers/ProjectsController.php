@@ -2011,11 +2011,6 @@ class ProjectsController extends Controller
                 );
             }
 
-            if ($hasUpload && $existingNode && (int) ($existingNode['id'] ?? 0) > 0) {
-                $nodesRepo->deleteNode($projectId, (int) ($existingNode['id'] ?? 0), $userId);
-                $existingNode = null;
-            }
-
             $result = [];
             if ($hasUpload) {
                 $result = $nodesRepo->createFileNode($projectId, $requiredFilesNodeId, $upload, $userId, $meta);
@@ -2026,7 +2021,7 @@ class ProjectsController extends Controller
                 $this->db->execute(
                     'UPDATE project_nodes SET code = :code WHERE id = :id AND project_id = :project_id',
                     [
-                        ':code' => $requiredDocumentFileCode,
+                    ':code' => $requiredDocumentFileCode . '-' . $savedNodeId,
                         ':id' => $savedNodeId,
                         ':project_id' => $projectId,
                     ]
