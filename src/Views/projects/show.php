@@ -451,12 +451,18 @@ foreach ($allNodes as $node) {
 }
 $requiredDocumentsFolderFiles = is_array($requiredDocumentsFolderNode['files'] ?? null) ? $requiredDocumentsFolderNode['files'] : [];
 $requiredDocumentsFilesByCode = [];
+$requiredDocumentsFilesByKey = [];
 foreach ($requiredDocumentsFolderFiles as $file) {
     $fileCode = (string) ($file['code'] ?? '');
     if ($fileCode === '') {
         continue;
     }
     $requiredDocumentsFilesByCode[$fileCode] = $file;
+    if (preg_match('/^' . preg_quote($requiredDocumentsFilesCode . '-FILE-', '/') . '([A-Z0-9_]+)/', $fileCode, $matches)) {
+        $docKey = strtolower((string) $matches[1]);
+        $requiredDocumentsFilesByKey[$docKey] ??= [];
+        $requiredDocumentsFilesByKey[$docKey][] = $file;
+    }
 }
 
 $userNamesById = [];
@@ -523,14 +529,26 @@ foreach ($requiredDocuments as $requiredDocument) {
         continue;
     }
 
-    $fileCode = $requiredDocumentsFilesCode . '-FILE-' . strtoupper((string) ($requiredDocument['key'] ?? ''));
-    $latest = is_array($requiredDocumentsFilesByCode[$fileCode] ?? null) ? $requiredDocumentsFilesByCode[$fileCode] : null;
+    $docKey = (string) ($requiredDocument['key'] ?? '');
+    $filesForKey = $requiredDocumentsFilesByKey[$docKey] ?? [];
+    usort($filesForKey, static function (array $a, array $b): int {
+        return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+    });
+    $latest = $filesForKey[0] ?? null;
+    $fileCode = $requiredDocumentsFilesCode . '-FILE-' . strtoupper($docKey);
+    if ($latest === null) {
+        $latest = is_array($requiredDocumentsFilesByCode[$fileCode] ?? null) ? $requiredDocumentsFilesByCode[$fileCode] : null;
+        if ($latest !== null) {
+            $filesForKey = [$latest];
+        }
+    }
     if (($requiredDocument['key'] ?? '') === 'contrato' && $latest !== null) {
         $latest['contract_end_date'] = $contractEndDate;
     }
     $requiredDocumentsCards[] = array_merge($requiredDocument, [
         'completed' => $latest !== null,
         'record' => $latest,
+        'records' => $filesForKey,
     ]);
 }
 $requiredDocumentsCompleted = count(array_filter($requiredDocumentsCards, static fn (array $doc): bool => !empty($doc['completed'])));
@@ -1284,6 +1302,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                         <?php foreach ($requiredDocumentsCards as $requiredCard): ?>
                             <?php
                             $record = is_array($requiredCard['record'] ?? null) ? $requiredCard['record'] : null;
+                            $records = array_values(array_filter(
+                                is_array($requiredCard['records'] ?? null) ? $requiredCard['records'] : [],
+                                static fn ($item): bool => is_array($item)
+                            ));
                             $isCompleted = !empty($requiredCard['completed']);
                             $isGitCard = !empty($requiredCard['is_git']);
                             $isScheduleCard = !empty($requiredCard['is_schedule']);
@@ -1355,6 +1377,29 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                                         >
                                             <?= htmlspecialchars($recordFileName !== '' ? $recordFileName : 'Archivo adjunto') ?>
                                         </a>
+                                        <?php if (!empty($records)): ?>
+                                            <ul class="required-doc-files-list">
+                                                <?php foreach ($records as $docFile): ?>
+                                                    <?php
+                                                    $docFileId = isset($docFile['id']) ? (int) $docFile['id'] : 0;
+                                                    $docFileName = trim((string) ($docFile['file_name'] ?? $docFile['title'] ?? 'Archivo adjunto'));
+                                                    $docFileUrl = $docFileId > 0 ? ($basePath . '/projects/' . (int) ($project['id'] ?? 0) . '/nodes/' . $docFileId . '/download') : '';
+                                                    $docFileDate = $formatDateShort($docFile['created_at'] ?? null);
+                                                    $docFileBy = '-';
+                                                    if (isset($docFile['created_by']) && (int) $docFile['created_by'] > 0) {
+                                                        $docFileBy = $userNamesById[(int) $docFile['created_by']] ?? ('Usuario #' . (int) $docFile['created_by']);
+                                                    }
+                                                    ?>
+                                                    <li>
+                                                        <span><?= htmlspecialchars($docFileName) ?></span>
+                                                        <small><?= htmlspecialchars($docFileDate . ' · ' . $docFileBy) ?></small>
+                                                        <?php if ($docFileUrl !== ''): ?>
+                                                            <a href="<?= htmlspecialchars($docFileUrl) ?>" download>Descargar</a>
+                                                        <?php endif; ?>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td><span data-required-doc-registered-by><?= htmlspecialchars($recordedBy) ?></span></td>
@@ -2954,6 +2999,10 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .required-documents-block .field textarea { border:1px solid var(--border); border-radius:8px; padding:6px 8px; }
     .required-documents-block .field-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; }
     .required-documents-block .upload-preview { margin-top:6px; background: var(--surface); border:1px dashed var(--border); padding:8px; border-radius:10px; font-size:13px; }
+    .required-doc-files-list { margin:8px 0 0; padding-left:16px; display:grid; gap:6px; }
+    .required-doc-files-list li { font-size:12px; color:var(--text-secondary); }
+    .required-doc-files-list li span { display:block; color:var(--text-primary); font-weight:600; }
+    .required-doc-files-list li a { margin-left:8px; }
     .required-documents-block .form-validation { background: color-mix(in srgb, var(--warning) 16%, var(--background)); color: var(--warning); border:1px solid color-mix(in srgb, var(--warning) 35%, var(--background)); border-radius:8px; padding:8px 10px; font-size:12px; font-weight:600; }
     .required-doc-file-reference { display:block; margin-top:4px; font-size:11px; color: var(--text-secondary); text-decoration:none; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .required-doc-file-reference:hover { text-decoration:underline; color: var(--primary); }
