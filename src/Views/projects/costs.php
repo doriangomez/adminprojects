@@ -219,6 +219,7 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
     .table-actions { display:flex; gap:8px; flex-wrap:wrap; }
 
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:16px; z-index:30; }
+    .modal-overlay[hidden] { display:none !important; }
     .modal-card { width:min(560px, 100%); background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:12px; }
     .modal-card__header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
     .modal-card__header h4 { margin:0; }
@@ -232,6 +233,7 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
         .modal-form-grid { grid-template-columns: 1fr; }
     }
 
+    body.modal-open { overflow: hidden; }
     .info-box { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--primary) 10%, var(--background)); }
     .info-box p { margin:6px 0 0 0; color: var(--text-secondary); }
 </style>
@@ -263,12 +265,18 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
         }
     };
 
+    const setModalState = (isOpen) => {
+        modal.hidden = !isOpen;
+        modal.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+        document.body.classList.toggle('modal-open', isOpen);
+    };
+
     const openModal = () => {
-        modal.hidden = false;
+        setModalState(true);
     };
 
     const closeModal = () => {
-        modal.hidden = true;
+        setModalState(false);
     };
 
     openBtn.addEventListener('click', () => {
@@ -279,6 +287,11 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
     closeBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (event) => {
         if (event.target === modal) {
+            closeModal();
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }
     });
@@ -304,6 +317,8 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
             openModal();
         });
     });
+    // Estado inicial seguro: modal cerrado y sin overlay bloqueando interacción.
+    setModalState(false);
 })();
 </script>
 <?php endif; ?>
