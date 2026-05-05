@@ -160,7 +160,7 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
                         </label>
                         <label>
                             Cantidad de horas
-                            <input type="number" name="hours" min="0.01" max="24" step="0.25" required />
+                            <input type="number" name="hours" min="0" max="24" step="0.25" required />
                         </label>
                         <label class="field-full">
                             Descripción breve

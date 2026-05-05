@@ -5046,10 +5046,14 @@ class ProjectsController extends Controller
         }
 
         $hoursRaw = trim((string) ($_POST['hours'] ?? ''));
-        if ($hoursRaw === '' || !is_numeric($hoursRaw)) {
+        if ($hoursRaw === '') {
             throw new \InvalidArgumentException('La cantidad de horas manuales es obligatoria y debe ser numérica.');
         }
-        $hours = round((float) $hoursRaw, 2);
+        $hoursNormalized = str_replace(',', '.', $hoursRaw);
+        if (!is_numeric($hoursNormalized)) {
+            throw new \InvalidArgumentException('La cantidad de horas manuales es obligatoria y debe ser numérica.');
+        }
+        $hours = round((float) $hoursNormalized, 2);
         if ($hours <= 0 || $hours > 24) {
             throw new \InvalidArgumentException('Las horas manuales deben ser mayores a 0 y menores o iguales a 24.');
         }
