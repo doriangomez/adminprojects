@@ -132,8 +132,10 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
                                         >
                                             Editar
                                         </button>
-                                        <form method="post" action="<?= $basePath ?>/projects/<?= $projectId ?>/costs/manual-hours/<?= (int) ($manualHour['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Eliminar este registro manual de horas?');">
-                                            <button type="submit" class="action-btn action-btn-small action-btn-danger">Eliminar</button>
+                                        <form method="post" action="<?= $basePath ?>/projects/<?= $projectId ?>/costs/manual-hours/<?= (int) ($manualHour['id'] ?? 0) ?>/delete" onsubmit="return confirm('¿Seguro que deseas eliminar este registro de horas?');">
+                                            <button type="submit" class="action-btn action-btn-small action-btn-danger action-btn-icon" title="Eliminar registro manual" aria-label="Eliminar registro manual">
+                                                🗑️
+                                            </button>
                                         </form>
                                     </td>
                                 <?php endif; ?>
@@ -195,6 +197,7 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
     .action-btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
     .action-btn-small { padding:6px 8px; font-size:12px; }
     .action-btn-danger { border-color: var(--danger); color: var(--danger); }
+    .action-btn-icon { min-width:34px; justify-content:center; padding:6px; }
 
     .costs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
     .cost-card { border:1px solid var(--border); padding:14px; border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:6px; }
