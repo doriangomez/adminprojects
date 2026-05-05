@@ -752,6 +752,23 @@ CREATE TABLE costs (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+CREATE TABLE project_manual_hours (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    entry_date DATE NOT NULL,
+    hours DECIMAL(8,2) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    responsible_name VARCHAR(140) NULL,
+    created_by INT NULL,
+    updated_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project_manual_hours_project_date (project_id, entry_date, id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE revenues (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,

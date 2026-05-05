@@ -410,10 +410,146 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
+        $timesheetHours = $repo->timesheetHoursForProject($id);
+        $manualHours = $repo->manualHoursForProject($id, 300);
+        $manualHoursTotal = $repo->manualHoursTotalForProject($id);
+        $realHoursTotal = round(($timesheetHours ?? 0.0) + $manualHoursTotal, 2);
+
         $this->render('projects/costs', [
             'title' => 'Costos del proyecto',
             'project' => $project,
+            'timesheetHours' => (float) ($timesheetHours ?? 0.0),
+            'manualHours' => $manualHours,
+            'manualHoursTotal' => $manualHoursTotal,
+            'realHoursTotal' => $realHoursTotal,
+            'manualHoursCanManage' => $this->auth->can('projects.manage'),
         ]);
+    }
+
+    public function storeManualHour(int $projectId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        try {
+            $payload = $this->manualHourPayloadFromRequest();
+            $payload['created_by'] = (int) ($user['id'] ?? 0);
+            $payload['updated_by'] = (int) ($user['id'] ?? 0);
+            $manualHourId = $repo->createManualHour($projectId, $payload);
+
+            (new AuditLogRepository($this->db))->log(
+                $payload['created_by'],
+                'project_manual_hour',
+                $manualHourId,
+                'created',
+                [
+                    'project_id' => $projectId,
+                    'entry_date' => $payload['entry_date'],
+                    'hours' => $payload['hours'],
+                    'description' => $payload['description'],
+                    'responsible_name' => $payload['responsible_name'],
+                ]
+            );
+
+            header('Location: /projects/' . $projectId . '/costs?manual_hours_saved=1');
+            return;
+        } catch (\InvalidArgumentException $e) {
+            header('Location: ' . $this->buildCostsRedirectWithError($projectId, $e->getMessage()));
+            return;
+        }
+    }
+
+    public function updateManualHour(int $projectId, int $manualHourId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $existing = $repo->findManualHourById($projectId, $manualHourId);
+        if (!$existing) {
+            http_response_code(404);
+            exit('Registro manual de horas no encontrado.');
+        }
+
+        try {
+            $payload = $this->manualHourPayloadFromRequest();
+            $payload['updated_by'] = (int) ($user['id'] ?? 0);
+            $updated = $repo->updateManualHour($projectId, $manualHourId, $payload);
+            if (!$updated) {
+                header('Location: ' . $this->buildCostsRedirectWithError($projectId, 'No se pudo actualizar el registro de horas manuales.'));
+                return;
+            }
+
+            (new AuditLogRepository($this->db))->log(
+                $payload['updated_by'],
+                'project_manual_hour',
+                $manualHourId,
+                'updated',
+                [
+                    'project_id' => $projectId,
+                    'before' => $existing,
+                    'after' => $payload,
+                ]
+            );
+
+            header('Location: /projects/' . $projectId . '/costs?manual_hours_updated=1');
+            return;
+        } catch (\InvalidArgumentException $e) {
+            header('Location: ' . $this->buildCostsRedirectWithError($projectId, $e->getMessage()));
+            return;
+        }
+    }
+
+    public function deleteManualHour(int $projectId, int $manualHourId): void
+    {
+        $this->requirePermission('projects.manage');
+        $repo = new ProjectsRepository($this->db);
+        $user = $this->auth->user() ?? [];
+        $project = $repo->findForUser($projectId, $user);
+
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $existing = $repo->findManualHourById($projectId, $manualHourId);
+        if (!$existing) {
+            http_response_code(404);
+            exit('Registro manual de horas no encontrado.');
+        }
+
+        $deleted = $repo->deleteManualHour($projectId, $manualHourId);
+        if (!$deleted) {
+            header('Location: ' . $this->buildCostsRedirectWithError($projectId, 'No se pudo eliminar el registro de horas manuales.'));
+            return;
+        }
+
+        (new AuditLogRepository($this->db))->log(
+            (int) ($user['id'] ?? 0),
+            'project_manual_hour',
+            $manualHourId,
+            'deleted',
+            [
+                'project_id' => $projectId,
+                'deleted' => $existing,
+            ]
+        );
+
+        header('Location: /projects/' . $projectId . '/costs?manual_hours_deleted=1');
+        return;
     }
 
     public function tasks(int $id): void
@@ -4896,6 +5032,52 @@ class ProjectsController extends Controller
         }
 
         return $number;
+    }
+
+    private function manualHourPayloadFromRequest(): array
+    {
+        $entryDate = trim((string) ($_POST['entry_date'] ?? ''));
+        if ($entryDate === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $entryDate) !== 1) {
+            throw new \InvalidArgumentException('La fecha del registro manual es obligatoria y debe tener formato YYYY-MM-DD.');
+        }
+        $entryDateParsed = \DateTimeImmutable::createFromFormat('Y-m-d', $entryDate);
+        if (!$entryDateParsed || $entryDateParsed->format('Y-m-d') !== $entryDate) {
+            throw new \InvalidArgumentException('La fecha del registro manual no es válida.');
+        }
+
+        $hoursRaw = trim((string) ($_POST['hours'] ?? ''));
+        if ($hoursRaw === '' || !is_numeric($hoursRaw)) {
+            throw new \InvalidArgumentException('La cantidad de horas manuales es obligatoria y debe ser numérica.');
+        }
+        $hours = round((float) $hoursRaw, 2);
+        if ($hours <= 0 || $hours > 24) {
+            throw new \InvalidArgumentException('Las horas manuales deben ser mayores a 0 y menores o iguales a 24.');
+        }
+
+        $description = trim((string) ($_POST['description'] ?? ''));
+        if ($description === '') {
+            throw new \InvalidArgumentException('La descripción breve es obligatoria.');
+        }
+        if (mb_strlen($description) > 255) {
+            throw new \InvalidArgumentException('La descripción breve no puede superar 255 caracteres.');
+        }
+
+        $responsibleName = trim((string) ($_POST['responsible_name'] ?? ''));
+        if (mb_strlen($responsibleName) > 140) {
+            throw new \InvalidArgumentException('El responsable no puede superar 140 caracteres.');
+        }
+
+        return [
+            'entry_date' => $entryDateParsed->format('Y-m-d'),
+            'hours' => $hours,
+            'description' => $description,
+            'responsible_name' => $responsibleName,
+        ];
+    }
+
+    private function buildCostsRedirectWithError(int $projectId, string $message): string
+    {
+        return '/projects/' . $projectId . '/costs?error=' . urlencode($message);
     }
 
     private function validateDateRange(?string $startDate, ?string $endDate): void

@@ -551,29 +551,40 @@ class ProjectService
 
     private function projectActualHours(int $projectId, float $fallback): float
     {
-        if (!$this->db->tableExists('timesheets')) {
-            return $fallback;
+        $timesheetHours = 0.0;
+        if ($this->db->tableExists('timesheets')) {
+            if ($this->db->columnExists('timesheets', 'project_id')) {
+                $row = $this->db->fetchOne(
+                    'SELECT SUM(hours) AS total FROM timesheets WHERE project_id = :projectId',
+                    [':projectId' => $projectId]
+                );
+            } elseif ($this->db->tableExists('tasks')) {
+                $row = $this->db->fetchOne(
+                    'SELECT SUM(ts.hours) AS total
+                     FROM timesheets ts
+                     JOIN tasks t ON t.id = ts.task_id
+                     WHERE t.project_id = :projectId',
+                    [':projectId' => $projectId]
+                );
+            } else {
+                $row = null;
+            }
+            $timesheetHours = (float) ($row['total'] ?? 0);
         }
 
-        if ($this->db->columnExists('timesheets', 'project_id')) {
-            $row = $this->db->fetchOne(
-                'SELECT SUM(hours) AS total FROM timesheets WHERE project_id = :projectId',
+        $manualHours = 0.0;
+        if ($this->db->tableExists('project_manual_hours')) {
+            $manualRow = $this->db->fetchOne(
+                'SELECT COALESCE(SUM(hours), 0) AS total
+                 FROM project_manual_hours
+                 WHERE project_id = :projectId',
                 [':projectId' => $projectId]
             );
-        } elseif ($this->db->tableExists('tasks')) {
-            $row = $this->db->fetchOne(
-                'SELECT SUM(ts.hours) AS total
-                 FROM timesheets ts
-                 JOIN tasks t ON t.id = ts.task_id
-                 WHERE t.project_id = :projectId',
-                [':projectId' => $projectId]
-            );
-        } else {
-            $row = null;
+            $manualHours = (float) ($manualRow['total'] ?? 0);
         }
 
-        $hours = (float) ($row['total'] ?? 0);
-
+        // Align health scoring with operational "Horas reales": timesheet + manual PM hours.
+        $hours = $timesheetHours + $manualHours;
         return $hours > 0 ? $hours : $fallback;
     }
 

@@ -883,6 +883,19 @@ class DatabaseMigrator
         }
     }
 
+    public function ensureProjectManualHoursTable(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        try {
+            $this->ensureProjectManualHoursTableDefinition();
+        } catch (\PDOException $e) {
+            error_log('Error asegurando tabla project_manual_hours: ' . $e->getMessage());
+        }
+    }
+
     public function ensureNotificationsLog(): void
     {
         if ($this->db->tableExists('notifications_log')) {
@@ -3277,6 +3290,92 @@ class DatabaseMigrator
                     ]
                 );
             }
+        }
+    }
+
+    private function ensureProjectManualHoursTableDefinition(): void
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            $this->db->execute(
+                'CREATE TABLE project_manual_hours (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    project_id INT NOT NULL,
+                    entry_date DATE NOT NULL,
+                    hours DECIMAL(8,2) NOT NULL,
+                    description VARCHAR(255) NOT NULL,
+                    responsible_name VARCHAR(140) NULL,
+                    created_by INT NULL,
+                    updated_by INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_project_manual_hours_project_date (project_id, entry_date, id),
+                    CONSTRAINT fk_project_manual_hours_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_project_manual_hours_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+                    CONSTRAINT fk_project_manual_hours_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+            return;
+        }
+
+        $columns = [
+            'project_id' => 'INT NOT NULL',
+            'entry_date' => 'DATE NOT NULL',
+            'hours' => 'DECIMAL(8,2) NOT NULL',
+            'description' => 'VARCHAR(255) NOT NULL',
+            'responsible_name' => 'VARCHAR(140) NULL',
+            'created_by' => 'INT NULL',
+            'updated_by' => 'INT NULL',
+            'created_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            'updated_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
+        ];
+        foreach ($columns as $column => $definition) {
+            if (!$this->db->columnExists('project_manual_hours', $column)) {
+                $this->db->execute(sprintf('ALTER TABLE project_manual_hours ADD COLUMN %s %s', $column, $definition));
+                $this->db->clearColumnCache();
+            }
+        }
+
+        if (!$this->db->indexExists('project_manual_hours', 'idx_project_manual_hours_project_date')) {
+            $this->db->execute('ALTER TABLE project_manual_hours ADD INDEX idx_project_manual_hours_project_date (project_id, entry_date, id)');
+        }
+
+        if (
+            $this->db->tableExists('projects')
+            && $this->db->columnExists('project_manual_hours', 'project_id')
+            && !$this->db->foreignKeyExists('project_manual_hours', 'project_id', 'projects')
+        ) {
+            $this->db->execute(
+                'ALTER TABLE project_manual_hours
+                 ADD CONSTRAINT fk_project_manual_hours_project
+                 FOREIGN KEY (project_id) REFERENCES projects(id)
+                 ON DELETE CASCADE'
+            );
+        }
+
+        if (
+            $this->db->tableExists('users')
+            && $this->db->columnExists('project_manual_hours', 'created_by')
+            && !$this->db->foreignKeyExists('project_manual_hours', 'created_by', 'users')
+        ) {
+            $this->db->execute(
+                'ALTER TABLE project_manual_hours
+                 ADD CONSTRAINT fk_project_manual_hours_created_by
+                 FOREIGN KEY (created_by) REFERENCES users(id)
+                 ON DELETE SET NULL'
+            );
+        }
+
+        if (
+            $this->db->tableExists('users')
+            && $this->db->columnExists('project_manual_hours', 'updated_by')
+            && !$this->db->foreignKeyExists('project_manual_hours', 'updated_by', 'users')
+        ) {
+            $this->db->execute(
+                'ALTER TABLE project_manual_hours
+                 ADD CONSTRAINT fk_project_manual_hours_updated_by
+                 FOREIGN KEY (updated_by) REFERENCES users(id)
+                 ON DELETE SET NULL'
+            );
         }
     }
 
