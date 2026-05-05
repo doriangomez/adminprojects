@@ -234,7 +234,6 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
     }
 
     body.modal-open { overflow: hidden; }
-
     .info-box { border:1px solid var(--border); border-radius:12px; padding:12px; background: color-mix(in srgb, var(--primary) 10%, var(--background)); }
     .info-box p { margin:6px 0 0 0; color: var(--text-secondary); }
 </style>
@@ -318,7 +317,6 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
             openModal();
         });
     });
-
     // Estado inicial seguro: modal cerrado y sin overlay bloqueando interacción.
     setModalState(false);
 })();
