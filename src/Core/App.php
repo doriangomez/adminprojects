@@ -35,6 +35,7 @@ class App
         $migrator->ensureOutsourcingDeletePermission();
         $migrator->ensureOutsourcingModule();
         $migrator->ensureTimesheetSchema();
+        $migrator->ensureProjectManualHoursTable();
         $migrator->ensureNotificationsLog();
         $migrator->ensureProjectHealthHistoryTable();
         $migrator->ensureRequirementsModule();
@@ -390,6 +391,18 @@ class App
             }
             if (preg_match('#^/projects/(\\d+)/costs$#', $path, $matches) && $method === 'GET') {
                 $controller->costs((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/costs/manual-hours$#', $path, $matches) && $method === 'POST') {
+                $controller->storeManualHour((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/costs/manual-hours/(\\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateManualHour((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/costs/manual-hours/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteManualHour((int) $matches[1], (int) $matches[2]);
                 return;
             }
             if (preg_match('#^/projects/(\\d+)/tasks$#', $path, $matches)) {

@@ -764,6 +764,155 @@ class ProjectsRepository
         );
     }
 
+    public function manualHoursForProject(int $projectId, int $limit = 500): array
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            return [];
+        }
+
+        $safeLimit = max(1, min(2000, $limit));
+        return $this->db->fetchAll(
+            'SELECT id,
+                    entry_date,
+                    hours,
+                    description,
+                    responsible_name,
+                    created_by,
+                    updated_by,
+                    created_at,
+                    updated_at
+             FROM project_manual_hours
+             WHERE project_id = :project_id
+             ORDER BY entry_date DESC, id DESC
+             LIMIT ' . $safeLimit,
+            [':project_id' => $projectId]
+        );
+    }
+
+    public function manualHoursTotalForProject(int $projectId): float
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            return 0.0;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT COALESCE(SUM(hours), 0) AS total
+             FROM project_manual_hours
+             WHERE project_id = :project_id',
+            [':project_id' => $projectId]
+        );
+
+        return (float) ($row['total'] ?? 0);
+    }
+
+    public function realHoursForProject(int $projectId): float
+    {
+        $timesheetHours = (float) ($this->timesheetHoursForProject($projectId) ?? 0.0);
+        $manualHours = $this->manualHoursTotalForProject($projectId);
+
+        return round($timesheetHours + $manualHours, 2);
+    }
+
+    public function createManualHour(int $projectId, array $payload): int
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            throw new InvalidArgumentException('La funcionalidad de horas manuales no está disponible.');
+        }
+
+        return $this->db->insert(
+            'INSERT INTO project_manual_hours
+                (project_id, entry_date, hours, description, responsible_name, created_by, updated_by)
+             VALUES
+                (:project_id, :entry_date, :hours, :description, :responsible_name, :created_by, :updated_by)',
+            [
+                ':project_id' => $projectId,
+                ':entry_date' => (string) ($payload['entry_date'] ?? ''),
+                ':hours' => (float) ($payload['hours'] ?? 0),
+                ':description' => (string) ($payload['description'] ?? ''),
+                ':responsible_name' => $payload['responsible_name'] !== '' ? (string) $payload['responsible_name'] : null,
+                ':created_by' => isset($payload['created_by']) ? (int) $payload['created_by'] : null,
+                ':updated_by' => isset($payload['updated_by']) ? (int) $payload['updated_by'] : null,
+            ]
+        );
+    }
+
+    public function updateManualHour(int $projectId, int $manualHourId, array $payload): bool
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            throw new InvalidArgumentException('La funcionalidad de horas manuales no está disponible.');
+        }
+
+        $this->db->execute(
+            'UPDATE project_manual_hours
+             SET entry_date = :entry_date,
+                 hours = :hours,
+                 description = :description,
+                 responsible_name = :responsible_name,
+                 updated_by = :updated_by
+             WHERE id = :id
+               AND project_id = :project_id',
+            [
+                ':entry_date' => (string) ($payload['entry_date'] ?? ''),
+                ':hours' => (float) ($payload['hours'] ?? 0),
+                ':description' => (string) ($payload['description'] ?? ''),
+                ':responsible_name' => $payload['responsible_name'] !== '' ? (string) $payload['responsible_name'] : null,
+                ':updated_by' => isset($payload['updated_by']) ? (int) $payload['updated_by'] : null,
+                ':id' => $manualHourId,
+                ':project_id' => $projectId,
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0) > 0;
+    }
+
+    public function deleteManualHour(int $projectId, int $manualHourId): bool
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            throw new InvalidArgumentException('La funcionalidad de horas manuales no está disponible.');
+        }
+
+        $this->db->execute(
+            'DELETE FROM project_manual_hours WHERE id = :id AND project_id = :project_id',
+            [
+                ':id' => $manualHourId,
+                ':project_id' => $projectId,
+            ]
+        );
+
+        $row = $this->db->fetchOne('SELECT ROW_COUNT() AS total');
+        return (int) ($row['total'] ?? 0) > 0;
+    }
+
+    public function findManualHourById(int $projectId, int $manualHourId): ?array
+    {
+        if (!$this->db->tableExists('project_manual_hours')) {
+            return null;
+        }
+
+        $row = $this->db->fetchOne(
+            'SELECT id,
+                    project_id,
+                    entry_date,
+                    hours,
+                    description,
+                    responsible_name,
+                    created_by,
+                    updated_by,
+                    created_at,
+                    updated_at
+             FROM project_manual_hours
+             WHERE id = :id AND project_id = :project_id
+             LIMIT 1',
+            [
+                ':id' => $manualHourId,
+                ':project_id' => $projectId,
+            ]
+        );
+
+        return $row ?: null;
+    }
+
     public function assignmentsForProject(int $projectId, array $user): array
     {
         [$conditions, $params] = $this->visibilityConditions($user, 'c', 'p');
