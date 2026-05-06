@@ -128,6 +128,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
                         <option value="scrum" <?= $projectType === 'scrum' ? 'selected' : '' ?>>Scrum (sprints y backlog)</option>
                         <option value="hibrido" <?= $projectType === 'hibrido' ? 'selected' : '' ?>>Híbrido (mixto)</option>
                         <option value="outsourcing" <?= $projectType === 'outsourcing' ? 'selected' : '' ?>>Outsourcing (servicio continuo)</option>
+                        <option value="poc" <?= $projectType === 'poc' ? 'selected' : '' ?>>POC (prueba de concepto)</option>
                     </select>
                     <small class="subtext">Convencional usa hitos secuenciales; Scrum trabaja en sprints sin fecha fin rígida.</small>
                 </label>
@@ -161,6 +162,39 @@ $formTitle = $formTitle ?? 'Editar proyecto';
             </div>
             <div id="scrumHint" class="hint-box" style="display: <?= $projectType === 'scrum' ? 'block' : 'none' ?>;">
                 Para proyectos Scrum, administra sprints y backlog sin fecha de cierre fija. El progreso refleja el avance del sprint actual.
+            </div>
+            <div class="grid" data-poc-only style="display: <?= $projectType === 'poc' ? 'grid' : 'none' ?>;">
+                <label>Solicitante de la POC
+                    <input type="text" name="solicitante_poc" value="<?= htmlspecialchars((string) ($project['solicitante_poc'] ?? '')) ?>">
+                </label>
+                <label>Fecha de solicitud
+                    <input type="date" name="fecha_solicitud_poc" value="<?= htmlspecialchars((string) ($project['fecha_solicitud_poc'] ?? '')) ?>">
+                </label>
+                <label>Tipo de POC
+                    <select name="tipo_poc">
+                        <option value="">Seleccionar</option>
+                        <option value="gratuita" <?= (string) ($project['tipo_poc'] ?? '') === 'gratuita' ? 'selected' : '' ?>>Gratuita</option>
+                        <option value="con_costo" <?= (string) ($project['tipo_poc'] ?? '') === 'con_costo' ? 'selected' : '' ?>>Con costo</option>
+                    </select>
+                </label>
+                <label>Resultado
+                    <select name="resultado_poc">
+                        <option value="">Sin resultado</option>
+                        <option value="en_curso" <?= (string) ($project['resultado_poc'] ?? '') === 'en_curso' ? 'selected' : '' ?>>En curso</option>
+                        <option value="exitosa" <?= (string) ($project['resultado_poc'] ?? '') === 'exitosa' ? 'selected' : '' ?>>Exitosa</option>
+                        <option value="no_exitosa" <?= (string) ($project['resultado_poc'] ?? '') === 'no_exitosa' ? 'selected' : '' ?>>No exitosa</option>
+                    </select>
+                </label>
+                <label>Valor estimado
+                    <input type="number" step="0.01" min="0" name="valor_estimado_poc" value="<?= htmlspecialchars((string) ($project['valor_estimado_poc'] ?? '')) ?>">
+                </label>
+                <label>Repositorio Git (URL)
+                    <input type="url" name="repositorio_git_poc" value="<?= htmlspecialchars((string) ($project['repositorio_git_poc'] ?? '')) ?>" placeholder="https://github.com/organizacion/repo">
+                </label>
+                <label style="grid-column:1/-1;">Descripción / alcance de la POC
+                    <textarea name="descripcion_alcance_poc" rows="3">
+<?= htmlspecialchars((string) ($project['descripcion_alcance_poc'] ?? '')) ?></textarea>
+                </label>
             </div>
         </div>
     </details>
@@ -357,6 +391,7 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     const phaseLabel = document.querySelector('[data-role="phase-label"]');
     const phaseLabelText = phaseLabel ? phaseLabel.querySelector('.label-text') : null;
     const scrumHint = document.getElementById('scrumHint');
+    const pocOnlyBlocks = document.querySelectorAll('[data-poc-only]');
     const progressInput = document.getElementById('progressInput');
 
     function refreshPhases() {
@@ -383,37 +418,27 @@ $formTitle = $formTitle ?? 'Editar proyecto';
 
     function toggleByProjectType() {
         const selectedType = projectTypeSelect.value;
-        if (selectedType === 'scrum') {
-            if (endDateGroup) {
-                endDateGroup.style.display = 'none';
-                const endDateInput = document.getElementById('endDateInput');
-                if (endDateInput) {
-                    endDateInput.value = '';
-                }
-            }
-            if (phaseLabelText) {
-                phaseLabelText.textContent = 'Sprint / fase activa';
-            }
-            if (scrumHint) {
-                scrumHint.style.display = 'block';
-            }
-            if (progressInput) {
-                progressInput.placeholder = 'Seguimiento de sprint';
-            }
-        } else {
-            if (endDateGroup) {
-                endDateGroup.style.display = '';
-            }
-            if (phaseLabelText) {
-                phaseLabelText.textContent = 'Fase';
-            }
-            if (scrumHint) {
-                scrumHint.style.display = 'none';
-            }
-            if (progressInput) {
-                progressInput.placeholder = 'Avance porcentual';
+        const isScrum = selectedType === 'scrum';
+        const isPoc = selectedType === 'poc';
+        if (endDateGroup) {
+            endDateGroup.style.display = isScrum ? 'none' : '';
+            const endDateInput = document.getElementById('endDateInput');
+            if (isScrum && endDateInput) {
+                endDateInput.value = '';
             }
         }
+        if (phaseLabelText) {
+            phaseLabelText.textContent = isScrum ? 'Sprint / fase activa' : 'Fase';
+        }
+        if (scrumHint) {
+            scrumHint.style.display = isScrum ? 'block' : 'none';
+        }
+        if (progressInput) {
+            progressInput.placeholder = isScrum ? 'Seguimiento de sprint' : 'Avance porcentual';
+        }
+        pocOnlyBlocks.forEach((block) => {
+            block.style.display = isPoc ? 'grid' : 'none';
+        });
     }
 
     if (methodologySelect && phaseSelect) {

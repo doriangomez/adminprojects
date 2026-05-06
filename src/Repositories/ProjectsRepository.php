@@ -38,6 +38,7 @@ class ProjectsRepository
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
         $hasActiveColumn = $this->db->columnExists('projects', 'active');
         $hasBillableColumn = $this->db->columnExists('projects', 'is_billable');
+        $hasTypeColumn = $this->db->columnExists('projects', 'project_type');
         $hasAuditLogTable = $this->db->tableExists('audit_log');
         $hasProjectStoppersTable = $this->db->tableExists('project_stoppers');
         $hasProjectPmoSnapshots = $this->db->tableExists('project_pmo_snapshots');
@@ -81,6 +82,11 @@ class ProjectsRepository
         if (!empty($filters['methodology'])) {
             $conditions[] = 'p.methodology = :methodology';
             $params[':methodology'] = $filters['methodology'];
+        }
+
+        if (!empty($filters['project_type']) && $hasTypeColumn) {
+            $conditions[] = 'p.project_type = :projectType';
+            $params[':projectType'] = trim((string) $filters['project_type']);
         }
 
         if (($filters['billable'] ?? '') === 'yes' && $hasBillableColumn) {
@@ -137,6 +143,7 @@ class ProjectsRepository
             $hasProjectPmoSnapshots ? 'ppmo.progress_hours AS progress_hours_auto' : 'NULL AS progress_hours_auto',
             $hasProjectPmoSnapshots ? 'ppmo.progress_tasks AS progress_tasks_auto' : 'NULL AS progress_tasks_auto',
             $hasProjectPmoSnapshots ? 'ppmo.risk_score AS pmo_risk_score' : 'NULL AS pmo_risk_score',
+            $hasTypeColumn ? 'p.project_type' : "'convencional' AS project_type",
         ];
 
         $joins = [
@@ -331,6 +338,13 @@ class ProjectsRepository
         $hasRiskScoreColumn = $this->db->columnExists('projects', 'risk_score');
         $hasRiskLevelColumn = $this->db->columnExists('projects', 'risk_level');
         $hasClientLogoColumn = $this->db->columnExists('clients', 'logo_path');
+        $hasPocRequesterColumn = $this->db->columnExists('projects', 'solicitante_poc');
+        $hasPocRequestDateColumn = $this->db->columnExists('projects', 'fecha_solicitud_poc');
+        $hasPocScopeColumn = $this->db->columnExists('projects', 'descripcion_alcance_poc');
+        $hasPocTypeColumn = $this->db->columnExists('projects', 'tipo_poc');
+        $hasPocEstimatedValueColumn = $this->db->columnExists('projects', 'valor_estimado_poc');
+        $hasPocRepositoryColumn = $this->db->columnExists('projects', 'repositorio_git_poc');
+        $hasPocResultColumn = $this->db->columnExists('projects', 'resultado_poc');
         $isoColumns = $this->isoFlagColumns();
 
         $select = [
@@ -378,6 +392,34 @@ class ProjectsRepository
 
         if ($hasTypeColumn) {
             $select[] = 'p.project_type';
+        }
+
+        if ($hasPocRequesterColumn) {
+            $select[] = 'p.solicitante_poc';
+        }
+
+        if ($hasPocRequestDateColumn) {
+            $select[] = 'p.fecha_solicitud_poc';
+        }
+
+        if ($hasPocScopeColumn) {
+            $select[] = 'p.descripcion_alcance_poc';
+        }
+
+        if ($hasPocTypeColumn) {
+            $select[] = 'p.tipo_poc';
+        }
+
+        if ($hasPocEstimatedValueColumn) {
+            $select[] = 'p.valor_estimado_poc';
+        }
+
+        if ($hasPocRepositoryColumn) {
+            $select[] = 'p.repositorio_git_poc';
+        }
+
+        if ($hasPocResultColumn) {
+            $select[] = 'p.resultado_poc';
         }
 
         if ($hasRiskScoreColumn) {
@@ -1749,6 +1791,48 @@ class ProjectsRepository
                 $params[':scope'] = $payload['scope'] ?? '';
             }
 
+            if ($this->db->columnExists('projects', 'solicitante_poc')) {
+                $columns[] = 'solicitante_poc';
+                $placeholders[] = ':solicitante_poc';
+                $params[':solicitante_poc'] = $payload['solicitante_poc'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'fecha_solicitud_poc')) {
+                $columns[] = 'fecha_solicitud_poc';
+                $placeholders[] = ':fecha_solicitud_poc';
+                $params[':fecha_solicitud_poc'] = $payload['fecha_solicitud_poc'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'descripcion_alcance_poc')) {
+                $columns[] = 'descripcion_alcance_poc';
+                $placeholders[] = ':descripcion_alcance_poc';
+                $params[':descripcion_alcance_poc'] = $payload['descripcion_alcance_poc'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'tipo_poc')) {
+                $columns[] = 'tipo_poc';
+                $placeholders[] = ':tipo_poc';
+                $params[':tipo_poc'] = $payload['tipo_poc'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'valor_estimado_poc')) {
+                $columns[] = 'valor_estimado_poc';
+                $placeholders[] = ':valor_estimado_poc';
+                $params[':valor_estimado_poc'] = $payload['valor_estimado_poc'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'repositorio_git_poc')) {
+                $columns[] = 'repositorio_git_poc';
+                $placeholders[] = ':repositorio_git_poc';
+                $params[':repositorio_git_poc'] = $payload['repositorio_git_poc'] ?? null;
+            }
+
+            if ($this->db->columnExists('projects', 'resultado_poc')) {
+                $columns[] = 'resultado_poc';
+                $placeholders[] = ':resultado_poc';
+                $params[':resultado_poc'] = $payload['resultado_poc'] ?? null;
+            }
+
             if ($this->db->columnExists('projects', 'design_inputs')) {
                 $columns[] = 'design_inputs';
                 $placeholders[] = ':design_inputs';
@@ -1948,6 +2032,41 @@ class ProjectsRepository
         if ($this->db->columnExists('projects', 'scope')) {
             $fields[] = 'scope = :scope';
             $params[':scope'] = $payload['scope'] ?? '';
+        }
+
+        if ($this->db->columnExists('projects', 'solicitante_poc')) {
+            $fields[] = 'solicitante_poc = :solicitante_poc';
+            $params[':solicitante_poc'] = $payload['solicitante_poc'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'fecha_solicitud_poc')) {
+            $fields[] = 'fecha_solicitud_poc = :fecha_solicitud_poc';
+            $params[':fecha_solicitud_poc'] = $payload['fecha_solicitud_poc'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'descripcion_alcance_poc')) {
+            $fields[] = 'descripcion_alcance_poc = :descripcion_alcance_poc';
+            $params[':descripcion_alcance_poc'] = $payload['descripcion_alcance_poc'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'tipo_poc')) {
+            $fields[] = 'tipo_poc = :tipo_poc';
+            $params[':tipo_poc'] = $payload['tipo_poc'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'valor_estimado_poc')) {
+            $fields[] = 'valor_estimado_poc = :valor_estimado_poc';
+            $params[':valor_estimado_poc'] = $payload['valor_estimado_poc'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'repositorio_git_poc')) {
+            $fields[] = 'repositorio_git_poc = :repositorio_git_poc';
+            $params[':repositorio_git_poc'] = $payload['repositorio_git_poc'] ?? null;
+        }
+
+        if ($this->db->columnExists('projects', 'resultado_poc')) {
+            $fields[] = 'resultado_poc = :resultado_poc';
+            $params[':resultado_poc'] = $payload['resultado_poc'] ?? null;
         }
 
         if ($this->db->columnExists('projects', 'design_inputs')) {

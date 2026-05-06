@@ -5,6 +5,7 @@ $periodType = (string) ($periodType ?? 'month');
 $periodStart = $periodStart ?? new DateTimeImmutable('first day of this month');
 $periodEnd = $periodEnd ?? new DateTimeImmutable('last day of this month');
 $projectFilter = (int) ($projectFilter ?? 0);
+$projectTypeFilter = (string) ($projectTypeFilter ?? '');
 $projectsForFilter = is_array($projectsForFilter ?? null) ? $projectsForFilter : [];
 $executiveSummary = is_array($executiveSummary ?? null) ? $executiveSummary : [];
 $approvedWeeks = is_array($approvedWeeks ?? null) ? $approvedWeeks : [];
@@ -39,6 +40,16 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
             <label>Hasta
                 <input type="date" name="range_end" value="<?= htmlspecialchars($periodEnd->format('Y-m-d')) ?>" <?= $periodType !== 'custom' ? 'disabled' : '' ?> data-analytics-range>
             </label>
+            <label>Tipo de proyecto
+                <select name="project_type">
+                    <option value="" <?= $projectTypeFilter === '' ? 'selected' : '' ?>>Todos</option>
+                    <option value="convencional" <?= $projectTypeFilter === 'convencional' ? 'selected' : '' ?>>Proyecto convencional</option>
+                    <option value="poc" <?= $projectTypeFilter === 'poc' ? 'selected' : '' ?>>POC</option>
+                    <option value="scrum" <?= $projectTypeFilter === 'scrum' ? 'selected' : '' ?>>Scrum</option>
+                    <option value="hibrido" <?= $projectTypeFilter === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
+                    <option value="outsourcing" <?= $projectTypeFilter === 'outsourcing' ? 'selected' : '' ?>>Outsourcing</option>
+                </select>
+            </label>
             <label>Proyecto
                 <select name="project_id">
                     <option value="0">Todos</option>
@@ -67,14 +78,41 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
         <article class="card"><span>Cumplimiento</span><strong><?= round((float) ($executiveSummary['compliance_percent'] ?? 0), 2) ?>%</strong></article>
     </section>
 
+    <?php
+    $pocHours = 0.0;
+    $pocCost = 0.0;
+    $pocResultSummary = ['exitosa' => 0, 'no_exitosa' => 0, 'en_curso' => 0];
+    foreach ($projectBreakdown as $row) {
+        if (strtolower((string) ($row['project_type'] ?? '')) !== 'poc') {
+            continue;
+        }
+        $pocHours += (float) ($row['total_hours'] ?? 0);
+        $pocCost += (float) ($row['estimated_cost'] ?? 0);
+        $result = strtolower((string) ($row['resultado_poc'] ?? 'en_curso'));
+        if (!array_key_exists($result, $pocResultSummary)) {
+            $result = 'en_curso';
+        }
+        $pocResultSummary[$result]++;
+    }
+    ?>
+    <?php if ($projectTypeFilter === '' || $projectTypeFilter === 'poc'): ?>
+    <section class="analytics-kpis">
+        <article class="card"><span>Horas consumidas en POC</span><strong><?= round($pocHours, 2) ?>h</strong></article>
+        <article class="card"><span>Costos en POC (estimados)</span><strong>$<?= number_format($pocCost, 2, ',', '.') ?></strong></article>
+        <article class="card"><span>Resultados POC</span><strong>✅ <?= (int) $pocResultSummary['exitosa'] ?> · ❌ <?= (int) $pocResultSummary['no_exitosa'] ?> · ⏳ <?= (int) $pocResultSummary['en_curso'] ?></strong></article>
+    </section>
+    <?php endif; ?>
+
     <section class="card">
         <h4>Horas por proyecto</h4>
         <table>
-            <thead><tr><th>Proyecto</th><th>Horas</th></tr></thead>
+            <thead><tr><th>Proyecto</th><th>Tipo</th><th>Resultado POC</th><th>Horas</th></tr></thead>
             <tbody>
             <?php foreach ($projectBreakdown as $row): ?>
                 <tr>
                     <td><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td>
+                    <td><?= htmlspecialchars((string) ($row['project_type'] ?? 'convencional')) ?></td>
+                    <td><?= htmlspecialchars((string) ($row['resultado_poc'] ?? '-')) ?></td>
                     <td><?= round((float) ($row['total_hours'] ?? 0), 2) ?>h</td>
                 </tr>
             <?php endforeach; ?>
@@ -147,7 +185,7 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
 .analytics-tabs{display:flex;gap:8px}
 .tab{padding:8px 12px;border:1px solid var(--border);border-radius:999px;text-decoration:none;color:var(--text-primary)}
 .tab.active{background:color-mix(in srgb,var(--primary) 18%,var(--surface));border-color:color-mix(in srgb,var(--primary) 45%,var(--border));font-weight:700}
-.analytics-filters{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:8px;align-items:end}
+.analytics-filters{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:8px;align-items:end}
 .analytics-filters label{display:flex;flex-direction:column;gap:4px;font-size:13px}
 .analytics-kpis{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:10px}
 .analytics-kpis article{display:flex;flex-direction:column;gap:4px}

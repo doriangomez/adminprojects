@@ -206,6 +206,19 @@
         </div>
     </section>
 
+    <?php if ($pocTotal > 0): ?>
+    <section class="zone">
+        <h2 class="zone-title">Zona POC — Métricas de prueba de concepto</h2>
+        <div class="kpis-row" style="grid-template-columns: repeat(5, minmax(150px, 1fr));">
+            <article class="kpi-card"><div class="kpi-label">Total de POC</div><div class="kpi-value"><?= $pocTotal ?></div></article>
+            <article class="kpi-card"><div class="kpi-label">POC activas</div><div class="kpi-value"><?= $pocActivas ?></div></article>
+            <article class="kpi-card"><div class="kpi-label">POC finalizadas</div><div class="kpi-value"><?= $pocFinalizadas ?></div></article>
+            <article class="kpi-card"><div class="kpi-label">POC exitosas</div><div class="kpi-value"><?= $pocExitosas ?></div></article>
+            <article class="kpi-card"><div class="kpi-label">POC no exitosas</div><div class="kpi-value"><?= $pocNoExitosas ?></div></article>
+        </div>
+    </section>
+    <?php endif; ?>
+
     <section class="zone">
         <h2 class="zone-title">Zona 3 — Alertas y acciones</h2>
         <div class="two-cols">

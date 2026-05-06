@@ -62,6 +62,7 @@ class DatabaseMigrator
             $this->addProjectMethodology();
             $this->addProjectPhase();
             $this->addProjectTreeMetadata();
+            $this->ensureProjectPocFields();
             $this->ensureProjectIsoControls();
             $this->ensureProjectDesignInputsTable();
             $this->ensureProjectDesignControlsTable();
@@ -1461,6 +1462,37 @@ class DatabaseMigrator
 
         if (!$this->db->columnExists('projects', 'tree_phase')) {
             $this->db->execute("ALTER TABLE projects ADD COLUMN tree_phase VARCHAR(80) NULL AFTER tree_methodology");
+            $this->db->clearColumnCache();
+        }
+    }
+
+    private function ensureProjectPocFields(): void
+    {
+        if (!$this->db->tableExists('projects')) {
+            return;
+        }
+
+        if (!$this->db->columnExists('projects', 'project_type')) {
+            $this->db->execute("ALTER TABLE projects ADD COLUMN project_type VARCHAR(20) NOT NULL DEFAULT 'convencional' AFTER priority");
+            $this->db->clearColumnCache();
+        }
+
+        $columns = [
+            'solicitante_poc' => "ALTER TABLE projects ADD COLUMN solicitante_poc VARCHAR(160) NULL",
+            'fecha_solicitud_poc' => "ALTER TABLE projects ADD COLUMN fecha_solicitud_poc DATE NULL",
+            'descripcion_alcance_poc' => "ALTER TABLE projects ADD COLUMN descripcion_alcance_poc TEXT NULL",
+            'tipo_poc' => "ALTER TABLE projects ADD COLUMN tipo_poc VARCHAR(20) NULL",
+            'valor_estimado_poc' => "ALTER TABLE projects ADD COLUMN valor_estimado_poc DECIMAL(14,2) NULL",
+            'repositorio_git_poc' => "ALTER TABLE projects ADD COLUMN repositorio_git_poc VARCHAR(500) NULL",
+            'resultado_poc' => "ALTER TABLE projects ADD COLUMN resultado_poc VARCHAR(20) NULL",
+        ];
+
+        foreach ($columns as $column => $sql) {
+            if ($this->db->columnExists('projects', $column)) {
+                continue;
+            }
+
+            $this->db->execute($sql);
             $this->db->clearColumnCache();
         }
     }

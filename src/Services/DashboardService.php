@@ -69,6 +69,42 @@ class DashboardService
             }
         }
 
+        $pocMetrics = [
+            'total' => 0,
+            'active' => 0,
+            'completed' => 0,
+            'successful' => 0,
+            'unsuccessful' => 0,
+        ];
+        if ($this->db->columnExists('projects', 'project_type')) {
+            $hasPocResultColumn = $this->db->columnExists('projects', 'resultado_poc');
+            $pocRows = $this->db->fetchAll(
+                "SELECT p.status, " . ($hasPocResultColumn ? "p.resultado_poc" : "NULL AS resultado_poc") . "
+                 FROM projects p
+                 JOIN clients c ON c.id = p.client_id
+                 {$projectsCondition}
+                 AND p.project_type = 'poc'" . ($activeFilter !== '' ? str_replace(' AND p.', ' AND p.', $activeFilter) : ''),
+                $params
+            );
+
+            $completedStatuses = ['closed','archived','cancelled','completed','completado','cerrado','finalizado'];
+            foreach ($pocRows as $row) {
+                $pocMetrics['total']++;
+                $status = strtolower(trim((string) ($row['status'] ?? '')));
+                if (in_array($status, $completedStatuses, true)) {
+                    $pocMetrics['completed']++;
+                } else {
+                    $pocMetrics['active']++;
+                }
+                $result = strtolower(trim((string) ($row['resultado_poc'] ?? '')));
+                if ($result === 'exitosa') {
+                    $pocMetrics['successful']++;
+                } elseif ($result === 'no_exitosa') {
+                    $pocMetrics['unsuccessful']++;
+                }
+            }
+        }
+
         $outsourcingTotals = ['total' => 0];
         if ($this->db->tableExists('outsourcing_services')) {
             [$outsourcingWhere, $outsourcingParams] = $this->outsourcingVisibility($user);
@@ -92,6 +128,11 @@ class DashboardService
             'costo_real_total' => (float) ($projectTotals['total_cost'] ?? 0),
             'talentos_activos' => (int) ($talentTotals['total'] ?? 0),
             'outsourcing_activo' => (int) ($outsourcingTotals['total'] ?? 0),
+            'poc_total' => (int) ($pocMetrics['total'] ?? 0),
+            'poc_activas' => (int) ($pocMetrics['active'] ?? 0),
+            'poc_finalizadas' => (int) ($pocMetrics['completed'] ?? 0),
+            'poc_exitosas' => (int) ($pocMetrics['successful'] ?? 0),
+            'poc_no_exitosas' => (int) ($pocMetrics['unsuccessful'] ?? 0),
         ];
     }
 

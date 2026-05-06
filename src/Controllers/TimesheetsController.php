@@ -130,18 +130,35 @@ class TimesheetsController extends Controller
         }
 
         $projectFilter = (int) ($_GET['project_id'] ?? 0);
+        $projectTypeFilter = trim((string) ($_GET['project_type'] ?? ''));
+        if (!in_array($projectTypeFilter, ['', 'convencional', 'poc', 'scrum', 'hibrido', 'outsourcing'], true)) {
+            $projectTypeFilter = '';
+        }
         $talentSort = trim((string) ($_GET['talent_sort'] ?? 'load_desc'));
         if (!in_array($talentSort, ['load_desc', 'compliance_asc'], true)) {
             $talentSort = 'load_desc';
         }
 
-        $executiveSummary = $repo->executiveSummary($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
-        $approvedWeeks = $repo->approvedWeeksByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
-        $talentBreakdown = $repo->talentBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $talentSort);
-        $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd);
-        $activityTypeBreakdown = $repo->activityTypeBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
-        $phaseBreakdown = $repo->phaseBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null);
-        $projectsForFilter = $repo->projectsCatalog();
+        $executiveSummary = $repo->executiveSummary($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $projectTypeFilter !== '' ? $projectTypeFilter : null);
+        $approvedWeeks = $repo->approvedWeeksByPeriod(
+            $user,
+            $periodStart,
+            $periodEnd,
+            $projectFilter > 0 ? $projectFilter : null,
+            $projectTypeFilter !== '' ? $projectTypeFilter : null
+        );
+        $talentBreakdown = $repo->talentBreakdownByPeriod(
+            $user,
+            $periodStart,
+            $periodEnd,
+            $projectFilter > 0 ? $projectFilter : null,
+            $talentSort,
+            $projectTypeFilter !== '' ? $projectTypeFilter : null
+        );
+        $projectBreakdown = $repo->projectBreakdownByPeriod($user, $periodStart, $periodEnd, $projectTypeFilter !== '' ? $projectTypeFilter : null);
+        $activityTypeBreakdown = $repo->activityTypeBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $projectTypeFilter !== '' ? $projectTypeFilter : null);
+        $phaseBreakdown = $repo->phaseBreakdownByPeriod($user, $periodStart, $periodEnd, $projectFilter > 0 ? $projectFilter : null, $projectTypeFilter !== '' ? $projectTypeFilter : null);
+        $projectsForFilter = $repo->projectsCatalog($projectTypeFilter !== '' ? $projectTypeFilter : null);
 
         $this->render('timesheets/analytics', [
             'title' => 'Timesheets · Analítica',
@@ -153,6 +170,7 @@ class TimesheetsController extends Controller
             'periodStart' => $periodStart,
             'periodEnd' => $periodEnd,
             'projectFilter' => $projectFilter,
+            'projectTypeFilter' => $projectTypeFilter,
             'projectsForFilter' => $projectsForFilter,
             'executiveSummary' => $executiveSummary,
             'approvedWeeks' => $approvedWeeks,
