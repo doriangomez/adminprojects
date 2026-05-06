@@ -19,6 +19,9 @@
         .kpi-trend { margin-top: 6px; font-size: 12px; font-weight: 700; }
         .trend-positive { color: var(--success); }
         .trend-negative { color: var(--danger); }
+        .dashboard-filters { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; align-self: flex-end; margin-bottom: 8px; }
+        .dashboard-filters label { font-size: 12px; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .04em; }
+        .dashboard-filters select { min-width: 160px; }
 
         .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .list-card { border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); padding: 12px; }
@@ -68,6 +71,7 @@
           border-color: #fca5a5;
           font-weight: 700;
         }
+        .project-type-badge { margin-top: 4px; display: inline-flex; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
 
         details.ai-collapsible { margin-top: 12px; border: 1px solid color-mix(in srgb, #1d4ed8 40%, var(--border)); border-radius: 12px; padding: 10px; }
         details.ai-collapsible summary { cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text-primary); }
@@ -86,6 +90,15 @@
     </style>
 
     <?php
+    $filters = is_array($filters ?? null) ? $filters : [];
+    $projectTypeFilter = strtolower(trim((string) ($filters['project_type'] ?? '')));
+    if (!in_array($projectTypeFilter, ['', 'proyecto', 'poc'], true)) {
+        $projectTypeFilter = '';
+    }
+    $projectTypeLabel = static function (?string $projectType): string {
+        return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
+    };
+
     $statusCounts = $projects['status_counts'] ?? ['planning' => 0, 'en_curso' => 0, 'en_riesgo' => 0, 'cerrado' => 0];
     $monthlyProgressTrend = $projects['monthly_progress_trend'] ?? [];
     $staleProjects = $projects['stale_projects'] ?? [];
@@ -104,6 +117,12 @@
 
     $score = (int) ($portfolioScoreCard['score'] ?? ($portfolioHealth['average_score'] ?? 0));
     $scoreLabel = (string) ($portfolioScoreCard['label'] ?? ($score > 85 ? 'Verde' : ($score >= 70 ? 'Amarillo' : 'Rojo')));
+
+    $pocTotal = (int) ($summary['poc_total'] ?? 0);
+    $pocActivas = (int) ($summary['poc_activas'] ?? 0);
+    $pocFinalizadas = (int) ($summary['poc_finalizadas'] ?? 0);
+    $pocExitosas = (int) ($summary['poc_exitosas'] ?? 0);
+    $pocNoExitosas = (int) ($summary['poc_no_exitosas'] ?? 0);
 
     $hoursPlan = (float) ($summary['horas_planificadas'] ?? 0);
     $hoursReal = (float) ($summary['horas_reales'] ?? 0);
@@ -180,6 +199,19 @@
     $basePath = $basePath ?? '';
     ?>
 
+    <form class="dashboard-filters" method="GET" action="<?= $basePath ?>/dashboard">
+        <label>
+            Tipo de proyecto
+            <select name="project_type">
+                <option value="" <?= $projectTypeFilter === '' ? 'selected' : '' ?>>Todos</option>
+                <option value="proyecto" <?= $projectTypeFilter === 'proyecto' ? 'selected' : '' ?>>Proyecto</option>
+                <option value="poc" <?= $projectTypeFilter === 'poc' ? 'selected' : '' ?>>POC</option>
+            </select>
+        </label>
+        <button type="submit" class="action-btn-mini">Aplicar</button>
+        <a class="action-btn-mini" href="<?= $basePath ?>/dashboard">Limpiar</a>
+    </form>
+
     <section class="zone <?= $allNormal ? 'critical-ok' : '' ?>">
         <h2 class="zone-title">Zona 1 — Barra de estado crítico</h2>
         <?php if ($allNormal): ?>
@@ -206,7 +238,6 @@
         </div>
     </section>
 
-    <?php if ($pocTotal > 0): ?>
     <section class="zone">
         <h2 class="zone-title">Zona POC — Métricas de prueba de concepto</h2>
         <div class="kpis-row" style="grid-template-columns: repeat(5, minmax(150px, 1fr));">
@@ -217,7 +248,6 @@
             <article class="kpi-card"><div class="kpi-label">POC no exitosas</div><div class="kpi-value"><?= $pocNoExitosas ?></div></article>
         </div>
     </section>
-    <?php endif; ?>
 
     <section class="zone">
         <h2 class="zone-title">Zona 3 — Alertas y acciones</h2>
@@ -332,7 +362,10 @@
                     <?php foreach ($portfolioRows as $row): ?>
                         <?php $riskLabel = (string) ($row['risk'] ?? 'Medio'); $riskClass = $riskLabel === 'Bajo' ? 'green' : ($riskLabel === 'Medio' ? 'amber' : 'red'); ?>
                         <tr>
-                            <td><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></td>
+                            <td>
+                                <?= htmlspecialchars((string) ($row['name'] ?? '')) ?>
+                                <div class="project-type-badge"><?= htmlspecialchars($projectTypeLabel((string) ($row['project_type'] ?? ''))) ?></div>
+                            </td>
                             <td><?= htmlspecialchars((string) ($row['client'] ?? '')) ?></td>
                             <td class="text-right"><?= (int) ($row['score'] ?? 0) ?></td>
                             <td><span class="pill <?= $riskClass ?>"><?= htmlspecialchars($riskLabel) ?></span></td>

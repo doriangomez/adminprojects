@@ -5,6 +5,7 @@ $editingTalent = is_array($editingTalent ?? null) ? $editingTalent : null;
 $clients = is_array($clients ?? null) ? $clients : [];
 $projects = is_array($projects ?? null) ? $projects : [];
 $services = is_array($services ?? null) ? $services : [];
+$filters = is_array($filters ?? null) ? $filters : [];
 $documentsByService = is_array($documentsByService ?? null) ? $documentsByService : [];
 $canDeleteOutsourcingRecords = (bool) ($canDeleteOutsourcingRecords ?? false);
 $flashMessage = (string) ($flashMessage ?? '');
@@ -28,6 +29,9 @@ $healthBadge = static function (?string $status): string {
         'red' => 'status-danger',
         default => 'status-muted',
     };
+};
+$projectTypeLabel = static function (?string $projectType): string {
+    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
 };
 $formatDate = static function (?string $value): string {
     if (!$value) {
@@ -358,6 +362,17 @@ $flashMessageText = match ($flashMessage) {
                     <small class="section-muted">Estado actual, último seguimiento y evidencias asociadas.</small>
                 </div>
             </div>
+            <form method="GET" action="<?= $basePath ?>/talents" class="tracking-filters">
+                <label>Tipo de proyecto
+                    <select name="project_type">
+                        <option value="" <?= (($filters['project_type'] ?? '') === '') ? 'selected' : '' ?>>Todos</option>
+                        <option value="proyecto" <?= (($filters['project_type'] ?? '') === 'proyecto') ? 'selected' : '' ?>>Proyecto</option>
+                        <option value="poc" <?= (($filters['project_type'] ?? '') === 'poc') ? 'selected' : '' ?>>POC</option>
+                    </select>
+                </label>
+                <button type="submit" class="action-btn small">Aplicar</button>
+                <a class="action-btn small ghost" href="<?= $basePath ?>/talents#talent-tracking">Limpiar</a>
+            </form>
         </div>
         <?php if (empty($services)): ?>
             <p class="section-muted">No hay servicios de outsourcing registrados.</p>
@@ -391,6 +406,7 @@ $flashMessageText = match ($flashMessage) {
                                 <td>
                                     <?= htmlspecialchars($service['client_name'] ?? '') ?><br>
                                     <small class="section-muted"><?= htmlspecialchars($service['project_name'] ?? 'Sin proyecto') ?></small>
+                                    <span class="status-badge status-muted"><?= htmlspecialchars($projectTypeLabel((string) ($service['project_type'] ?? ''))) ?></span>
                                 </td>
                                 <td><?= htmlspecialchars((string) ($service['start_date'] ?? '')) ?> → <?= htmlspecialchars((string) ($service['end_date'] ?? 'Actual')) ?></td>
                                 <td><?= htmlspecialchars($serviceStatusLabels[$service['service_status'] ?? 'active'] ?? 'Activo') ?></td>
@@ -468,6 +484,7 @@ function talentInlineMathConfirm(form, actionLabel, confirmMessage) {
     .talent-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border:1px solid var(--border); border-radius:18px; padding:18px; background: var(--surface); box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06); }
     .talent-form-section, .talent-grid, .talent-tracking { border:1px solid var(--border); border-radius:18px; padding:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05); }
     .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .tracking-filters { display:inline-flex; align-items:flex-end; gap:8px; flex-wrap:wrap; }
     .section-title { display:flex; align-items:flex-start; gap:12px; }
     .section-icon { width:36px; height:36px; border-radius:12px; background:color-mix(in srgb, var(--primary) 15%, var(--surface)); display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }

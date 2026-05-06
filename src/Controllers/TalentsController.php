@@ -18,16 +18,26 @@ class TalentsController extends Controller
         $clientsRepo = new ClientsRepository($this->db);
         $projectsRepo = new ProjectsRepository($this->db);
         $user = $this->auth->user() ?? [];
+        $projectTypeFilter = strtolower(trim((string) ($_GET['project_type'] ?? '')));
+        if (!in_array($projectTypeFilter, ['', 'proyecto', 'poc'], true)) {
+            $projectTypeFilter = in_array($projectTypeFilter, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
+        $filters = [
+            'project_type' => $projectTypeFilter,
+        ];
         $editingId = (int) ($_GET['edit'] ?? 0);
-        $services = $outsourcingRepo->listServices($user);
+        $services = $outsourcingRepo->listServices($user, $filters);
         $this->requirePermission('talents.view');
         $this->render('talents/index', [
             'title' => 'Talento',
             'talents' => $repo->summary(),
             'editingTalent' => $editingId > 0 ? $repo->find($editingId) : null,
             'clients' => $clientsRepo->listForUser($user),
-            'projects' => $projectsRepo->summary($user),
+            'projects' => $projectsRepo->summary($user, $filters),
             'services' => $services,
+            'filters' => $filters,
             'documentsByService' => $this->serviceDocuments($services),
             'flashMessage' => $_GET['saved'] ?? '',
             'timesheetApproverOptions' => $repo->activeUsersForTimesheetApprover(),

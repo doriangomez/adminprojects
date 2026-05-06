@@ -13,6 +13,11 @@ $talentApprovalPeriod = is_array($talentApprovalPeriod ?? null) ? $talentApprova
 $canManageTimesheetWorkflow = (bool) ($canManageTimesheetWorkflow ?? false);
 $canDeleteTimesheetWorkflowRecords = (bool) ($canDeleteTimesheetWorkflowRecords ?? false);
 $roleFlags = is_array($roleFlags ?? null) ? $roleFlags : [];
+$filters = is_array($filters ?? null) ? $filters : [];
+$projectTypeFilter = (string) ($filters['project_type'] ?? '');
+$projectTypeLabel = static function (?string $projectType): string {
+    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
+};
 
 $statusMeta = [
     'borrador' => ['label' => 'Borrador', 'class' => 'status-muted'],
@@ -27,7 +32,7 @@ $statusMeta = [
     'rechazado' => ['label' => 'Rechazado', 'class' => 'status-danger'],
 ];
 
-$renderRow = static function (array $doc, string $queue) use ($basePath, $statusMeta): void {
+$renderRow = static function (array $doc, string $queue) use ($basePath, $statusMeta, $projectTypeLabel): void {
     $status = (string) ($doc['document_status'] ?? 'final');
     $meta = $statusMeta[$status] ?? ['label' => $status, 'class' => 'status-muted'];
     $tags = $doc['document_tags'] ?? [];
@@ -53,6 +58,7 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
                 <span class="inbox-card__type"><?= htmlspecialchars($queueLabel) ?></span>
                 <strong class="inbox-card__title"><?= htmlspecialchars($doc['file_name'] ?? '') ?></strong>
                 <div class="meta-line">Proyecto: <?= htmlspecialchars($doc['project_name'] ?? '') ?></div>
+                <div class="meta-line"><span class="badge status-muted"><?= htmlspecialchars($projectTypeLabel((string) ($doc['project_type'] ?? ''))) ?></span></div>
                 <?php if ($location !== ''): ?>
                     <div class="meta-line">Ubicación: <?= htmlspecialchars($location) ?></div>
                 <?php endif; ?>
@@ -124,6 +130,17 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
     <header class="page-heading">
         <h2>Bandeja de Aprobaciones</h2>
         <p>Gestiona revisiones, validaciones y aprobaciones desde un único lugar, con trazabilidad ISO 9001.</p>
+        <form method="GET" action="<?= $basePath ?>/approvals" class="approvals-filters">
+            <label>Tipo de proyecto
+                <select name="project_type">
+                    <option value="" <?= $projectTypeFilter === '' ? 'selected' : '' ?>>Todos</option>
+                    <option value="proyecto" <?= $projectTypeFilter === 'proyecto' ? 'selected' : '' ?>>Proyecto</option>
+                    <option value="poc" <?= $projectTypeFilter === 'poc' ? 'selected' : '' ?>>POC</option>
+                </select>
+            </label>
+            <button type="submit" class="action-btn small">Aplicar</button>
+            <a href="<?= $basePath ?>/approvals" class="action-btn small">Limpiar</a>
+        </form>
     </header>
 
     <div class="toast" data-toast hidden></div>
@@ -428,6 +445,9 @@ $renderRow = static function (array $doc, string $queue) use ($basePath, $status
 
 <style>
     .approvals-shell { display:flex; flex-direction:column; gap:16px; }
+    .approvals-filters { display:inline-flex; align-items:flex-end; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .approvals-filters label { display:flex; flex-direction:column; gap:4px; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; color:var(--text-secondary); }
+    .approvals-filters select { border:1px solid var(--border); border-radius:8px; padding:6px 8px; background:var(--surface); color:var(--text-primary); }
     .approvals-grid { display:flex; flex-direction:column; gap:20px; }
     .approvals-section { background: var(--surface); border:1px solid var(--border); border-radius:18px; padding:18px; display:flex; flex-direction:column; gap:14px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06); }
     .approvals-section header { display:flex; flex-direction:column; gap:4px; }

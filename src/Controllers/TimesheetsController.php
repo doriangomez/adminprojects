@@ -131,8 +131,11 @@ class TimesheetsController extends Controller
 
         $projectFilter = (int) ($_GET['project_id'] ?? 0);
         $projectTypeFilter = trim((string) ($_GET['project_type'] ?? ''));
-        if (!in_array($projectTypeFilter, ['', 'convencional', 'poc', 'scrum', 'hibrido', 'outsourcing'], true)) {
-            $projectTypeFilter = '';
+        $projectTypeFilter = strtolower($projectTypeFilter);
+        if (!in_array($projectTypeFilter, ['', 'proyecto', 'poc'], true)) {
+            $projectTypeFilter = in_array($projectTypeFilter, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
         }
         $talentSort = trim((string) ($_GET['talent_sort'] ?? 'load_desc'));
         if (!in_array($talentSort, ['load_desc', 'compliance_asc'], true)) {

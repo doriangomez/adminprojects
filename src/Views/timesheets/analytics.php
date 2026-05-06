@@ -14,6 +14,9 @@ $projectBreakdown = is_array($projectBreakdown ?? null) ? $projectBreakdown : []
 $activityTypeBreakdown = is_array($activityTypeBreakdown ?? null) ? $activityTypeBreakdown : [];
 $phaseBreakdown = is_array($phaseBreakdown ?? null) ? $phaseBreakdown : [];
 $talentSort = (string) ($talentSort ?? 'load_desc');
+$projectTypeLabel = static function (?string $projectType): string {
+    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
+};
 ?>
 
 <section class="timesheet-analytics">
@@ -43,11 +46,8 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
             <label>Tipo de proyecto
                 <select name="project_type">
                     <option value="" <?= $projectTypeFilter === '' ? 'selected' : '' ?>>Todos</option>
-                    <option value="convencional" <?= $projectTypeFilter === 'convencional' ? 'selected' : '' ?>>Proyecto convencional</option>
+                    <option value="proyecto" <?= $projectTypeFilter === 'proyecto' ? 'selected' : '' ?>>Proyecto</option>
                     <option value="poc" <?= $projectTypeFilter === 'poc' ? 'selected' : '' ?>>POC</option>
-                    <option value="scrum" <?= $projectTypeFilter === 'scrum' ? 'selected' : '' ?>>Scrum</option>
-                    <option value="hibrido" <?= $projectTypeFilter === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
-                    <option value="outsourcing" <?= $projectTypeFilter === 'outsourcing' ? 'selected' : '' ?>>Outsourcing</option>
                 </select>
             </label>
             <label>Proyecto
@@ -81,9 +81,14 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
     <?php
     $pocHours = 0.0;
     $pocCost = 0.0;
+    $proyectoHours = 0.0;
+    $proyectoCost = 0.0;
     $pocResultSummary = ['exitosa' => 0, 'no_exitosa' => 0, 'en_curso' => 0];
     foreach ($projectBreakdown as $row) {
-        if (strtolower((string) ($row['project_type'] ?? '')) !== 'poc') {
+        $isPoc = strtolower((string) ($row['project_type'] ?? '')) === 'poc';
+        if (!$isPoc) {
+            $proyectoHours += (float) ($row['total_hours'] ?? 0);
+            $proyectoCost += (float) ($row['estimated_cost'] ?? 0);
             continue;
         }
         $pocHours += (float) ($row['total_hours'] ?? 0);
@@ -95,13 +100,11 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
         $pocResultSummary[$result]++;
     }
     ?>
-    <?php if ($projectTypeFilter === '' || $projectTypeFilter === 'poc'): ?>
     <section class="analytics-kpis">
-        <article class="card"><span>Horas consumidas en POC</span><strong><?= round($pocHours, 2) ?>h</strong></article>
-        <article class="card"><span>Costos en POC (estimados)</span><strong>$<?= number_format($pocCost, 2, ',', '.') ?></strong></article>
+        <article class="card"><span>Horas POC vs Proyecto</span><strong><?= round($pocHours, 2) ?>h · <?= round($proyectoHours, 2) ?>h</strong></article>
+        <article class="card"><span>Costos POC vs Proyecto</span><strong>$<?= number_format($pocCost, 2, ',', '.') ?> · $<?= number_format($proyectoCost, 2, ',', '.') ?></strong></article>
         <article class="card"><span>Resultados POC</span><strong>✅ <?= (int) $pocResultSummary['exitosa'] ?> · ❌ <?= (int) $pocResultSummary['no_exitosa'] ?> · ⏳ <?= (int) $pocResultSummary['en_curso'] ?></strong></article>
     </section>
-    <?php endif; ?>
 
     <section class="card">
         <h4>Horas por proyecto</h4>
@@ -111,7 +114,7 @@ $talentSort = (string) ($talentSort ?? 'load_desc');
             <?php foreach ($projectBreakdown as $row): ?>
                 <tr>
                     <td><?= htmlspecialchars((string) ($row['project'] ?? '')) ?></td>
-                    <td><?= htmlspecialchars((string) ($row['project_type'] ?? 'convencional')) ?></td>
+                    <td><?= htmlspecialchars($projectTypeLabel((string) ($row['project_type'] ?? ''))) ?></td>
                     <td><?= htmlspecialchars((string) ($row['resultado_poc'] ?? '-')) ?></td>
                     <td><?= round((float) ($row['total_hours'] ?? 0), 2) ?>h</td>
                 </tr>

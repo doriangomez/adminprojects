@@ -20,10 +20,17 @@ class OutsourcingServicesController extends Controller
         $clientsRepo = new ClientsRepository($this->db);
         $projectsRepo = new ProjectsRepository($this->db);
         $usersRepo = new UsersRepository($this->db);
+        $projectTypeFilter = strtolower(trim((string) ($_GET['project_type'] ?? '')));
+        if (!in_array($projectTypeFilter, ['', 'proyecto', 'poc'], true)) {
+            $projectTypeFilter = in_array($projectTypeFilter, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
         $filters = [
             'client_id' => (int) ($_GET['client_id'] ?? 0),
             'talent_id' => (int) ($_GET['talent_id'] ?? 0),
             'project_id' => (int) ($_GET['project_id'] ?? 0),
+            'project_type' => $projectTypeFilter,
             'service_health' => (string) ($_GET['service_health'] ?? ''),
         ];
         $preselectedTalentId = (int) ($_GET['selected_talent_id'] ?? 0);
@@ -43,7 +50,7 @@ class OutsourcingServicesController extends Controller
             'title' => 'Outsourcing',
             'services' => $servicesRepo->listServices($user, $filters),
             'clients' => $clientsRepo->listForUser($user),
-            'projects' => $projectsRepo->summary($user),
+            'projects' => $projectsRepo->summary($user, ['project_type' => $projectTypeFilter]),
             'talents' => $talents,
             'users' => $users,
             'canManage' => $this->auth->canAccessOutsourcing(),

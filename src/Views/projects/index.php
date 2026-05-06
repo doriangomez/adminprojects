@@ -112,6 +112,10 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
     return 'status-planning';
 };
 
+$projectTypeBadgeLabel = static function (?string $projectType): string {
+    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
+};
+
 
 $healthScoreClass = static function (int $score): string {
     if ($score >= 80) {
@@ -997,11 +1001,8 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             Tipo de proyecto
             <select name="project_type">
                 <option value="">Todos</option>
-                <option value="convencional" <?= ($filters['project_type'] ?? '') === 'convencional' ? 'selected' : '' ?>>Proyecto convencional</option>
+                <option value="proyecto" <?= ($filters['project_type'] ?? '') === 'proyecto' ? 'selected' : '' ?>>Proyecto</option>
                 <option value="poc" <?= ($filters['project_type'] ?? '') === 'poc' ? 'selected' : '' ?>>POC</option>
-                <option value="scrum" <?= ($filters['project_type'] ?? '') === 'scrum' ? 'selected' : '' ?>>Scrum</option>
-                <option value="hibrido" <?= ($filters['project_type'] ?? '') === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
-                <option value="outsourcing" <?= ($filters['project_type'] ?? '') === 'outsourcing' ? 'selected' : '' ?>>Outsourcing</option>
             </select>
         </label>
         <label>
@@ -1218,9 +1219,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                         <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
                                         <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
                                         <p class="project-client">PM: <?= htmlspecialchars($pmName) ?></p>
-                                        <?php if ((string) ($project['project_type'] ?? '') === 'poc'): ?>
-                                            <span class="badge neutral">POC</span>
-                                        <?php endif; ?>
+                                        <span class="badge neutral"><?= htmlspecialchars($projectTypeBadgeLabel((string) ($project['project_type'] ?? ''))) ?></span>
                                     </div>
                                     <?php if ($previewText !== ''): ?>
                                         <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
@@ -1386,9 +1385,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <div style="display:flex; flex-wrap:wrap; gap:6px;">
                                 <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
                                 <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
-                                <?php if ((string) ($project['project_type'] ?? '') === 'poc'): ?>
-                                    <span class="badge neutral">POC</span>
-                                <?php endif; ?>
+                                <span class="badge neutral"><?= htmlspecialchars($projectTypeBadgeLabel((string) ($project['project_type'] ?? ''))) ?></span>
                                 <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                                 <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
                                 <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
