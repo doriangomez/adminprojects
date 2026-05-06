@@ -51,8 +51,10 @@ if ($methodology === 'convencional' || $methodology === '') {
     $methodology = 'cascada';
 }
 
-$badgeLabel = $methodology === 'scrum' ? 'Scrum' : 'Tradicional';
-$badgeClass = $methodology === 'scrum' ? 'pill methodology scrum' : 'pill methodology traditional';
+$projectType = strtolower((string) ($project['project_type'] ?? 'convencional'));
+$isPocProject = $projectType === 'poc';
+$badgeLabel = $isPocProject ? 'POC' : ($methodology === 'scrum' ? 'Scrum' : 'Tradicional');
+$badgeClass = $isPocProject ? 'pill neutral' : ($methodology === 'scrum' ? 'pill methodology scrum' : 'pill methodology traditional');
 
 $flatten = static function (array $nodes) use (&$flatten): array {
     $items = [];
@@ -423,23 +425,29 @@ $riskPmoTone = $riskPmoScore >= 70 ? 'red' : ($riskPmoScore >= 40 ? 'yellow' : '
 
 $requiredDocumentsMetaCode = '99-REQDOCS-META';
 $requiredDocumentsFilesCode = '99-REQDOCS-FILES';
-$requiredDocuments = [
-    ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta comercial', 'tag' => 'Propuesta comercial', 'match_tags' => ['Propuesta comercial', 'Propuesta aceptada por el cliente']],
-    ['key' => 'contrato', 'name' => 'Contrato', 'description' => 'Documento legal del acuerdo con el cliente.', 'icon' => '📑', 'document_type' => 'Contrato', 'tag' => 'Contrato', 'match_types' => ['Contrato', 'Documento legal'], 'match_tags' => ['Contrato']],
-    ['key' => 'acuerdo_confidencialidad', 'name' => 'Acuerdo de confidencialidad', 'description' => 'NDA firmado entre las partes para proteger información sensible.', 'icon' => '🔐', 'document_type' => 'NDA', 'tag' => 'Confidencialidad', 'match_types' => ['NDA', 'Acuerdo de confidencialidad'], 'match_tags' => ['NDA', 'Confidencialidad', 'Acuerdo de confidencialidad']],
-    ['key' => 'presupuesto', 'name' => 'Presupuesto', 'description' => 'Documento formal del presupuesto aprobado.', 'icon' => '💵', 'document_type' => 'Presupuesto', 'tag' => 'Presupuesto', 'match_types' => ['Presupuesto'], 'match_tags' => ['Presupuesto']],
-    ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio', 'match_tags' => ['Acta de inicio', 'Acta de inicio de proyecto']],
-    ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Kickoff', 'tag' => 'Kickoff'],
-    ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Seguimiento', 'match_tags' => ['Seguimiento', 'Actas de seguimiento']],
-    ['key' => 'cronograma', 'name' => 'Cronograma de trabajo', 'description' => 'Plan temporal de entregables, hitos y responsables.', 'icon' => '📆', 'document_type' => 'Cronograma', 'tag' => 'Cronograma de trabajo'],
-    ['key' => 'pruebas_funcionales', 'name' => 'Pruebas funcionales con el cliente', 'description' => 'Resultados y conformidad de pruebas funcionales con cliente.', 'icon' => '✅', 'document_type' => 'Acta', 'tag' => 'Pruebas funcionales', 'match_tags' => ['Pruebas funcionales', 'Pruebas funcionales con el cliente (acta)']],
-    ['key' => 'acta_cierre', 'name' => 'Acta de cierre', 'description' => 'Cierre formal del proyecto y aceptación final.', 'icon' => '🏁', 'document_type' => 'Acta', 'tag' => 'Cierre', 'match_tags' => ['Cierre', 'Acta de cierre']],
-    ['key' => 'lecciones_aprendidas', 'name' => 'Lecciones aprendidas', 'description' => 'Resumen de hallazgos para mejora continua.', 'icon' => '📚', 'document_type' => 'Informe', 'tag' => 'Lecciones aprendidas', 'match_types' => ['Informe', 'Lecciones aprendidas']],
-    ['key' => 'diagrama_flujo', 'name' => 'Diagrama de flujo', 'description' => 'Representación visual del flujo operativo o funcional.', 'icon' => '🔀', 'document_type' => 'Diagrama', 'tag' => 'Flujo', 'match_tags' => ['Flujo', 'Diagrama de flujo']],
-    ['key' => 'diagrama_arquitectura', 'name' => 'Diagrama de arquitectura', 'description' => 'Vista estructural de componentes y su interacción.', 'icon' => '🏗️', 'document_type' => 'Diagrama', 'tag' => 'Arquitectura', 'match_tags' => ['Arquitectura', 'Diagrama de arquitectura']],
-    ['key' => 'documento_arquitectura', 'name' => 'Documento de arquitectura', 'description' => 'Documento técnico con decisiones de arquitectura.', 'icon' => '🧱', 'document_type' => 'Documento técnico', 'tag' => 'Arquitectura', 'match_types' => ['Documento técnico', 'Arquitectura'], 'match_tags' => ['Arquitectura', 'Documento de arquitectura']],
-    ['key' => 'repositorio_git', 'name' => 'Repositorio Git', 'description' => 'URL oficial del repositorio de código fuente del proyecto.', 'icon' => '🔗', 'document_type' => 'Repositorio', 'tag' => 'Repositorio Git', 'is_git' => true],
-];
+$requiredDocuments = $isPocProject
+    ? [
+        ['key' => 'solicitud_poc', 'name' => 'Solicitud de la POC', 'description' => 'Solicitud inicial y justificación de la POC.', 'icon' => '📝', 'document_type' => 'Solicitud POC', 'tag' => 'Solicitud POC', 'match_tags' => ['Solicitud POC', 'Solicitud de la POC']],
+        ['key' => 'evidencia_ejecucion_poc', 'name' => 'Evidencia de ejecución', 'description' => 'Evidencias técnicas/funcionales de ejecución de la POC.', 'icon' => '🧪', 'document_type' => 'Evidencia POC', 'tag' => 'Evidencia POC', 'match_tags' => ['Evidencia POC', 'Evidencia de ejecución']],
+        ['key' => 'resultado_cierre_poc', 'name' => 'Resultado / cierre de la POC', 'description' => 'Resultado final y cierre de la prueba de concepto.', 'icon' => '🏁', 'document_type' => 'Resultado POC', 'tag' => 'Resultado POC', 'match_tags' => ['Resultado POC', 'Resultado / cierre de la POC']],
+    ]
+    : [
+        ['key' => 'propuesta_aceptada', 'name' => 'Propuesta aceptada por el cliente', 'description' => 'Versión final aprobada de la propuesta comercial y alcance.', 'icon' => '📄', 'document_type' => 'Propuesta comercial', 'tag' => 'Propuesta comercial', 'match_tags' => ['Propuesta comercial', 'Propuesta aceptada por el cliente']],
+        ['key' => 'contrato', 'name' => 'Contrato', 'description' => 'Documento legal del acuerdo con el cliente.', 'icon' => '📑', 'document_type' => 'Contrato', 'tag' => 'Contrato', 'match_types' => ['Contrato', 'Documento legal'], 'match_tags' => ['Contrato']],
+        ['key' => 'acuerdo_confidencialidad', 'name' => 'Acuerdo de confidencialidad', 'description' => 'NDA firmado entre las partes para proteger información sensible.', 'icon' => '🔐', 'document_type' => 'NDA', 'tag' => 'Confidencialidad', 'match_types' => ['NDA', 'Acuerdo de confidencialidad'], 'match_tags' => ['NDA', 'Confidencialidad', 'Acuerdo de confidencialidad']],
+        ['key' => 'presupuesto', 'name' => 'Presupuesto', 'description' => 'Documento formal del presupuesto aprobado.', 'icon' => '💵', 'document_type' => 'Presupuesto', 'tag' => 'Presupuesto', 'match_types' => ['Presupuesto'], 'match_tags' => ['Presupuesto']],
+        ['key' => 'acta_inicio', 'name' => 'Acta de inicio de proyecto', 'description' => 'Documento formal de arranque y compromiso del proyecto.', 'icon' => '📝', 'document_type' => 'Acta', 'tag' => 'Acta de inicio', 'match_tags' => ['Acta de inicio', 'Acta de inicio de proyecto']],
+        ['key' => 'kickoff', 'name' => 'Kickoff', 'description' => 'Acta o presentación de la reunión de inicio con stakeholders.', 'icon' => '🚀', 'document_type' => 'Kickoff', 'tag' => 'Kickoff'],
+        ['key' => 'actas_seguimiento', 'name' => 'Actas de seguimiento', 'description' => 'Evidencias de acuerdos y seguimiento periódico del proyecto.', 'icon' => '🗒️', 'document_type' => 'Acta', 'tag' => 'Seguimiento', 'match_tags' => ['Seguimiento', 'Actas de seguimiento']],
+        ['key' => 'cronograma', 'name' => 'Cronograma de trabajo', 'description' => 'Plan temporal de entregables, hitos y responsables.', 'icon' => '📆', 'document_type' => 'Cronograma', 'tag' => 'Cronograma de trabajo'],
+        ['key' => 'pruebas_funcionales', 'name' => 'Pruebas funcionales con el cliente', 'description' => 'Resultados y conformidad de pruebas funcionales con cliente.', 'icon' => '✅', 'document_type' => 'Acta', 'tag' => 'Pruebas funcionales', 'match_tags' => ['Pruebas funcionales', 'Pruebas funcionales con el cliente (acta)']],
+        ['key' => 'acta_cierre', 'name' => 'Acta de cierre', 'description' => 'Cierre formal del proyecto y aceptación final.', 'icon' => '🏁', 'document_type' => 'Acta', 'tag' => 'Cierre', 'match_tags' => ['Cierre', 'Acta de cierre']],
+        ['key' => 'lecciones_aprendidas', 'name' => 'Lecciones aprendidas', 'description' => 'Resumen de hallazgos para mejora continua.', 'icon' => '📚', 'document_type' => 'Informe', 'tag' => 'Lecciones aprendidas', 'match_types' => ['Informe', 'Lecciones aprendidas']],
+        ['key' => 'diagrama_flujo', 'name' => 'Diagrama de flujo', 'description' => 'Representación visual del flujo operativo o funcional.', 'icon' => '🔀', 'document_type' => 'Diagrama', 'tag' => 'Flujo', 'match_tags' => ['Flujo', 'Diagrama de flujo']],
+        ['key' => 'diagrama_arquitectura', 'name' => 'Diagrama de arquitectura', 'description' => 'Vista estructural de componentes y su interacción.', 'icon' => '🏗️', 'document_type' => 'Diagrama', 'tag' => 'Arquitectura', 'match_tags' => ['Arquitectura', 'Diagrama de arquitectura']],
+        ['key' => 'documento_arquitectura', 'name' => 'Documento de arquitectura', 'description' => 'Documento técnico con decisiones de arquitectura.', 'icon' => '🧱', 'document_type' => 'Documento técnico', 'tag' => 'Arquitectura', 'match_types' => ['Documento técnico', 'Arquitectura'], 'match_tags' => ['Arquitectura', 'Documento de arquitectura']],
+        ['key' => 'repositorio_git', 'name' => 'Repositorio Git', 'description' => 'URL oficial del repositorio de código fuente del proyecto.', 'icon' => '🔗', 'document_type' => 'Repositorio', 'tag' => 'Repositorio Git', 'is_git' => true],
+    ];
 
 $requiredDocumentsFolderNode = null;
 foreach ($allNodes as $node) {
@@ -542,7 +550,7 @@ foreach ($requiredDocuments as $requiredDocument) {
             $filesForKey = [$latest];
         }
     }
-    if (($requiredDocument['key'] ?? '') === 'contrato' && $latest !== null) {
+    if (!$isPocProject && ($requiredDocument['key'] ?? '') === 'contrato' && $latest !== null) {
         $latest['contract_end_date'] = $contractEndDate;
     }
     $requiredDocumentsCards[] = array_merge($requiredDocument, [
@@ -740,6 +748,28 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
                 </div>
             </article>
         </section>
+
+        <?php if ($isPocProject): ?>
+        <section class="summary-layout">
+            <article class="info-card">
+                <div class="info-card__header">
+                    <div>
+                        <p class="eyebrow">POC</p>
+                        <h4>Datos específicos de la POC</h4>
+                    </div>
+                </div>
+                <div class="info-list">
+                    <div><span>Solicitante</span><strong><?= htmlspecialchars((string) ($project['solicitante_poc'] ?? '-')) ?></strong></div>
+                    <div><span>Fecha de solicitud</span><strong><?= htmlspecialchars((string) ($project['fecha_solicitud_poc'] ?? '-')) ?></strong></div>
+                    <div><span>Tipo de POC</span><strong><?= htmlspecialchars((string) ($project['tipo_poc'] ?? '-')) ?></strong></div>
+                    <div><span>Resultado</span><strong><?= htmlspecialchars((string) ($project['resultado_poc'] ?? 'En curso')) ?></strong></div>
+                    <div><span>Valor estimado</span><strong><?= htmlspecialchars((string) ($project['valor_estimado_poc'] ?? '-')) ?></strong></div>
+                    <div><span>Repositorio Git</span><strong><?= htmlspecialchars((string) ($project['repositorio_git_poc'] ?? '-')) ?></strong></div>
+                    <div style="grid-column:1/-1;"><span>Descripción / alcance</span><strong><?= htmlspecialchars((string) ($project['descripcion_alcance_poc'] ?? '-')) ?></strong></div>
+                </div>
+            </article>
+        </section>
+        <?php endif; ?>
 
         <section class="indicator-grid">
             <article class="indicator-card">
@@ -1816,6 +1846,9 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
         diagrama_flujo: 'Diagrama',
         diagrama_arquitectura: 'Diagrama',
         documento_arquitectura: 'Documento técnico',
+        solicitud_poc: 'Solicitud POC',
+        evidencia_ejecucion_poc: 'Evidencia POC',
+        resultado_cierre_poc: 'Resultado POC',
     };
     const getTodayDate = () => {
         const now = new Date();

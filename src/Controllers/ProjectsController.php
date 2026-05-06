@@ -17,7 +17,7 @@ use App\Repositories\UsersRepository;
 
 class ProjectsController extends Controller
 {
-    private const ALLOWED_PROJECT_TYPES = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
+    private const ALLOWED_PROJECT_TYPES = ['convencional', 'scrum', 'hibrido', 'outsourcing', 'poc'];
     private const CLIENT_PARTICIPATION_LEVELS = [
         'baja' => 0,
         'media' => 1,
@@ -78,6 +78,14 @@ class ProjectsController extends Controller
         'diagrama_flujo',
         'diagrama_arquitectura',
         'documento_arquitectura',
+        'solicitud_poc',
+        'evidencia_ejecucion_poc',
+        'resultado_cierre_poc',
+    ];
+    private const POC_REQUIRED_DOCUMENT_UPLOAD_KEYS = [
+        'solicitud_poc',
+        'evidencia_ejecucion_poc',
+        'resultado_cierre_poc',
     ];
 
     public function index(): void
@@ -91,6 +99,7 @@ class ProjectsController extends Controller
             'status' => trim((string) ($_GET['status'] ?? '')),
             'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
             'methodology' => trim((string) ($_GET['methodology'] ?? '')),
+            'project_type' => trim((string) ($_GET['project_type'] ?? '')),
             'billable' => trim((string) ($_GET['billable'] ?? '')),
             'start_date' => $_GET['start_date'] ?? '',
             'end_date' => $_GET['end_date'] ?? '',
@@ -4199,9 +4208,10 @@ class ProjectsController extends Controller
 
     private function projectPayload(array $current, array $deliveryConfig = [], array $catalogs = [], ?UsersRepository $usersRepo = null): array
     {
-        $allowedProjectTypes = ['convencional', 'scrum', 'hibrido', 'outsourcing'];
+        $allowedProjectTypes = self::ALLOWED_PROJECT_TYPES;
         $projectType = $_POST['project_type'] ?? (string) ($current['project_type'] ?? 'convencional');
         $projectType = in_array($projectType, $allowedProjectTypes, true) ? $projectType : 'convencional';
+        $isPoc = $projectType === 'poc';
 
         $delivery = [
             'methodologies' => $deliveryConfig['methodologies'] ?? [],
@@ -4223,7 +4233,9 @@ class ProjectsController extends Controller
         $phase = ($phaseInput === '' || !in_array($phaseInput, $availablePhases, true)) ? null : $phaseInput;
 
         $delivery['risks'] = $this->riskCatalogForType($deliveryConfig['risks'] ?? [], $projectType, $methodology);
-        $riskAssessment = $this->assessRisks($_POST['risks'] ?? [], $delivery['risks']);
+        $riskAssessment = $isPoc
+            ? $this->optionalRiskAssessment($_POST['risks'] ?? [], $delivery['risks'])
+            : $this->assessRisks($_POST['risks'] ?? [], $delivery['risks']);
         $riskScore = $riskAssessment['score'];
         $riskLevel = $this->riskLevelFromScore($riskScore);
 
@@ -4233,6 +4245,9 @@ class ProjectsController extends Controller
         }
 
         $scope = trim((string) ($_POST['scope'] ?? ($current['scope'] ?? '')));
+        if ($isPoc) {
+            $scope = trim((string) ($_POST['descripcion_alcance_poc'] ?? ($current['descripcion_alcance_poc'] ?? $scope)));
+        }
 
         $statusesCatalog = $catalogs['statuses'] ?? [];
         $prioritiesCatalog = $catalogs['priorities'] ?? [];
@@ -4251,6 +4266,43 @@ class ProjectsController extends Controller
         $pmId = (int) ($_POST['pm_id'] ?? ($current['pm_id'] ?? 0));
         if ($pmId <= 0 || $usersRepo === null || !$usersRepo->isValidProjectManager($pmId)) {
             throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
+        }
+
+        $pocRequester = $this->pocValueOrNull((string) ($_POST['solicitante_poc'] ?? ($current['solicitante_poc'] ?? '')));
+        $pocRequestDate = $this->nullableDate($_POST['fecha_solicitud_poc'] ?? ($current['fecha_solicitud_poc'] ?? null));
+        $pocScope = $this->pocValueOrNull((string) ($_POST['descripcion_alcance_poc'] ?? ($current['descripcion_alcance_poc'] ?? '')));
+        $pocType = $this->validatedPocType((string) ($_POST['tipo_poc'] ?? ($current['tipo_poc'] ?? '')));
+        $pocEstimatedValue = $this->nullableNonNegativeFloat(
+            $_POST['valor_estimado_poc'] ?? ($current['valor_estimado_poc'] ?? null),
+            'El valor estimado de la POC'
+        );
+        $pocRepository = $this->validatePocRepositoryUrl((string) ($_POST['repositorio_git_poc'] ?? ($current['repositorio_git_poc'] ?? '')));
+        $pocResult = $this->validatedPocResult((string) ($_POST['resultado_poc'] ?? ($current['resultado_poc'] ?? '')));
+
+        if ($isPoc) {
+            if ($pocRequester === null) {
+                throw new \InvalidArgumentException('El solicitante de la POC es obligatorio.');
+            }
+            if ($pocRequestDate === null) {
+                throw new \InvalidArgumentException('La fecha de solicitud de la POC es obligatoria.');
+            }
+            if ($pocScope === null) {
+                throw new \InvalidArgumentException('La descripción / alcance de la POC es obligatoria.');
+            }
+            if ($pocType === null) {
+                throw new \InvalidArgumentException('Selecciona un tipo de POC válido (Gratuita o Con costo).');
+            }
+            if ($pocResult === null && trim((string) ($_POST['resultado_poc'] ?? '')) !== '') {
+                throw new \InvalidArgumentException('Selecciona un resultado de POC válido.');
+            }
+        } else {
+            $pocRequester = null;
+            $pocRequestDate = null;
+            $pocScope = null;
+            $pocType = null;
+            $pocEstimatedValue = null;
+            $pocRepository = null;
+            $pocResult = null;
         }
 
         return [
@@ -4272,6 +4324,13 @@ class ProjectsController extends Controller
             'phase' => $phase,
             'project_stage' => $this->validatedProjectStage((string) ($_POST['project_stage'] ?? ($current['project_stage'] ?? 'Discovery'))),
             'scope' => $scope,
+            'solicitante_poc' => $pocRequester,
+            'fecha_solicitud_poc' => $pocRequestDate,
+            'descripcion_alcance_poc' => $pocScope,
+            'tipo_poc' => $pocType,
+            'valor_estimado_poc' => $pocEstimatedValue,
+            'repositorio_git_poc' => $pocRepository,
+            'resultado_poc' => $pocResult,
             'risks' => $riskAssessment['selected'],
             'risk_evaluations' => $riskAssessment['evaluations'],
             'risk_score' => $riskScore,
@@ -4327,7 +4386,10 @@ class ProjectsController extends Controller
             (string) ($payload['project_type'] ?? ($current['project_type'] ?? 'convencional')),
             (string) ($payload['methodology'] ?? ($current['methodology'] ?? 'cascada'))
         );
-        $riskAssessment = $this->assessRisks($payload['risks'] ?? [], $effectiveRiskCatalog);
+        $isPoc = $this->validatedProjectType((string) ($payload['project_type'] ?? ($current['project_type'] ?? 'convencional'))) === 'poc';
+        $riskAssessment = $isPoc
+            ? $this->optionalRiskAssessment($payload['risks'] ?? [], $effectiveRiskCatalog)
+            : $this->assessRisks($payload['risks'] ?? [], $effectiveRiskCatalog);
 
         $payload['status'] = $requestedStatus;
         $payload['risks'] = $riskAssessment['selected'];
@@ -4483,6 +4545,36 @@ class ProjectsController extends Controller
         }
 
         return 'bajo';
+    }
+
+    private function optionalRiskAssessment(array $inputRisks, array $riskCatalog): array
+    {
+        $severityIndex = $this->riskSeverityIndex($riskCatalog);
+        $availableCodes = array_keys($severityIndex);
+        if (empty($availableCodes)) {
+            return [
+                'selected' => [],
+                'evaluations' => [],
+                'score' => 0.0,
+            ];
+        }
+
+        $submittedRisks = is_array($inputRisks) ? $inputRisks : [$inputRisks];
+        $selected = array_values(array_unique(array_intersect(array_map('strval', $submittedRisks), $availableCodes)));
+
+        $evaluations = [];
+        foreach ($availableCodes as $code) {
+            $evaluations[] = [
+                'risk_code' => $code,
+                'selected' => in_array($code, $selected, true) ? 1 : 0,
+            ];
+        }
+
+        return [
+            'selected' => $selected,
+            'evaluations' => $evaluations,
+            'score' => $this->calculateRiskScore($selected, $severityIndex),
+        ];
     }
 
     private function assessRisks(array $inputRisks, array $riskCatalog): array
@@ -4782,6 +4874,7 @@ class ProjectsController extends Controller
         }
 
         $projectType = $this->validatedProjectType((string) ($_POST['project_type'] ?? 'convencional'));
+        $isPoc = $projectType === 'poc';
         $status = 'planning';
         $priority = $this->validatedCatalogValue((string) ($_POST['priority'] ?? ''), $catalogs['priorities'], 'prioridad', $catalogs['priorities'][0]['code'] ?? 'medium');
 
@@ -4790,22 +4883,62 @@ class ProjectsController extends Controller
         $phase = $this->initialPhaseForMethodology($methodology, $delivery['phases'] ?? []);
 
         $filteredRisks = $this->riskCatalogForType($delivery['risks'] ?? [], $projectType, $methodology);
-        $riskAssessment = $this->assessRisks($_POST['risks'] ?? [], $filteredRisks);
-        if (count($riskAssessment['selected']) < self::MIN_REQUIRED_RISKS_ON_CREATE) {
+        $riskAssessment = $isPoc
+            ? $this->optionalRiskAssessment($_POST['risks'] ?? [], $filteredRisks)
+            : $this->assessRisks($_POST['risks'] ?? [], $filteredRisks);
+        if (!$isPoc && count($riskAssessment['selected']) < self::MIN_REQUIRED_RISKS_ON_CREATE) {
             throw new \InvalidArgumentException('Selecciona al menos ' . self::MIN_REQUIRED_RISKS_ON_CREATE . ' riesgos para crear el proyecto.');
         }
 
         $scope = trim((string) ($_POST['scope'] ?? ''));
-        if ($scope === '') {
-            throw new \InvalidArgumentException('El alcance del proyecto es obligatorio desde el paso 1.');
-        }
-
         $designInputs = trim((string) ($_POST['design_inputs'] ?? ''));
-        if ($designInputs === '') {
-            throw new \InvalidArgumentException('Las entradas de diseño iniciales son obligatorias.');
+        if (!$isPoc) {
+            if ($scope === '') {
+                throw new \InvalidArgumentException('El alcance del proyecto es obligatorio desde el paso 1.');
+            }
+            if ($designInputs === '') {
+                throw new \InvalidArgumentException('Las entradas de diseño iniciales son obligatorias.');
+            }
         }
 
         $clientParticipation = $this->validatedClientParticipation((string) ($_POST['client_participation'] ?? ''));
+
+        $pocRequester = $this->pocValueOrNull((string) ($_POST['solicitante_poc'] ?? ''));
+        $pocRequestDate = $this->nullableDate($_POST['fecha_solicitud_poc'] ?? null);
+        $pocScope = $this->pocValueOrNull((string) ($_POST['descripcion_alcance_poc'] ?? ''));
+        $pocType = $this->validatedPocType((string) ($_POST['tipo_poc'] ?? ''));
+        $pocEstimatedValue = $this->nullableNonNegativeFloat($_POST['valor_estimado_poc'] ?? null, 'El valor estimado de la POC');
+        $pocRepository = $this->validatePocRepositoryUrl((string) ($_POST['repositorio_git_poc'] ?? ''));
+        $pocResult = $this->validatedPocResult((string) ($_POST['resultado_poc'] ?? ''));
+
+        if ($isPoc) {
+            if ($pocRequester === null) {
+                throw new \InvalidArgumentException('El solicitante de la POC es obligatorio.');
+            }
+            if ($pocRequestDate === null) {
+                throw new \InvalidArgumentException('La fecha de solicitud de la POC es obligatoria.');
+            }
+            if ($pocScope === null) {
+                throw new \InvalidArgumentException('La descripción / alcance de la POC es obligatoria.');
+            }
+            if ($pocType === null) {
+                throw new \InvalidArgumentException('Selecciona un tipo de POC válido (Gratuita o Con costo).');
+            }
+            if ($pocResult === null && trim((string) ($_POST['resultado_poc'] ?? '')) !== '') {
+                throw new \InvalidArgumentException('Selecciona un resultado de POC válido.');
+            }
+            if ($scope === '') {
+                $scope = (string) $pocScope;
+            }
+        } else {
+            $pocRequester = null;
+            $pocRequestDate = null;
+            $pocScope = null;
+            $pocType = null;
+            $pocEstimatedValue = null;
+            $pocRepository = null;
+            $pocResult = null;
+        }
 
         if ($projectType === 'convencional') {
             $endDate = $this->nullableDate($_POST['end_date'] ?? null);
@@ -4851,6 +4984,13 @@ class ProjectsController extends Controller
             'phase' => $this->phaseForMethodology($methodology, $phase),
             'project_stage' => $this->validatedProjectStage((string) ($_POST['project_stage'] ?? 'Discovery')),
             'scope' => $scope,
+            'solicitante_poc' => $pocRequester,
+            'fecha_solicitud_poc' => $pocRequestDate,
+            'descripcion_alcance_poc' => $pocScope,
+            'tipo_poc' => $pocType,
+            'valor_estimado_poc' => $pocEstimatedValue,
+            'repositorio_git_poc' => $pocRepository,
+            'resultado_poc' => $pocResult,
             'design_inputs' => $designInputs,
             'client_participation' => $this->clientParticipationToDbValue($clientParticipation),
             'budget' => $budget,
@@ -4921,6 +5061,24 @@ class ProjectsController extends Controller
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function nullableNonNegativeFloat(mixed $value, string $label): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_numeric($value)) {
+            throw new \InvalidArgumentException($label . ' debe ser un número válido.');
+        }
+
+        $number = (float) $value;
+        if ($number < 0) {
+            throw new \InvalidArgumentException($label . ' no puede ser negativo.');
+        }
+
+        return $number;
     }
 
     private function riskCatalogForType(array $risks, string $projectType, ?string $methodology = null): array
@@ -5014,6 +5172,47 @@ class ProjectsController extends Controller
     {
         $normalized = strtolower(trim($value));
         return in_array($normalized, self::ALLOWED_PROJECT_TYPES, true) ? $normalized : 'convencional';
+    }
+
+    private function pocValueOrNull(?string $value): ?string
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function validatedPocType(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return in_array($normalized, ['gratuita', 'con_costo'], true) ? $normalized : null;
+    }
+
+    private function validatedPocResult(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return in_array($normalized, ['en_curso', 'exitosa', 'no_exitosa'], true) ? $normalized : null;
+    }
+
+    private function validatePocRepositoryUrl(?string $value): ?string
+    {
+        $url = $this->pocValueOrNull($value);
+        if ($url === null) {
+            return null;
+        }
+
+        if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+            throw new \InvalidArgumentException('El repositorio Git de la POC debe ser una URL válida.');
+        }
+
+        return $url;
     }
 
     private function validatedNonNegativeFloat(mixed $value, string $label): float

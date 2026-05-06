@@ -60,6 +60,16 @@ class ProjectExecutiveReportService
                 'secondary' => (string) ($config['theme']['secondary'] ?? '#0f172a'),
                 'accent' => (string) ($config['theme']['accent'] ?? '#f97316'),
             ],
+            'poc' => [
+                'is_poc' => strtolower((string) ($project['project_type'] ?? '')) === 'poc',
+                'solicitante' => (string) ($project['solicitante_poc'] ?? ''),
+                'fecha_solicitud' => (string) ($project['fecha_solicitud_poc'] ?? ''),
+                'descripcion_alcance' => (string) ($project['descripcion_alcance_poc'] ?? ''),
+                'tipo' => (string) ($project['tipo_poc'] ?? ''),
+                'valor_estimado' => (float) ($project['valor_estimado_poc'] ?? 0),
+                'repositorio' => (string) ($project['repositorio_git_poc'] ?? ''),
+                'resultado' => (string) ($project['resultado_poc'] ?? ''),
+            ],
         ];
 
         $renderer = new ExecutivePdfRenderer();
@@ -157,6 +167,16 @@ class ProjectExecutiveReportService
         $writeLine($pdf, 32, $y, 'Estado', (string) ($project['status'] ?? 'Sin definir'));
         $y -= $lineGap;
         $writeLine($pdf, 32, $y, 'Fecha de generacion', (string) ($data['generated_at'] ?? date('d/m/Y H:i')));
+
+        $poc = (array) ($data['poc'] ?? []);
+        if (!empty($poc['is_poc'])) {
+            $y -= $lineGap;
+            $writeLine($pdf, 32, $y, 'Tipo', 'POC');
+            $y -= $lineGap;
+            $writeLine($pdf, 32, $y, 'Solicitante POC', (string) ($poc['solicitante'] ?? '-'));
+            $y -= $lineGap;
+            $writeLine($pdf, 32, $y, 'Resultado POC', (string) ($poc['resultado'] ?? 'en_curso'));
+        }
 
         $y -= $sectionGap;
         $pdf->text(32, $y, 'Indicadores clave', 11, [15, 23, 42]);
@@ -335,7 +355,10 @@ class ExecutivePdfRenderer
 
         $this->drawSectionTitle('Resumen ejecutivo', 'Vista consolidada de rendimiento, alcance y presupuesto');
 
+        $isPoc = !empty(($d['poc'] ?? [])['is_poc']);
+        $pocData = (array) ($d['poc'] ?? []);
         $cards = [
+            ['Tipo de proyecto', $isPoc ? 'POC' : 'Proyecto', 'primary'],
             ['Score de salud', $score . ' / 100', $score >= 80 ? 'success' : ($score >= 60 ? 'warning' : 'danger')],
             ['Avance', number_format($progress, 1) . '%', $progress >= 75 ? 'success' : ($progress >= 45 ? 'warning' : 'danger')],
             ['Presupuesto', $this->fmtMoney((float) ($project['budget'] ?? 0), (string) ($project['currency_code'] ?? 'USD')), 'primary'],

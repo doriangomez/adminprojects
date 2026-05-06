@@ -232,6 +232,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
                             <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
                             <option value="outsourcing" <?= $selectedProjectType === 'outsourcing' ? 'selected' : '' ?>>Outsourcing</option>
+                            <option value="poc" <?= $selectedProjectType === 'poc' ? 'selected' : '' ?>>POC</option>
                         </select>
                     </label>
                     <label class="input">
@@ -298,14 +299,69 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
                             <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
+                        <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required data-poc-optional-field="1" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
                     </label>
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
                             <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
+                        <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required data-poc-optional-field="1" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🙋</span>Solicitante de la POC</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <input type="text" name="solicitante_poc" value="<?= htmlspecialchars((string) $fieldValue('solicitante_poc', '')) ?>" placeholder="Nombre del solicitante" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">📆</span>Fecha de solicitud</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <input type="date" name="fecha_solicitud_poc" value="<?= htmlspecialchars((string) $fieldValue('fecha_solicitud_poc', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧪</span>Tipo de POC</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <select name="tipo_poc" <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <option value="">Seleccionar</option>
+                            <option value="gratuita" <?= (string) $fieldValue('tipo_poc', '') === 'gratuita' ? 'selected' : '' ?>>Gratuita</option>
+                            <option value="con_costo" <?= (string) $fieldValue('tipo_poc', '') === 'con_costo' ? 'selected' : '' ?>>Con costo</option>
+                        </select>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🧾</span>Descripción / alcance de la POC</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
+                        </span>
+                        <textarea name="descripcion_alcance_poc" rows="3" placeholder="Describe alcance, hipótesis y objetivos" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('descripcion_alcance_poc', '')) ?></textarea>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">💵</span>Valor estimado (opcional)</span>
+                        </span>
+                        <input type="number" step="0.01" min="0" name="valor_estimado_poc" value="<?= htmlspecialchars((string) $fieldValue('valor_estimado_poc', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🔗</span>Repositorio Git (URL) (opcional)</span>
+                        </span>
+                        <input type="url" name="repositorio_git_poc" value="<?= htmlspecialchars((string) $fieldValue('repositorio_git_poc', '')) ?>" placeholder="https://github.com/organizacion/repo" <?= $canCreateProject ? '' : 'disabled' ?>>
+                    </label>
+                    <label class="input" data-poc-only hidden>
+                        <span class="field-label">
+                            <span class="field-title"><span class="field-icon">🏁</span>Resultado (opcional)</span>
+                        </span>
+                        <select name="resultado_poc" <?= $canCreateProject ? '' : 'disabled' ?>>
+                            <option value="">Sin resultado</option>
+                            <option value="en_curso" <?= (string) $fieldValue('resultado_poc', '') === 'en_curso' ? 'selected' : '' ?>>En curso</option>
+                            <option value="exitosa" <?= (string) $fieldValue('resultado_poc', '') === 'exitosa' ? 'selected' : '' ?>>Exitosa</option>
+                            <option value="no_exitosa" <?= (string) $fieldValue('resultado_poc', '') === 'no_exitosa' ? 'selected' : '' ?>>No exitosa</option>
+                        </select>
                     </label>
                     <label class="input">
                         <span class="field-label">
@@ -325,7 +381,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <summary class="accordion-summary">
                     <div>
                         <p class="step-block__eyebrow">Riesgos</p>
-                        <strong class="step-block__title">Obligatorio (mínimo 5)</strong>
+                        <strong class="step-block__title">Obligatorio (mínimo 5 en proyecto estándar)</strong>
                         <p class="step-block__help">Selecciona riesgos relevantes para monitorear desde el inicio.</p>
                     </div>
                     <div class="risk-summary">
@@ -608,9 +664,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const riskGroups = document.querySelectorAll('.risk-group');
     const wizardValidationMessage = document.getElementById('wizardValidationMessage');
     const minimumRequiredRisks = 5;
+    const pocOnlyFields = Array.from(document.querySelectorAll('[data-poc-only]'));
+    const pocOptionalFields = Array.from(document.querySelectorAll('[data-poc-optional-field="1"]'));
+    const isPocType = () => projectTypeSelect && projectTypeSelect.value === 'poc';
     const wizardForm = document.getElementById('projectWizardForm');
     const wizardLoader = document.getElementById('wizardLoader');
-    const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban', outsourcing: 'cascada' };
+    const methodologyMap = { convencional: 'cascada', scrum: 'scrum', hibrido: 'kanban', outsourcing: 'cascada', poc: 'cascada' };
     let isSubmitting = false;
 
     let currentStep = 0;
@@ -678,6 +737,24 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
 
         syncEndDateRequiredState();
+    }
+
+
+    function togglePocFields() {
+        const poc = isPocType();
+        pocOnlyFields.forEach((wrapper) => {
+            wrapper.hidden = !poc;
+            const controls = wrapper.querySelectorAll('input, select, textarea');
+            controls.forEach((control) => {
+                if (['solicitante_poc', 'fecha_solicitud_poc', 'tipo_poc', 'descripcion_alcance_poc'].includes(control.name)) {
+                    control.required = poc;
+                }
+            });
+        });
+
+        pocOptionalFields.forEach((control) => {
+            control.required = !poc;
+        });
     }
 
     function syncEndDateRequiredState() {
@@ -798,10 +875,15 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     function validateMinimumRisks(showValidity = false) {
         const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
-        const isValid = selected >= minimumRequiredRisks;
+        const threshold = isPocType() ? 0 : minimumRequiredRisks;
+        const isValid = selected >= threshold;
 
         riskChecklist.forEach((checkbox) => {
-            checkbox.setCustomValidity(isValid ? '' : `Selecciona al menos ${minimumRequiredRisks} riesgos.`);
+            if (threshold <= 0) {
+                checkbox.setCustomValidity('');
+            } else {
+                checkbox.setCustomValidity(isValid ? '' : `Selecciona al menos ${minimumRequiredRisks} riesgos.`);
+            }
         });
 
         if (!isValid && showValidity) {
@@ -946,9 +1028,11 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function updateRiskCount() {
         if (!riskCount) return;
         const selected = Array.from(riskChecklist).filter((checkbox) => checkbox.checked).length;
-        riskCount.textContent = `${selected} seleccionados (mínimo ${minimumRequiredRisks})`;
-        riskCount.classList.toggle('soft-amber', selected < minimumRequiredRisks);
-        riskCount.classList.toggle('soft-green', selected >= minimumRequiredRisks);
+        const threshold = isPocType() ? 0 : minimumRequiredRisks;
+        const thresholdLabel = isPocType() ? 'sin mínimo' : `mínimo ${minimumRequiredRisks}`;
+        riskCount.textContent = `${selected} seleccionados (${thresholdLabel})`;
+        riskCount.classList.toggle('soft-amber', selected < threshold);
+        riskCount.classList.toggle('soft-green', selected >= threshold);
     }
 
     function configureRiskGroups() {
@@ -979,6 +1063,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     syncMethodology();
     syncStatusHealth();
     toggleEndDateByType();
+    togglePocFields();
     setStep(0);
     updateRiskCount();
     configureRiskGroups();
@@ -997,6 +1082,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         projectTypeSelect.addEventListener('change', () => {
             syncMethodology();
             toggleEndDateByType();
+            togglePocFields();
             updateNavState();
         });
     }

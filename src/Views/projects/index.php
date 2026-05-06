@@ -25,6 +25,11 @@ $plannedHours = 0;
 $budgetTotal = 0;
 $actualCostTotal = 0;
 $outsourcingCount = 0;
+$pocTotal = 0;
+$pocActive = 0;
+$pocCompleted = 0;
+$pocSuccessful = 0;
+$pocUnsuccessful = 0;
 
 foreach ($projectsList as $project) {
     $status = strtolower((string) ($project['status'] ?? ''));
@@ -44,6 +49,22 @@ foreach ($projectsList as $project) {
 
     if (($project['project_type'] ?? '') === 'outsourcing') {
         $outsourcingCount++;
+    }
+
+    if (($project['project_type'] ?? '') === 'poc') {
+        $pocTotal++;
+        if (in_array($status, $activeStatuses, true)) {
+            $pocActive++;
+        }
+        if (in_array($status, $completedStatuses, true)) {
+            $pocCompleted++;
+        }
+        $pocResult = strtolower((string) ($project['resultado_poc'] ?? ''));
+        if ($pocResult === 'exitosa') {
+            $pocSuccessful++;
+        } elseif ($pocResult === 'no_exitosa') {
+            $pocUnsuccessful++;
+        }
     }
 
     $hoursUsed += (float) ($project['timesheet_hours_logged'] ?? $project['actual_hours'] ?? 0);
@@ -882,6 +903,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             <?php if ($outsourcingCount > 0): ?>
                 <span class="chip">Outsourcing: <?= $outsourcingCount ?></span>
             <?php endif; ?>
+            <?php if ($pocTotal > 0): ?>
+                <span class="chip">Total POC: <?= $pocTotal ?></span>
+                <span class="chip">POC activas: <?= $pocActive ?></span>
+                <span class="chip">POC finalizadas: <?= $pocCompleted ?></span>
+            <?php endif; ?>
         </div>
     </div>
     <div class="hero-actions">
@@ -968,6 +994,17 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             <input type="date" name="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? '') ?>">
         </label>
         <label>
+            Tipo de proyecto
+            <select name="project_type">
+                <option value="">Todos</option>
+                <option value="convencional" <?= ($filters['project_type'] ?? '') === 'convencional' ? 'selected' : '' ?>>Proyecto convencional</option>
+                <option value="poc" <?= ($filters['project_type'] ?? '') === 'poc' ? 'selected' : '' ?>>POC</option>
+                <option value="scrum" <?= ($filters['project_type'] ?? '') === 'scrum' ? 'selected' : '' ?>>Scrum</option>
+                <option value="hibrido" <?= ($filters['project_type'] ?? '') === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
+                <option value="outsourcing" <?= ($filters['project_type'] ?? '') === 'outsourcing' ? 'selected' : '' ?>>Outsourcing</option>
+            </select>
+        </label>
+        <label>
             Facturación
             <select name="billable">
                 <option value="">Todos</option>
@@ -1014,6 +1051,22 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             <p class="value">$<?= number_format($actualCostTotal, 0, ',', '.') ?></p>
         </div>
     </div>
+    <?php if ($pocTotal > 0): ?>
+    <div class="kpi-card" title="POC con resultado exitosa">
+        <div class="kpi-icon" aria-hidden="true">🧪</div>
+        <div>
+            <p class="label">POC exitosas</p>
+            <p class="value"><?= $pocSuccessful ?></p>
+        </div>
+    </div>
+    <div class="kpi-card" title="POC no exitosas">
+        <div class="kpi-icon" aria-hidden="true">📉</div>
+        <div>
+            <p class="label">POC no exitosas</p>
+            <p class="value"><?= $pocUnsuccessful ?></p>
+        </div>
+    </div>
+    <?php endif; ?>
 </section>
 
 <div class="toolbar" style="margin-top: 6px;">
@@ -1165,6 +1218,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                         <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
                                         <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
                                         <p class="project-client">PM: <?= htmlspecialchars($pmName) ?></p>
+                                        <?php if ((string) ($project['project_type'] ?? '') === 'poc'): ?>
+                                            <span class="badge neutral">POC</span>
+                                        <?php endif; ?>
                                     </div>
                                     <?php if ($previewText !== ''): ?>
                                         <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
@@ -1330,6 +1386,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <div style="display:flex; flex-wrap:wrap; gap:6px;">
                                 <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
                                 <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
+                                <?php if ((string) ($project['project_type'] ?? '') === 'poc'): ?>
+                                    <span class="badge neutral">POC</span>
+                                <?php endif; ?>
                                 <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                                 <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
                                 <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>

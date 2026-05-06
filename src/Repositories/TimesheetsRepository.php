@@ -1258,7 +1258,23 @@ class TimesheetsRepository
         return $out;
     }
 
-    public function executiveSummary(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    private function applyProjectTypeCondition(array &$where, array &$params, ?string $projectType): void
+    {
+        $normalized = strtolower(trim((string) $projectType));
+        if ($normalized === '' || !$this->db->columnExists('projects', 'project_type')) {
+            return;
+        }
+
+        $allowed = ['convencional', 'poc', 'scrum', 'hibrido', 'outsourcing'];
+        if (!in_array($normalized, $allowed, true)) {
+            return;
+        }
+
+        $where[] = 'p.project_type = :project_type';
+        $params[':project_type'] = $normalized;
+    }
+
+    public function executiveSummary(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, ?string $projectType = null): array
     {
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
@@ -1269,6 +1285,7 @@ class TimesheetsRepository
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
             $params[':project'] = $projectId;
         }
+        $this->applyProjectTypeCondition($where, $params, $projectType);
 
         $rows = $this->db->fetchAll(
             'SELECT ts.status, COALESCE(SUM(ts.hours), 0) AS total_hours
@@ -1309,7 +1326,13 @@ class TimesheetsRepository
         return $summary;
     }
 
-    public function approvedWeeksByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    public function approvedWeeksByPeriod(
+        array $user,
+        \DateTimeImmutable $periodStart,
+        \DateTimeImmutable $periodEnd,
+        ?int $projectId = null,
+        ?string $projectType = null
+    ): array
     {
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
@@ -1320,6 +1343,7 @@ class TimesheetsRepository
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
             $params[':project'] = $projectId;
         }
+        $this->applyProjectTypeCondition($where, $params, $projectType);
 
         return $this->db->fetchAll(
             'SELECT DATE_SUB(ts.date, INTERVAL WEEKDAY(ts.date) DAY) AS week_start,
@@ -1346,7 +1370,14 @@ class TimesheetsRepository
         );
     }
 
-    public function talentBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, string $sort = 'load_desc'): array
+    public function talentBreakdownByPeriod(
+        array $user,
+        \DateTimeImmutable $periodStart,
+        \DateTimeImmutable $periodEnd,
+        ?int $projectId = null,
+        string $sort = 'load_desc',
+        ?string $projectType = null
+    ): array
     {
         $params = [
             ':start' => $periodStart->format('Y-m-d'),
@@ -1357,6 +1388,7 @@ class TimesheetsRepository
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
             $params[':project'] = $projectId;
         }
+        $this->applyProjectTypeCondition($where, $params, $projectType);
 
         $sql = 'SELECT ta.id AS talent_id, ta.name AS talent_name,
                     COALESCE(SUM(ts.hours), 0) AS total_hours,
@@ -1413,19 +1445,23 @@ class TimesheetsRepository
         return $rows;
     }
 
-    public function projectBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd): array
+    public function projectBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?string $projectType = null): array
     {
         $params = [':start' => $periodStart->format('Y-m-d'), ':end' => $periodEnd->format('Y-m-d')];
         $where = $this->timesheetScopeWhere($user, $params);
+        $this->applyProjectTypeCondition($where, $params, $projectType);
 
         return $this->db->fetchAll(
             'SELECT COALESCE(ts.project_id, t.project_id) AS project_id, p.name AS project,
-                    COALESCE(SUM(ts.hours), 0) AS total_hours
+                    COALESCE(SUM(ts.hours), 0) AS total_hours,
+                    COALESCE(p.project_type, "convencional") AS project_type,
+                    COALESCE(p.resultado_poc, "") AS resultado_poc,
+                    COALESCE(p.actual_cost, 0) AS estimated_cost
              FROM timesheets ts
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
              WHERE ts.date BETWEEN :start AND :end' . ($where ? ' AND ' . implode(' AND ', $where) : '') . '
-             GROUP BY COALESCE(ts.project_id, t.project_id), p.name
+             GROUP BY COALESCE(ts.project_id, t.project_id), p.name, p.project_type, p.resultado_poc, p.actual_cost
              ORDER BY total_hours DESC'
             , $params
         );
@@ -1806,17 +1842,26 @@ class TimesheetsRepository
         return $talent !== null && (int) ($talent['requiere_reporte_horas'] ?? 0) === 1;
     }
 
-    public function projectsCatalog(): array
+    public function projectsCatalog(?string $projectType = null): array
     {
         if (!$this->db->tableExists('projects')) {
             return [];
         }
 
         $condition = $this->activeProjectCondition('p');
+        $params = [];
+        if ($this->db->columnExists('projects', 'project_type')) {
+            $normalizedType = strtolower(trim((string) $projectType));
+            if (in_array($normalizedType, ['convencional', 'poc', 'scrum', 'hibrido', 'outsourcing'], true)) {
+                $condition = ($condition !== '' ? $condition . ' AND ' : '') . 'p.project_type = :project_type';
+                $params[':project_type'] = $normalizedType;
+            }
+        }
         return $this->db->fetchAll(
             'SELECT p.id AS project_id, p.name AS project
              FROM projects p' . ($condition !== '' ? ' WHERE ' . $condition : '') . '
-             ORDER BY p.name ASC'
+             ORDER BY p.name ASC',
+            $params
         );
     }
 
@@ -1939,7 +1984,7 @@ class TimesheetsRepository
         return array_values($activityTypes);
     }
 
-    public function activityTypeBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    public function activityTypeBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, ?string $projectType = null): array
     {
         if (
             !$this->db->tableExists('timesheets')
@@ -1957,6 +2002,7 @@ class TimesheetsRepository
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
             $params[':project'] = $projectId;
         }
+        $this->applyProjectTypeCondition($where, $params, $projectType);
 
         $rows = $this->db->fetchAll(
             'SELECT COALESCE(NULLIF(TRIM(ts.activity_type), ""), "sin_clasificar") AS activity_type,
@@ -1980,7 +2026,7 @@ class TimesheetsRepository
         return $rows;
     }
 
-    public function phaseBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null): array
+    public function phaseBreakdownByPeriod(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, ?string $projectType = null): array
     {
         if (
             !$this->db->tableExists('timesheets')
@@ -1999,6 +2045,7 @@ class TimesheetsRepository
             $where[] = 'COALESCE(ts.project_id, t.project_id) = :project';
             $params[':project'] = $projectId;
         }
+        $this->applyProjectTypeCondition($where, $params, $projectType);
 
         return $this->db->fetchAll(
             'SELECT COALESCE(NULLIF(TRIM(ts.phase_name), ""), "sin_fase") AS phase_name,
