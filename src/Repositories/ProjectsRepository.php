@@ -87,13 +87,13 @@ class ProjectsRepository
         if (!empty($filters['project_type']) && $hasTypeColumn) {
             $normalizedType = strtolower(trim((string) $filters['project_type']));
             if ($normalizedType === 'poc') {
-                $conditions[] = 'p.project_type = :projectType';
+                $conditions[] = "LOWER(TRIM(COALESCE(p.project_type, ''))) = :projectType";
                 $params[':projectType'] = 'poc';
             } elseif ($normalizedType === 'proyecto') {
-                $conditions[] = '(p.project_type IS NULL OR p.project_type <> :projectTypePoc)';
+                $conditions[] = "(p.project_type IS NULL OR LOWER(TRIM(COALESCE(p.project_type, ''))) <> :projectTypePoc)";
                 $params[':projectTypePoc'] = 'poc';
             } elseif (in_array($normalizedType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)) {
-                $conditions[] = 'p.project_type = :projectType';
+                $conditions[] = "LOWER(TRIM(COALESCE(p.project_type, ''))) = :projectType";
                 $params[':projectType'] = $normalizedType;
             }
         }
@@ -283,11 +283,22 @@ class ProjectsRepository
             $select[] = 'NULL AS health_label';
         }
 
+        $orderBy = 'c.name ASC, p.created_at DESC';
+        if ($hasTypeColumn) {
+            $sortBy = strtolower(trim((string) ($filters['sort_by'] ?? '')));
+            if ($sortBy === 'type_poc_first') {
+                $orderBy = "c.name ASC, CASE WHEN LOWER(TRIM(COALESCE(p.project_type, ''))) = 'poc' THEN 0 ELSE 1 END ASC, p.created_at DESC";
+            } elseif ($sortBy === 'type_project_first') {
+                $orderBy = "c.name ASC, CASE WHEN LOWER(TRIM(COALESCE(p.project_type, ''))) = 'poc' THEN 1 ELSE 0 END ASC, p.created_at DESC";
+            }
+        }
+
         $sql = sprintf(
-            'SELECT %s FROM projects p %s %s ORDER BY c.name ASC, p.created_at DESC',
+            'SELECT %s FROM projects p %s %s ORDER BY %s',
             implode(', ', $select),
             implode(' ', $joins),
-            $whereClause
+            $whereClause,
+            $orderBy
         );
 
         $projects = $this->db->fetchAll($sql, $params);
