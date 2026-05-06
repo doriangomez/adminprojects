@@ -98,6 +98,10 @@ class ProjectsController extends Controller
                 ? 'proyecto'
                 : '';
         }
+        $sortBy = strtolower(trim((string) ($_GET['sort_by'] ?? '')));
+        if (!in_array($sortBy, ['', 'recent', 'type_poc_first', 'type_project_first'], true)) {
+            $sortBy = '';
+        }
 
         $filters = [
             'client_id' => isset($_GET['client_id']) ? (int) $_GET['client_id'] : null,
@@ -106,6 +110,7 @@ class ProjectsController extends Controller
             'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
             'methodology' => trim((string) ($_GET['methodology'] ?? '')),
             'project_type' => $projectTypeFilter,
+            'sort_by' => $sortBy,
             'billable' => trim((string) ($_GET['billable'] ?? '')),
             'start_date' => $_GET['start_date'] ?? '',
             'end_date' => $_GET['end_date'] ?? '',

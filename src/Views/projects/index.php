@@ -17,6 +17,10 @@ foreach ($deliveryConfig['risks'] as $risk) {
     }
 }
 
+$isPocProjectType = static function (?string $projectType): bool {
+    return strtolower(trim((string) $projectType)) === 'poc';
+};
+
 $activeProjects = 0;
 $riskProjects = 0;
 $completedProjects = 0;
@@ -51,7 +55,7 @@ foreach ($projectsList as $project) {
         $outsourcingCount++;
     }
 
-    if (($project['project_type'] ?? '') === 'poc') {
+    if ($isPocProjectType((string) ($project['project_type'] ?? ''))) {
         $pocTotal++;
         if (in_array($status, $activeStatuses, true)) {
             $pocActive++;
@@ -111,11 +115,6 @@ $statusPillClass = static function (string $status) use ($activeStatuses, $compl
 
     return 'status-planning';
 };
-
-$projectTypeBadgeLabel = static function (?string $projectType): string {
-    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
-};
-
 
 $healthScoreClass = static function (int $score): string {
     if ($score >= 80) {
@@ -530,6 +529,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .project-table tbody .project-client { color: #475569; }
     .project-cell { min-width: 320px; }
     .project-main { display: flex; flex-direction: column; gap: 2px; }
+    .project-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     .project-context-preview {
         display: flex;
@@ -663,6 +663,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .indicator-blue { color: #3b82f6; font-size: 10px; }
     .badge.blocker-critical { background: color-mix(in srgb, var(--danger) 20%, var(--background)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); }
     .badge.blocker-high { background: color-mix(in srgb, #f59e0b 22%, var(--background)); color: #b45309; border-color: color-mix(in srgb, #f59e0b 36%, var(--background)); }
+    .badge.badge-poc { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
 
     /* Fuerza contraste legible en la grilla aunque un tema global sobreescriba `.badge`. */
     .project-table tbody .badge { color: #0f172a !important; background: #e2e8f0 !important; border-color: #cbd5e1 !important; }
@@ -676,6 +677,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
     .project-table tbody .badge.risk-high { background: #fee2e2 !important; color: #991b1b !important; border-color: #fca5a5 !important; }
     .project-table tbody .badge.billable-on { background: #dcfce7 !important; color: #166534 !important; border-color: #86efac !important; }
     .project-table tbody .badge.billable-off { background: #e2e8f0 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
+    .project-table tbody .badge.badge-poc { background: #ede9fe !important; color: #5b21b6 !important; border-color: #c4b5fd !important; }
 
     .table-actions-menu {
         display: inline-flex;
@@ -901,6 +903,7 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         <h1>Proyectos</h1>
         <p>Ejecución y control operativo</p>
         <div class="hero-chips">
+            <span class="chip"><?= count($projectsList) ?> proyectos / <?= $pocTotal ?> POC</span>
             <span class="chip">Total: <?= count($projectsList) ?></span>
             <span class="chip">Activos: <?= $activeProjects ?></span>
             <span class="chip">En riesgo: <?= $riskProjects ?></span>
@@ -958,6 +961,22 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
             </select>
         </label>
         <label>
+            Tipo de proyecto
+            <select name="project_type">
+                <option value="">Todos</option>
+                <option value="proyecto" <?= ($filters['project_type'] ?? '') === 'proyecto' ? 'selected' : '' ?>>Proyecto</option>
+                <option value="poc" <?= ($filters['project_type'] ?? '') === 'poc' ? 'selected' : '' ?>>POC</option>
+            </select>
+        </label>
+        <label>
+            Ordenar
+            <select name="sort_by">
+                <option value="">Cliente + recientes</option>
+                <option value="type_poc_first" <?= ($filters['sort_by'] ?? '') === 'type_poc_first' ? 'selected' : '' ?>>POC primero</option>
+                <option value="type_project_first" <?= ($filters['sort_by'] ?? '') === 'type_project_first' ? 'selected' : '' ?>>Proyecto primero</option>
+            </select>
+        </label>
+        <label>
             Stage-gate
             <select name="project_stage">
                 <option value="">Todas</option>
@@ -996,14 +1015,6 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
         <label>
             Fin hasta
             <input type="date" name="end_date" value="<?= htmlspecialchars($filters['end_date'] ?? '') ?>">
-        </label>
-        <label>
-            Tipo de proyecto
-            <select name="project_type">
-                <option value="">Todos</option>
-                <option value="proyecto" <?= ($filters['project_type'] ?? '') === 'proyecto' ? 'selected' : '' ?>>Proyecto</option>
-                <option value="poc" <?= ($filters['project_type'] ?? '') === 'poc' ? 'selected' : '' ?>>POC</option>
-            </select>
         </label>
         <label>
             Facturación
@@ -1216,10 +1227,14 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <tr class="project-row" data-href="<?= htmlspecialchars($rowLink) ?>">
                                 <td class="project-cell">
                                     <div class="project-main">
-                                        <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                                        <div class="project-title-row">
+                                            <p class="project-title"><?= htmlspecialchars($project['name']) ?></p>
+                                            <?php if ($isPocProjectType((string) ($project['project_type'] ?? ''))): ?>
+                                                <span class="badge badge-poc">POC</span>
+                                            <?php endif; ?>
+                                        </div>
                                         <p class="project-client">Cliente: <?= htmlspecialchars($clientName) ?></p>
                                         <p class="project-client">PM: <?= htmlspecialchars($pmName) ?></p>
-                                        <span class="badge neutral"><?= htmlspecialchars($projectTypeBadgeLabel((string) ($project['project_type'] ?? ''))) ?></span>
                                     </div>
                                     <?php if ($previewText !== ''): ?>
                                         <a class="interactive-cell project-context-preview" data-no-row href="<?= htmlspecialchars($previewHref) ?>" title="<?= htmlspecialchars($previewLabel . ': ' . $previewText) ?>">
@@ -1385,7 +1400,9 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                             <div style="display:flex; flex-wrap:wrap; gap:6px;">
                                 <span class="badge neutral"><?= htmlspecialchars(ucfirst($methodology)) ?></span>
                                 <span class="badge neutral"><?= htmlspecialchars((string) ($project['project_stage'] ?? 'Discovery')) ?></span>
-                                <span class="badge neutral"><?= htmlspecialchars($projectTypeBadgeLabel((string) ($project['project_type'] ?? ''))) ?></span>
+                                <?php if ($isPocProjectType((string) ($project['project_type'] ?? ''))): ?>
+                                    <span class="badge badge-poc">POC</span>
+                                <?php endif; ?>
                                 <span class="badge <?= $statusPillClass((string) $project['status']) ?>"><?= htmlspecialchars($statusLabel) ?></span>
                                 <span class="badge <?= $riskClass ?>"><?= htmlspecialchars($healthLabel) ?></span>
                                 <?php $compactHealth = (int) (($project['health_score']['total_score'] ?? 0)); ?>
