@@ -24,6 +24,7 @@ class OutsourcingServicesRepository
 
         $conditions = [];
         $params = [];
+        $hasProjectTypeColumn = $this->db->columnExists('projects', 'project_type');
         $clientId = (int) ($filters['client_id'] ?? 0);
         if ($clientId > 0) {
             $conditions[] = 's.client_id = :client_id';
@@ -39,6 +40,19 @@ class OutsourcingServicesRepository
             $conditions[] = 's.project_id = :project_id';
             $params[':project_id'] = $projectId;
         }
+        if ($hasProjectTypeColumn) {
+            $projectType = strtolower(trim((string) ($filters['project_type'] ?? '')));
+            if ($projectType === 'poc') {
+                $conditions[] = 'p.project_type = :project_type_poc';
+                $params[':project_type_poc'] = 'poc';
+            } elseif ($projectType === 'proyecto') {
+                $conditions[] = '(s.project_id IS NULL OR p.project_type IS NULL OR p.project_type <> :project_type_poc)';
+                $params[':project_type_poc'] = 'poc';
+            } elseif (in_array($projectType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)) {
+                $conditions[] = 'p.project_type = :project_type';
+                $params[':project_type'] = $projectType;
+            }
+        }
         $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
 
         $services = $this->db->fetchAll(
@@ -46,7 +60,8 @@ class OutsourcingServicesRepository
                     s.service_status, s.observations, s.created_at, s.updated_at,
                     u.name AS talent_name, u.email AS talent_email,
                     c.name AS client_name,
-                    p.name AS project_name
+                    p.name AS project_name,
+                    ' . ($hasProjectTypeColumn ? 'COALESCE(p.project_type, "convencional")' : '"convencional"') . ' AS project_type
              FROM outsourcing_services s
              JOIN users u ON u.id = s.talent_id
              JOIN clients c ON c.id = s.client_id

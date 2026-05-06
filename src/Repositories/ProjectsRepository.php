@@ -85,8 +85,17 @@ class ProjectsRepository
         }
 
         if (!empty($filters['project_type']) && $hasTypeColumn) {
-            $conditions[] = 'p.project_type = :projectType';
-            $params[':projectType'] = trim((string) $filters['project_type']);
+            $normalizedType = strtolower(trim((string) $filters['project_type']));
+            if ($normalizedType === 'poc') {
+                $conditions[] = 'p.project_type = :projectType';
+                $params[':projectType'] = 'poc';
+            } elseif ($normalizedType === 'proyecto') {
+                $conditions[] = '(p.project_type IS NULL OR p.project_type <> :projectTypePoc)';
+                $params[':projectTypePoc'] = 'poc';
+            } elseif (in_array($normalizedType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)) {
+                $conditions[] = 'p.project_type = :projectType';
+                $params[':projectType'] = $normalizedType;
+            }
         }
 
         if (($filters['billable'] ?? '') === 'yes' && $hasBillableColumn) {

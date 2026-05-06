@@ -11,6 +11,12 @@ class ApprovalsController extends Controller
     {
         $user = $this->auth->user() ?? [];
         $userId = (int) ($user['id'] ?? 0);
+        $projectTypeFilter = strtolower(trim((string) ($_GET['project_type'] ?? '')));
+        if (!in_array($projectTypeFilter, ['', 'proyecto', 'poc'], true)) {
+            $projectTypeFilter = in_array($projectTypeFilter, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
         $canViewProjects = $this->auth->can('projects.view');
         $canAccessTimesheets = $this->auth->canAccessTimesheets();
         $canViewOwnTimesheetApprovals = $canAccessTimesheets || $this->auth->hasRole('Talento');
@@ -30,19 +36,19 @@ class ApprovalsController extends Controller
 
         $repo = new ProjectNodesRepository($this->db);
         $reviewQueue = $canViewProjects && $roleFlags['can_review']
-            ? $repo->inboxDocumentsForUser('en_revision', 'reviewer_id', $userId)
+            ? $repo->inboxDocumentsForUser('en_revision', 'reviewer_id', $userId, $projectTypeFilter)
             : [];
         $validationQueue = $canViewProjects && $roleFlags['can_validate']
-            ? $repo->inboxDocumentsForUser('en_validacion', 'validator_id', $userId)
+            ? $repo->inboxDocumentsForUser('en_validacion', 'validator_id', $userId, $projectTypeFilter)
             : [];
         $approvalQueue = $canViewProjects && $roleFlags['can_approve']
-            ? $repo->inboxDocumentsForUser('en_aprobacion', 'approver_id', $userId)
+            ? $repo->inboxDocumentsForUser('en_aprobacion', 'approver_id', $userId, $projectTypeFilter)
             : [];
 
         $dispatchQueue = [];
         if ($canViewProjects && $this->auth->can('projects.manage')) {
-            $reviewed = $repo->inboxDocumentsByStatus('revisado');
-            $validated = $repo->inboxDocumentsByStatus('validado');
+            $reviewed = $repo->inboxDocumentsByStatus('revisado', $projectTypeFilter);
+            $validated = $repo->inboxDocumentsByStatus('validado', $projectTypeFilter);
             $dispatchQueue = [
                 'send_validation' => array_values(array_filter($reviewed, static fn (array $doc): bool => !empty($doc['validator_id']))),
                 'send_approval' => array_values(array_filter($validated, static fn (array $doc): bool => !empty($doc['approver_id']))),
@@ -73,6 +79,7 @@ class ApprovalsController extends Controller
 
         $this->render('approvals/index', [
             'title' => 'Bandeja de Aprobaciones',
+            'filters' => ['project_type' => $projectTypeFilter],
             'reviewQueue' => $reviewQueue,
             'validationQueue' => $validationQueue,
             'approvalQueue' => $approvalQueue,

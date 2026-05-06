@@ -8,6 +8,10 @@ $projectRanking = is_array($projectRanking ?? null) ? $projectRanking : [];
 $teamCapacity = is_array($teamCapacity ?? null) ? $teamCapacity : ['rows' => [], 'talents_without_report' => 0];
 $teamRows = is_array($teamCapacity['rows'] ?? null) ? $teamCapacity['rows'] : [];
 $activeAlert = (string) ($filters['alert'] ?? '');
+$activeProjectType = (string) ($filters['project_type'] ?? '');
+$projectTypeLabel = static function (?string $projectType): string {
+    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
+};
 
 $currencyFormatter = static function (float $amount, string $currency): string {
     return $currency . ' ' . number_format($amount, 2, ',', '.');
@@ -287,6 +291,16 @@ $truncateText = static function (string $text, int $width = 70): string {
                     <?php endforeach; ?>
                 </select>
             </label>
+            <label>Tipo de proyecto
+                <select name="project_type">
+                    <?php foreach (($filterOptions['project_types'] ?? []) as $type): ?>
+                        <?php $typeCode = (string) ($type['code'] ?? ''); ?>
+                        <option value="<?= htmlspecialchars($typeCode) ?>" <?= $activeProjectType === $typeCode ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string) ($type['label'] ?? 'Todos')) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
             <label>Área
                 <select name="area">
                     <option value="">Todas</option>
@@ -407,6 +421,7 @@ $truncateText = static function (string $text, int $width = 70): string {
                             data-billing-pending="<?= !empty($flags['billing_pending']) ? '1' : '0' ?>">
                             <td title="<?= htmlspecialchars((string) ($row['name'] ?? '')) ?>">
                                 <strong><?= htmlspecialchars((string) ($row['name'] ?? '')) ?></strong>
+                                <div><span class="tag"><?= htmlspecialchars($projectTypeLabel((string) ($row['project_type'] ?? ''))) ?></span></div>
                                 <div class="dc-subtitle"><?= htmlspecialchars((string) ($row['area_code'] ?? '')) ?></div>
                             </td>
                             <td>

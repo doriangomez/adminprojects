@@ -664,7 +664,7 @@ class ProjectNodesRepository
         ];
     }
 
-    public function inboxDocumentsForUser(string $status, string $roleColumn, int $userId): array
+    public function inboxDocumentsForUser(string $status, string $roleColumn, int $userId, ?string $projectType = null): array
     {
         $allowedColumns = ['reviewer_id', 'validator_id', 'approver_id'];
         if (!in_array($roleColumn, $allowedColumns, true)) {
@@ -677,20 +677,37 @@ class ProjectNodesRepository
         ], [
             ':status' => $status,
             ':user_id' => $userId,
-        ]);
+        ], $projectType);
     }
 
-    public function inboxDocumentsByStatus(string $status): array
+    public function inboxDocumentsByStatus(string $status, ?string $projectType = null): array
     {
         return $this->fetchInboxDocuments(
             ['pn.document_status = :status'],
-            [':status' => $status]
+            [':status' => $status],
+            $projectType
         );
     }
 
-    private function fetchInboxDocuments(array $conditions, array $params): array
+    private function fetchInboxDocuments(array $conditions, array $params, ?string $projectType = null): array
     {
         $this->assertTable();
+
+        $normalizedProjectType = strtolower(trim((string) $projectType));
+        if (!in_array($normalizedProjectType, ['', 'proyecto', 'poc'], true)) {
+            $normalizedProjectType = in_array($normalizedProjectType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
+        if ($normalizedProjectType !== '' && $this->db->columnExists('projects', 'project_type')) {
+            if ($normalizedProjectType === 'poc') {
+                $conditions[] = 'p.project_type = :projectTypePoc';
+                $params[':projectTypePoc'] = 'poc';
+            } elseif ($normalizedProjectType === 'proyecto') {
+                $conditions[] = '(p.project_type IS NULL OR p.project_type <> :projectTypePoc)';
+                $params[':projectTypePoc'] = 'poc';
+            }
+        }
 
         $whereClause = 'WHERE pn.node_type = "file"';
         if (!empty($conditions)) {
@@ -718,6 +735,7 @@ class ProjectNodesRepository
                     pn.approved_by,
                     pn.approved_at,
                     p.name AS project_name,
+                    ' . ($this->db->columnExists('projects', 'project_type') ? 'COALESCE(p.project_type, "convencional")' : '"convencional"') . ' AS project_type,
                     parent.title AS subphase_name,
                     parent.code AS subphase_code,
                     phase.title AS phase_name,
@@ -765,6 +783,7 @@ class ProjectNodesRepository
                 'approved_by' => $row['approved_by'] !== null ? (int) $row['approved_by'] : null,
                 'approved_at' => $row['approved_at'] ?? null,
                 'project_name' => $row['project_name'] ?? '',
+                'project_type' => $row['project_type'] ?? 'convencional',
                 'subphase_name' => $row['subphase_name'] ?? null,
                 'subphase_code' => $row['subphase_code'] ?? null,
                 'phase_name' => $row['phase_name'] ?? null,

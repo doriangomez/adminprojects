@@ -36,6 +36,9 @@ $serviceStatusBadge = static function (?string $status): string {
         default => 'badge-muted',
     };
 };
+$projectTypeLabel = static function (?string $projectType): string {
+    return strtolower(trim((string) $projectType)) === 'poc' ? 'POC' : 'Proyecto';
+};
 $formatDate = static function (?string $value): string {
     if (!$value) {
         return 'Sin registro';
@@ -211,6 +214,13 @@ $riskServicesCount = count(array_filter(
                     <?php endforeach; ?>
                 </select>
             </label>
+            <label>Tipo de proyecto
+                <select name="project_type">
+                    <option value="" <?= (($filters['project_type'] ?? '') === '') ? 'selected' : '' ?>>Todos</option>
+                    <option value="proyecto" <?= (($filters['project_type'] ?? '') === 'proyecto') ? 'selected' : '' ?>>Proyecto</option>
+                    <option value="poc" <?= (($filters['project_type'] ?? '') === 'poc') ? 'selected' : '' ?>>POC</option>
+                </select>
+            </label>
             <label>Estado del servicio
                 <select name="service_health">
                     <option value="">Todos</option>
@@ -273,6 +283,10 @@ $riskServicesCount = count(array_filter(
                                                 </svg>
                                             </span>
                                             <?= htmlspecialchars($healthLabels[$service['current_health'] ?? ''] ?? 'Sin seguimiento') ?>
+                                        </span>
+                                        <span class="service-badge badge-muted">
+                                            <span class="badge-icon" aria-hidden="true">🏷️</span>
+                                            <?= htmlspecialchars($projectTypeLabel((string) ($service['project_type'] ?? ''))) ?>
                                         </span>
                                     </div>
                                 </div>

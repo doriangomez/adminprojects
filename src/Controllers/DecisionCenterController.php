@@ -136,12 +136,20 @@ class DecisionCenterController extends Controller
 
     private function filtersFromRequest(): array
     {
+        $projectType = strtolower(trim((string) ($_GET['project_type'] ?? '')));
+        if (!in_array($projectType, ['', 'proyecto', 'poc'], true)) {
+            $projectType = in_array($projectType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
+
         return [
             'from' => trim((string) ($_GET['from'] ?? '')),
             'to' => trim((string) ($_GET['to'] ?? '')),
             'client_id' => (int) ($_GET['client_id'] ?? 0),
             'pm_id' => (int) ($_GET['pm_id'] ?? 0),
             'status' => trim((string) ($_GET['status'] ?? '')),
+            'project_type' => $projectType,
             'alert' => trim((string) ($_GET['alert'] ?? '')),
             'area' => trim((string) ($_GET['area'] ?? '')),
             'role' => trim((string) ($_GET['role'] ?? '')),
@@ -214,6 +222,11 @@ class DecisionCenterController extends Controller
             'clients' => $clients,
             'pms' => $pms,
             'statuses' => $projectStatuses,
+            'project_types' => [
+                ['code' => '', 'label' => 'Todos'],
+                ['code' => 'proyecto', 'label' => 'Proyecto'],
+                ['code' => 'poc', 'label' => 'POC'],
+            ],
             'areas' => $areas,
             'roles' => $roles,
         ];

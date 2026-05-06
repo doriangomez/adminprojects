@@ -533,6 +533,16 @@ class DecisionCenterService
             $conditions[] = 'COALESCE(c.area_code, "") = :area';
             $params[':area'] = (string) $normalized['area'];
         }
+        if ((string) ($normalized['project_type'] ?? '') !== '' && $this->db->columnExists('projects', 'project_type')) {
+            $projectType = strtolower(trim((string) $normalized['project_type']));
+            if ($projectType === 'poc') {
+                $conditions[] = 'p.project_type = :project_type_poc';
+                $params[':project_type_poc'] = 'poc';
+            } elseif ($projectType === 'proyecto') {
+                $conditions[] = '(p.project_type IS NULL OR p.project_type <> :project_type_poc)';
+                $params[':project_type_poc'] = 'poc';
+            }
+        }
         if (!$this->isPrivileged($user) && $this->db->columnExists('projects', 'pm_id')) {
             $conditions[] = 'p.pm_id = :visibility_pm';
             $params[':visibility_pm'] = (int) ($user['id'] ?? 0);
@@ -631,6 +641,7 @@ class DecisionCenterService
                 p.updated_at,
                 p.' . $statusColumn . ' AS status,
                 p.' . $healthColumn . ' AS health,
+                ' . ($this->db->columnExists('projects', 'project_type') ? 'COALESCE(p.project_type, "convencional") AS project_type,' : '"convencional" AS project_type,') . '
                 ' . ($hasRiskLevelColumn ? 'p.risk_level' : 'NULL AS risk_level') . ',
                 ' . ($hasRiskScoreColumn ? 'p.risk_score' : 'NULL AS risk_score') . ',
                 c.name AS client_name,
@@ -722,6 +733,7 @@ class DecisionCenterService
                 'client_name' => (string) ($row['client_name'] ?? ''),
                 'pm_name' => (string) ($row['pm_name'] ?? ''),
                 'area_code' => (string) ($row['area_code'] ?? ''),
+                'project_type' => (string) ($row['project_type'] ?? 'convencional'),
                 'status' => (string) ($row['status'] ?? ''),
                 'health' => (string) ($row['health'] ?? ''),
                 'risk_level' => (string) ($row['risk_level'] ?? ''),
@@ -852,6 +864,16 @@ class DecisionCenterService
         if ((int) ($normalized['client_id'] ?? 0) > 0) {
             $conditions[] = 'p.client_id = :client_id';
             $params[':client_id'] = (int) $normalized['client_id'];
+        }
+        if ((string) ($normalized['project_type'] ?? '') !== '' && $this->db->columnExists('projects', 'project_type')) {
+            $projectType = strtolower(trim((string) $normalized['project_type']));
+            if ($projectType === 'poc') {
+                $conditions[] = 'p.project_type = :project_type_poc';
+                $params[':project_type_poc'] = 'poc';
+            } elseif ($projectType === 'proyecto') {
+                $conditions[] = '(p.project_type IS NULL OR p.project_type <> :project_type_poc)';
+                $params[':project_type_poc'] = 'poc';
+            }
         }
 
         $whereClause = 'WHERE ' . implode(' AND ', $conditions);
@@ -1198,12 +1220,20 @@ class DecisionCenterService
             [$from, $to] = [$to, $from];
         }
 
+        $projectType = strtolower(trim((string) ($filters['project_type'] ?? '')));
+        if (!in_array($projectType, ['', 'proyecto', 'poc'], true)) {
+            $projectType = in_array($projectType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
+
         return [
             'from' => $from,
             'to' => $to,
             'client_id' => max(0, (int) ($filters['client_id'] ?? 0)),
             'pm_id' => max(0, (int) ($filters['pm_id'] ?? 0)),
             'status' => trim((string) ($filters['status'] ?? '')),
+            'project_type' => $projectType,
             'alert' => trim((string) ($filters['alert'] ?? '')),
             'area' => trim((string) ($filters['area'] ?? '')),
             'role' => trim((string) ($filters['role'] ?? '')),
@@ -1256,6 +1286,7 @@ class DecisionCenterService
             'client_id' => $normalized['client_id'],
             'pm_id' => $normalized['pm_id'],
             'status' => $normalized['status'],
+            'project_type' => $normalized['project_type'],
             'area' => $normalized['area'],
             'role' => $normalized['role'],
             'user_id' => (int) ($user['id'] ?? 0),

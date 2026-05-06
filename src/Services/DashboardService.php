@@ -10,9 +10,9 @@ class DashboardService
     {
     }
 
-    public function executiveSummary(array $user): array
+    public function executiveSummary(array $user, ?string $projectType = null): array
     {
-        [$whereProjects, $params] = $this->visibilityForUser($user);
+        [$whereProjects, $params] = $this->visibilityForUser($user, $projectType);
         $statusColumn = $this->projectStatusColumn();
         $healthColumn = $this->projectHealthColumn();
 
@@ -77,13 +77,14 @@ class DashboardService
             'unsuccessful' => 0,
         ];
         if ($this->db->columnExists('projects', 'project_type')) {
+            $pocStatusExpr = $statusColumn !== null ? "p.{$statusColumn}" : "''";
             $hasPocResultColumn = $this->db->columnExists('projects', 'resultado_poc');
             $pocRows = $this->db->fetchAll(
-                "SELECT p.status, " . ($hasPocResultColumn ? "p.resultado_poc" : "NULL AS resultado_poc") . "
+                "SELECT {$pocStatusExpr} AS status, " . ($hasPocResultColumn ? "p.resultado_poc" : "NULL AS resultado_poc") . "
                  FROM projects p
                  JOIN clients c ON c.id = p.client_id
-                 {$projectsCondition}
-                 AND p.project_type = 'poc'" . ($activeFilter !== '' ? str_replace(' AND p.', ' AND p.', $activeFilter) : ''),
+                 {$projectsCondition}{$activeFilter}
+                 AND p.project_type = 'poc'",
                 $params
             );
 
@@ -107,7 +108,7 @@ class DashboardService
 
         $outsourcingTotals = ['total' => 0];
         if ($this->db->tableExists('outsourcing_services')) {
-            [$outsourcingWhere, $outsourcingParams] = $this->outsourcingVisibility($user);
+            [$outsourcingWhere, $outsourcingParams] = $this->outsourcingVisibility($user, $projectType);
             $outsourcingTotals = $this->db->fetchOne(
                 "SELECT COUNT(*) AS total
                  FROM outsourcing_services s
@@ -136,9 +137,9 @@ class DashboardService
         ];
     }
 
-    public function projectHealth(array $user): array
+    public function projectHealth(array $user, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $statusColumn = $this->projectStatusColumn();
         $healthColumn = $this->projectHealthColumn();
 
@@ -227,9 +228,9 @@ class DashboardService
         ];
     }
 
-    public function executiveIntelligence(array $user): array
+    public function executiveIntelligence(array $user, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
         $statusColumn = $this->projectStatusColumn();
         $healthColumn = $this->projectHealthColumn();
@@ -448,7 +449,7 @@ class DashboardService
 
         $scoreGeneral = (float) ($scoreMovement['current'] ?? 0);
         if ($scoreGeneral <= 0) {
-            $scoreGeneral = (float) ($this->portfolioHealthAverage($user)['average_score'] ?? 0);
+            $scoreGeneral = (float) ($this->portfolioHealthAverage($user, $projectType)['average_score'] ?? 0);
         }
 
         $activeBlockers = (int) round((float) ($blockerMovement['current'] ?? 0));
@@ -654,9 +655,9 @@ class DashboardService
 
 
 
-    public function portfolioHealthAverage(array $user): array
+    public function portfolioHealthAverage(array $user, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         $rows = $this->db->fetchAll(
@@ -691,13 +692,13 @@ class DashboardService
     }
 
 
-    public function portfolioHealthInsights(array $user): array
+    public function portfolioHealthInsights(array $user, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         $rows = $this->db->fetchAll(
-            "SELECT p.id, p.name, c.name AS client, p.updated_at, p.budget
+            "SELECT p.id, p.name, c.name AS client, p.updated_at, p.budget, " . ($this->db->columnExists('projects', 'project_type') ? "p.project_type" : "'convencional' AS project_type") . "
              FROM projects p
              JOIN clients c ON c.id = p.client_id
              {$projectsCondition}",
@@ -740,6 +741,7 @@ class DashboardService
                 'blockers_open' => $blockersOpen,
                 'billing' => (float) ($row['budget'] ?? 0),
                 'updated_at' => (string) ($row['updated_at'] ?? ''),
+                'project_type' => (string) ($row['project_type'] ?? 'convencional'),
             ];
         }
 
@@ -779,9 +781,9 @@ class DashboardService
         ];
     }
 
-    public function timesheetOverview(array $user): array
+    public function timesheetOverview(array $user, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         $period = $this->weeklyPeriod();
@@ -950,7 +952,7 @@ class DashboardService
         ];
     }
 
-    public function outsourcingOverview(array $user): array
+    public function outsourcingOverview(array $user, ?string $projectType = null): array
     {
         $activeServices = 0;
         $openFollowups = 0;
@@ -958,7 +960,7 @@ class DashboardService
         $lastFollowups = [];
 
         if ($this->db->tableExists('outsourcing_services')) {
-            [$where, $params] = $this->outsourcingVisibility($user);
+            [$where, $params] = $this->outsourcingVisibility($user, $projectType);
 
             $activeRow = $this->db->fetchOne(
                 "SELECT COUNT(*) AS total
@@ -1032,7 +1034,7 @@ class DashboardService
         ];
     }
 
-    public function requirementsOverview(array $user): array
+    public function requirementsOverview(array $user, ?string $projectType = null): array
     {
         $filters = [
             'start_date' => $_GET['start_date'] ?? date('Y-m-01'),
@@ -1046,6 +1048,13 @@ class DashboardService
         try {
             $repo = new RequirementsRepository($this->db);
             $projects = $repo->indicatorByProject($filters);
+            $visibleProjectIds = $this->projectIdsVisibleByType($user, $projectType);
+            if (is_array($visibleProjectIds)) {
+                $projects = array_values(array_filter(
+                    $projects,
+                    static fn (array $project): bool => isset($visibleProjectIds[(int) ($project['project_id'] ?? 0)])
+                ));
+            }
             usort($projects, static fn (array $a, array $b): int => (float) ($b['indicator'] ?? -1) <=> (float) ($a['indicator'] ?? -1));
 
             foreach ($projects as $project) {
@@ -1063,9 +1072,9 @@ class DashboardService
         ];
     }
 
-    public function governanceOverview(array $user): array
+    public function governanceOverview(array $user, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         $documentTotals = ['revision' => 0, 'validacion' => 0, 'aprobacion' => 0];
@@ -1124,7 +1133,7 @@ class DashboardService
 
         $overdueFollowups = 0;
         if ($this->db->tableExists('outsourcing_followups')) {
-            [$outsourcingWhere, $outsourcingParams] = $this->outsourcingVisibility($user);
+            [$outsourcingWhere, $outsourcingParams] = $this->outsourcingVisibility($user, $projectType);
             $row = $this->db->fetchOne(
                 "SELECT COUNT(*) AS total
                  FROM outsourcing_followups f
@@ -1148,7 +1157,7 @@ class DashboardService
         ];
     }
 
-    public function stoppersOverview(array $user): array
+    public function stoppersOverview(array $user, ?string $projectType = null): array
     {
         if (!$this->db->tableExists('project_stoppers')) {
             return [
@@ -1162,7 +1171,7 @@ class DashboardService
             ];
         }
 
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         $topActive = $this->db->fetchAll(
@@ -1610,11 +1619,11 @@ class DashboardService
         ];
     }
 
-    public function alerts(array $user): array
+    public function alerts(array $user, ?string $projectType = null): array
     {
         $alerts = [];
 
-        $stale = $this->staleProjects($user, 3);
+        $stale = $this->staleProjects($user, 3, $projectType);
         foreach ($stale as $project) {
             $alerts[] = sprintf(
                 'Proyecto %s sin avance en 14 días (%s).',
@@ -1623,7 +1632,7 @@ class DashboardService
             );
         }
 
-        foreach ($this->redOutsourcingServices($user, 2) as $service) {
+        foreach ($this->redOutsourcingServices($user, 2, $projectType) as $service) {
             $alerts[] = sprintf(
                 'Servicio outsourcing %s en rojo (%s).',
                 $service['talent_name'] ?? 'sin talento',
@@ -1631,11 +1640,11 @@ class DashboardService
             );
         }
 
-        foreach ($this->talentsWithoutReport($user, 2) as $talent) {
+        foreach ($this->talentsWithoutReport($user, 2, $projectType) as $talent) {
             $alerts[] = sprintf('Talento %s no reporta horas esta semana.', $talent['name'] ?? 'sin nombre');
         }
 
-        foreach ($this->criticalDocumentsPending($user, 2) as $doc) {
+        foreach ($this->criticalDocumentsPending($user, 2, $projectType) as $doc) {
             $alerts[] = sprintf(
                 'Documento crítico %s sin aprobación (%s).',
                 $doc['title'] ?? 'sin título',
@@ -1650,9 +1659,9 @@ class DashboardService
         return $alerts;
     }
 
-    private function staleProjects(array $user, int $limit): array
+    private function staleProjects(array $user, int $limit, ?string $projectType = null): array
     {
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
         $statusColumn = $this->projectStatusColumn();
         $statusExpr = $statusColumn !== null ? "p.{$statusColumn}" : "''";
@@ -1671,13 +1680,13 @@ class DashboardService
         );
     }
 
-    private function redOutsourcingServices(array $user, int $limit): array
+    private function redOutsourcingServices(array $user, int $limit, ?string $projectType = null): array
     {
         if (!$this->db->tableExists('outsourcing_services') || !$this->db->tableExists('outsourcing_followups')) {
             return [];
         }
 
-        [$where, $params] = $this->outsourcingVisibility($user);
+        [$where, $params] = $this->outsourcingVisibility($user, $projectType);
 
         return $this->db->fetchAll(
             "SELECT s.id, u.name AS talent_name, c.name AS client
@@ -1699,13 +1708,13 @@ class DashboardService
         );
     }
 
-    private function talentsWithoutReport(array $user, int $limit): array
+    private function talentsWithoutReport(array $user, int $limit, ?string $projectType = null): array
     {
         if (!$this->db->tableExists('talents') || !$this->db->tableExists('tasks')) {
             return [];
         }
 
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
         $period = $this->weeklyPeriod();
 
@@ -1726,13 +1735,13 @@ class DashboardService
         );
     }
 
-    private function criticalDocumentsPending(array $user, int $limit): array
+    private function criticalDocumentsPending(array $user, int $limit, ?string $projectType = null): array
     {
         if (!$this->db->tableExists('project_nodes')) {
             return [];
         }
 
-        [$where, $params] = $this->visibilityForUser($user);
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
         $projectsCondition = $where ?: 'WHERE 1=1';
 
         return $this->db->fetchAll(
@@ -1749,30 +1758,92 @@ class DashboardService
         );
     }
 
-    private function visibilityForUser(array $user): array
+    private function visibilityForUser(array $user, ?string $projectType = null): array
     {
-        if ($this->isPrivileged($user)) {
-            return ['', []];
+        $conditions = [];
+        $params = [];
+
+        if (!$this->isPrivileged($user) && $this->db->columnExists('projects', 'pm_id')) {
+            $conditions[] = 'p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
         }
 
-        if (!$this->db->columnExists('projects', 'pm_id')) {
-            return ['', []];
+        $normalizedType = $this->normalizeProjectTypeFilter($projectType);
+        if ($normalizedType !== '' && $this->db->columnExists('projects', 'project_type')) {
+            if ($normalizedType === 'poc') {
+                $conditions[] = 'p.project_type = :projectTypePoc';
+                $params[':projectTypePoc'] = 'poc';
+            } elseif ($normalizedType === 'proyecto') {
+                $conditions[] = '(p.project_type IS NULL OR p.project_type <> :projectTypePoc)';
+                $params[':projectTypePoc'] = 'poc';
+            }
         }
 
-        return ['WHERE p.pm_id = :pmId', [':pmId' => $user['id']]];
+        return [$conditions !== [] ? ('WHERE ' . implode(' AND ', $conditions)) : '', $params];
     }
 
-    private function outsourcingVisibility(array $user): array
+    private function outsourcingVisibility(array $user, ?string $projectType = null): array
     {
-        if ($this->isPrivileged($user)) {
-            return ['WHERE 1=1', []];
+        $conditions = ['1=1'];
+        $params = [];
+
+        if (!$this->isPrivileged($user) && $this->db->columnExists('projects', 'pm_id')) {
+            $conditions[] = 'p.pm_id = :pmId';
+            $params[':pmId'] = $user['id'];
         }
 
-        if (!$this->db->columnExists('projects', 'pm_id')) {
-            return ['WHERE 1=1', []];
+        $normalizedType = $this->normalizeProjectTypeFilter($projectType);
+        if ($normalizedType !== '' && $this->db->columnExists('projects', 'project_type')) {
+            if ($normalizedType === 'poc') {
+                $conditions[] = 'p.project_type = :projectTypePoc';
+                $params[':projectTypePoc'] = 'poc';
+            } elseif ($normalizedType === 'proyecto') {
+                $conditions[] = '(p.id IS NULL OR p.project_type IS NULL OR p.project_type <> :projectTypePoc)';
+                $params[':projectTypePoc'] = 'poc';
+            }
         }
 
-        return ['WHERE p.pm_id = :pmId', [':pmId' => $user['id']]];
+        return ['WHERE ' . implode(' AND ', $conditions), $params];
+    }
+
+    private function normalizeProjectTypeFilter(?string $projectType): string
+    {
+        $normalized = strtolower(trim((string) $projectType));
+        if (in_array($normalized, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)) {
+            return 'proyecto';
+        }
+
+        return in_array($normalized, ['', 'proyecto', 'poc'], true) ? $normalized : '';
+    }
+
+    /**
+     * @return array<int, bool>|null
+     */
+    private function projectIdsVisibleByType(array $user, ?string $projectType): ?array
+    {
+        if ($this->normalizeProjectTypeFilter($projectType) === '') {
+            return null;
+        }
+
+        [$where, $params] = $this->visibilityForUser($user, $projectType);
+        $projectsCondition = $where ?: 'WHERE 1=1';
+        $rows = $this->db->fetchAll(
+            "SELECT p.id
+             FROM projects p
+             JOIN clients c ON c.id = p.client_id
+             {$projectsCondition}",
+            $params
+        );
+
+        $idMap = [];
+        foreach ($rows as $row) {
+            $projectId = (int) ($row['id'] ?? 0);
+            if ($projectId > 0) {
+                $idMap[$projectId] = true;
+            }
+        }
+
+        return $idMap;
     }
 
     private function projectStatusColumn(): ?string

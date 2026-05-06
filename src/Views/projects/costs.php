@@ -9,6 +9,7 @@ $realHoursTotal = round((float) ($realHoursTotal ?? ($timesheetHours + $manualHo
 $manualHours = is_array($manualHours ?? null) ? $manualHours : [];
 $manualHoursCanManage = !empty($manualHoursCanManage);
 $projectId = (int) ($project['id'] ?? 0);
+$projectTypeLabel = strtolower(trim((string) ($project['project_type'] ?? ''))) === 'poc' ? 'POC' : 'Proyecto';
 $feedbackError = trim((string) ($_GET['error'] ?? ''));
 $feedbackMessage = '';
 if (isset($_GET['manual_hours_saved'])) {
@@ -27,6 +28,7 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
         <div class="project-title-block">
             <p class="eyebrow">Costos</p>
             <h2><?= htmlspecialchars($project['name'] ?? '') ?></h2>
+            <small class="status-badge status-muted"><?= htmlspecialchars($projectTypeLabel) ?></small>
             <small class="section-muted">Seguimiento financiero para control operativo.</small>
         </div>
         <div class="project-actions">
@@ -198,6 +200,8 @@ $diffLabel = $diff >= 0 ? 'A favor' : 'Sobrecosto';
     .action-btn-small { padding:6px 8px; font-size:12px; }
     .action-btn-danger { border-color: var(--danger); color: var(--danger); }
     .action-btn-icon { min-width:34px; justify-content:center; padding:6px; }
+    .status-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; border:1px solid var(--border); }
+    .status-muted { background:color-mix(in srgb, var(--surface) 70%, var(--background) 30%); color:var(--text-secondary); }
 
     .costs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
     .cost-card { border:1px solid var(--border); padding:14px; border-radius:14px; background: var(--surface); display:flex; flex-direction:column; gap:6px; }

@@ -1265,13 +1265,22 @@ class TimesheetsRepository
             return;
         }
 
-        $allowed = ['convencional', 'poc', 'scrum', 'hibrido', 'outsourcing'];
-        if (!in_array($normalized, $allowed, true)) {
+        if ($normalized === 'proyecto') {
+            $where[] = '(p.project_type IS NULL OR p.project_type <> :project_type_poc)';
+            $params[':project_type_poc'] = 'poc';
             return;
         }
 
-        $where[] = 'p.project_type = :project_type';
-        $params[':project_type'] = $normalized;
+        if ($normalized === 'poc') {
+            $where[] = 'p.project_type = :project_type';
+            $params[':project_type'] = 'poc';
+            return;
+        }
+
+        if (in_array($normalized, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)) {
+            $where[] = 'p.project_type = :project_type';
+            $params[':project_type'] = $normalized;
+        }
     }
 
     public function executiveSummary(array $user, \DateTimeImmutable $periodStart, \DateTimeImmutable $periodEnd, ?int $projectId = null, ?string $projectType = null): array
@@ -1852,7 +1861,13 @@ class TimesheetsRepository
         $params = [];
         if ($this->db->columnExists('projects', 'project_type')) {
             $normalizedType = strtolower(trim((string) $projectType));
-            if (in_array($normalizedType, ['convencional', 'poc', 'scrum', 'hibrido', 'outsourcing'], true)) {
+            if ($normalizedType === 'proyecto') {
+                $condition = ($condition !== '' ? $condition . ' AND ' : '') . '(p.project_type IS NULL OR p.project_type <> :project_type_poc)';
+                $params[':project_type_poc'] = 'poc';
+            } elseif ($normalizedType === 'poc') {
+                $condition = ($condition !== '' ? $condition . ' AND ' : '') . 'p.project_type = :project_type';
+                $params[':project_type'] = $normalizedType;
+            } elseif (in_array($normalizedType, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)) {
                 $condition = ($condition !== '' ? $condition . ' AND ' : '') . 'p.project_type = :project_type';
                 $params[':project_type'] = $normalizedType;
             }

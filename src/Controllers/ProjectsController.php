@@ -92,6 +92,12 @@ class ProjectsController extends Controller
     {
         $this->requirePermission('projects.view');
         $user = $this->auth->user() ?? [];
+        $projectTypeFilter = strtolower(trim((string) ($_GET['project_type'] ?? '')));
+        if (!in_array($projectTypeFilter, ['', 'proyecto', 'poc'], true)) {
+            $projectTypeFilter = in_array($projectTypeFilter, ['convencional', 'scrum', 'hibrido', 'outsourcing'], true)
+                ? 'proyecto'
+                : '';
+        }
 
         $filters = [
             'client_id' => isset($_GET['client_id']) ? (int) $_GET['client_id'] : null,
@@ -99,7 +105,7 @@ class ProjectsController extends Controller
             'status' => trim((string) ($_GET['status'] ?? '')),
             'project_stage' => trim((string) ($_GET['project_stage'] ?? '')),
             'methodology' => trim((string) ($_GET['methodology'] ?? '')),
-            'project_type' => trim((string) ($_GET['project_type'] ?? '')),
+            'project_type' => $projectTypeFilter,
             'billable' => trim((string) ($_GET['billable'] ?? '')),
             'start_date' => $_GET['start_date'] ?? '',
             'end_date' => $_GET['end_date'] ?? '',
