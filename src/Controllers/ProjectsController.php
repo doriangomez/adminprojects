@@ -4250,10 +4250,7 @@ class ProjectsController extends Controller
         $riskScore = $riskAssessment['score'];
         $riskLevel = $this->riskLevelFromScore($riskScore);
 
-        $endDate = $_POST['end_date'] ?? ($current['end_date'] ?? null);
-        if ($projectType === 'scrum') {
-            $endDate = null;
-        }
+        $endDate = $this->nullableDate($_POST['end_date'] ?? ($current['end_date'] ?? null));
 
         $scope = trim((string) ($_POST['scope'] ?? ($current['scope'] ?? '')));
         if ($isPoc) {
@@ -4315,6 +4312,15 @@ class ProjectsController extends Controller
             }
         }
 
+        $startDate = $this->nullableDate($_POST['start_date'] ?? ($current['start_date'] ?? null));
+        if ($startDate === null) {
+            throw new \InvalidArgumentException('Debe seleccionar una fecha inicio.');
+        }
+        if ($endDate === null) {
+            throw new \InvalidArgumentException('Debe seleccionar una fecha fin.');
+        }
+        $this->validateDateRange($startDate, $endDate);
+
         return [
             'name' => trim($_POST['name'] ?? (string) ($current['name'] ?? '')),
             'status' => $status,
@@ -4328,7 +4334,7 @@ class ProjectsController extends Controller
             'planned_hours' => (float) ($_POST['planned_hours'] ?? ($current['planned_hours'] ?? 0)),
             'actual_hours' => (float) ($_POST['actual_hours'] ?? ($current['actual_hours'] ?? 0)),
             'progress' => (float) ($current['progress'] ?? 0),
-            'start_date' => $_POST['start_date'] ?? ($current['start_date'] ?? null),
+            'start_date' => $startDate,
             'end_date' => $endDate,
             'methodology' => $methodology,
             'phase' => $phase,
@@ -4949,13 +4955,9 @@ class ProjectsController extends Controller
             }
         }
 
-        if ($projectType === 'convencional') {
-            $endDate = $this->nullableDate($_POST['end_date'] ?? null);
-            if ($endDate === null) {
-                throw new \InvalidArgumentException('La fecha de fin es obligatoria para proyectos convencionales.');
-            }
-        } else {
-            $endDate = $this->nullableDate($_POST['end_date'] ?? null);
+        $endDate = $this->nullableDate($_POST['end_date'] ?? null);
+        if ($endDate === null) {
+            throw new \InvalidArgumentException('Debe seleccionar una fecha fin.');
         }
 
         $budget = $this->validatedNonNegativeFloat($_POST['budget'] ?? null, 'El presupuesto');
@@ -4977,7 +4979,7 @@ class ProjectsController extends Controller
 
         $startDate = $this->nullableDate($_POST['start_date'] ?? null);
         if ($startDate === null) {
-            throw new \InvalidArgumentException('La fecha de inicio del proyecto es obligatoria.');
+            throw new \InvalidArgumentException('Debe seleccionar una fecha inicio.');
         }
         $this->validateDateRange($startDate, $endDate);
 
@@ -5299,7 +5301,7 @@ class ProjectsController extends Controller
         }
 
         if ($endDate < $startDate) {
-            throw new \InvalidArgumentException('La fecha de fin no puede ser menor a la fecha de inicio.');
+            throw new \InvalidArgumentException('La fecha final no puede ser menor a la inicial.');
         }
     }
 

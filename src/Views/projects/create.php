@@ -175,8 +175,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <summary class="accordion-summary">
                     <div>
                         <p class="step-block__eyebrow">Datos generales</p>
-                        <strong class="step-block__title">Obligatorios para crear el proyecto</strong>
-                        <p class="step-block__help">Completa lo mínimo para habilitar el avance.</p>
+                        <strong class="step-block__title">Información básica</strong>
+                        <p class="step-block__help">Identifica el proyecto, cliente, responsable y fechas obligatorias.</p>
                     </div>
                     <span class="pill soft-amber">Obligatorio</span>
                 </summary>
@@ -226,8 +226,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🧩</span>Tipo de proyecto</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <select name="project_type" id="projectTypeSelect" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <select name="project_type" id="projectTypeSelect" required <?= $canCreateProject ? '' : 'disabled' ?>>
                             <option value="convencional" <?= $selectedProjectType === 'convencional' ? 'selected' : '' ?>>Convencional</option>
                             <option value="scrum" <?= $selectedProjectType === 'scrum' ? 'selected' : '' ?>>Scrum</option>
                             <option value="hibrido" <?= $selectedProjectType === 'hibrido' ? 'selected' : '' ?>>Híbrido</option>
@@ -276,8 +277,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     <label class="input" data-role="end-date">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🏁</span>Fin</span>
+                            <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
-                        <input type="date" name="end_date" id="endDateInput" min="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" <?= $canCreateProject ? '' : 'disabled' ?>>
+                        <input type="date" name="end_date" id="endDateInput" min="<?= htmlspecialchars((string) $fieldValue('start_date', '')) ?>" value="<?= htmlspecialchars((string) $fieldValue('end_date', '')) ?>" required <?= $canCreateProject ? '' : 'disabled' ?>>
                     </label>
                     </section>
                 </div>
@@ -287,10 +289,10 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 <summary class="accordion-summary">
                     <div>
                         <p class="step-block__eyebrow">Metodología</p>
-                        <strong class="step-block__title">Contexto de diseño (ISO 9001 8.3)</strong>
-                        <p class="step-block__help">Define alcance y entradas para evitar reprocesos.</p>
+                        <strong class="step-block__title">Diseño y contexto ejecutivo</strong>
+                        <p class="step-block__help">Define alcance, entradas y participación sin saturar la pantalla.</p>
                     </div>
-                    <span class="pill soft-blue">Recomendado</span>
+                    <span class="pill soft-slate">Contexto</span>
                 </summary>
                 <div class="accordion-body">
                     <section class="grid step-block__grid">
@@ -308,6 +310,21 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                         </span>
                         <textarea name="design_inputs" rows="3" placeholder="Requerimientos, insumos y lineamientos iniciales" required data-poc-optional-field="1" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('design_inputs', '')) ?></textarea>
                     </label>
+                    </section>
+                </div>
+            </details>
+
+            <details class="accordion step-block step-block--poc" data-poc-section hidden open>
+                <summary class="accordion-summary">
+                    <div>
+                        <p class="step-block__eyebrow">POC</p>
+                        <strong class="step-block__title">Datos específicos de prueba de concepto</strong>
+                        <p class="step-block__help">Este bloque aparece solo cuando el tipo de proyecto es POC.</p>
+                    </div>
+                    <span class="pill soft-purple">Solo POC</span>
+                </summary>
+                <div class="accordion-body">
+                    <section class="grid step-block__grid">
                     <label class="input" data-poc-only hidden>
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🙋</span>Solicitante de la POC</span>
@@ -363,6 +380,20 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                             <option value="no_exitosa" <?= (string) $fieldValue('resultado_poc', '') === 'no_exitosa' ? 'selected' : '' ?>>No exitosa</option>
                         </select>
                     </label>
+                    </section>
+                </div>
+            </details>
+
+            <details class="accordion step-block step-block--method" open>
+                <summary class="accordion-summary">
+                    <div>
+                        <p class="step-block__eyebrow">Gobierno</p>
+                        <strong class="step-block__title">Participación del cliente</strong>
+                        <p class="step-block__help">Define el nivel de involucramiento esperado.</p>
+                    </div>
+                </summary>
+                <div class="accordion-body">
+                    <section class="grid step-block__grid">
                     <label class="input">
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🤝</span>Participación del cliente</span>
@@ -577,8 +608,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .step-block__title { display:block; font-size:16px; color: var(--text-primary); }
     .step-block__help { margin:4px 0 0 0; font-size:13px; color: var(--text-secondary); }
     .step-block--required { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
-    .step-block--recommended { background: color-mix(in srgb, var(--info) 24%, var(--surface)); border-color: color-mix(in srgb, var(--info) 30%, var(--border)); }
-    .step-block--optional { background: color-mix(in srgb, var(--success) 22%, var(--surface)); border-color: color-mix(in srgb, var(--success) 24%, var(--border)); }
+    .step-block--recommended, .step-block--method { background: color-mix(in srgb, var(--surface) 97%, var(--background)); border-color: color-mix(in srgb, var(--primary) 14%, var(--border)); }
+    .step-block--optional { background: color-mix(in srgb, var(--success) 8%, var(--surface)); border-color: color-mix(in srgb, var(--success) 18%, var(--border)); }
+    .step-block--poc { background: color-mix(in srgb, var(--secondary) 10%, var(--surface)); border-color: color-mix(in srgb, var(--secondary) 26%, var(--border)); }
     .field-label { display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:700; color: var(--text-primary); }
     .field-title { display:flex; align-items:center; gap:8px; }
     .field-icon { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; background: color-mix(in srgb, var(--primary) 10%, var(--background)); font-size:14px; }
@@ -619,6 +651,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .soft-amber { background:color-mix(in srgb, var(--warning) 18%, var(--surface) 82%); color:var(--warning); }
     .soft-green { background:color-mix(in srgb, var(--success) 18%, var(--surface) 82%); color:var(--success); }
     .soft-slate { background:color-mix(in srgb, var(--neutral) 18%, var(--surface) 82%); color:var(--text-secondary); }
+    .soft-purple { background:color-mix(in srgb, var(--secondary) 18%, var(--surface) 82%); color:var(--secondary); }
     .alert { padding:12px 14px; border-radius:10px; margin-bottom:10px; font-weight:700; }
     .alert.error { background:color-mix(in srgb, var(--danger) 15%, var(--surface) 85%); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--surface) 60%); color:var(--danger); }
     .alert.warning { background:color-mix(in srgb, var(--warning) 15%, var(--surface) 85%); border:1px solid color-mix(in srgb, var(--warning) 40%, var(--surface) 60%); color:var(--warning); }
@@ -667,6 +700,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const wizardValidationMessage = document.getElementById('wizardValidationMessage');
     const minimumRequiredRisks = 5;
     const pocOnlyFields = Array.from(document.querySelectorAll('[data-poc-only]'));
+    const pocSections = Array.from(document.querySelectorAll('[data-poc-section]'));
     const standardOnlyFields = Array.from(document.querySelectorAll('[data-standard-only]'));
     const pocOptionalFields = Array.from(document.querySelectorAll('[data-poc-optional-field="1"]'));
     const isPocType = () => projectTypeSelect && projectTypeSelect.value === 'poc';
@@ -678,21 +712,23 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     let currentStep = 0;
     let hasValidatedStep0 = false;
     const baseStep0RequiredFields = [
-        { name: 'name', label: 'Nombre del proyecto', message: 'Este campo es obligatorio' },
+        { name: 'name', label: 'Nombre del proyecto', message: 'Debe ingresar el nombre del proyecto' },
         { name: 'client_id', label: 'Cliente', message: 'Debe seleccionar un cliente' },
         { name: 'pm_id', label: 'PM responsable', message: 'Debe seleccionar un PM responsable' },
+        { name: 'project_type', label: 'Tipo de proyecto', message: 'Debe seleccionar el tipo de proyecto' },
         { name: 'methodology_display', label: 'Metodología', message: 'Debe seleccionar una metodología' },
-        { name: 'start_date', label: 'Fecha de inicio', message: 'Debe ingresar la fecha' },
+        { name: 'start_date', label: 'Fecha de inicio', message: 'Debe seleccionar una fecha' },
+        { name: 'end_date', label: 'Fecha fin', message: 'Debe seleccionar una fecha' },
     ];
     const standardProjectRequiredFields = [
-        { name: 'scope', label: 'Alcance del proyecto', message: 'Este campo es obligatorio' },
-        { name: 'design_inputs', label: 'Entradas de diseño', message: 'Este campo es obligatorio' },
+        { name: 'scope', label: 'Alcance del proyecto', message: 'Debe ingresar el alcance del proyecto' },
+        { name: 'design_inputs', label: 'Entradas de diseño', message: 'Debe ingresar las entradas de diseño' },
     ];
     const pocRequiredFields = [
         { name: 'solicitante_poc', label: 'Solicitante de la POC', message: 'Debe ingresar el solicitante' },
-        { name: 'fecha_solicitud_poc', label: 'Fecha de solicitud', message: 'Debe ingresar la fecha' },
+        { name: 'fecha_solicitud_poc', label: 'Fecha de solicitud', message: 'Debe seleccionar una fecha' },
         { name: 'tipo_poc', label: 'Tipo de POC', message: 'Debe seleccionar el tipo de POC' },
-        { name: 'descripcion_alcance_poc', label: 'Descripción / alcance de la POC', message: 'Este campo es obligatorio' },
+        { name: 'descripcion_alcance_poc', label: 'Descripción / alcance de la POC', message: 'Debe ingresar la descripción de la POC' },
     ];
     const fieldValidationMessages = new Map([
         ...baseStep0RequiredFields,
@@ -751,22 +787,17 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     function toggleEndDateByType() {
         if (!projectTypeSelect || !endDateGroup) return;
-        const selectedType = projectTypeSelect.value;
-        if (selectedType === 'scrum') {
-            endDateGroup.style.display = 'none';
-            if (endDateInput) {
-                endDateInput.value = '';
-            }
-        } else {
-            endDateGroup.style.display = '';
-        }
-
+        endDateGroup.style.display = '';
         syncEndDateRequiredState();
     }
 
 
     function togglePocFields() {
         const poc = isPocType();
+        pocSections.forEach((section) => {
+            section.hidden = !poc;
+        });
+
         pocOnlyFields.forEach((wrapper) => {
             wrapper.hidden = !poc;
             const controls = wrapper.querySelectorAll('input, select, textarea');
@@ -805,8 +836,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     function syncEndDateRequiredState() {
         if (!endDateInput || !projectTypeSelect) return;
         const isVisible = endDateInput.offsetParent !== null;
-        const shouldRequire = projectTypeSelect.value === 'convencional' && isVisible;
-        endDateInput.required = shouldRequire;
+        endDateInput.required = isVisible;
 
         const startDateInput = document.querySelector('[name="start_date"]');
         if (startDateInput) {
@@ -997,7 +1027,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
 
         if (endDateInput.value < startDateInput.value) {
-            setFieldError(endDateInput, 'La fecha de fin no puede ser menor a la fecha de inicio.');
+            setFieldError(endDateInput, 'La fecha final no puede ser menor a la inicial');
             scrollToFieldError(endDateInput);
             return false;
         }
@@ -1222,6 +1252,9 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                     clearFieldError(field);
                 }
                 handleStep0FieldChange(field);
+                if (field.name === 'start_date' || field.name === 'end_date') {
+                    validateDateRange();
+                }
                 updateNavState();
                 updateRiskCount();
             });
