@@ -294,14 +294,14 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 </summary>
                 <div class="accordion-body">
                     <section class="grid step-block__grid">
-                    <label class="input">
+                    <label class="input" data-standard-only>
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">🎯</span>Alcance del proyecto</span>
                             <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
                         </span>
                         <textarea name="scope" rows="3" placeholder="Descripción resumida del alcance" required data-poc-optional-field="1" <?= $canCreateProject ? '' : 'disabled' ?>><?= htmlspecialchars((string) $fieldValue('scope', '')) ?></textarea>
                     </label>
-                    <label class="input">
+                    <label class="input" data-standard-only>
                         <span class="field-label">
                             <span class="field-title"><span class="field-icon">📐</span>Entradas de diseño</span>
                             <span class="field-required" aria-hidden="true"><span class="field-required__icon">✳️</span>*</span>
@@ -588,6 +588,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     .input.is-invalid select,
     .input.is-invalid textarea { border-color:var(--danger) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, var(--background)); }
     .input.is-invalid .field-title { color:var(--danger); }
+    .field-error { display:none; margin-top:6px; color:var(--danger); font-size:12px; font-weight:700; line-height:1.35; }
+    .input.is-invalid .field-error { display:block; }
     .wizard-validation { display:none; }
     .wizard-validation.is-visible { display:block; }
     .wizard-docs-note { margin-top:4px; }
@@ -665,6 +667,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     const wizardValidationMessage = document.getElementById('wizardValidationMessage');
     const minimumRequiredRisks = 5;
     const pocOnlyFields = Array.from(document.querySelectorAll('[data-poc-only]'));
+    const standardOnlyFields = Array.from(document.querySelectorAll('[data-standard-only]'));
     const pocOptionalFields = Array.from(document.querySelectorAll('[data-poc-optional-field="1"]'));
     const isPocType = () => projectTypeSelect && projectTypeSelect.value === 'poc';
     const wizardForm = document.getElementById('projectWizardForm');
@@ -674,15 +677,37 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
     let currentStep = 0;
     let hasValidatedStep0 = false;
-    const step0RequiredFields = [
-        { name: 'name', label: 'Nombre del proyecto' },
-        { name: 'client_id', label: 'Cliente' },
-        { name: 'pm_id', label: 'PM responsable' },
-        { name: 'methodology_display', label: 'Metodología' },
-        { name: 'start_date', label: 'Fecha de inicio' },
-        { name: 'scope', label: 'Alcance del proyecto' },
-        { name: 'design_inputs', label: 'Entradas de diseño' },
+    const baseStep0RequiredFields = [
+        { name: 'name', label: 'Nombre del proyecto', message: 'Este campo es obligatorio' },
+        { name: 'client_id', label: 'Cliente', message: 'Debe seleccionar un cliente' },
+        { name: 'pm_id', label: 'PM responsable', message: 'Debe seleccionar un PM responsable' },
+        { name: 'methodology_display', label: 'Metodología', message: 'Debe seleccionar una metodología' },
+        { name: 'start_date', label: 'Fecha de inicio', message: 'Debe ingresar la fecha' },
     ];
+    const standardProjectRequiredFields = [
+        { name: 'scope', label: 'Alcance del proyecto', message: 'Este campo es obligatorio' },
+        { name: 'design_inputs', label: 'Entradas de diseño', message: 'Este campo es obligatorio' },
+    ];
+    const pocRequiredFields = [
+        { name: 'solicitante_poc', label: 'Solicitante de la POC', message: 'Debe ingresar el solicitante' },
+        { name: 'fecha_solicitud_poc', label: 'Fecha de solicitud', message: 'Debe ingresar la fecha' },
+        { name: 'tipo_poc', label: 'Tipo de POC', message: 'Debe seleccionar el tipo de POC' },
+        { name: 'descripcion_alcance_poc', label: 'Descripción / alcance de la POC', message: 'Este campo es obligatorio' },
+    ];
+    const fieldValidationMessages = new Map([
+        ...baseStep0RequiredFields,
+        ...standardProjectRequiredFields,
+        ...pocRequiredFields,
+        { name: 'project_stage', label: 'Stage-gate', message: 'Debe seleccionar el stage-gate' },
+        { name: 'priority', label: 'Prioridad', message: 'Debe seleccionar una prioridad' },
+    ].map((field) => [field.name, field.message]));
+
+    function currentStep0RequiredFields() {
+        return [
+            ...baseStep0RequiredFields,
+            ...(isPocType() ? pocRequiredFields : standardProjectRequiredFields),
+        ];
+    }
 
     function refreshPhases() {
         if (!phaseSelect || !methodologySelect) return;
@@ -746,14 +771,34 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             wrapper.hidden = !poc;
             const controls = wrapper.querySelectorAll('input, select, textarea');
             controls.forEach((control) => {
-                if (['solicitante_poc', 'fecha_solicitud_poc', 'tipo_poc', 'descripcion_alcance_poc'].includes(control.name)) {
-                    control.required = poc;
+                const isRequiredForPoc = pocRequiredFields.some(({ name }) => name === control.name);
+                control.required = poc && isRequiredForPoc;
+                control.disabled = !canCreateProject || !poc;
+                if (!poc) {
+                    clearFieldError(control);
+                    control.setCustomValidity('');
+                }
+            });
+        });
+
+        standardOnlyFields.forEach((wrapper) => {
+            wrapper.hidden = poc;
+            const controls = wrapper.querySelectorAll('input, select, textarea');
+            controls.forEach((control) => {
+                control.disabled = !canCreateProject || poc;
+                if (poc) {
+                    clearFieldError(control);
+                    control.setCustomValidity('');
                 }
             });
         });
 
         pocOptionalFields.forEach((control) => {
             control.required = !poc;
+            if (poc) {
+                clearFieldError(control);
+                control.setCustomValidity('');
+            }
         });
     }
 
@@ -840,34 +885,82 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         wizardValidationMessage.classList.toggle('is-visible', shouldShow);
     }
 
+    function getFieldMessageNode(field) {
+        const wrapper = field?.closest('.input');
+        if (!wrapper) return null;
+        let message = wrapper.querySelector('.field-error');
+        if (!message) {
+            message = document.createElement('span');
+            message.className = 'field-error';
+            message.setAttribute('role', 'alert');
+            wrapper.appendChild(message);
+        }
+        if (!message.id && field.name) {
+            message.id = `${field.name.replace(/[^a-zA-Z0-9_-]/g, '-')}-error`;
+        }
+        return message;
+    }
+
+    function setFieldError(field, message) {
+        if (!field) return;
+        const wrapper = field.closest('.input');
+        const messageNode = getFieldMessageNode(field);
+        const finalMessage = message || fieldValidationMessages.get(field.name) || 'Este campo es obligatorio';
+        field.setCustomValidity(finalMessage);
+        field.setAttribute('aria-invalid', 'true');
+        if (messageNode) {
+            messageNode.textContent = finalMessage;
+            field.setAttribute('aria-describedby', messageNode.id);
+        }
+        if (wrapper) {
+            wrapper.classList.add('is-invalid');
+        }
+    }
+
+    function clearFieldError(field) {
+        if (!field) return;
+        const wrapper = field.closest('.input');
+        const messageNode = wrapper?.querySelector('.field-error');
+        field.setCustomValidity('');
+        field.removeAttribute('aria-invalid');
+        if (messageNode) {
+            messageNode.textContent = '';
+        }
+        if (wrapper) {
+            wrapper.classList.remove('is-invalid');
+        }
+    }
+
+    function scrollToFieldError(field) {
+        if (!field) return;
+        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => field.focus({ preventScroll: true }), 250);
+    }
+
+    function isFieldHiddenOrDisabled(field) {
+        return field.disabled || Boolean(field.closest('[hidden]'));
+    }
+
     function clearStep0FieldErrors() {
-        step0RequiredFields.forEach(({ name }) => {
+        currentStep0RequiredFields().forEach(({ name }) => {
             const field = getStep0FieldNode(name);
-            if (!field) return;
-            const wrapper = field.closest('.input');
-            if (wrapper) {
-                wrapper.classList.remove('is-invalid');
-            }
+            if (field) clearFieldError(field);
         });
     }
 
     function handleStep0FieldChange(field) {
         if (!field) return;
-        const isStep0Field = step0RequiredFields.some(({ name }) => name === field.name);
+        const isStep0Field = currentStep0RequiredFields().some(({ name }) => name === field.name);
         if (!isStep0Field) return;
         if (field.value.trim() !== '') {
-            field.setCustomValidity('');
-            const wrapper = field.closest('.input');
-            if (wrapper) {
-                wrapper.classList.remove('is-invalid');
-            }
+            clearFieldError(field);
         }
     }
 
     function isStep0Valid() {
-        return step0RequiredFields.every(({ name }) => {
+        return currentStep0RequiredFields().every(({ name }) => {
             const field = getStep0FieldNode(name);
-            return field ? field.value.trim() !== '' : false;
+            return field && !isFieldHiddenOrDisabled(field) ? field.value.trim() !== '' : true;
         });
     }
 
@@ -904,12 +997,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
 
         if (endDateInput.value < startDateInput.value) {
-            endDateInput.setCustomValidity('La fecha de fin no puede ser menor a la fecha de inicio.');
-            endDateInput.reportValidity();
+            setFieldError(endDateInput, 'La fecha de fin no puede ser menor a la fecha de inicio.');
+            scrollToFieldError(endDateInput);
             return false;
         }
 
-        endDateInput.setCustomValidity('');
+        clearFieldError(endDateInput);
         return true;
     }
 
@@ -919,7 +1012,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         clearStep0FieldErrors();
         hasValidatedStep0 = true;
 
-        step0RequiredFields.forEach(({ name, label }) => {
+        currentStep0RequiredFields().forEach(({ name, label, message }) => {
             const field = getStep0FieldNode(name);
             if (!field) {
                 missingFields.push(label);
@@ -927,17 +1020,13 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             }
             const fieldValue = field.value.trim();
             if (!fieldValue) {
-                field.setCustomValidity(`Completa el campo obligatorio: ${label}.`);
+                setFieldError(field, message || 'Este campo es obligatorio');
                 missingFields.push(label);
-                if (!firstInvalidField && !field.disabled) {
+                if (!firstInvalidField && !isFieldHiddenOrDisabled(field)) {
                     firstInvalidField = field;
                 }
-                const wrapper = field.closest('.input');
-                if (wrapper) {
-                    wrapper.classList.add('is-invalid');
-                }
             } else {
-                field.setCustomValidity('');
+                clearFieldError(field);
             }
         });
 
@@ -945,8 +1034,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
             console.warn('[Wizard] Validación Paso 1 fallida. Faltan:', missingFields);
             updateValidationMessage(false);
             if (firstInvalidField) {
-                firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                firstInvalidField.reportValidity();
+                scrollToFieldError(firstInvalidField);
             }
             return false;
         }
@@ -972,12 +1060,24 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
         const section = wizardSections[index];
         if (!section) return true;
-        const requiredFields = section.querySelectorAll('[required]');
+        const requiredFields = Array.from(section.querySelectorAll('[required]'));
         for (const field of requiredFields) {
-            if (!field.checkValidity()) {
-                field.reportValidity();
+            if (isFieldHiddenOrDisabled(field)) {
+                continue;
+            }
+            const fieldValue = field.value.trim();
+            if (!fieldValue) {
+                setFieldError(field, fieldValidationMessages.get(field.name) || 'Este campo es obligatorio');
+                scrollToFieldError(field);
                 return false;
             }
+            field.setCustomValidity('');
+            if (!field.checkValidity()) {
+                setFieldError(field, field.validationMessage || 'Revisa el formato del campo');
+                scrollToFieldError(field);
+                return false;
+            }
+            clearFieldError(field);
         }
         return true;
     }
@@ -988,8 +1088,8 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
         }
         const section = wizardSections[index];
         if (!section) return true;
-        const requiredFields = section.querySelectorAll('[required]');
-        return Array.from(requiredFields).every((field) => field.checkValidity());
+        const requiredFields = Array.from(section.querySelectorAll('[required]'));
+        return requiredFields.every((field) => isFieldHiddenOrDisabled(field) || field.checkValidity());
     }
 
     function updateNavState() {
@@ -1111,16 +1211,64 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     wizardSections.forEach((section) => {
         section.querySelectorAll('input, select, textarea').forEach((field) => {
             field.addEventListener('input', () => {
+                if (field.value.trim() !== '') {
+                    clearFieldError(field);
+                }
                 handleStep0FieldChange(field);
                 updateNavState();
             });
             field.addEventListener('change', () => {
+                if (field.value.trim() !== '') {
+                    clearFieldError(field);
+                }
                 handleStep0FieldChange(field);
                 updateNavState();
                 updateRiskCount();
             });
         });
     });
+
+
+    function validateAllRequiredFields() {
+        const requiredFields = Array.from(wizardForm.querySelectorAll('[required]'));
+        let firstInvalidField = null;
+        requiredFields.forEach((field) => {
+            if (isFieldHiddenOrDisabled(field)) {
+                clearFieldError(field);
+                return;
+            }
+            const fieldValue = field.value.trim();
+            if (!fieldValue) {
+                setFieldError(field, fieldValidationMessages.get(field.name) || 'Este campo es obligatorio');
+                if (!firstInvalidField) {
+                    firstInvalidField = field;
+                }
+                return;
+            }
+            field.setCustomValidity('');
+            if (!field.checkValidity()) {
+                setFieldError(field, field.validationMessage || 'Revisa el formato del campo');
+                if (!firstInvalidField) {
+                    firstInvalidField = field;
+                }
+                return;
+            }
+            clearFieldError(field);
+        });
+
+        if (firstInvalidField) {
+            const step = firstInvalidField.closest('[data-step]');
+            const stepIndex = wizardSections.indexOf(step);
+            if (stepIndex >= 0 && stepIndex !== currentStep) {
+                setStep(stepIndex);
+            }
+            updateValidationMessage(false);
+            scrollToFieldError(firstInvalidField);
+            return false;
+        }
+
+        return true;
+    }
 
     function serializeFormData(formData) {
         const data = {};
@@ -1205,7 +1353,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 
             syncEndDateRequiredState();
             const stepValid = validateStep(currentStep);
-            const formValid = stepValid && wizardForm.reportValidity();
+            const formValid = stepValid && validateAllRequiredFields();
             if (!formValid) {
                 setSubmittingState(false);
                 return;
