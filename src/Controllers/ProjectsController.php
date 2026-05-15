@@ -4279,18 +4279,25 @@ class ProjectsController extends Controller
             throw new \InvalidArgumentException('Selecciona un PM válido para el proyecto.');
         }
 
-        $pocRequester = $this->pocValueOrNull((string) ($_POST['solicitante_poc'] ?? ($current['solicitante_poc'] ?? '')));
-        $pocRequestDate = $this->nullableDate($_POST['fecha_solicitud_poc'] ?? ($current['fecha_solicitud_poc'] ?? null));
-        $pocScope = $this->pocValueOrNull((string) ($_POST['descripcion_alcance_poc'] ?? ($current['descripcion_alcance_poc'] ?? '')));
-        $pocType = $this->validatedPocType((string) ($_POST['tipo_poc'] ?? ($current['tipo_poc'] ?? '')));
-        $pocEstimatedValue = $this->nullableNonNegativeFloat(
-            $_POST['valor_estimado_poc'] ?? ($current['valor_estimado_poc'] ?? null),
-            'El valor estimado de la POC'
-        );
-        $pocRepository = $this->validatePocRepositoryUrl((string) ($_POST['repositorio_git_poc'] ?? ($current['repositorio_git_poc'] ?? '')));
-        $pocResult = $this->validatedPocResult((string) ($_POST['resultado_poc'] ?? ($current['resultado_poc'] ?? '')));
+        $pocRequester = null;
+        $pocRequestDate = null;
+        $pocScope = null;
+        $pocType = null;
+        $pocEstimatedValue = null;
+        $pocRepository = null;
+        $pocResult = null;
 
         if ($isPoc) {
+            $pocRequester = $this->pocValueOrNull((string) ($_POST['solicitante_poc'] ?? ($current['solicitante_poc'] ?? '')));
+            $pocRequestDate = $this->nullableDate($_POST['fecha_solicitud_poc'] ?? ($current['fecha_solicitud_poc'] ?? null));
+            $pocScope = $this->pocValueOrNull((string) ($_POST['descripcion_alcance_poc'] ?? ($current['descripcion_alcance_poc'] ?? '')));
+            $pocType = $this->validatedPocType((string) ($_POST['tipo_poc'] ?? ($current['tipo_poc'] ?? '')));
+            $pocEstimatedValue = $this->nullableNonNegativeFloat(
+                $_POST['valor_estimado_poc'] ?? ($current['valor_estimado_poc'] ?? null),
+                'El valor estimado de la POC'
+            );
+            $pocRepository = $this->validatePocRepositoryUrl((string) ($_POST['repositorio_git_poc'] ?? ($current['repositorio_git_poc'] ?? '')));
+            $pocResult = $this->validatedPocResult((string) ($_POST['resultado_poc'] ?? ($current['resultado_poc'] ?? '')));
             if ($pocRequester === null) {
                 throw new \InvalidArgumentException('El solicitante de la POC es obligatorio.');
             }
@@ -4306,14 +4313,6 @@ class ProjectsController extends Controller
             if ($pocResult === null && trim((string) ($_POST['resultado_poc'] ?? '')) !== '') {
                 throw new \InvalidArgumentException('Selecciona un resultado de POC válido.');
             }
-        } else {
-            $pocRequester = null;
-            $pocRequestDate = null;
-            $pocScope = null;
-            $pocType = null;
-            $pocEstimatedValue = null;
-            $pocRepository = null;
-            $pocResult = null;
         }
 
         return [
@@ -4914,15 +4913,22 @@ class ProjectsController extends Controller
 
         $clientParticipation = $this->validatedClientParticipation((string) ($_POST['client_participation'] ?? ''));
 
-        $pocRequester = $this->pocValueOrNull((string) ($_POST['solicitante_poc'] ?? ''));
-        $pocRequestDate = $this->nullableDate($_POST['fecha_solicitud_poc'] ?? null);
-        $pocScope = $this->pocValueOrNull((string) ($_POST['descripcion_alcance_poc'] ?? ''));
-        $pocType = $this->validatedPocType((string) ($_POST['tipo_poc'] ?? ''));
-        $pocEstimatedValue = $this->nullableNonNegativeFloat($_POST['valor_estimado_poc'] ?? null, 'El valor estimado de la POC');
-        $pocRepository = $this->validatePocRepositoryUrl((string) ($_POST['repositorio_git_poc'] ?? ''));
-        $pocResult = $this->validatedPocResult((string) ($_POST['resultado_poc'] ?? ''));
+        $pocRequester = null;
+        $pocRequestDate = null;
+        $pocScope = null;
+        $pocType = null;
+        $pocEstimatedValue = null;
+        $pocRepository = null;
+        $pocResult = null;
 
         if ($isPoc) {
+            $pocRequester = $this->pocValueOrNull((string) ($_POST['solicitante_poc'] ?? ''));
+            $pocRequestDate = $this->nullableDate($_POST['fecha_solicitud_poc'] ?? null);
+            $pocScope = $this->pocValueOrNull((string) ($_POST['descripcion_alcance_poc'] ?? ''));
+            $pocType = $this->validatedPocType((string) ($_POST['tipo_poc'] ?? ''));
+            $pocEstimatedValue = $this->nullableNonNegativeFloat($_POST['valor_estimado_poc'] ?? null, 'El valor estimado de la POC');
+            $pocRepository = $this->validatePocRepositoryUrl((string) ($_POST['repositorio_git_poc'] ?? ''));
+            $pocResult = $this->validatedPocResult((string) ($_POST['resultado_poc'] ?? ''));
             if ($pocRequester === null) {
                 throw new \InvalidArgumentException('El solicitante de la POC es obligatorio.');
             }
@@ -4941,14 +4947,6 @@ class ProjectsController extends Controller
             if ($scope === '') {
                 $scope = (string) $pocScope;
             }
-        } else {
-            $pocRequester = null;
-            $pocRequestDate = null;
-            $pocScope = null;
-            $pocType = null;
-            $pocEstimatedValue = null;
-            $pocRepository = null;
-            $pocResult = null;
         }
 
         if ($projectType === 'convencional') {
