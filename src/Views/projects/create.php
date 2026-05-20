@@ -98,6 +98,12 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
 <?php if (!empty($error)): ?>
     <div class="alert error"><?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
+<?php if (!empty($debugError) && is_array($debugError)): ?>
+    <div class="alert error" style="margin-top: 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+        <strong>Debug creación de proyecto</strong>
+        <pre style="margin-top:8px;"><?= htmlspecialchars((string) json_encode($debugError, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></pre>
+    </div>
+<?php endif; ?>
 
 <div class="alert error" id="serverResponseAlert" style="display:none; margin-top: 12px;">
     <strong id="serverResponseTitle" style="display:block; margin-bottom:8px;"></strong>
