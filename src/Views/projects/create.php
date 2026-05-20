@@ -1501,8 +1501,7 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
     }
 
     if (wizardForm) {
-        wizardForm.addEventListener('submit', async (event) => {
-            console.log('[Wizard] Evento submit detectado');
+        wizardForm.addEventListener('submit', (event) => {
             event.preventDefault();
             if (isSubmitting) {
                 return;
@@ -1516,55 +1515,17 @@ $fieldValue = function (string $field, $fallback = '') use ($oldInput, $defaults
                 return;
             }
 
-            console.log('[Wizard] Submit válido, iniciando guardado');
             setSubmittingState(true);
             hideServerResponse();
 
-            const formData = new FormData(wizardForm);
-            const datos = serializeFormData(formData);
-            console.log('Enviando payload:', datos);
-
             try {
-                const response = await fetch(wizardForm.action, {
-                    method: (wizardForm.method || 'POST').toUpperCase(),
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-
-                const responseText = await response.text();
-                console.log('Respuesta HTTP status:', response.status);
-                console.log('Respuesta cruda:', responseText);
-
-                if (!response.ok) {
-                    showServerResponse('Error HTTP ' + response.status, responseText);
-                    return;
-                }
-
-                console.group('[Wizard] Respuesta backend');
-                console.log('status:', response.status);
-                console.log('ok:', response.ok);
-                console.log('redirected:', response.redirected);
-                console.log('url final:', response.url);
-                console.log('content-type:', response.headers.get('content-type'));
-                console.log('body:', responseText);
-                console.groupEnd();
-
-                if (response.redirected && response.url && !isSameRoute(response.url, wizardForm.action)) {
-                    window.location.href = response.url;
-                    return;
-                } else {
-                    const htmlResponse = responseText;
-                    document.open();
-                    document.write(htmlResponse);
-                    document.close();
-                    return;
-                }
+                wizardForm.submit();
             } catch (error) {
-                showServerResponse('Error de red al crear el proyecto', error?.message || String(error));
-            } finally {
                 setSubmittingState(false);
+                showServerResponse(
+                    'No fue posible enviar el formulario',
+                    'Ocurrió un error al cargar el formulario del proyecto. Por favor recarga la página o contacta al administrador.'
+                );
             }
         });
     }

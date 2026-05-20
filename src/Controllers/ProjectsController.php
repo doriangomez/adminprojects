@@ -348,7 +348,7 @@ class ProjectsController extends Controller
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => $this->buildInsertDebugMessage($e, $payloadForDebug),
+                'error' => 'Ocurrió un error al cargar el formulario del proyecto. Por favor recarga la página o contacta al administrador.',
                 'old' => $_POST,
             ]));
             return;
@@ -357,7 +357,7 @@ class ProjectsController extends Controller
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
-                'error' => $this->formatExceptionForDisplay($e),
+                'error' => 'Ocurrió un error al cargar el formulario del proyecto. Por favor recarga la página o contacta al administrador.',
                 'old' => $_POST,
             ]));
             return;
