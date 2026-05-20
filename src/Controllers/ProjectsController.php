@@ -336,28 +336,32 @@ class ProjectsController extends Controller
             header('Location: /projects/' . $projectId);
             return;
         } catch (\InvalidArgumentException $e) {
+            $this->logProjectCreationException($e, '/projects/create', $payloadForDebug, 400);
             http_response_code(400);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
                 'error' => $e->getMessage(),
+                'debugError' => $this->canShowProjectCreationDebug() ? $this->buildProjectCreationDebugContext($e, '/projects/create', $payloadForDebug, 400) : null,
                 'old' => $_POST,
             ]));
             return;
         } catch (\PDOException $e) {
-            error_log('Error al crear proyecto (DB): ' . $e->getMessage());
+            $this->logProjectCreationException($e, '/projects/create', $payloadForDebug, 500);
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
                 'error' => 'Ocurrió un error al cargar el formulario del proyecto. Por favor recarga la página o contacta al administrador.',
+                'debugError' => $this->canShowProjectCreationDebug() ? $this->buildProjectCreationDebugContext($e, '/projects/create', $payloadForDebug, 500) : null,
                 'old' => $_POST,
             ]));
             return;
         } catch (\Throwable $e) {
-            error_log('Error al crear proyecto: ' . $e->getMessage());
+            $this->logProjectCreationException($e, '/projects/create', $payloadForDebug, 500);
             http_response_code(500);
             $this->render('projects/create', array_merge($this->projectFormData(), [
                 'title' => 'Nuevo proyecto',
                 'error' => 'Ocurrió un error al cargar el formulario del proyecto. Por favor recarga la página o contacta al administrador.',
+                'debugError' => $this->canShowProjectCreationDebug() ? $this->buildProjectCreationDebugContext($e, '/projects/create', $payloadForDebug, 500) : null,
                 'old' => $_POST,
             ]));
             return;
@@ -3856,6 +3860,53 @@ class ProjectsController extends Controller
         }
 
         return false;
+    }
+
+
+    private function canShowProjectCreationDebug(): bool
+    {
+        if ($this->isDebugMode()) {
+            return true;
+        }
+
+        return $this->auth->hasRole('Administrador');
+    }
+
+    private function buildProjectCreationDebugContext(\Throwable $e, string $endpoint, array $payload, int $statusCode): array
+    {
+        $context = [
+            'status_code' => $statusCode,
+            'endpoint' => $endpoint,
+            'exception_class' => get_class($e),
+            'exception_message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'POST',
+            'payload' => $payload,
+        ];
+
+        if ($e instanceof \PDOException) {
+            $context['sql_state'] = $e->errorInfo[0] ?? $e->getCode() ?? null;
+            $context['sql_error_code'] = $e->errorInfo[1] ?? null;
+        }
+
+        if ($e->getPrevious() instanceof \Throwable) {
+            $previous = $e->getPrevious();
+            $context['previous_exception'] = [
+                'class' => get_class($previous),
+                'message' => $previous->getMessage(),
+                'file' => $previous->getFile(),
+                'line' => $previous->getLine(),
+            ];
+        }
+
+        return $context;
+    }
+
+    private function logProjectCreationException(\Throwable $e, string $endpoint, array $payload, int $statusCode): void
+    {
+        $context = $this->buildProjectCreationDebugContext($e, $endpoint, $payload, $statusCode);
+        error_log('[projects.create.debug] ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     private function nodeErrorResponse(\Throwable $e, string $genericMessage): array
