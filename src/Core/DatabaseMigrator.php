@@ -1477,6 +1477,8 @@ class DatabaseMigrator
             $this->db->clearColumnCache();
         }
 
+        $this->ensureProjectTypeColumnCompatibility();
+
         $columns = [
             'solicitante_poc' => "ALTER TABLE projects ADD COLUMN solicitante_poc VARCHAR(160) NULL",
             'fecha_solicitud_poc' => "ALTER TABLE projects ADD COLUMN fecha_solicitud_poc DATE NULL",
@@ -1495,6 +1497,42 @@ class DatabaseMigrator
             $this->db->execute($sql);
             $this->db->clearColumnCache();
         }
+    }
+
+    private function ensureProjectTypeColumnCompatibility(): void
+    {
+        $stmt = $this->db->connection()->prepare(
+            'SELECT DATA_TYPE, COLUMN_TYPE
+             FROM information_schema.columns
+             WHERE table_schema = :schema
+               AND table_name = :table
+               AND column_name = :column'
+        );
+
+        $stmt->execute([
+            ':schema' => $this->db->databaseName(),
+            ':table' => 'projects',
+            ':column' => 'project_type',
+        ]);
+
+        $column = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!is_array($column)) {
+            return;
+        }
+
+        $dataType = strtolower((string) ($column['DATA_TYPE'] ?? ''));
+        $columnType = strtolower((string) ($column['COLUMN_TYPE'] ?? ''));
+
+        $isCompatibleEnum = $dataType === 'enum'
+            && str_contains($columnType, "'poc'")
+            && (str_contains($columnType, "'project'") || str_contains($columnType, "'proyecto'"));
+
+        if ($dataType === 'varchar' || $isCompatibleEnum) {
+            return;
+        }
+
+        $this->db->execute("ALTER TABLE projects MODIFY project_type VARCHAR(20) NOT NULL DEFAULT 'convencional'");
+        $this->db->clearColumnCache();
     }
 
     private function ensureProjectIsoControls(): void
