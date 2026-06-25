@@ -2463,7 +2463,7 @@ class TimesheetsRepository
 
         return $this->db->fetchAll(
             'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment,
-                    p.name AS project, t.title AS task, ta.name AS talent, ts.approver_user_id, ts.user_id, u.name AS user_name
+                    p.name AS project, t.title AS task, ta.name AS talent, ts.talent_id, ts.approver_user_id, ts.user_id, u.name AS user_name
              FROM timesheets ts
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)
