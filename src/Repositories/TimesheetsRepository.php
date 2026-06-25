@@ -1593,8 +1593,10 @@ class TimesheetsRepository
         return $out;
     }
 
-    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null, ?int $targetUserId = null): int
+    public function updateWeekApprovalStatus(array|int $approverUser, string $weekStart, string $status, ?string $comment = null, ?int $targetUserId = null): int
     {
+        $approverUserId = is_array($approverUser) ? (int) ($approverUser['id'] ?? 0) : (int) $approverUser;
+        $canApproveVisibleQueue = is_array($approverUser) && $this->isPrivileged($approverUser);
         $start = new \DateTimeImmutable($weekStart);
         $end = $start->modify('+6 days');
         $params = [
@@ -1615,12 +1617,13 @@ class TimesheetsRepository
             ? 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
             : 'rejected_by = :approver_set, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
 
+        $approverWhere = $canApproveVisibleQueue ? '1 = 1' : 'approver_user_id = :approver_where';
         $sql = 'UPDATE timesheets
              SET status = :status,
                  approval_comment = :comment,
                  ' . $column . ',
                  updated_at = NOW()
-             WHERE approver_user_id = :approver_where
+             WHERE ' . $approverWhere . '
                AND date BETWEEN :start AND :end
                ' . $whereUser . '
                AND status IN ("submitted", "pending", "pending_approval")';
