@@ -669,7 +669,6 @@ class TimesheetsController extends Controller
 
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];
-        $userId = (int) ($user['id'] ?? 0);
         $status = trim((string) ($_POST['status'] ?? 'approved'));
         $weekStart = trim((string) ($_POST['week_start'] ?? ''));
         $comment = trim((string) ($_POST['comment'] ?? ''));
@@ -686,7 +685,7 @@ class TimesheetsController extends Controller
 
         try {
             $repo->updateWeekApprovalStatus(
-                $userId,
+                $user,
                 $weekStart,
                 $status,
                 $comment !== '' ? $comment : null,
