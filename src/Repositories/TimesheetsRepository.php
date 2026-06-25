@@ -1618,6 +1618,7 @@ class TimesheetsRepository
             ? 'approved_by = :approver_set, approved_at = NOW(), rejected_by = NULL, rejected_at = NULL'
             : 'rejected_by = :approver_set, rejected_at = NOW(), approved_by = NULL, approved_at = NULL';
 
+        $approverWhere = $canApproveVisibleQueue ? '1 = 1' : 'approver_user_id = :approver_where';
         $sql = 'UPDATE timesheets
              SET status = :status,
                  approval_comment = :comment,
