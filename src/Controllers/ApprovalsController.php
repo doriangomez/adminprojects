@@ -63,6 +63,35 @@ class ApprovalsController extends Controller
         $timesheetHistory = $canApproveTimesheets
             ? $timesheetsRepo->weekApprovalHistoryByApprover($user)
             : [];
+        if ($canApproveTimesheets) {
+            $timesheetApprovalDebug = array_map(static function (array $week): array {
+                $weekStart = (string) ($week['week_start'] ?? '');
+                $weekEnd = '';
+                if ($weekStart !== '') {
+                    try {
+                        $weekEnd = (new DateTimeImmutable($weekStart))->modify('+6 days')->format('Y-m-d');
+                    } catch (Throwable) {
+                        $weekEnd = 'invalid_week_start';
+                    }
+                }
+
+                return [
+                    'week_start' => $weekStart,
+                    'week_end' => $weekEnd,
+                    'owner_user_id' => (int) ($week['owner_user_id'] ?? 0),
+                    'timesheet_ids' => array_map(static fn (array $row): int => (int) ($row['id'] ?? 0), (array) ($week['rows'] ?? [])),
+                    'records' => array_map(static fn (array $row): array => [
+                        'id' => (int) ($row['id'] ?? 0),
+                        'date' => (string) ($row['date'] ?? ''),
+                        'user_id' => (int) ($row['user_id'] ?? 0),
+                        'talent_id' => (int) ($row['talent_id'] ?? 0),
+                        'approver_user_id' => (int) ($row['approver_user_id'] ?? 0),
+                        'status' => (string) ($row['status'] ?? ''),
+                    ], (array) ($week['rows'] ?? [])),
+                ];
+            }, $timesheetApprovals);
+            error_log('Debug bandeja aprobaciones timesheets: ' . json_encode($timesheetApprovalDebug, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR));
+        }
         $talentApprovalSummary = [];
         $talentApprovalWeeks = [];
         $talentApprovalPeriod = [];

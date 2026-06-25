@@ -1593,8 +1593,10 @@ class TimesheetsRepository
         return $out;
     }
 
-    public function updateWeekApprovalStatus(int $approverUserId, string $weekStart, string $status, ?string $comment = null, ?int $targetUserId = null): int
+    public function updateWeekApprovalStatus(array|int $approverUser, string $weekStart, string $status, ?string $comment = null, ?int $targetUserId = null): int
     {
+        $approverUserId = is_array($approverUser) ? (int) ($approverUser['id'] ?? 0) : (int) $approverUser;
+        $canApproveVisibleQueue = is_array($approverUser) && $this->isPrivileged($approverUser);
         $start = new \DateTimeImmutable($weekStart);
         $end = $start->modify('+6 days');
         $params = [
@@ -1602,6 +1604,7 @@ class TimesheetsRepository
             ':comment' => $comment,
             ':approver_set' => $approverUserId,
             ':approver_where' => $approverUserId,
+            ':can_approve_visible_queue' => $canApproveVisibleQueue ? 1 : 0,
             ':start' => $start->format('Y-m-d'),
             ':end' => $end->format('Y-m-d'),
         ];
@@ -1620,7 +1623,7 @@ class TimesheetsRepository
                  approval_comment = :comment,
                  ' . $column . ',
                  updated_at = NOW()
-             WHERE approver_user_id = :approver_where
+             WHERE (:can_approve_visible_queue = 1 OR approver_user_id = :approver_where)
                AND date BETWEEN :start AND :end
                ' . $whereUser . '
                AND status IN ("submitted", "pending", "pending_approval")';
@@ -2459,7 +2462,7 @@ class TimesheetsRepository
 
         return $this->db->fetchAll(
             'SELECT ts.id, ts.date, ts.hours, ts.status, ts.billable, ts.comment, ts.approval_comment,
-                    p.name AS project, t.title AS task, ta.name AS talent, ts.approver_user_id, ts.user_id, u.name AS user_name
+                    p.name AS project, t.title AS task, ta.name AS talent, ts.talent_id, ts.approver_user_id, ts.user_id, u.name AS user_name
              FROM timesheets ts
              LEFT JOIN tasks t ON t.id = ts.task_id
              LEFT JOIN projects p ON p.id = COALESCE(ts.project_id, t.project_id)

@@ -669,7 +669,6 @@ class TimesheetsController extends Controller
 
         $repo = new TimesheetsRepository($this->db);
         $user = $this->auth->user() ?? [];
-        $userId = (int) ($user['id'] ?? 0);
         $status = trim((string) ($_POST['status'] ?? 'approved'));
         $weekStart = trim((string) ($_POST['week_start'] ?? ''));
         $comment = trim((string) ($_POST['comment'] ?? ''));
@@ -686,7 +685,7 @@ class TimesheetsController extends Controller
 
         try {
             $repo->updateWeekApprovalStatus(
-                $userId,
+                $user,
                 $weekStart,
                 $status,
                 $comment !== '' ? $comment : null,
@@ -694,7 +693,16 @@ class TimesheetsController extends Controller
             );
             header('Location: /approvals');
         } catch (\Throwable $e) {
-            error_log('Error al aprobar semana de timesheets: ' . $e->getMessage());
+            error_log('Error al aprobar semana de timesheets: ' . json_encode([
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'week_start' => $weekStart,
+                'status' => $status,
+                'target_user_id' => $targetUserId,
+                'approver_user_id' => (int) ($user['id'] ?? 0),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             http_response_code(500);
             exit('No se pudo actualizar la aprobación semanal.');
         }
