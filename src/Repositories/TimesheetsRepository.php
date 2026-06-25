@@ -1604,6 +1604,7 @@ class TimesheetsRepository
             ':comment' => $comment,
             ':approver_set' => $approverUserId,
             ':approver_where' => $approverUserId,
+            ':can_approve_visible_queue' => $canApproveVisibleQueue ? 1 : 0,
             ':start' => $start->format('Y-m-d'),
             ':end' => $end->format('Y-m-d'),
         ];
@@ -1623,7 +1624,7 @@ class TimesheetsRepository
                  approval_comment = :comment,
                  ' . $column . ',
                  updated_at = NOW()
-             WHERE ' . $approverWhere . '
+             WHERE (:can_approve_visible_queue = 1 OR approver_user_id = :approver_where)
                AND date BETWEEN :start AND :end
                ' . $whereUser . '
                AND status IN ("submitted", "pending", "pending_approval")';
