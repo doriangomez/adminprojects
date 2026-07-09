@@ -281,15 +281,15 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
 
     .button.primary {
         background: var(--primary);
-        color: var(--text-primary);
+        color: #fff;
         border-color: var(--primary);
         box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 35%, var(--background));
     }
 
     .button.secondary {
-        background: var(--secondary);
-        color: var(--surface);
-        border-color: var(--secondary);
+        background: var(--surface);
+        color: var(--primary);
+        border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
     }
 
     .button.ghost {

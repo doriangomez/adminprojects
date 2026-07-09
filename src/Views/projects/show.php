@@ -3063,7 +3063,7 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
     .phase-item { display:flex; flex-direction:column; gap:6px; }
     .phase-link { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px; border-radius:12px; text-decoration:none; color: var(--text-primary); border:1px solid var(--background); background: var(--surface); }
     .phase-link:hover { border-color: var(--border); }
-    .phase-link.active { background: var(--secondary); color: var(--text-primary); border-color: var(--secondary); font-weight:700; }
+    .phase-link.active { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); color: var(--text-primary); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); border-left:4px solid var(--secondary); font-weight:700; }
     .phase-link__title { display:flex; gap:10px; align-items:center; }
     .phase-icon { font-size:18px; }
     .phase-doc-badge {

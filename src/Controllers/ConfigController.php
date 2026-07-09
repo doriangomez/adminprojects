@@ -185,20 +185,20 @@ class ConfigController extends Controller
         $payload = [
             'theme' => [
                 'logo' => $logoValue,
-                'primary' => $_POST['primary'] ?? ($currentTheme['primary'] ?? $themeDefaults['primary'] ?? ''),
-                'secondary' => $_POST['secondary'] ?? ($currentTheme['secondary'] ?? $themeDefaults['secondary'] ?? ''),
-                'accent' => $_POST['accent'] ?? ($currentTheme['accent'] ?? $themeDefaults['accent'] ?? ''),
-                'background' => $_POST['background'] ?? ($currentTheme['background'] ?? $themeDefaults['background'] ?? ''),
-                'surface' => $_POST['surface'] ?? ($currentTheme['surface'] ?? $themeDefaults['surface'] ?? ''),
-                'textPrimary' => $_POST['textPrimary'] ?? $_POST['text_primary'] ?? ($currentTheme['textPrimary'] ?? $currentTheme['text_primary'] ?? $currentTheme['text_main'] ?? $themeDefaults['textPrimary'] ?? $themeDefaults['text_primary'] ?? $themeDefaults['text_main'] ?? ''),
-                'textSecondary' => $_POST['textSecondary'] ?? $_POST['text_secondary'] ?? ($currentTheme['textSecondary'] ?? $currentTheme['text_secondary'] ?? $currentTheme['text_muted'] ?? $themeDefaults['textSecondary'] ?? $themeDefaults['text_secondary'] ?? $themeDefaults['text_muted'] ?? ''),
-                'disabled' => $disabled ?? '',
-                'border' => $_POST['border'] ?? ($currentTheme['border'] ?? $themeDefaults['border'] ?? ''),
-                'success' => $_POST['success'] ?? ($currentTheme['success'] ?? $themeDefaults['success'] ?? ''),
-                'warning' => $_POST['warning'] ?? ($currentTheme['warning'] ?? $themeDefaults['warning'] ?? ''),
-                'danger' => $_POST['danger'] ?? ($currentTheme['danger'] ?? $themeDefaults['danger'] ?? ''),
-                'info' => $_POST['info'] ?? ($currentTheme['info'] ?? $themeDefaults['info'] ?? ''),
-                'neutral' => $_POST['neutral'] ?? ($currentTheme['neutral'] ?? $themeDefaults['neutral'] ?? ''),
+                'primary' => $this->themeColor('primary', $_POST['primary'] ?? ($currentTheme['primary'] ?? $themeDefaults['primary'] ?? '')),
+                'secondary' => $this->themeColor('secondary', $_POST['secondary'] ?? ($currentTheme['secondary'] ?? $themeDefaults['secondary'] ?? '')),
+                'accent' => $this->themeColor('accent', $_POST['accent'] ?? ($currentTheme['accent'] ?? $themeDefaults['accent'] ?? '')),
+                'background' => $this->themeColor('background', $_POST['background'] ?? ($currentTheme['background'] ?? $themeDefaults['background'] ?? '')),
+                'surface' => $this->themeColor('surface', $_POST['surface'] ?? ($currentTheme['surface'] ?? $themeDefaults['surface'] ?? '')),
+                'textPrimary' => $this->themeColor('textPrimary', $_POST['textPrimary'] ?? $_POST['text_primary'] ?? ($currentTheme['textPrimary'] ?? $currentTheme['text_primary'] ?? $currentTheme['text_main'] ?? $themeDefaults['textPrimary'] ?? $themeDefaults['text_primary'] ?? $themeDefaults['text_main'] ?? '')),
+                'textSecondary' => $this->themeColor('textSecondary', $_POST['textSecondary'] ?? $_POST['text_secondary'] ?? ($currentTheme['textSecondary'] ?? $currentTheme['text_secondary'] ?? $currentTheme['text_muted'] ?? $themeDefaults['textSecondary'] ?? $themeDefaults['text_secondary'] ?? $themeDefaults['text_muted'] ?? '')),
+                'disabled' => $this->themeColor('disabled', $disabled ?? ''),
+                'border' => $this->themeColor('border', $_POST['border'] ?? ($currentTheme['border'] ?? $themeDefaults['border'] ?? '')),
+                'success' => $this->themeColor('success', $_POST['success'] ?? ($currentTheme['success'] ?? $themeDefaults['success'] ?? '')),
+                'warning' => $this->themeColor('warning', $_POST['warning'] ?? ($currentTheme['warning'] ?? $themeDefaults['warning'] ?? '')),
+                'danger' => $this->themeColor('danger', $_POST['danger'] ?? ($currentTheme['danger'] ?? $themeDefaults['danger'] ?? '')),
+                'info' => $this->themeColor('info', $_POST['info'] ?? ($currentTheme['info'] ?? $themeDefaults['info'] ?? '')),
+                'neutral' => $this->themeColor('neutral', $_POST['neutral'] ?? ($currentTheme['neutral'] ?? $themeDefaults['neutral'] ?? '')),
                 'font_family' => trim($_POST['font_family'] ?? ($currentTheme['font_family'] ?? ($themeDefaults['font_family'] ?? "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"))),
                 'login_hero' => trim($_POST['login_hero'] ?? ($currentTheme['login_hero'] ?? '')),
                 'login_message' => trim($_POST['login_message'] ?? ($currentTheme['login_message'] ?? '')),
@@ -1047,6 +1047,21 @@ class ConfigController extends Controller
         }
 
         return false;
+    }
+
+    private function themeColor(string $token, mixed $value): string
+    {
+        $candidate = strtoupper(trim((string) $value));
+        if (!preg_match('/^#[0-9A-F]{6}$/', $candidate)) {
+            $candidate = '';
+        }
+
+        return match ($token) {
+            'secondary' => in_array($candidate, ['#FDFCFC', '#FCF7F7', '#FFFFFF'], true) ? '#D6336C' : $candidate,
+            'danger' => in_array($candidate, ['#FCF7F7', '#FDFCFC', '#FFFFFF'], true) ? '#EF4444' : $candidate,
+            'textSecondary' => in_array($candidate, ['#151414', '#0D0D0D', '#111110'], true) ? '#6B7280' : $candidate,
+            default => $candidate,
+        };
     }
 
     private function ensureConfigAccess(): void
