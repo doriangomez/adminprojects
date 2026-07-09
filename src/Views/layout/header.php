@@ -177,7 +177,7 @@ error_log(sprintf(
             display: flex;
             align-items: center;
             gap: 12px;
-            color: var(--text-secondary);
+            color: color-mix(in srgb, var(--surface) 82%, var(--background));
             text-decoration: none;
             padding: 13px 12px;
             border-radius: 16px;
