@@ -70,17 +70,17 @@ class ThemeRepository
 
     private function normalizeTheme(array $theme, array $defaultTheme): array
     {
-        $theme['primary'] = $this->pickThemeValue($theme['primary'] ?? null, $defaultTheme['primary'] ?? null);
-        $theme['secondary'] = $this->pickThemeValue($theme['secondary'] ?? null, $defaultTheme['secondary'] ?? null);
-        $theme['accent'] = $this->pickThemeValue($theme['accent'] ?? null, $defaultTheme['accent'] ?? null, $theme['primary']);
-        $theme['background'] = $this->pickThemeValue($theme['background'] ?? null, $defaultTheme['background'] ?? null);
-        $theme['surface'] = $this->pickThemeValue($theme['surface'] ?? null, $defaultTheme['surface'] ?? null);
-        $theme['border'] = $this->pickThemeValue($theme['border'] ?? null, $defaultTheme['border'] ?? null);
-        $theme['success'] = $this->pickThemeValue($theme['success'] ?? null, $defaultTheme['success'] ?? null, $theme['accent']);
-        $theme['warning'] = $this->pickThemeValue($theme['warning'] ?? null, $defaultTheme['warning'] ?? null, $theme['accent']);
-        $theme['danger'] = $this->pickThemeValue($theme['danger'] ?? null, $defaultTheme['danger'] ?? null, $theme['secondary']);
-        $theme['info'] = $this->pickThemeValue($theme['info'] ?? null, $defaultTheme['info'] ?? null, $theme['primary']);
-        $theme['neutral'] = $this->pickThemeValue($theme['neutral'] ?? null, $defaultTheme['neutral'] ?? null, $theme['secondary']);
+        $theme['primary'] = $this->pickThemeColor('primary', $theme['primary'] ?? null, $defaultTheme['primary'] ?? null);
+        $theme['secondary'] = $this->pickThemeColor('secondary', $theme['secondary'] ?? null, $defaultTheme['secondary'] ?? null);
+        $theme['accent'] = $this->pickThemeColor('accent', $theme['accent'] ?? null, $defaultTheme['accent'] ?? null, $theme['primary']);
+        $theme['background'] = $this->pickThemeColor('background', $theme['background'] ?? null, $defaultTheme['background'] ?? null);
+        $theme['surface'] = $this->pickThemeColor('surface', $theme['surface'] ?? null, $defaultTheme['surface'] ?? null);
+        $theme['border'] = $this->pickThemeColor('border', $theme['border'] ?? null, $defaultTheme['border'] ?? null);
+        $theme['success'] = $this->pickThemeColor('success', $theme['success'] ?? null, $defaultTheme['success'] ?? null, $theme['accent']);
+        $theme['warning'] = $this->pickThemeColor('warning', $theme['warning'] ?? null, $defaultTheme['warning'] ?? null, $theme['accent']);
+        $theme['danger'] = $this->pickThemeColor('danger', $theme['danger'] ?? null, $defaultTheme['danger'] ?? null, $theme['secondary']);
+        $theme['info'] = $this->pickThemeColor('info', $theme['info'] ?? null, $defaultTheme['info'] ?? null, $theme['primary']);
+        $theme['neutral'] = $this->pickThemeColor('neutral', $theme['neutral'] ?? null, $defaultTheme['neutral'] ?? null, $theme['secondary']);
 
         $textPrimary = $this->pickThemeValue(
             $theme['textPrimary'] ?? null,
@@ -90,7 +90,8 @@ class ThemeRepository
             $defaultTheme['text_primary'] ?? null,
             $defaultTheme['text_main'] ?? null
         );
-        $textSecondary = $this->pickThemeValue(
+        $textSecondary = $this->pickThemeColor(
+            'textSecondary',
             $theme['textSecondary'] ?? null,
             $theme['text_secondary'] ?? null,
             $theme['text_muted'] ?? null,
@@ -116,6 +117,37 @@ class ThemeRepository
         $theme['text_disabled'] = $disabled;
 
         return $theme;
+    }
+
+    private function pickThemeColor(string $token, mixed ...$values): string
+    {
+        $value = $this->pickThemeValue(...$values);
+        if ($this->isBrokenSavedColor($token, $value)) {
+            return $this->semanticFallback($token);
+        }
+
+        return $value;
+    }
+
+    private function isBrokenSavedColor(string $token, string $value): bool
+    {
+        $hex = ltrim(strtolower(trim($value)), '#');
+        return match ($token) {
+            'secondary' => in_array($hex, ['fdfcfc', 'fcf7f7', 'ffffff'], true),
+            'danger' => in_array($hex, ['fcf7f7', 'fdfcfc', 'ffffff'], true),
+            'textSecondary' => in_array($hex, ['151414', '0d0d0d', '111110'], true),
+            default => false,
+        };
+    }
+
+    private function semanticFallback(string $token): string
+    {
+        return match ($token) {
+            'secondary' => '#D6336C',
+            'danger' => '#EF4444',
+            'textSecondary' => '#6B7280',
+            default => '',
+        };
     }
 
     private function pickThemeValue(mixed ...$values): string
