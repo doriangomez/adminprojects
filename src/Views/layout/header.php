@@ -91,18 +91,14 @@ error_log(sprintf(
         }
         .sidebar {
             width: 292px;
-            background: linear-gradient(
-                185deg,
-                color-mix(in srgb, var(--secondary) 90%, #0f172a 10%),
-                color-mix(in srgb, var(--secondary) 84%, #020617 16%)
-            );
+            background: color-mix(in srgb, var(--surface) 96%, var(--background) 4%);
             color: var(--text-primary);
             min-height: 100vh;
             padding: 22px 18px;
             position: sticky;
             top: 0;
             border-right: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
-            box-shadow: 20px 0 50px color-mix(in srgb, #020617 18%, transparent);
+            box-shadow: 12px 0 30px color-mix(in srgb, #0f172a 8%, transparent);
             display: flex;
             flex-direction: column;
             gap: 18px;
@@ -119,7 +115,7 @@ error_log(sprintf(
         .sidebar.collapsed .user-panel { justify-content: center; }
         .sidebar-toggle {
             border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background));
-            background: color-mix(in srgb, var(--surface) 18%, var(--background));
+            background: var(--surface);
             color: var(--text-primary);
             border-radius: 12px;
             padding: 8px;
@@ -132,10 +128,10 @@ error_log(sprintf(
         .sidebar-toggle:hover {
             transform: translateY(-1px);
             border-color: color-mix(in srgb, var(--primary) 46%, var(--border));
-            background: color-mix(in srgb, var(--surface) 28%, var(--background));
+            background: color-mix(in srgb, var(--primary) 8%, var(--surface));
         }
         .sidebar-toggle svg { width: 18px; height: 18px; stroke: currentColor; }
-        .brand-box { display:flex; align-items:center; gap:10px; padding: 11px 10px; border-radius:14px; border:1px solid color-mix(in srgb, var(--border) 70%, var(--background)); background: linear-gradient(160deg, color-mix(in srgb, var(--surface) 18%, var(--background)), color-mix(in srgb, var(--surface) 6%, var(--background))); box-shadow: 0 10px 24px color-mix(in srgb, #020617 20%, transparent); }
+        .brand-box { display:flex; align-items:center; gap:10px; padding: 11px 10px; border-radius:14px; border:1px solid color-mix(in srgb, var(--border) 70%, var(--background)); background: var(--surface); box-shadow: 0 10px 24px color-mix(in srgb, #0f172a 8%, transparent); }
         .brand-mark { display:flex; align-items:center; justify-content:center; min-width: 36px; }
         .brand-box img { height: 32px; max-height: 40px; object-fit: contain; }
         .brand-name { font-weight: 800; color: var(--text-primary); font-size: 15px; }
@@ -155,7 +151,7 @@ error_log(sprintf(
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            background: linear-gradient(150deg, color-mix(in srgb, var(--surface) 28%, var(--background)), color-mix(in srgb, var(--primary) 24%, var(--secondary)));
+            background: color-mix(in srgb, var(--primary) 12%, var(--surface));
             color: var(--text-primary);
             border: 1px solid color-mix(in srgb, var(--border) 60%, var(--background));
             box-shadow: 0 8px 18px color-mix(in srgb, #020617 18%, transparent);
@@ -215,7 +211,7 @@ error_log(sprintf(
         }
         .nav-link[data-tone='operation'] { --nav-tone: var(--primary); }
         .nav-link[data-tone='management'] { --nav-tone: var(--info); }
-        .nav-link[data-tone='pmo'] { --nav-tone: var(--secondary); }
+        .nav-link[data-tone='pmo'] { --nav-tone: var(--primary); }
         .nav-link[data-tone='admin'] { --nav-tone: var(--neutral); }
         .nav-link[data-tone='danger'] { --nav-tone: var(--danger); }
         .nav-link:hover {
@@ -233,7 +229,7 @@ error_log(sprintf(
             border-color: color-mix(in srgb, var(--nav-tone) 60%, var(--border));
             box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-tone) 24%, transparent);
         }
-        .nav-link.active::before { background: var(--nav-tone); }
+        .nav-link.active::before { background: var(--secondary); }
         .nav-group { display: flex; flex-direction: column; gap: 6px; }
         .nav-submenu {
             margin-left: 12px;
@@ -504,8 +500,8 @@ error_log(sprintf(
         .btn.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); background: color-mix(in srgb, var(--warning) 12%, var(--background)); }
         .btn.danger:hover { background: color-mix(in srgb, var(--danger) 20%, var(--background)); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
         .btn.warning:hover { background: color-mix(in srgb, var(--warning) 20%, var(--background)); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); color: var(--warning); }
-        .btn:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); border-color: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); color: var(--text-primary); box-shadow: 0 10px 18px color-mix(in srgb, var(--primary) 18%, transparent); }
-        .btn:active { background: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); border-color: color-mix(in srgb, var(--primary) 78%, var(--secondary) 22%); color: var(--text-primary); }
+        .btn:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); border-color: color-mix(in srgb, var(--primary) 86%, var(--accent) 14%); color: #fff; box-shadow: 0 10px 18px color-mix(in srgb, var(--primary) 18%, transparent); }
+        .btn:active { background: color-mix(in srgb, var(--primary) 88%, #000 12%); border-color: color-mix(in srgb, var(--primary) 88%, #000 12%); color: #fff; }
         form.inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         input, select, textarea {
             padding: 10px 12px;
