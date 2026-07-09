@@ -1,19 +1,18 @@
 <div class="executive-dashboard-v2">
     <style>
-        .executive-dashboard-v2 { display: flex; flex-direction: column; gap: 14px; padding-bottom: 14px; }
-        .zone { border: 1px solid color-mix(in srgb, var(--border) 74%, var(--background)); border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, var(--background)); padding: 14px; }
-        .zone-title { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); font-weight: 800; }
+        .executive-dashboard-v2 { display: flex; flex-direction: column; gap: 16px; padding-bottom: 16px; min-width: 0; max-width: 100%; overflow-x: hidden; }
+        .zone { min-width: 0; max-width: 100%; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 20px; }
+        .zone-title { margin: 0 0 16px; font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text-primary); font-weight: 700; }
 
         .critical-bar { position: sticky; top: 8px; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .critical-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; border: 1px solid transparent; }
-        .critical-pill.red { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
-        .critical-pill.orange { background: #ffedd5; border-color: #fed7aa; color: #9a3412; }
-        .critical-pill.yellow { background: #fef3c7; border-color: #fde68a; color: #854d0e; }
-        .critical-pill.blue { background: #dbeafe; border-color: #bfdbfe; color: #1e3a8a; }
-        .critical-ok { border-color: #86efac; background: #dcfce7; color: #166534; font-weight: 800; }
+        .critical-pill.red { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); color: var(--danger); }
+        .critical-pill.orange, .critical-pill.yellow { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); color: var(--warning); }
+        .critical-pill.blue { background: color-mix(in srgb, var(--info) 14%, var(--surface)); border-color: color-mix(in srgb, var(--info) 35%, var(--border)); color: var(--info); }
+        .critical-ok { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); background: color-mix(in srgb, var(--success) 12%, var(--surface)); color: var(--success); font-weight: 800; }
 
-        .kpis-row { display: grid; grid-template-columns: repeat(6, minmax(160px, 1fr)); gap: 10px; }
-        .kpi-card { border: 1px solid color-mix(in srgb, var(--border) 74%, var(--background)); border-radius: 14px; padding: 10px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); }
+        .kpis-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+        .kpi-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--surface); }
         .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; min-height: 34px; }
         .kpi-value { margin-top: 6px; font-size: 30px; line-height: 1; font-weight: 900; color: var(--text-primary); }
         .kpi-trend { margin-top: 6px; font-size: 12px; font-weight: 700; }
@@ -23,18 +22,18 @@
         .dashboard-filters label { font-size: 12px; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .04em; }
         .dashboard-filters select { min-width: 160px; }
 
-        .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .list-card { border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); padding: 12px; }
+        .two-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+        .list-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 20px; }
         .list-title { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
         .rows { display: flex; flex-direction: column; gap: 8px; }
-        .row-item { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; border: 1px solid color-mix(in srgb, var(--border) 64%, var(--background)); border-radius: 10px; padding: 8px; }
+        .row-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 12px; align-items: center; border: 1px solid color-mix(in srgb, var(--border) 64%, var(--background)); border-radius: 10px; padding: 12px; }
         .row-item .meta { font-size: 12px; color: var(--text-secondary); }
         .action-btn-mini { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700; text-decoration: none; border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--border)); color: var(--primary); }
         .action-btn-mini:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); }
         .muted { color: var(--text-secondary); font-size: 13px; margin: 0; }
 
-        .chart-row { display: grid; grid-template-columns: repeat(3, minmax(250px, 1fr)); gap: 10px; }
-        .chart-panel { border: 1px solid color-mix(in srgb, var(--border) 70%, var(--background)); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, var(--background)); padding: 10px; }
+        .chart-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+        .chart-panel { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 20px; }
         .chart-panel h4 { margin: 0 0 10px; color: var(--text-primary); font-size: 14px; }
         .chart-panel canvas { width: 100%; min-height: 250px; }
 
@@ -44,8 +43,8 @@
         .tab-pane { display: none; }
         .tab-pane.active { display: block; }
 
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
+        .table-wrap { max-width: 100%; overflow-x: auto; }
+        table { width: 100%; min-width: 720px; border-collapse: collapse; }
         th, td { border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, var(--background)); padding: 9px 8px; color: var(--text-primary); font-size: 13px; }
         th { text-transform: uppercase; letter-spacing: .05em; font-size: 11px; color: var(--text-secondary); text-align: left; }
         .table-wrap tbody td { color: #0f172a; }
@@ -54,21 +53,21 @@
         .text-right { text-align: right; }
         .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; border: 1px solid transparent; }
         .pill.green {
-          background: #dcfce7;
-          color: #166534;
-          border-color: #86efac;
+          background: color-mix(in srgb, var(--success) 15%, var(--surface));
+          color: var(--success);
+          border-color: color-mix(in srgb, var(--success) 35%, var(--border));
           font-weight: 700;
         }
         .pill.amber {
-          background: #fef3c7;
-          color: #92400e;
-          border-color: #fcd34d;
+          background: color-mix(in srgb, var(--warning) 15%, var(--surface));
+          color: var(--warning);
+          border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
           font-weight: 700;
         }
         .pill.red {
-          background: #fee2e2;
-          color: #991b1b;
-          border-color: #fca5a5;
+          background: color-mix(in srgb, var(--danger) 15%, var(--surface));
+          color: var(--danger);
+          border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
           font-weight: 700;
         }
         .project-type-badge { margin-top: 4px; display: inline-flex; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
@@ -164,7 +163,7 @@
             $alertsForList[] = [
                 'icon' => '🟡',
                 'title' => 'Proyecto sin actualización reciente',
-                'detail' => (string) ($stale['name'] ?? 'Proyecto') . ' sin movimientos recientes',
+                'detail' => 'Sin movimientos recientes en el periodo configurado.',
                 'project' => (string) ($stale['name'] ?? 'Proyecto'),
                 'project_id' => (int) ($stale['id'] ?? 0),
             ];
@@ -263,7 +262,9 @@
                                     <strong><?= htmlspecialchars($alert['title']) ?></strong>
                                     <div class="meta"><?= htmlspecialchars($alert['detail']) ?></div>
                                 </div>
-                                <div class="meta"><?= htmlspecialchars($alert['project']) ?></div>
+                                <?php if (($alert['project'] ?? '') !== '' && ($alert['project'] ?? '') !== ($alert['detail'] ?? '')): ?>
+                                    <div class="meta"><?= htmlspecialchars($alert['project']) ?></div>
+                                <?php endif; ?>
                                 <a class="action-btn-mini" href="<?= $basePath ?>/projects<?= ($alert['project_id'] > 0 ? '/' . $alert['project_id'] : '') ?>">Ver</a>
                             </div>
                         <?php endforeach; ?>
