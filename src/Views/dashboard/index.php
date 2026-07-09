@@ -5,30 +5,16 @@
         .zone-title { margin: 0 0 16px; font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text-primary); font-weight: 700; }
 
         .critical-bar { position: sticky; top: 8px; z-index: 15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .critical-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 800; border: 1px solid transparent; }
-        .critical-pill.red { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); color: var(--danger); }
-        .critical-pill.orange, .critical-pill.yellow { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); color: var(--warning); }
-        .critical-pill.blue { background: color-mix(in srgb, var(--info) 14%, var(--surface)); border-color: color-mix(in srgb, var(--info) 35%, var(--border)); color: var(--info); }
         .critical-ok { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); background: color-mix(in srgb, var(--success) 12%, var(--surface)); color: var(--success); font-weight: 800; }
 
         .kpis-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
-        .kpi-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--surface); }
-        .kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; min-height: 34px; }
-        .kpi-value { margin-top: 6px; font-size: 30px; line-height: 1; font-weight: 900; color: var(--text-primary); }
-        .kpi-trend { margin-top: 6px; font-size: 12px; font-weight: 700; }
-        .trend-positive { color: var(--success); }
-        .trend-negative { color: var(--danger); }
         .dashboard-filters { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; align-self: flex-end; margin-bottom: 8px; }
         .dashboard-filters label { font-size: 12px; font-weight: 700; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .04em; }
         .dashboard-filters select { min-width: 160px; }
 
         .two-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-        .list-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 20px; }
-        .list-title { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
         .rows { display: flex; flex-direction: column; gap: 8px; }
-        .row-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 12px; align-items: center; border: 1px solid color-mix(in srgb, var(--border) 64%, var(--background)); border-radius: 10px; padding: 12px; }
         .row-item .meta { font-size: 12px; color: var(--text-secondary); }
-        .action-btn-mini { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700; text-decoration: none; border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--border)); color: var(--primary); }
         .action-btn-mini:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); }
         .muted { color: var(--text-secondary); font-size: 13px; margin: 0; }
 
@@ -217,10 +203,10 @@
             <div class="critical-bar">✅ Portafolio operando con normalidad</div>
         <?php else: ?>
             <div class="critical-bar">
-                <span class="critical-pill red">🔴 Proyectos en riesgo: <?= $riskProjects ?></span>
-                <span class="critical-pill orange">🟠 Bloqueos críticos: <?= $criticalBlockers ?></span>
-                <span class="critical-pill yellow">🟡 Facturas vencidas / plan: <?= number_format($billingIssuePct, 1, ',', '.') ?>%</span>
-                <span class="critical-pill blue">🔵 Score general: <?= $score ?>/100</span>
+                <span class="critical-pill red">Proyectos en riesgo: <?= $riskProjects ?></span>
+                <span class="critical-pill orange">Bloqueos críticos: <?= $criticalBlockers ?></span>
+                <span class="critical-pill yellow">Facturas vencidas / plan: <?= number_format($billingIssuePct, 1, ',', '.') ?>%</span>
+                <span class="critical-pill blue">Score general: <?= $score ?>/100</span>
             </div>
         <?php endif; ?>
     </section>
