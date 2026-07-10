@@ -273,11 +273,11 @@ $pmOptions = is_array($pmOptions ?? null) ? $pmOptions : [];
 </script>
 
 <style>
-    .gantt-global-shell { display:flex; flex-direction:column; gap:12px; }
+    .gantt-global-shell { display:flex; flex-direction:column; gap:16px; }
     .gantt-global-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
     .gantt-global-header h2 { margin:0; }
     .section-muted { color: var(--text-secondary); margin:0; font-size:13px; }
-    .gantt-filters { border:1px solid var(--border); border-radius:14px; padding:12px; background:var(--surface); display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px; }
+    .gantt-filters { border:1px solid color-mix(in srgb, var(--primary) 12%, var(--border)); border-radius:18px; padding:14px; background:linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, var(--primary) 4%), var(--surface)); display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:12px; box-shadow:0 14px 30px color-mix(in srgb, var(--text-primary) 7%, transparent); }
     .gantt-filters label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:700; color:var(--text-primary); }
     .gantt-filters select { padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text-primary); }
     .gantt-filters__actions { display:flex; gap:8px; align-items:flex-end; }
@@ -286,12 +286,13 @@ $pmOptions = is_array($pmOptions ?? null) ? $pmOptions : [];
     .gantt-empty p { margin:0; color: var(--text-secondary); }
 
     .gantt-global-layout { display:grid; grid-template-columns: minmax(500px, 1.2fr) minmax(360px, 1fr); gap:10px; }
-    .gantt-left, .gantt-right { border:1px solid var(--border); border-radius:12px; background:var(--surface); overflow:hidden; }
+    .gantt-left, .gantt-right { border:1px solid color-mix(in srgb, var(--primary) 12%, var(--border)); border-radius:18px; background:var(--surface); overflow:hidden; box-shadow:0 18px 36px color-mix(in srgb, var(--text-primary) 8%, transparent); }
     .gantt-left { display:flex; flex-direction:column; }
     .gantt-left__header, .gantt-left__row { display:grid; grid-template-columns: 2fr 1.2fr 1.2fr .8fr 1fr; gap:8px; align-items:center; padding:10px 12px; }
-    .gantt-left__header { font-size:11px; text-transform:uppercase; color:var(--text-secondary); font-weight:700; border-bottom:1px solid var(--border); }
+    .gantt-left__header { font-size:11px; text-transform:uppercase; color:var(--text-secondary); font-weight:800; letter-spacing:.06em; border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--background) 55%, var(--surface)); }
     .gantt-left__body { max-height:560px; overflow:auto; }
-    .gantt-left__row { border-top:1px solid var(--border); font-size:13px; }
+    .gantt-left__row { border-top:1px solid color-mix(in srgb, var(--border) 78%, transparent); font-size:13px; transition:background-color .18s ease; }
+    .gantt-left__row:hover { background:color-mix(in srgb, var(--primary) 5%, var(--surface)); }
     .gantt-left__row:first-child { border-top:none; }
     .project-row .project-cell { display:flex; align-items:center; gap:8px; }
     .expand-btn { border:1px solid var(--border); border-radius:8px; padding:2px 6px; background:var(--surface); cursor:pointer; font-size:12px; }
@@ -302,9 +303,9 @@ $pmOptions = is_array($pmOptions ?? null) ? $pmOptions : [];
     .health-pill.health-yellow { background: color-mix(in srgb, var(--warning) 20%, var(--surface)); color: var(--warning); }
     .health-pill.health-red { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); color: var(--danger); }
 
-    .gantt-right__canvas { min-height:560px; padding:8px; }
+    .gantt-right__canvas { min-height:560px; padding:12px; background:linear-gradient(90deg, color-mix(in srgb, var(--border) 32%, transparent) 1px, transparent 1px), linear-gradient(180deg, color-mix(in srgb, var(--border) 26%, transparent) 1px, transparent 1px), color-mix(in srgb, var(--surface) 88%, var(--background)); background-size:72px 100%, 100% 30px; }
     .gantt-right__canvas svg { width:100%; height:100%; min-height:560px; }
-    .gantt-project-bar { cursor:pointer; }
+    .gantt-project-bar { cursor:pointer; filter:drop-shadow(0 3px 5px color-mix(in srgb, var(--text-primary) 22%, transparent)); }
 
     .gantt-tooltip {
         position: fixed;

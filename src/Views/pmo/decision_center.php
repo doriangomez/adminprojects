@@ -218,9 +218,22 @@ $truncateText = static function (string $text, int $width = 70): string {
         }
         .sim-result ul { margin: 6px 0 0; padding-left: 18px; color: var(--text-primary); }
         .ai-box {
-            border: 1px solid color-mix(in srgb, var(--primary) 46%, var(--border));
-            background: linear-gradient(130deg, color-mix(in srgb, var(--primary) 14%, var(--surface)), color-mix(in srgb, var(--info) 10%, var(--surface)));
+            position: relative;
+            overflow: hidden;
+            border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--border));
+            background:
+                radial-gradient(circle at 92% 10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%),
+                linear-gradient(135deg, color-mix(in srgb, var(--surface) 92%, var(--primary) 8%), color-mix(in srgb, var(--surface) 88%, var(--info) 12%));
+            box-shadow: 0 20px 44px color-mix(in srgb, var(--primary) 12%, transparent);
         }
+        .ai-box::before {
+            content: '';
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 4px;
+            background: linear-gradient(180deg, var(--primary), var(--accent));
+        }
+        .ai-box > * { position: relative; }
         .ai-box pre {
             white-space: pre-wrap;
             margin: 10px 0 0;
