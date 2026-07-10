@@ -380,6 +380,58 @@ error_log(sprintf(
         .preview-logo { height:42px; background:color-mix(in srgb, var(--surface) 90%, var(--background) 10%); padding:8px; border-radius:10px; box-shadow:0 8px 20px color-mix(in srgb, var(--text-primary) 20%, var(--background) 80%); }
         .preview-subtitle { color: color-mix(in srgb, var(--surface) 80%, var(--background)); font-size:13px; }
         .card, .zone, .list-card, .chart-panel, .table-wrapper, .table-wrap { min-width: 0; max-width: 100%; }
+
+        .kpi-card{
+          background:#fff;border:1px solid #E7E7EE;border-radius:16px;
+          padding:20px;box-shadow:0 1px 2px rgba(16,24,40,.04);
+          position:relative;overflow:hidden;
+        }
+        .kpi-card::before{
+          content:'';position:absolute;top:0;left:0;width:4px;height:100%;
+          background:#5555EC;
+        }
+        .kpi-label{
+          font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;
+          letter-spacing:.03em;margin-bottom:10px;
+        }
+        .kpi-value{font-size:28px;font-weight:800;color:#0D0D12;letter-spacing:-.01em;}
+        .kpi-trend{
+          display:inline-flex;align-items:center;gap:4px;font-size:12px;
+          font-weight:700;padding:2px 10px;border-radius:20px;margin-top:8px;
+        }
+        .kpi-trend.trend-positive{background:#E9FBF0;color:#16803D;}
+        .kpi-trend.trend-negative{background:#FDEBEB;color:#B42318;}
+
+        .critical-pill{
+          display:inline-flex;align-items:center;gap:8px;padding:10px 16px 10px 34px;
+          border-radius:12px;font-size:13px;font-weight:600;border:1px solid #E7E7EE;
+          background:#fff;position:relative;
+        }
+        .critical-pill::before{
+          content:'';position:absolute;left:14px;top:50%;transform:translateY(-50%);
+          width:8px;height:8px;border-radius:50%;
+        }
+        .critical-pill.red::before{background:#EF4444;}
+        .critical-pill.orange::before,.critical-pill.yellow::before{background:#F59E0B;}
+        .critical-pill.blue::before{background:#38BDF8;}
+
+        .list-card{
+          background:#fff;border:1px solid #E7E7EE;border-radius:16px;padding:18px;
+          box-shadow:0 1px 2px rgba(16,24,40,.04);
+        }
+        .list-title{
+          font-size:13px;font-weight:700;text-transform:uppercase;
+          letter-spacing:.04em;color:#6B7280;margin-bottom:14px;
+        }
+        .row-item{
+          display:flex;gap:12px;align-items:flex-start;padding:14px;
+          border:1px solid #E7E7EE;border-radius:12px;margin-bottom:10px;
+        }
+        .action-btn-mini{
+          margin-left:auto;font-size:12px;font-weight:600;color:#5555EC;
+          background:#EEEEFD;padding:5px 12px;border-radius:8px;border:none;
+          white-space:nowrap;
+        }
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
