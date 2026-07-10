@@ -25,24 +25,33 @@ if (!array_key_exists($activeTab, $tabs)) {
         flex-wrap: wrap;
         gap: 8px;
         padding: 8px;
-        border-radius: 14px;
-        border: 1px solid var(--border);
-        background: var(--surface);
+        border-radius: 18px;
+        border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border));
+        background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, var(--primary) 4%), var(--surface));
+        box-shadow: 0 14px 30px color-mix(in srgb, var(--text-primary) 7%, transparent);
     }
     .tab-nav a {
         cursor: pointer;
-        padding: 8px 14px;
-        border-radius: 10px;
-        font-weight: 600;
-        color: var(--text-primary);
-        background: var(--surface);
-        border: 1px solid var(--background);
+        padding: 10px 15px;
+        border-radius: 12px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        background: transparent;
+        border: 1px solid transparent;
         text-decoration: none;
+        transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+    }
+    .tab-nav a:hover {
+        color: var(--text-primary);
+        background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+        border-color: color-mix(in srgb, var(--primary) 18%, var(--border));
     }
     .tab-nav a.active {
-        background: var(--primary);
-        color: var(--text-primary);
-        border-color: color-mix(in srgb, var(--primary) 85%, var(--secondary) 15%);
+        background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 72%, var(--accent) 28%));
+        color: var(--surface);
+        border-color: color-mix(in srgb, var(--primary) 70%, var(--accent));
+        box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 22%, transparent);
+        transform: translateY(-1px);
     }
     .config-card {
         background: var(--surface);
