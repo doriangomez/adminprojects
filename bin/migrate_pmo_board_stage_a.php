@@ -11,98 +11,39 @@ declare(strict_types=1);
  * Uso (cuando se autorice):
  *   php bin/migrate_pmo_board_stage_a.php
  *
- * Credenciales: únicamente src/config.php o variables de entorno DB_* completas.
- * No usa contraseñas predeterminadas ni imprime DSN/secretos.
+ * Bootstrap de configuración/conexión: idéntico a pmo_engine.php
+ * (src/config.php o mismos fallbacks DB_* del script funcional).
  */
-
-require_once dirname(__DIR__) . '/src/Core/Database.php';
-require_once dirname(__DIR__) . '/src/Core/DatabaseMigrator.php';
 
 if (PHP_SAPI !== 'cli') {
     fwrite(STDERR, "Este comando solo puede ejecutarse en CLI.\n");
     exit(1);
 }
 
-/**
- * @return array{db: array<string, mixed>}
- */
-function pmo_board_stage_a_load_config(): array
-{
-    $configPath = dirname(__DIR__) . '/src/config.php';
-    if (is_file($configPath)) {
-        $config = require $configPath;
-        if (!is_array($config) || !isset($config['db']) || !is_array($config['db'])) {
-            throw new RuntimeException('CONFIG_INVALID: src/config.php no define db correctamente.');
-        }
+$root = dirname(__DIR__);
 
-        return $config;
-    }
+require_once $root . '/src/Core/Database.php';
+require_once $root . '/src/Core/DatabaseMigrator.php';
 
-    $host = getenv('DB_HOST');
-    $port = getenv('DB_PORT');
-    $database = getenv('DB_NAME');
-    $username = getenv('DB_USER');
-    $password = getenv('DB_PASSWORD');
-
-    $missing = [];
-    foreach ([
-        'DB_HOST' => $host,
-        'DB_PORT' => $port,
-        'DB_NAME' => $database,
-        'DB_USER' => $username,
-        'DB_PASSWORD' => $password,
-    ] as $name => $value) {
-        if ($value === false || $value === null || $value === '') {
-            $missing[] = $name;
-        }
-    }
-
-    if ($missing !== []) {
-        throw new RuntimeException(
-            'CONFIG_MISSING: faltan variables de entorno o src/config.php. '
-            . 'Defina la configuración de base de datos antes de ejecutar la migración.'
-        );
-    }
-
-    return [
+$configPath = $root . '/src/config.php';
+if (is_file($configPath)) {
+    $config = require $configPath;
+} else {
+    $config = [
         'db' => [
-            'host' => (string) $host,
-            'port' => (string) $port,
-            'database' => (string) $database,
-            'username' => (string) $username,
-            'password' => (string) $password,
+            'host' => getenv('DB_HOST') ?: 'localhost',
+            'port' => getenv('DB_PORT') ?: '3306',
+            'database' => getenv('DB_NAME') ?: 'pmo',
+            'username' => getenv('DB_USER') ?: 'pmo_user',
+            'password' => getenv('DB_PASSWORD') ?: 'secret',
             'charset' => 'utf8mb4',
         ],
     ];
 }
 
-function pmo_board_stage_a_public_error(Throwable $e): string
-{
-    $code = 'PMO_A_RUNTIME';
-    $message = $e->getMessage();
-    if (str_starts_with($message, 'CONFIG_')) {
-        return $message;
-    }
-
-    return $code . ': no se pudo completar la migración. Revise el log del servidor.';
-}
-
-try {
-    $config = pmo_board_stage_a_load_config();
-} catch (Throwable $e) {
-    fwrite(STDERR, '[PMO Board Stage A] ' . pmo_board_stage_a_public_error($e) . PHP_EOL);
-    exit(2);
-}
-
-try {
-    $db = new Database($config['db']);
-    $migrator = new DatabaseMigrator($db);
-    $result = $migrator->ensurePmoBoardStageA();
-} catch (Throwable $e) {
-    error_log('PMO Board Stage A connection/runtime failure: ' . $e::class);
-    fwrite(STDERR, '[PMO Board Stage A] ' . pmo_board_stage_a_public_error($e) . PHP_EOL);
-    exit(2);
-}
+$db = new Database($config['db']);
+$migrator = new DatabaseMigrator($db);
+$result = $migrator->ensurePmoBoardStageA();
 
 $status = (string) ($result['status'] ?? 'unknown');
 $code = (string) ($result['code'] ?? 'PMO_A_UNKNOWN');
