@@ -1012,6 +1012,9 @@ class DatabaseMigrator
 
         try {
             if (!$this->db->tableExists('project_schedule_activities')) {
+                // Definición canónica alineada a Etapa A (instalaciones nuevas).
+                // Bases existentes sin columnas PMO se actualizan solo vía
+                // bin/migrate_pmo_board_stage_a.php (no aquí, para evitar DDL en cada request).
                 $this->db->execute(
                     'CREATE TABLE project_schedule_activities (
                         id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -1025,11 +1028,29 @@ class DatabaseMigrator
                         responsible_name VARCHAR(150) NULL,
                         progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
                         linked_task_id INT NULL,
+                        code VARCHAR(40) NULL,
+                        phase_code VARCHAR(80) NULL,
+                        front_label VARCHAR(120) NULL,
+                        status VARCHAR(20) NOT NULL DEFAULT \'todo\',
+                        is_critical_auto TINYINT(1) NOT NULL DEFAULT 0,
+                        is_critical_manual TINYINT(1) NULL,
+                        critical_manual_by INT NULL,
+                        critical_manual_at DATETIME NULL,
+                        critical_manual_reason VARCHAR(255) NULL,
+                        responsible_user_id INT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         INDEX idx_project_schedule_project (project_id, sort_order),
                         INDEX idx_project_schedule_task (linked_task_id),
-                        CONSTRAINT fk_project_schedule_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                        UNIQUE KEY uq_project_schedule_activities_project_code (project_id, code),
+                        UNIQUE KEY uq_project_schedule_activities_id_project (id, project_id),
+                        INDEX idx_project_schedule_activities_project_status (project_id, status),
+                        CONSTRAINT fk_project_schedule_project
+                            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                        CONSTRAINT fk_project_schedule_activities_critical_manual_by
+                            FOREIGN KEY (critical_manual_by) REFERENCES users(id) ON DELETE SET NULL,
+                        CONSTRAINT fk_project_schedule_activities_responsible_user
+                            FOREIGN KEY (responsible_user_id) REFERENCES users(id) ON DELETE SET NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
                 );
             }
@@ -1040,6 +1061,109 @@ class DatabaseMigrator
             }
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo de cronograma: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Etapa A del tablero PMO. Idempotente. Debe invocarse solo desde CLI explícito
+     * (bin/migrate_pmo_board_stage_a.php). No llamar desde App ni en el arranque HTTP.
+     *
+     * @return array{status: string, message: string, code?: string, step?: string, steps?: list<string>}
+     */
+    public function ensurePmoBoardStageA(): array
+    {
+        $flagKey = 'pmo_board_stage_a';
+        $lockName = 'pmo_board_stage_a';
+        $steps = [];
+        $currentStep = 'init';
+
+        if ($this->pmoBoardStageAFlagExists($flagKey)) {
+            return [
+                'status' => 'already_applied',
+                'message' => 'Etapa A ya aplicada (flag config_settings.pmo_board_stage_a).',
+                'code' => 'PMO_A_ALREADY_APPLIED',
+            ];
+        }
+
+        $lockRow = $this->db->fetchOne(
+            'SELECT GET_LOCK(:lock_name, :timeout) AS acquired',
+            [
+                ':lock_name' => $lockName,
+                ':timeout' => 10,
+            ]
+        );
+
+        if ((int) ($lockRow['acquired'] ?? 0) !== 1) {
+            return [
+                'status' => 'lock_failed',
+                'message' => 'No se obtuvo el bloqueo de migración. Reintente más tarde.',
+                'code' => 'PMO_A_LOCK_FAILED',
+            ];
+        }
+
+        try {
+            if ($this->pmoBoardStageAFlagExists($flagKey)) {
+                return [
+                    'status' => 'already_applied',
+                    'message' => 'Etapa A ya aplicada tras adquirir el lock.',
+                    'code' => 'PMO_A_ALREADY_APPLIED',
+                ];
+            }
+
+            $currentStep = 'preflight';
+            $this->assertPmoBoardStageAPreflight();
+            $steps[] = 'preflight:ok';
+
+            $currentStep = 'projects.description';
+            $steps[] = $this->ensureProjectsDescriptionColumn();
+
+            $currentStep = 'project_pmo_settings.create';
+            $steps[] = $this->ensureProjectPmoSettingsTable();
+
+            $currentStep = 'project_pmo_settings.backfill';
+            $steps[] = $this->backfillProjectPmoSettings();
+
+            $currentStep = 'project_schedule_activities.columns';
+            $steps[] = $this->ensureProjectScheduleActivitiesPmoColumns();
+
+            $currentStep = 'permissions';
+            $steps[] = $this->ensurePmoBoardStageAPermissions();
+
+            $currentStep = 'final_verification';
+            $this->assertPmoBoardStageAComplete();
+            $steps[] = 'final_verification:ok';
+
+            $currentStep = 'flag';
+            $this->writePmoBoardStageAFlag($flagKey);
+            $steps[] = 'flag:config_settings.pmo_board_stage_a';
+
+            return [
+                'status' => 'applied',
+                'message' => 'Etapa A aplicada correctamente.',
+                'code' => 'PMO_A_APPLIED',
+                'steps' => array_values(array_filter($steps)),
+            ];
+        } catch (\Throwable $e) {
+            $safeMessage = $this->sanitizePmoBoardStageAErrorMessage($e->getMessage());
+            error_log(sprintf(
+                'PMO Board Stage A failed step=%s class=%s message=%s',
+                $currentStep,
+                $e::class,
+                $this->redactSensitiveText($e->getMessage())
+            ));
+
+            return [
+                'status' => 'failed',
+                'message' => 'Etapa A incompleta en el paso "' . $currentStep . '": ' . $safeMessage . '. El flag no se escribió; puede reintentarse.',
+                'code' => 'PMO_A_FAILED',
+                'step' => $currentStep,
+                'steps' => array_values(array_filter($steps)),
+            ];
+        } finally {
+            $this->db->fetchOne(
+                'SELECT RELEASE_LOCK(:lock_name) AS released',
+                [':lock_name' => $lockName]
+            );
         }
     }
 
@@ -3447,6 +3571,586 @@ class DatabaseMigrator
                  ON DELETE SET NULL'
             );
         }
+    }
+
+    /** @return list<string> */
+    private function pmoBoardStageAPermissionCodes(): array
+    {
+        return [
+            'pmo.board.view',
+            'pmo.board.update_progress',
+            'pmo.portfolio.view',
+            'pmo.settings.manage',
+            'pmo.critical_path.manage',
+            'pmo.raci.manage',
+            'pmo.scope_changes.view',
+            'pmo.scope_changes.manage',
+            'pmo.scope_changes.approve',
+            'pmo.organizations.manage',
+            'pmo.technologies.manage',
+            'pmo.access_log.view',
+        ];
+    }
+
+    /** @return array<string, list<string>> */
+    private function pmoBoardStageARoleGrants(): array
+    {
+        $all = $this->pmoBoardStageAPermissionCodes();
+
+        return [
+            'Administrador' => $all,
+            'PMO' => $all,
+            'Líder de Proyecto' => [
+                'pmo.board.view',
+                'pmo.board.update_progress',
+                'pmo.portfolio.view',
+                'pmo.scope_changes.view',
+                'pmo.scope_changes.manage',
+            ],
+            'Visualizador' => [
+                'pmo.board.view',
+                'pmo.portfolio.view',
+                'pmo.scope_changes.view',
+            ],
+        ];
+    }
+
+    /** @return list<string> */
+    private function pmoBoardStageARequiredRoles(): array
+    {
+        return ['Administrador', 'PMO', 'Líder de Proyecto', 'Visualizador', 'Talento'];
+    }
+
+    private function pmoBoardStageAFlagExists(string $flagKey): bool
+    {
+        if (!$this->db->tableExists('config_settings')) {
+            return false;
+        }
+
+        $existing = $this->db->fetchOne(
+            'SELECT 1 AS present FROM config_settings WHERE config_key = :key LIMIT 1',
+            [':key' => $flagKey]
+        );
+
+        return $existing !== null;
+    }
+
+    private function writePmoBoardStageAFlag(string $flagKey): void
+    {
+        $payload = json_encode(
+            [
+                'version' => 'stage_a_1',
+                'applied_at' => date('c'),
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
+        $this->db->execute(
+            'INSERT INTO config_settings (config_key, config_value, updated_at)
+             VALUES (:key, :value, NOW())
+             ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = NOW()',
+            [
+                ':key' => $flagKey,
+                ':value' => $payload,
+            ]
+        );
+    }
+
+    private function assertPmoBoardStageAPreflight(): void
+    {
+        $requiredTables = [
+            'projects',
+            'project_schedule_activities',
+            'users',
+            'permissions',
+            'roles',
+            'role_permissions',
+            'config_settings',
+        ];
+
+        foreach ($requiredTables as $table) {
+            if (!$this->db->tableExists($table)) {
+                throw new \RuntimeException('Preflight fallido: falta la tabla requerida "' . $table . '".');
+            }
+        }
+
+        $requiredColumns = [
+            'projects' => ['id', 'name', 'active'],
+            'project_schedule_activities' => ['id', 'project_id', 'name', 'progress_percent'],
+            'users' => ['id'],
+            'permissions' => ['id', 'code', 'name'],
+            'roles' => ['id', 'nombre'],
+            'role_permissions' => ['role_id', 'permission_id'],
+            'config_settings' => ['config_key', 'config_value'],
+        ];
+
+        foreach ($requiredColumns as $table => $columns) {
+            foreach ($columns as $column) {
+                if (!$this->db->columnExists($table, $column)) {
+                    throw new \RuntimeException(
+                        'Preflight fallido: falta la columna requerida "' . $table . '.' . $column . '".'
+                    );
+                }
+            }
+        }
+
+        foreach ($this->pmoBoardStageARequiredRoles() as $roleName) {
+            $role = $this->db->fetchOne(
+                'SELECT id FROM roles WHERE nombre = :name LIMIT 1',
+                [':name' => $roleName]
+            );
+            if ($role === null) {
+                throw new \RuntimeException(
+                    'Preflight fallido: no se encontró el rol obligatorio "' . $roleName . '" (coincidencia exacta).'
+                );
+            }
+        }
+    }
+
+    private function ensureProjectsDescriptionColumn(): string
+    {
+        if ($this->db->columnExists('projects', 'description')) {
+            return 'projects.description:exists';
+        }
+
+        $this->db->execute('ALTER TABLE projects ADD COLUMN description TEXT NULL AFTER name');
+        $this->db->clearColumnCache();
+
+        return 'projects.description:added';
+    }
+
+    private function pmoBoardDefaultIndicatorsJson(): string
+    {
+        return json_encode([
+            'avance_real',
+            'avance_planificado',
+            'desviacion_vs_plan',
+            'adelantadas',
+            'a_tiempo',
+            'atrasadas',
+            'hitos_totales',
+            'hitos_cumplidos',
+            'hitos_vencidos',
+            'ruta_critica',
+            'stoppers_abiertos',
+            'actividades_bloqueadas',
+            'riesgos_por_severidad',
+            'cambios_alcance_pendientes',
+            'dias_restantes',
+            'avance_por_frente',
+            'avance_por_organizacion',
+            'avance_por_responsable',
+            'curva_s',
+            'evolucion_diaria',
+            'salud_general',
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function pmoBoardDefaultStatusesJson(): string
+    {
+        return json_encode(
+            ['todo', 'in_progress', 'review', 'blocked', 'done', 'cancelled'],
+            JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    private function ensureProjectPmoSettingsTable(): string
+    {
+        if ($this->db->tableExists('project_pmo_settings')) {
+            return 'project_pmo_settings:exists';
+        }
+
+        $this->db->execute(
+            "CREATE TABLE project_pmo_settings (
+                project_id INT NOT NULL,
+                board_title VARCHAR(180) NULL,
+                timezone VARCHAR(64) NOT NULL DEFAULT 'America/Bogota',
+                target_date DATE NULL,
+                deviation_threshold_pct DECIMAL(5,2) NOT NULL DEFAULT 5.00,
+                enabled_indicators_json JSON NOT NULL,
+                applicable_statuses_json JSON NOT NULL,
+                critical_path_mode ENUM('auto','manual_override','hybrid') NOT NULL DEFAULT 'hybrid',
+                velocity_window_days INT NOT NULL DEFAULT 5,
+                work_week_mask CHAR(7) NOT NULL DEFAULT '0111110',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (project_id),
+                CONSTRAINT fk_project_pmo_settings_project
+                    FOREIGN KEY (project_id) REFERENCES projects(id)
+                    ON DELETE RESTRICT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        return 'project_pmo_settings:created';
+    }
+
+    private function backfillProjectPmoSettings(): string
+    {
+        $indicators = $this->pmoBoardDefaultIndicatorsJson();
+        $statuses = $this->pmoBoardDefaultStatusesJson();
+
+        $this->db->execute(
+            "INSERT INTO project_pmo_settings (
+                project_id, board_title, timezone, target_date, deviation_threshold_pct,
+                enabled_indicators_json, applicable_statuses_json, critical_path_mode,
+                velocity_window_days, work_week_mask, created_at, updated_at
+             )
+             SELECT
+                p.id,
+                NULL,
+                'America/Bogota',
+                NULL,
+                5.00,
+                CAST(:indicators AS JSON),
+                CAST(:statuses AS JSON),
+                'hybrid',
+                5,
+                '0111110',
+                NOW(),
+                NOW()
+             FROM projects p
+             WHERE NOT EXISTS (
+                SELECT 1 FROM project_pmo_settings s WHERE s.project_id = p.id
+             )",
+            [
+                ':indicators' => $indicators,
+                ':statuses' => $statuses,
+            ]
+        );
+
+        return 'project_pmo_settings.backfill:done';
+    }
+
+    private function ensureProjectScheduleActivitiesPmoColumns(): string
+    {
+        $added = [];
+
+        $columns = [
+            'code' => 'VARCHAR(40) NULL',
+            'phase_code' => 'VARCHAR(80) NULL',
+            'front_label' => 'VARCHAR(120) NULL',
+            'status' => "VARCHAR(20) NOT NULL DEFAULT 'todo'",
+            'is_critical_auto' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'is_critical_manual' => 'TINYINT(1) NULL',
+            'critical_manual_by' => 'INT NULL',
+            'critical_manual_at' => 'DATETIME NULL',
+            'critical_manual_reason' => 'VARCHAR(255) NULL',
+            'responsible_user_id' => 'INT NULL',
+        ];
+
+        foreach ($columns as $column => $definition) {
+            if ($this->db->columnExists('project_schedule_activities', $column)) {
+                continue;
+            }
+            $this->db->execute(
+                sprintf('ALTER TABLE project_schedule_activities ADD COLUMN `%s` %s', $column, $definition)
+            );
+            $this->db->clearColumnCache();
+            $added[] = $column;
+        }
+
+        if (!$this->db->indexExists('project_schedule_activities', 'uq_project_schedule_activities_project_code')) {
+            $this->db->execute(
+                'ALTER TABLE project_schedule_activities
+                 ADD UNIQUE KEY uq_project_schedule_activities_project_code (project_id, code)'
+            );
+        }
+
+        if (!$this->db->indexExists('project_schedule_activities', 'uq_project_schedule_activities_id_project')) {
+            $this->db->execute(
+                'ALTER TABLE project_schedule_activities
+                 ADD UNIQUE KEY uq_project_schedule_activities_id_project (id, project_id)'
+            );
+        }
+
+        if (!$this->db->indexExists('project_schedule_activities', 'idx_project_schedule_activities_project_status')) {
+            $this->db->execute(
+                'ALTER TABLE project_schedule_activities
+                 ADD INDEX idx_project_schedule_activities_project_status (project_id, status)'
+            );
+        }
+
+        if (!$this->db->columnExists('project_schedule_activities', 'critical_manual_by')
+            || !$this->db->columnExists('project_schedule_activities', 'responsible_user_id')
+        ) {
+            throw new \RuntimeException(
+                'No se pudieron asegurar las columnas critical_manual_by / responsible_user_id.'
+            );
+        }
+
+        if (!$this->db->foreignKeyExists('project_schedule_activities', 'critical_manual_by', 'users')) {
+            $this->db->execute(
+                'ALTER TABLE project_schedule_activities
+                 ADD CONSTRAINT fk_project_schedule_activities_critical_manual_by
+                 FOREIGN KEY (critical_manual_by) REFERENCES users(id)
+                 ON DELETE SET NULL'
+            );
+        }
+
+        if (!$this->db->foreignKeyExists('project_schedule_activities', 'responsible_user_id', 'users')) {
+            $this->db->execute(
+                'ALTER TABLE project_schedule_activities
+                 ADD CONSTRAINT fk_project_schedule_activities_responsible_user
+                 FOREIGN KEY (responsible_user_id) REFERENCES users(id)
+                 ON DELETE SET NULL'
+            );
+        }
+
+        if (!$this->db->foreignKeyExists('project_schedule_activities', 'critical_manual_by', 'users')
+            || !$this->db->foreignKeyExists('project_schedule_activities', 'responsible_user_id', 'users')
+        ) {
+            throw new \RuntimeException(
+                'Verificación FK fallida: se requieren critical_manual_by y responsible_user_id → users.id.'
+            );
+        }
+
+        $this->assertScheduleActivityUserForeignKeyRules();
+
+        return 'project_schedule_activities.columns:' . ($added === [] ? 'exists' : implode(',', $added));
+    }
+
+    private function assertScheduleActivityUserForeignKeyRules(): void
+    {
+        foreach (['critical_manual_by', 'responsible_user_id'] as $column) {
+            $details = $this->db->foreignKeyDetails('project_schedule_activities', $column);
+            if ($details === null) {
+                throw new \RuntimeException('FK ausente en project_schedule_activities.' . $column);
+            }
+            if (strtoupper((string) ($details['REFERENCED_TABLE_NAME'] ?? '')) !== 'USERS'
+                && strtolower((string) ($details['REFERENCED_TABLE_NAME'] ?? '')) !== 'users'
+            ) {
+                throw new \RuntimeException(
+                    'FK project_schedule_activities.' . $column . ' no referencia users.'
+                );
+            }
+            if (strtoupper((string) ($details['DELETE_RULE'] ?? '')) !== 'SET NULL') {
+                throw new \RuntimeException(
+                    'FK project_schedule_activities.' . $column . ' debe ser ON DELETE SET NULL.'
+                );
+            }
+        }
+    }
+
+    private function ensurePmoBoardStageAPermissions(): string
+    {
+        $permissions = [
+            'pmo.board.view' => 'Ver tablero PMO de proyecto',
+            'pmo.board.update_progress' => 'Actualizar avance/estado PMO',
+            'pmo.portfolio.view' => 'Ver portafolio PMO',
+            'pmo.settings.manage' => 'Gestionar configuración PMO del proyecto',
+            'pmo.critical_path.manage' => 'Gestionar ruta crítica (override)',
+            'pmo.raci.manage' => 'Gestionar matriz RACI',
+            'pmo.scope_changes.view' => 'Ver cambios de alcance',
+            'pmo.scope_changes.manage' => 'Crear/editar cambios de alcance',
+            'pmo.scope_changes.approve' => 'Aprobar/rechazar cambios de alcance',
+            'pmo.organizations.manage' => 'Gestionar organizaciones',
+            'pmo.technologies.manage' => 'Gestionar catálogo de tecnologías',
+            'pmo.access_log.view' => 'Ver registro de accesos',
+        ];
+
+        if (count($permissions) !== 12) {
+            throw new \RuntimeException('Catálogo interno de permisos Stage A inválido.');
+        }
+
+        foreach ($permissions as $code => $name) {
+            $this->db->execute(
+                'INSERT INTO permissions (code, name)
+                 SELECT :code_value, :name
+                 WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE code = :code_check)',
+                [
+                    ':code_value' => $code,
+                    ':code_check' => $code,
+                    ':name' => $name,
+                ]
+            );
+        }
+
+        $grants = $this->pmoBoardStageARoleGrants();
+
+        foreach ($grants as $roleName => $codes) {
+            $role = $this->db->fetchOne(
+                'SELECT id FROM roles WHERE nombre = :name LIMIT 1',
+                [':name' => $roleName]
+            );
+            if ($role === null) {
+                throw new \RuntimeException(
+                    'No se encontró el rol obligatorio "' . $roleName . '" para asignar permisos PMO.'
+                );
+            }
+
+            foreach ($codes as $code) {
+                $this->db->execute(
+                    'INSERT INTO role_permissions (role_id, permission_id)
+                     SELECT :role_id_value, p.id
+                     FROM permissions p
+                     WHERE p.code = :code_value
+                     AND NOT EXISTS (
+                        SELECT 1 FROM role_permissions rp
+                        WHERE rp.role_id = :role_id_check AND rp.permission_id = p.id
+                     )',
+                    [
+                        ':role_id_value' => (int) $role['id'],
+                        ':role_id_check' => (int) $role['id'],
+                        ':code_value' => $code,
+                    ]
+                );
+            }
+        }
+
+        $this->assertPmoBoardStageAPermissionsPresent();
+
+        return 'pmo.permissions:ensured';
+    }
+
+    private function assertPmoBoardStageAPermissionsPresent(): void
+    {
+        foreach ($this->pmoBoardStageAPermissionCodes() as $code) {
+            $row = $this->db->fetchOne(
+                'SELECT id FROM permissions WHERE code = :code LIMIT 1',
+                [':code' => $code]
+            );
+            if ($row === null) {
+                throw new \RuntimeException('Permiso PMO ausente tras la migración: ' . $code);
+            }
+        }
+
+        foreach ($this->pmoBoardStageARoleGrants() as $roleName => $codes) {
+            foreach ($codes as $code) {
+                $row = $this->db->fetchOne(
+                    'SELECT 1 AS ok
+                     FROM role_permissions rp
+                     INNER JOIN roles r ON r.id = rp.role_id
+                     INNER JOIN permissions p ON p.id = rp.permission_id
+                     WHERE r.nombre = :role AND p.code = :code
+                     LIMIT 1',
+                    [
+                        ':role' => $roleName,
+                        ':code' => $code,
+                    ]
+                );
+                if ($row === null) {
+                    throw new \RuntimeException(
+                        'Grant PMO ausente: rol "' . $roleName . '" / permiso "' . $code . '".'
+                    );
+                }
+            }
+        }
+
+        $talent = $this->db->fetchOne(
+            'SELECT id FROM roles WHERE nombre = :name LIMIT 1',
+            [':name' => 'Talento']
+        );
+        if ($talent === null) {
+            throw new \RuntimeException('Rol obligatorio "Talento" no reconocido tras la migración.');
+        }
+    }
+
+    private function assertPmoBoardStageAComplete(): void
+    {
+        if (!$this->db->tableExists('project_pmo_settings')) {
+            throw new \RuntimeException('Verificación final: falta project_pmo_settings.');
+        }
+
+        foreach ([
+            'timezone',
+            'target_date',
+            'deviation_threshold_pct',
+            'enabled_indicators_json',
+            'applicable_statuses_json',
+            'critical_path_mode',
+            'velocity_window_days',
+            'work_week_mask',
+        ] as $column) {
+            if (!$this->db->columnExists('project_pmo_settings', $column)) {
+                throw new \RuntimeException('Verificación final: falta project_pmo_settings.' . $column);
+            }
+        }
+
+        if (!$this->db->columnExists('projects', 'description')) {
+            throw new \RuntimeException('Verificación final: falta projects.description.');
+        }
+
+        foreach ([
+            'code',
+            'phase_code',
+            'front_label',
+            'status',
+            'is_critical_auto',
+            'is_critical_manual',
+            'critical_manual_by',
+            'critical_manual_at',
+            'critical_manual_reason',
+            'responsible_user_id',
+        ] as $column) {
+            if (!$this->db->columnExists('project_schedule_activities', $column)) {
+                throw new \RuntimeException(
+                    'Verificación final: falta project_schedule_activities.' . $column
+                );
+            }
+        }
+
+        foreach ([
+            'uq_project_schedule_activities_project_code',
+            'uq_project_schedule_activities_id_project',
+            'idx_project_schedule_activities_project_status',
+        ] as $index) {
+            if (!$this->db->indexExists('project_schedule_activities', $index)) {
+                throw new \RuntimeException('Verificación final: falta índice ' . $index);
+            }
+        }
+
+        $this->assertScheduleActivityUserForeignKeyRules();
+
+        $this->assertPmoBoardStageAPermissionsPresent();
+
+        $orphan = $this->db->fetchOne(
+            'SELECT p.id
+             FROM projects p
+             LEFT JOIN project_pmo_settings s ON s.project_id = p.id
+             WHERE s.project_id IS NULL
+             LIMIT 1'
+        );
+        if ($orphan !== null) {
+            throw new \RuntimeException(
+                'Verificación final: hay proyectos sin fila en project_pmo_settings.'
+            );
+        }
+    }
+
+    private function sanitizePmoBoardStageAErrorMessage(string $message): string
+    {
+        $redacted = $this->redactSensitiveText($message);
+        $redacted = trim(preg_replace('/\s+/', ' ', $redacted) ?? $redacted);
+        if ($redacted === '') {
+            return 'Error de migración no detallado.';
+        }
+
+        if (strlen($redacted) > 240) {
+            return substr($redacted, 0, 240) . '...';
+        }
+
+        return $redacted;
+    }
+
+    private function redactSensitiveText(string $message): string
+    {
+        $patterns = [
+            '/password[=:]\s*\S+/i' => 'password=[REDACTED]',
+            '/pwd[=:]\s*\S+/i' => 'pwd=[REDACTED]',
+            '/using password:\s*(YES|NO)/i' => 'using password:[REDACTED]',
+            '/mysql:host=[^;\s]+/i' => 'mysql:host=[REDACTED]',
+            '/\bhost[=:]\s*[^;\s,]+/i' => 'host=[REDACTED]',
+            '/\buser(?:name)?[=:]\s*[^;\s,]+/i' => 'user=[REDACTED]',
+            '/\bfor user \'[^\']+\'@\'[^\']+\'/i' => 'for user [REDACTED]',
+            '/\bAccess denied for user \'[^\']+\'@\'[^\']+\'/i' => 'Access denied for user [REDACTED]',
+        ];
+
+        $result = $message;
+        foreach ($patterns as $pattern => $replacement) {
+            $result = preg_replace($pattern, $replacement, $result) ?? $result;
+        }
+
+        return $result;
     }
 
 }

@@ -123,6 +123,7 @@ CREATE TABLE projects (
     client_id INT NOT NULL,
     pm_id INT NOT NULL,
     name VARCHAR(180) NOT NULL,
+    description TEXT NULL,
     status VARCHAR(20) NOT NULL,
     health VARCHAR(20) NOT NULL,
     priority VARCHAR(20) NOT NULL,
@@ -160,6 +161,24 @@ CREATE TABLE projects (
     FOREIGN KEY (pm_id) REFERENCES users(id)
 );
 
+CREATE TABLE project_pmo_settings (
+    project_id INT NOT NULL,
+    board_title VARCHAR(180) NULL,
+    timezone VARCHAR(64) NOT NULL DEFAULT 'America/Bogota',
+    target_date DATE NULL,
+    deviation_threshold_pct DECIMAL(5,2) NOT NULL DEFAULT 5.00,
+    enabled_indicators_json JSON NOT NULL,
+    applicable_statuses_json JSON NOT NULL,
+    critical_path_mode ENUM('auto','manual_override','hybrid') NOT NULL DEFAULT 'hybrid',
+    velocity_window_days INT NOT NULL DEFAULT 5,
+    work_week_mask CHAR(7) NOT NULL DEFAULT '0111110',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (project_id),
+    CONSTRAINT fk_project_pmo_settings_project
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE project_health_history (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -431,11 +450,29 @@ CREATE TABLE project_schedule_activities (
     responsible_name VARCHAR(150) NULL,
     progress_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
     linked_task_id INT NULL,
+    code VARCHAR(40) NULL,
+    phase_code VARCHAR(80) NULL,
+    front_label VARCHAR(120) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'todo',
+    is_critical_auto TINYINT(1) NOT NULL DEFAULT 0,
+    is_critical_manual TINYINT(1) NULL,
+    critical_manual_by INT NULL,
+    critical_manual_at DATETIME NULL,
+    critical_manual_reason VARCHAR(255) NULL,
+    responsible_user_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_project_schedule_project (project_id, sort_order),
     INDEX idx_project_schedule_task (linked_task_id),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    UNIQUE KEY uq_project_schedule_activities_project_code (project_id, code),
+    UNIQUE KEY uq_project_schedule_activities_id_project (id, project_id),
+    INDEX idx_project_schedule_activities_project_status (project_id, status),
+    CONSTRAINT fk_project_schedule_project
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    CONSTRAINT fk_project_schedule_activities_critical_manual_by
+        FOREIGN KEY (critical_manual_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_project_schedule_activities_responsible_user
+        FOREIGN KEY (responsible_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE talents (
@@ -810,7 +847,19 @@ INSERT INTO permissions (code, name) VALUES
     ('project.stoppers.view', 'Ver bloqueos de proyectos'),
     ('project.stoppers.manage', 'Crear y actualizar bloqueos de proyectos'),
     ('project.stoppers.close', 'Cerrar bloqueos de proyectos'),
-    ('config.manage', 'Administrar configuración');
+    ('config.manage', 'Administrar configuración'),
+    ('pmo.board.view', 'Ver tablero PMO de proyecto'),
+    ('pmo.board.update_progress', 'Actualizar avance/estado PMO'),
+    ('pmo.portfolio.view', 'Ver portafolio PMO'),
+    ('pmo.settings.manage', 'Gestionar configuración PMO del proyecto'),
+    ('pmo.critical_path.manage', 'Gestionar ruta crítica (override)'),
+    ('pmo.raci.manage', 'Gestionar matriz RACI'),
+    ('pmo.scope_changes.view', 'Ver cambios de alcance'),
+    ('pmo.scope_changes.manage', 'Crear/editar cambios de alcance'),
+    ('pmo.scope_changes.approve', 'Aprobar/rechazar cambios de alcance'),
+    ('pmo.organizations.manage', 'Gestionar organizaciones'),
+    ('pmo.technologies.manage', 'Gestionar catálogo de tecnologías'),
+    ('pmo.access_log.view', 'Ver registro de accesos');
 
 INSERT INTO config_settings (config_key, config_value) VALUES
 ('app', '{
@@ -874,6 +923,26 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN ('dashboard.view', 'clients.view')
 WHERE r.nombre = 'Líder de Proyecto';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN (
+    'pmo.board.view',
+    'pmo.board.update_progress',
+    'pmo.portfolio.view',
+    'pmo.scope_changes.view',
+    'pmo.scope_changes.manage'
+)
+WHERE r.nombre = 'Líder de Proyecto';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r
+JOIN permissions p ON p.code IN (
+    'pmo.board.view',
+    'pmo.portfolio.view',
+    'pmo.scope_changes.view'
+)
+WHERE r.nombre = 'Visualizador';
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
@@ -951,6 +1020,23 @@ VALUES ('Acme Corp', 'tech', 'enterprise', 'high', 'active', 1, 85, 70, 'moderat
 
 INSERT INTO projects (client_id, pm_id, name, status, health, priority, project_stage, budget, actual_cost, planned_hours, actual_hours, progress, start_date)
 VALUES (1, 1, 'Onboarding Digital', 'execution', 'on_track', 'high', 'Discovery', 120000, 45000, 800, 320, 40, CURDATE());
+
+INSERT INTO project_pmo_settings (
+    project_id, board_title, timezone, target_date, deviation_threshold_pct,
+    enabled_indicators_json, applicable_statuses_json, critical_path_mode,
+    velocity_window_days, work_week_mask
+) VALUES (
+    1,
+    NULL,
+    'America/Bogota',
+    NULL,
+    5.00,
+    CAST('["avance_real","avance_planificado","desviacion_vs_plan","adelantadas","a_tiempo","atrasadas","hitos_totales","hitos_cumplidos","hitos_vencidos","ruta_critica","stoppers_abiertos","actividades_bloqueadas","riesgos_por_severidad","cambios_alcance_pendientes","dias_restantes","avance_por_frente","avance_por_organizacion","avance_por_responsable","curva_s","evolucion_diaria","salud_general"]' AS JSON),
+    CAST('["todo","in_progress","review","blocked","done","cancelled"]' AS JSON),
+    'hybrid',
+    5,
+    '0111110'
+);
 
 INSERT INTO talents (user_id, name, role, seniority, weekly_capacity, availability, requiere_reporte_horas, requiere_aprobacion_horas, capacidad_horaria, tipo_talento, hourly_cost, hourly_rate)
 VALUES (1, 'Patricia Silva', 'Project Manager', 'Senior', 40, 80, 1, 1, 40, 'interno', 35, 70);
