@@ -298,7 +298,7 @@
 
         <div class="card config-card governance-block">
             <div class="card-content">
-            <header class="governance-block-header">
+            <header class="governance-block-header" id="usuarios">
                 <div class="governance-block-title-line">
                     <span class="governance-block-icon" aria-hidden="true">👤</span>
                     <h3 class="governance-block-title">Usuarios</h3>
@@ -589,6 +589,65 @@
                                             <button class="btn secondary" type="submit">Guardar</button>
                                         </div>
                                     </form>
+                                    <div class="user-org-block">
+                                        <h5>Organizaciones del usuario</h5>
+                                        <?php
+                                        $userOrgLinks = $userOrganizationsMap[(int) $user['id']] ?? [];
+                                        $canManageOrganizations = $canManageOrganizations ?? false;
+                                        $organizationsCatalog = $organizationsCatalog ?? [];
+                                        ?>
+                                        <?php if (!empty($userOrgLinks)): ?>
+                                            <ul class="user-org-list">
+                                                <?php foreach ($userOrgLinks as $link): ?>
+                                                    <li>
+                                                        <span>
+                                                            <?= htmlspecialchars((string) ($link['name'] ?? '')) ?>
+                                                            <?php if ((int) ($link['is_primary'] ?? 0) === 1): ?>
+                                                                <em class="badge success">Principal</em>
+                                                            <?php endif; ?>
+                                                        </span>
+                                                        <?php if ($canManageOrganizations): ?>
+                                                            <span class="user-org-actions">
+                                                                <?php if ((int) ($link['is_primary'] ?? 0) !== 1): ?>
+                                                                    <form method="POST" action="/users/<?= (int) $user['id'] ?>/organizations/set-primary">
+                                                                        <input type="hidden" name="organization_id" value="<?= (int) ($link['organization_id'] ?? 0) ?>">
+                                                                        <button class="btn ghost" type="submit">Hacer principal</button>
+                                                                    </form>
+                                                                <?php endif; ?>
+                                                                <form method="POST" action="/users/<?= (int) $user['id'] ?>/organizations/unassign" onsubmit="return confirm('¿Retirar organización?');">
+                                                                    <input type="hidden" name="organization_id" value="<?= (int) ($link['organization_id'] ?? 0) ?>">
+                                                                    <button class="btn ghost" type="submit">Retirar</button>
+                                                                </form>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <p class="section-muted">Sin organizaciones asignadas.</p>
+                                        <?php endif; ?>
+                                        <?php if ($canManageOrganizations && !empty($organizationsCatalog)): ?>
+                                            <form method="POST" action="/users/<?= (int) $user['id'] ?>/organizations/assign" class="user-org-assign">
+                                                <select name="organization_id" required>
+                                                    <option value="">Asignar organización</option>
+                                                    <?php
+                                                    $linkedIds = array_map(static fn ($row) => (int) ($row['organization_id'] ?? 0), $userOrgLinks);
+                                                    foreach ($organizationsCatalog as $orgOption):
+                                                        if (in_array((int) $orgOption['id'], $linkedIds, true)) {
+                                                            continue;
+                                                        }
+                                                    ?>
+                                                        <option value="<?= (int) $orgOption['id'] ?>"><?= htmlspecialchars((string) $orgOption['name']) ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <label class="checkbox-inline">
+                                                    <input type="checkbox" name="is_primary" value="1">
+                                                    Principal
+                                                </label>
+                                                <button class="btn secondary" type="submit">Asignar</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
                                     <div class="user-actions">
                                         <?php if ($isAdmin): ?>
                                             <form method="POST" action="/impersonate/start" class="inline">
@@ -710,3 +769,13 @@
     });
 })();
 </script>
+<style>
+    .user-org-block { margin: 12px 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--surface) 92%, var(--background)); }
+    .user-org-block h5 { margin: 0 0 8px; }
+    .user-org-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .user-org-list li { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .user-org-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .user-org-assign { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+    .user-org-assign select { min-width: min(100%, 220px); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text-primary); }
+    .checkbox-inline { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text-secondary); }
+</style>

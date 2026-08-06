@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Repositories\AuditLogRepository;
 use App\Repositories\MasterFilesRepository;
 use App\Repositories\NotificationsLogRepository;
+use App\Repositories\OrganizationsRepository;
 use App\Repositories\PermissionsRepository;
 use App\Repositories\RiskCatalogRepository;
 use App\Repositories\RolesRepository;
@@ -45,13 +46,22 @@ class ConfigController extends Controller
             $risksByCategory[$category][] = $risk;
         }
 
+        $users = $usersRepo->all();
+        $organizationsRepo = new OrganizationsRepository($this->db);
+        $userIds = array_map(static fn (array $u): int => (int) ($u['id'] ?? 0), $users);
+        $userOrganizationsMap = $organizationsRepo->mapForUsers($userIds);
+        $canManageOrganizations = $this->auth->can('pmo.organizations.manage');
+
         $this->render('config/index', [
             'title' => 'Configuración',
             'configData' => $config,
             'activeTheme' => (new ThemeRepository($this->db))->getActiveTheme(),
             'roles' => $rolesWithPermissions,
             'permissions' => $permissionsRepo->all(),
-            'users' => $usersRepo->all(),
+            'users' => $users,
+            'organizationsCatalog' => $canManageOrganizations ? $organizationsRepo->all(true) : [],
+            'userOrganizationsMap' => $userOrganizationsMap,
+            'canManageOrganizations' => $canManageOrganizations,
             'masterData' => $masterData,
             'riskCatalog' => $riskCatalog,
             'risksByCategory' => $risksByCategory,

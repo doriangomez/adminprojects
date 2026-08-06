@@ -18,11 +18,15 @@ $tabs = [
         'href' => $documentsHref,
         'icon' => 'documents',
     ],
-    'cronograma' => [
-        'label' => 'Cronograma',
-        'href' => $basePath . '/projects/' . $projectId . '?view=cronograma',
+];
+if (!empty($auth) && method_exists($auth, 'can') && $auth->can('pmo.board.view')) {
+    $tabs['pmo'] = [
+        'label' => 'PMO',
+        'href' => $basePath . '/projects/' . $projectId . '?view=pmo',
         'icon' => 'timeline',
-    ],
+    ];
+}
+$tabs += [
     'seguimiento' => [
         'label' => 'Notas / Seguimiento',
         'href' => $basePath . '/projects/' . $projectId . '?view=seguimiento',
@@ -63,6 +67,16 @@ $tabs = [
         'href' => $basePath . '/projects/' . $projectId . '/billing',
         'icon' => 'billing',
     ],
+    'organizaciones' => [
+        'label' => 'Organizaciones',
+        'href' => $basePath . '/projects/' . $projectId . '/organizations',
+        'icon' => 'organizations',
+    ],
+    'tecnologias' => [
+        'label' => 'Tecnologías',
+        'href' => $basePath . '/projects/' . $projectId . '/technologies',
+        'icon' => 'technologies',
+    ],
 ];
 if ($projectType === 'outsourcing') {
     $tabs['outsourcing'] = [
@@ -85,6 +99,8 @@ $projectTabIcon = static function (string $icon): string {
         'talent' => '<svg viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 9 11Z"/><path d="M16.5 10a2.5 2.5 0 1 0-2.5-2.5A2.5 2.5 0 0 0 16.5 10Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M13 20a4.5 4.5 0 0 1 8 0"/></svg>',
         'costs' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/><path d="M9.5 10c0-1 1-2 2.5-2s2.5.9 2.5 2-1 2-2.5 2-2.5.9-2.5 2 1 2 2.5 2 2.5-1 2.5-2"/></svg>',
         'billing' => '<svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>',
+        'organizations' => '<svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg>',
+        'technologies' => '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6"/><path d="M9 12h6"/><path d="M9 15h3"/></svg>',
         'outsourcing' => '<svg viewBox="0 0 24 24"><path d="M4 8h16"/><path d="M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><rect x="3" y="8" width="18" height="12" rx="2"/></svg>',
         default => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/></svg>',
     };
