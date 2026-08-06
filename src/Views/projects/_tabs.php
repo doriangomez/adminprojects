@@ -18,11 +18,15 @@ $tabs = [
         'href' => $documentsHref,
         'icon' => 'documents',
     ],
-    'cronograma' => [
-        'label' => 'Cronograma',
-        'href' => $basePath . '/projects/' . $projectId . '?view=cronograma',
+];
+if (!empty($auth) && method_exists($auth, 'can') && $auth->can('pmo.board.view')) {
+    $tabs['pmo'] = [
+        'label' => 'PMO',
+        'href' => $basePath . '/projects/' . $projectId . '?view=pmo',
         'icon' => 'timeline',
-    ],
+    ];
+}
+$tabs += [
     'seguimiento' => [
         'label' => 'Notas / Seguimiento',
         'href' => $basePath . '/projects/' . $projectId . '?view=seguimiento',

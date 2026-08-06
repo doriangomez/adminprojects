@@ -516,6 +516,10 @@ class App
                 $controller->saveSchedule((int) $matches[1]);
                 return;
             }
+            if (preg_match('#^/projects/(\\d+)/schedule/activities/(\\d+)/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateScheduleActivity((int) $matches[1], (int) $matches[2]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/schedule/import-preview$#', $path, $matches) && $method === 'POST') {
                 $controller->importSchedulePreview((int) $matches[1]);
                 return;

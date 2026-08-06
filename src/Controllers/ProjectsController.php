@@ -960,13 +960,7 @@ class ProjectsController extends Controller
 
     public function saveSchedule(int $id): void
     {
-        $this->requirePermission('projects.manage');
-        $repo = new ProjectsRepository($this->db);
-        $project = $repo->findForUser($id, $this->auth->user() ?? []);
-        if (!$project) {
-            http_response_code(404);
-            exit('Proyecto no encontrado');
-        }
+        [$project, $user] = $this->requirePmoEditAccess($id);
 
         $raw = trim((string) ($_POST['activities_json'] ?? ''));
         $decoded = json_decode($raw, true);
@@ -980,7 +974,7 @@ class ProjectsController extends Controller
         $hadActivities = $scheduleRepo->hasActivities($id);
         $scheduleRepo->replaceActivities($id, $activities);
         (new AuditLogRepository($this->db))->log(
-            (int) ($this->auth->user()['id'] ?? 0),
+            (int) ($user['id'] ?? 0),
             'project_schedule',
             $id,
             $hadActivities ? 'updated' : 'created',
@@ -989,21 +983,15 @@ class ProjectsController extends Controller
                 'activities_count' => count($activities),
             ]
         );
-        header('Location: /projects/' . $id . '?view=cronograma');
+        header('Location: /projects/' . $id . '?view=pmo&section=cronograma&saved=1');
     }
 
     public function importSchedulePreview(int $id): void
     {
-        $this->requirePermission('projects.manage');
-        $repo = new ProjectsRepository($this->db);
-        $project = $repo->findForUser($id, $this->auth->user() ?? []);
-        if (!$project) {
-            $this->json(['status' => 'error', 'message' => 'Proyecto no encontrado.'], 404);
-            return;
-        }
+        $this->requirePmoEditAccess($id);
 
         if (!isset($_FILES['excel_file']) || (int) ($_FILES['excel_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            $this->json(['status' => 'error', 'message' => 'Debes subir un archivo Excel.'], 400);
+            $this->json(['status' => 'error', 'message' => 'Debes subir un archivo Excel o CSV.'], 400);
             return;
         }
 
@@ -1020,13 +1008,7 @@ class ProjectsController extends Controller
 
     public function importScheduleConfirm(int $id): void
     {
-        $this->requirePermission('projects.manage');
-        $repo = new ProjectsRepository($this->db);
-        $project = $repo->findForUser($id, $this->auth->user() ?? []);
-        if (!$project) {
-            $this->json(['status' => 'error', 'message' => 'Proyecto no encontrado.'], 404);
-            return;
-        }
+        [$project, $user] = $this->requirePmoEditAccess($id);
 
         $rawRows = json_decode((string) ($_POST['rows_json'] ?? '[]'), true);
         $mode = strtolower(trim((string) ($_POST['mode'] ?? 'replace')));
@@ -1049,7 +1031,7 @@ class ProjectsController extends Controller
             $scheduleRepo->replaceActivities($id, $validated['activities']);
         }
         (new AuditLogRepository($this->db))->log(
-            (int) ($this->auth->user()['id'] ?? 0),
+            (int) ($user['id'] ?? 0),
             'project_schedule',
             $id,
             $hadActivities ? 'updated' : 'created',
@@ -1060,7 +1042,77 @@ class ProjectsController extends Controller
             ]
         );
 
-        $this->json(['status' => 'ok']);
+        $this->json(['status' => 'ok', 'redirect' => '/projects/' . $id . '?view=pmo&section=cronograma&imported=1']);
+    }
+
+    public function updateScheduleActivity(int $projectId, int $activityId): void
+    {
+        [$project, $user] = $this->requirePmoEditAccess($projectId);
+
+        $status = strtolower(trim((string) ($_POST['status'] ?? 'todo')));
+        $progress = (float) ($_POST['progress_percent'] ?? 0);
+
+        try {
+            $scheduleRepo = new ProjectSchedulesRepository($this->db);
+            $result = $scheduleRepo->updateProgressAndStatus($projectId, $activityId, $progress, $status);
+            (new AuditLogRepository($this->db))->log(
+                (int) ($user['id'] ?? 0),
+                'project_schedule_activity',
+                $activityId,
+                'progress_status_updated',
+                [
+                    'project_id' => $projectId,
+                    'before' => [
+                        'progress_percent' => $result['before']['progress_percent'] ?? null,
+                        'status' => $result['before']['status'] ?? null,
+                    ],
+                    'after' => [
+                        'progress_percent' => $result['after']['progress_percent'] ?? null,
+                        'status' => $result['after']['status'] ?? null,
+                    ],
+                ]
+            );
+            header('Location: /projects/' . $projectId . '?view=pmo&section=actividades&updated=1');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('updateScheduleActivity: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo actualizar la actividad.');
+        }
+    }
+
+    /**
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function requirePmoViewAccess(int $projectId): array
+    {
+        $this->requirePermission('pmo.board.view');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($projectId, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        return [$project, $user];
+    }
+
+    /**
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function requirePmoEditAccess(int $projectId): array
+    {
+        $this->requirePermission('pmo.board.update_progress');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($projectId, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        return [$project, $user];
     }
 
     public function outsourcing(int $id): void
@@ -2778,7 +2830,47 @@ class ProjectsController extends Controller
         $scheduleRepo = new ProjectSchedulesRepository($this->db);
         $scheduleActivities = $scheduleRepo->activitiesForProject($id);
         $scheduleSummary = $scheduleRepo->summary($id);
+        $pmoBoard = (new PmoBoardService($this->db))->buildBoard($id, $scheduleActivities);
         $scheduleAudit = (new AuditLogRepository($this->db))->listForEntity('project_schedule', $id, 200);
+        $activityAuditRows = [];
+        if ($this->db->tableExists('audit_log')) {
+            try {
+                $activityAuditRows = $this->db->fetchAll(
+                    "SELECT audit_log.id, audit_log.user_id, audit_log.entity_id, audit_log.action, audit_log.payload, audit_log.created_at, users.name AS user_name
+                     FROM audit_log
+                     LEFT JOIN users ON users.id = audit_log.user_id
+                     WHERE audit_log.entity = 'project_schedule_activity'
+                       AND audit_log.payload LIKE :project_like
+                     ORDER BY audit_log.created_at DESC, audit_log.id DESC
+                     LIMIT 100",
+                    [':project_like' => '%"project_id":' . (int) $id . '%']
+                );
+            } catch (\Throwable $e) {
+                error_log('pmo history activity query failed: ' . $e->getMessage());
+                $activityAuditRows = [];
+            }
+        }
+        $pmoHistory = array_merge($scheduleAudit, array_map(static function (array $row): array {
+            $payload = [];
+            if (!empty($row['payload'])) {
+                $decoded = json_decode((string) $row['payload'], true);
+                $payload = is_array($decoded) ? $decoded : [];
+            }
+            return [
+                'id' => (int) ($row['id'] ?? 0),
+                'user_id' => $row['user_id'] !== null ? (int) $row['user_id'] : null,
+                'user_name' => $row['user_name'] ?? null,
+                'action' => $row['action'] ?? '',
+                'payload' => $payload,
+                'created_at' => $row['created_at'] ?? null,
+                'entity' => 'project_schedule_activity',
+                'entity_id' => (int) ($row['entity_id'] ?? 0),
+            ];
+        }, $activityAuditRows));
+        usort($pmoHistory, static function (array $a, array $b): int {
+            return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+        });
+        $pmoHistory = array_slice($pmoHistory, 0, 120);
         $scheduleCreatedBy = null;
         $scheduleCreatedAt = null;
         if (!empty($scheduleAudit)) {
@@ -2868,6 +2960,10 @@ class ProjectsController extends Controller
             'scheduleSummary' => $scheduleSummary,
             'scheduleCreatedBy' => $scheduleCreatedBy,
             'scheduleCreatedAt' => $scheduleCreatedAt ?: null,
+            'pmoBoard' => $pmoBoard,
+            'pmoHistory' => $pmoHistory,
+            'canViewPmo' => $this->auth->can('pmo.board.view'),
+            'canEditPmo' => $this->auth->can('pmo.board.update_progress'),
             'pmoSnapshot' => $pmoSnapshot,
             'pmoAlerts' => $pmoAlerts,
             'pmoHoursTrend' => $pmoHoursTrend,
@@ -5543,10 +5639,46 @@ POST crudo:
                 'responsible_name' => trim((string) ($row['responsible_name'] ?? $row['responsable'] ?? '')),
                 'progress_percent' => max(0, min(100, (float) ($row['progress_percent'] ?? $row['porcentaje_avance'] ?? 0))),
                 'linked_task_id' => (int) ($row['linked_task_id'] ?? $row['tarea_vinculada'] ?? 0),
+                'status' => $this->normalizeScheduleStatus((string) ($row['status'] ?? $row['estado'] ?? 'todo')),
+                'code' => trim((string) ($row['code'] ?? $row['codigo'] ?? '')),
+                'phase_code' => trim((string) ($row['phase_code'] ?? $row['fase'] ?? '')),
+                'front_label' => trim((string) ($row['front_label'] ?? $row['frente'] ?? '')),
+                'is_critical_auto' => (int) ((bool) ($row['is_critical_auto'] ?? $row['critico_auto'] ?? false)),
+                'is_critical_manual' => array_key_exists('is_critical_manual', $row) || array_key_exists('critico_manual', $row)
+                    ? (int) ((bool) ($row['is_critical_manual'] ?? $row['critico_manual'] ?? false))
+                    : null,
+                'responsible_user_id' => (int) ($row['responsible_user_id'] ?? $row['responsable_user_id'] ?? 0),
             ];
+            if (($normalized[array_key_last($normalized)]['status'] ?? '') === 'done') {
+                $normalized[array_key_last($normalized)]['progress_percent'] = 100.0;
+            }
         }
 
         return $normalized;
+    }
+
+    private function normalizeScheduleStatus(string $status): string
+    {
+        $status = strtolower(trim($status));
+        $map = [
+            'pendiente' => 'todo',
+            'por hacer' => 'todo',
+            'en progreso' => 'in_progress',
+            'progreso' => 'in_progress',
+            'revision' => 'review',
+            'revisión' => 'review',
+            'bloqueado' => 'blocked',
+            'completado' => 'done',
+            'hecho' => 'done',
+            'cancelado' => 'cancelled',
+            'cancelada' => 'cancelled',
+        ];
+        $status = $map[$status] ?? $status;
+        if (!in_array($status, ['todo', 'in_progress', 'review', 'blocked', 'done', 'cancelled'], true)) {
+            return 'todo';
+        }
+
+        return $status;
     }
 
     private function validateImportedScheduleRows(array $rows, int $projectId): array
