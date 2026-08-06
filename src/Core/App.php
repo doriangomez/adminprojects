@@ -128,6 +128,75 @@ class App
             return;
         }
 
+        if (str_starts_with($path, '/organizations')) {
+            $controller = new OrganizationsController($this->db, $this->auth);
+            if ($path === '/organizations' && $method === 'GET') {
+                $controller->index();
+                return;
+            }
+            if ($path === '/organizations/create') {
+                if ($method === 'POST') {
+                    $controller->store();
+                    return;
+                }
+                $controller->create();
+                return;
+            }
+            if (preg_match('#^/organizations/(\\d+)/edit$#', $path, $matches)) {
+                if ($method === 'POST') {
+                    $controller->update((int) $matches[1]);
+                    return;
+                }
+                $controller->edit((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/organizations/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
+                $controller->inactivate((int) $matches[1]);
+                return;
+            }
+        }
+
+        if (preg_match('#^/users/(\\d+)/organizations/assign$#', $path, $matches) && $method === 'POST') {
+            (new OrganizationsController($this->db, $this->auth))->assignToUser((int) $matches[1]);
+            return;
+        }
+        if (preg_match('#^/users/(\\d+)/organizations/set-primary$#', $path, $matches) && $method === 'POST') {
+            (new OrganizationsController($this->db, $this->auth))->setPrimaryForUser((int) $matches[1]);
+            return;
+        }
+        if (preg_match('#^/users/(\\d+)/organizations/unassign$#', $path, $matches) && $method === 'POST') {
+            (new OrganizationsController($this->db, $this->auth))->unassignFromUser((int) $matches[1]);
+            return;
+        }
+
+        if (str_starts_with($path, '/technologies')) {
+            $controller = new TechnologiesController($this->db, $this->auth);
+            if ($path === '/technologies' && $method === 'GET') {
+                $controller->index();
+                return;
+            }
+            if ($path === '/technologies/create') {
+                if ($method === 'POST') {
+                    $controller->store();
+                    return;
+                }
+                $controller->create();
+                return;
+            }
+            if (preg_match('#^/technologies/(\\d+)/edit$#', $path, $matches)) {
+                if ($method === 'POST') {
+                    $controller->update((int) $matches[1]);
+                    return;
+                }
+                $controller->edit((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/technologies/(\\d+)/inactivate$#', $path, $matches) && $method === 'POST') {
+                $controller->inactivate((int) $matches[1]);
+                return;
+            }
+        }
+
         if (str_starts_with($path, '/clients')) {
             $controller = new ClientsController($this->db, $this->auth);
             if ($path === '/clients/create') {
@@ -375,6 +444,34 @@ class App
                     return;
                 }
                 $controller->talent((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/organizations$#', $path, $matches) && $method === 'GET') {
+                $controller->organizations((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/organizations/assign$#', $path, $matches) && $method === 'POST') {
+                $controller->assignOrganization((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/organizations/unassign$#', $path, $matches) && $method === 'POST') {
+                $controller->unassignOrganization((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/technologies$#', $path, $matches) && $method === 'GET') {
+                $controller->technologies((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/technologies/assign$#', $path, $matches) && $method === 'POST') {
+                $controller->assignTechnology((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/technologies/update$#', $path, $matches) && $method === 'POST') {
+                $controller->updateTechnologyAssignment((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\\d+)/technologies/unassign$#', $path, $matches) && $method === 'POST') {
+                $controller->unassignTechnology((int) $matches[1]);
                 return;
             }
             if (preg_match('#^/projects/(\\d+)/talent/assignments/(\\d+)/status$#', $path, $matches) && $method === 'POST') {

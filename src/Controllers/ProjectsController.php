@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Repositories\AuditLogRepository;
 use App\Repositories\ClientsRepository;
 use App\Repositories\MasterFilesRepository;
+use App\Repositories\OrganizationsRepository;
 use App\Repositories\OutsourcingRepository;
 use App\Repositories\ProjectBillingRepository;
 use App\Repositories\ProjectNodesRepository;
@@ -13,6 +14,7 @@ use App\Repositories\ProjectsRepository;
 use App\Repositories\ProjectSchedulesRepository;
 use App\Repositories\TalentsRepository;
 use App\Repositories\TasksRepository;
+use App\Repositories\TechnologiesRepository;
 use App\Repositories\UsersRepository;
 
 class ProjectsController extends Controller
@@ -5655,6 +5657,223 @@ POST crudo:
         }
         $timestamp = strtotime(str_replace('/', '-', $value));
         return $timestamp ? date('Y-m-d', $timestamp) : null;
+    }
+
+    public function organizations(int $id): void
+    {
+        $this->requirePermission('projects.view');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $orgRepo = new OrganizationsRepository($this->db);
+        $canManage = $this->auth->can('pmo.organizations.manage');
+
+        $this->render('projects/organizations', [
+            'title' => 'Organizaciones del proyecto',
+            'project' => $project,
+            'assignedOrganizations' => $orgRepo->forProject($id),
+            'availableOrganizations' => $canManage ? $orgRepo->all(true) : [],
+            'canManageOrganizations' => $canManage,
+            'flash' => $this->pmoCatalogFlash(),
+        ]);
+    }
+
+    public function assignOrganization(int $id): void
+    {
+        $this->requirePermission('pmo.organizations.manage');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $organizationId = (int) ($_POST['organization_id'] ?? 0);
+        $actorId = (int) ($user['id'] ?? 0);
+
+        try {
+            $linkId = (new OrganizationsRepository($this->db))->assignToProject($id, $organizationId);
+            (new AuditLogRepository($this->db))->log($actorId, 'project_organization', $linkId, 'assigned', [
+                'project_id' => $id,
+                'organization_id' => $organizationId,
+            ]);
+            header('Location: /projects/' . $id . '/organizations?assigned=1');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('projects.assignOrganization: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo asignar la organización.');
+        }
+    }
+
+    public function unassignOrganization(int $id): void
+    {
+        $this->requirePermission('pmo.organizations.manage');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $organizationId = (int) ($_POST['organization_id'] ?? 0);
+        $actorId = (int) ($user['id'] ?? 0);
+
+        try {
+            $removed = (new OrganizationsRepository($this->db))->unassignFromProject($id, $organizationId);
+            if ($removed) {
+                (new AuditLogRepository($this->db))->log($actorId, 'project_organization', $id, 'unassigned', [
+                    'project_id' => $id,
+                    'organization_id' => $organizationId,
+                ]);
+            }
+            header('Location: /projects/' . $id . '/organizations?removed=1');
+        } catch (\Throwable $e) {
+            error_log('projects.unassignOrganization: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo retirar la organización.');
+        }
+    }
+
+    public function technologies(int $id): void
+    {
+        $this->requirePermission('projects.view');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $techRepo = new TechnologiesRepository($this->db);
+        $canManage = $this->auth->can('pmo.technologies.manage');
+
+        $this->render('projects/technologies', [
+            'title' => 'Tecnologías del proyecto',
+            'project' => $project,
+            'assignedTechnologies' => $techRepo->forProject($id),
+            'availableTechnologies' => $canManage ? $techRepo->all(true) : [],
+            'canManageTechnologies' => $canManage,
+            'flash' => $this->pmoCatalogFlash(),
+        ]);
+    }
+
+    public function assignTechnology(int $id): void
+    {
+        $this->requirePermission('pmo.technologies.manage');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $technologyId = (int) ($_POST['technology_id'] ?? 0);
+        $version = (string) ($_POST['version'] ?? '');
+        $notes = (string) ($_POST['notes'] ?? '');
+        $actorId = (int) ($user['id'] ?? 0);
+
+        try {
+            $linkId = (new TechnologiesRepository($this->db))->assignToProject($id, $technologyId, $version, $notes);
+            (new AuditLogRepository($this->db))->log($actorId, 'project_technology', $linkId, 'assigned', [
+                'project_id' => $id,
+                'technology_id' => $technologyId,
+                'version' => $version !== '' ? $version : null,
+                'notes' => $notes !== '' ? $notes : null,
+            ]);
+            header('Location: /projects/' . $id . '/technologies?assigned=1');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('projects.assignTechnology: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo asignar la tecnología.');
+        }
+    }
+
+    public function updateTechnologyAssignment(int $id): void
+    {
+        $this->requirePermission('pmo.technologies.manage');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $technologyId = (int) ($_POST['technology_id'] ?? 0);
+        $version = (string) ($_POST['version'] ?? '');
+        $notes = (string) ($_POST['notes'] ?? '');
+        $actorId = (int) ($user['id'] ?? 0);
+
+        try {
+            (new TechnologiesRepository($this->db))->updateProjectAssignment($id, $technologyId, $version, $notes);
+            (new AuditLogRepository($this->db))->log($actorId, 'project_technology', $id, 'updated', [
+                'project_id' => $id,
+                'technology_id' => $technologyId,
+                'version' => $version !== '' ? $version : null,
+                'notes' => $notes !== '' ? $notes : null,
+            ]);
+            header('Location: /projects/' . $id . '/technologies?updated=1');
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            exit($e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('projects.updateTechnologyAssignment: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo actualizar la asignación.');
+        }
+    }
+
+    public function unassignTechnology(int $id): void
+    {
+        $this->requirePermission('pmo.technologies.manage');
+        $user = $this->auth->user() ?? [];
+        $project = (new ProjectsRepository($this->db))->findForUser($id, $user);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+
+        $technologyId = (int) ($_POST['technology_id'] ?? 0);
+        $actorId = (int) ($user['id'] ?? 0);
+
+        try {
+            $removed = (new TechnologiesRepository($this->db))->unassignFromProject($id, $technologyId);
+            if ($removed) {
+                (new AuditLogRepository($this->db))->log($actorId, 'project_technology', $id, 'unassigned', [
+                    'project_id' => $id,
+                    'technology_id' => $technologyId,
+                ]);
+            }
+            header('Location: /projects/' . $id . '/technologies?removed=1');
+        } catch (\Throwable $e) {
+            error_log('projects.unassignTechnology: ' . $e->getMessage());
+            http_response_code(500);
+            exit('No se pudo retirar la tecnología.');
+        }
+    }
+
+    private function pmoCatalogFlash(): ?string
+    {
+        if (!empty($_GET['assigned'])) {
+            return 'Asignación registrada correctamente.';
+        }
+        if (!empty($_GET['updated'])) {
+            return 'Asignación actualizada correctamente.';
+        }
+        if (!empty($_GET['removed'])) {
+            return 'Asignación retirada correctamente.';
+        }
+
+        return null;
     }
 
 }

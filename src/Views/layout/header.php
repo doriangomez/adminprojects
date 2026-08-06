@@ -165,9 +165,10 @@ error_log(sprintf(
                 </div>
             </div>
 
-            <?php if ($auth->can('pmo_decision_center_view')): ?>
+            <?php if ($auth->can('pmo_decision_center_view') || $auth->can('pmo.organizations.manage') || $auth->can('pmo.technologies.manage')): ?>
                 <div class="nav-divider" aria-hidden="true"></div>
                 <span class="nav-section-label">PMO</span>
+                <?php if ($auth->can('pmo_decision_center_view')): ?>
                 <a href="<?= $basePath ?>/pmo/decision-center" class="nav-link <?= str_starts_with($normalizedPath, '/pmo/decision-center') ? 'active' : '' ?>" data-tone="pmo">
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 15V9"/><path d="M12 15V5"/><path d="M17 15v-3"/><path d="M4 9h3"/><path d="M10 11h4"/><path d="M16 7h4"/></svg></span>
                     <span class="nav-label">Centro de decisiones</span>
@@ -176,6 +177,19 @@ error_log(sprintf(
                     <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 19h18"/><rect x="4" y="7" width="6" height="4" rx="1"/><rect x="11" y="10" width="6" height="4" rx="1"/><circle cx="20" cy="8" r="2"/></svg></span>
                     <span class="nav-label">Gantt global</span>
                 </a>
+                <?php endif; ?>
+                <?php if ($auth->can('pmo.organizations.manage')): ?>
+                <a href="<?= $basePath ?>/organizations" class="nav-link <?= str_starts_with($normalizedPath, '/organizations') ? 'active' : '' ?>" data-tone="pmo">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-6h6v6"/></svg></span>
+                    <span class="nav-label">Organizaciones</span>
+                </a>
+                <?php endif; ?>
+                <?php if ($auth->can('pmo.technologies.manage')): ?>
+                <a href="<?= $basePath ?>/technologies" class="nav-link <?= str_starts_with($normalizedPath, '/technologies') ? 'active' : '' ?>" data-tone="pmo">
+                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6"/><path d="M9 12h6"/><path d="M9 15h3"/></svg></span>
+                    <span class="nav-label">Tecnologías</span>
+                </a>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php if(in_array($user['role'] ?? '', ['Administrador', 'PMO'], true)): ?>
