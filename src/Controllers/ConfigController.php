@@ -60,6 +60,8 @@ class ConfigController extends Controller
             'notificationCatalog' => NotificationCatalog::events(),
             'notificationLogs' => (new NotificationsLogRepository($this->db))->latest(),
             'notificationMessage' => $_GET['notifications'] ?? null,
+            'userMessage' => trim((string) ($_GET['user_message'] ?? '')),
+            'userMessageType' => ($_GET['user_status'] ?? '') === 'error' ? 'error' : 'success',
         ]);
     }
 
@@ -428,34 +430,55 @@ class ConfigController extends Controller
         $outsourcingDeletePermission = $this->outsourcingDeletePermissionPayload($isAdmin);
         $timesheetAccessPermission = $this->timesheetAccessPermissionPayload($isAdmin);
         $timesheetApprovalPermission = $this->timesheetApprovalPermissionPayload($isAdmin);
+        $name = trim((string) ($_POST['name'] ?? ''));
         $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+        $roleId = (int) ($_POST['role_id'] ?? 0);
+
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $roleId <= 0) {
+            $this->redirectUserResult('error', 'Completa un nombre, correo y rol válidos.');
+            return;
+        }
 
         if ($authType === 'manual' && $password === '') {
-            http_response_code(422);
-            exit('La contraseña es obligatoria para usuarios manuales.');
+            $this->redirectUserResult('error', 'La contraseña es obligatoria para usuarios manuales.');
+            return;
         }
 
         if ($authType === 'google' && !$this->isCorporateEmailAllowed($email)) {
-            http_response_code(422);
-            exit('El correo corporativo no pertenece al dominio permitido.');
+            $this->redirectUserResult('error', 'El correo corporativo no pertenece al dominio permitido.');
+            return;
         }
 
-        $userId = $repo->create([
-            'name' => $_POST['name'],
-            'email' => $email,
-            'role_id' => (int) $_POST['role_id'],
-            'auth_type' => $authType,
-            'password_hash' => $authType === 'manual' ? password_hash($password, PASSWORD_BCRYPT) : '',
-            'active' => isset($_POST['active']) ? 1 : 0,
-            'can_review_documents' => $documentRoles['can_review_documents'],
-            'can_validate_documents' => $documentRoles['can_validate_documents'],
-            'can_approve_documents' => $documentRoles['can_approve_documents'],
-            'can_update_project_progress' => $progressPermission,
-            'can_access_outsourcing' => $outsourcingPermission,
-            'can_delete_outsourcing_records' => $outsourcingDeletePermission,
-            'can_access_timesheets' => $timesheetAccessPermission,
-            'can_approve_timesheets' => $timesheetApprovalPermission,
-        ]);
+        if ($repo->findByEmail($email) !== null) {
+            $this->redirectUserResult('error', 'Ya existe un usuario registrado con este correo.');
+            return;
+        }
+
+        try {
+            $userId = $repo->create([
+                'name' => $name,
+                'email' => $email,
+                'role_id' => $roleId,
+                'auth_type' => $authType,
+                'password_hash' => $authType === 'manual' ? password_hash($password, PASSWORD_BCRYPT) : '',
+                'active' => isset($_POST['active']) ? 1 : 0,
+                'can_review_documents' => $documentRoles['can_review_documents'],
+                'can_validate_documents' => $documentRoles['can_validate_documents'],
+                'can_approve_documents' => $documentRoles['can_approve_documents'],
+                'can_update_project_progress' => $progressPermission,
+                'can_access_outsourcing' => $outsourcingPermission,
+                'can_delete_outsourcing_records' => $outsourcingDeletePermission,
+                'can_access_timesheets' => $timesheetAccessPermission,
+                'can_approve_timesheets' => $timesheetApprovalPermission,
+            ]);
+        } catch (\PDOException $e) {
+            error_log('No se pudo crear el usuario: ' . $e->getMessage());
+            $message = $e->getCode() === '23000'
+                ? 'No se pudo crear el usuario porque el correo o el rol ya no están disponibles.'
+                : 'No se pudo crear el usuario. Intenta nuevamente.';
+            $this->redirectUserResult('error', $message);
+            return;
+        }
 
         if ($authType === 'google') {
             (new AuditLogRepository($this->db))->log(
@@ -470,7 +493,18 @@ class ConfigController extends Controller
             );
         }
 
-        header('Location: /config?saved=1');
+        $this->redirectUserResult('success', 'Usuario creado correctamente.');
+    }
+
+    private function redirectUserResult(string $status, string $message): void
+    {
+        $query = http_build_query([
+            'tab' => 'gobierno',
+            'user_status' => $status,
+            'user_message' => $message,
+        ]);
+
+        header('Location: /config?' . $query . '#usuarios');
     }
 
     public function updateUser(): void
