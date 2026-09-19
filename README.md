@@ -40,6 +40,7 @@ Luego visita `http://localhost:8000`. El login usa las cuentas semilla definidas
 
 ## Motor PMO automático (diario)
 El motor PMO calcula y persiste snapshots/alertas por proyecto (avance por horas, avance por tareas, riesgo por bloqueos, inactividad y vencimientos).
+También genera, de forma idempotente, las tareas mensuales configuradas en proyectos Scrum continuos. La configuración y sus plantillas están en la pestaña **Tareas** de cada proyecto Scrum.
 
 Ejecución manual:
 

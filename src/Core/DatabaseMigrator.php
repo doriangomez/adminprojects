@@ -999,9 +999,60 @@ class DatabaseMigrator
         try {
             $this->ensureProjectPmoSnapshotsTable();
             $this->ensureProjectPmoAlertsTable();
+            $this->ensureMonthlyTaskAutomationTables();
         } catch (\PDOException $e) {
             error_log('Error asegurando módulo PMO automático: ' . $e->getMessage());
         }
+    }
+
+    private function ensureMonthlyTaskAutomationTables(): void
+    {
+        if (!$this->db->tableExists('tasks') || !$this->db->tableExists('talents')) {
+            return;
+        }
+
+        $this->db->execute(
+            'CREATE TABLE IF NOT EXISTS project_monthly_task_settings (
+                project_id INT NOT NULL PRIMARY KEY,
+                enabled TINYINT(1) NOT NULL DEFAULT 0,
+                generation_day TINYINT UNSIGNED NOT NULL DEFAULT 1,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_monthly_task_settings_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $this->db->execute(
+            'CREATE TABLE IF NOT EXISTS project_monthly_task_templates (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                title VARCHAR(180) NOT NULL,
+                description TEXT NULL,
+                assignee_id INT NULL,
+                estimated_hours DECIMAL(8,2) NOT NULL DEFAULT 0,
+                priority ENUM(\'low\', \'medium\', \'high\') NOT NULL DEFAULT \'medium\',
+                due_day TINYINT UNSIGNED NOT NULL DEFAULT 28,
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_monthly_task_templates_project (project_id, active),
+                CONSTRAINT fk_monthly_task_template_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_monthly_task_template_assignee FOREIGN KEY (assignee_id) REFERENCES talents(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $this->db->execute(
+            'CREATE TABLE IF NOT EXISTS project_monthly_task_runs (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                template_id BIGINT NOT NULL,
+                project_id INT NOT NULL,
+                period_month DATE NOT NULL,
+                task_id INT NULL,
+                generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_monthly_task_run (template_id, period_month),
+                INDEX idx_monthly_task_runs_project_period (project_id, period_month),
+                CONSTRAINT fk_monthly_task_run_template FOREIGN KEY (template_id) REFERENCES project_monthly_task_templates(id) ON DELETE CASCADE,
+                CONSTRAINT fk_monthly_task_run_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                CONSTRAINT fk_monthly_task_run_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
     }
 
     public function ensureProjectScheduleModule(): void

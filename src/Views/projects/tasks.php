@@ -7,6 +7,9 @@ $canManage = !empty($canManage);
 $canCreateTask = !empty($canCreateTask) || $canManage;
 $isClosed = !empty($isClosed);
 $canAddTask = $canCreateTask && !$isClosed;
+$monthlyTaskSettings = is_array($monthlyTaskSettings ?? null) ? $monthlyTaskSettings : ['enabled' => 0, 'generation_day' => 1];
+$monthlyTaskTemplates = is_array($monthlyTaskTemplates ?? null) ? $monthlyTaskTemplates : [];
+$isScrum = !empty($isScrum);
 $kanbanColumns = is_array($kanbanColumns ?? null) ? $kanbanColumns : [];
 $kanbanStatusOrder = is_array($kanbanStatusOrder ?? null) ? $kanbanStatusOrder : ['todo', 'in_progress', 'review', 'blocked', 'done'];
 $kanbanStatusMeta = is_array($kanbanStatusMeta ?? null) ? $kanbanStatusMeta : [
@@ -153,6 +156,61 @@ foreach ($selectedRisks as $riskCode) {
                 <button type="button" class="action-btn small view-toggle-btn" data-task-view="kanban">Kanban</button>
             </div>
         </div>
+
+        <?php if ($isScrum && $canManage): ?>
+            <section class="card" style="margin:18px 0; padding:20px; border-left:4px solid var(--primary);">
+                <div class="task-section-header">
+                    <div>
+                        <p class="eyebrow">Scrum continuo</p>
+                        <h4>Tareas recurrentes mensuales</h4>
+                        <small class="section-muted">Mantén este proyecto operativo sin crear sprints ni proyectos nuevos cada mes.</small>
+                    </div>
+                    <form method="POST" action="<?= $basePath ?>/projects/<?= (int) $project['id'] ?>/monthly-tasks/generate">
+                        <button class="action-btn" type="submit">Generar mes actual</button>
+                    </form>
+                </div>
+                <?php if (isset($_GET['monthly_generated'])): ?>
+                    <div class="alert success">Se crearon <?= (int) $_GET['monthly_generated'] ?> tareas. Las ya generadas este mes no se duplicaron.</div>
+                <?php endif; ?>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) $project['id'] ?>/monthly-tasks/settings" class="task-create-form__grid" style="margin-top:14px;">
+                    <label class="task-field">
+                        Automatización
+                        <select name="enabled">
+                            <option value="1" <?= !empty($monthlyTaskSettings['enabled']) ? 'selected' : '' ?>>Activa</option>
+                            <option value="0" <?= empty($monthlyTaskSettings['enabled']) ? 'selected' : '' ?>>Inactiva</option>
+                        </select>
+                    </label>
+                    <label class="task-field">
+                        Día de generación mensual
+                        <input type="number" name="generation_day" min="1" max="28" value="<?= (int) ($monthlyTaskSettings['generation_day'] ?? 1) ?>" required>
+                    </label>
+                    <div class="task-create-form__actions"><button class="action-btn primary" type="submit">Guardar automatización</button></div>
+                </form>
+                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) $project['id'] ?>/monthly-tasks/templates" class="task-create-form" style="margin-top:18px;">
+                    <strong>Nueva tarea recurrente</strong>
+                    <div class="task-create-form__grid" style="margin-top:10px;">
+                        <label class="task-field">Título<input name="title" maxlength="180" required placeholder="Ej. Triage de incidencias"></label>
+                        <label class="task-field">Responsable<select name="assignee_id"><option value="0">Sin asignar</option><?php foreach ($talents as $talent): ?><option value="<?= (int) $talent['id'] ?>"><?= htmlspecialchars($talent['name'] ?? '') ?></option><?php endforeach; ?></select></label>
+                        <label class="task-field">Duración (horas)<input type="number" name="estimated_hours" min="0" step="0.5" value="1" required></label>
+                        <label class="task-field">Prioridad<select name="priority"><option value="medium">Media</option><option value="high">Alta</option><option value="low">Baja</option></select></label>
+                        <label class="task-field">Vence el día<input type="number" name="due_day" min="1" max="28" value="28" required></label>
+                    </div>
+                    <label class="task-field">Descripción<textarea name="description" rows="2" placeholder="Instrucciones que se copiarán a cada tarea"></textarea></label>
+                    <div class="task-create-form__actions"><button class="action-btn primary" type="submit">Agregar plantilla</button></div>
+                </form>
+                <?php if ($monthlyTaskTemplates): ?>
+                    <div class="task-list" style="margin-top:16px;">
+                        <?php foreach ($monthlyTaskTemplates as $template): ?>
+                            <div class="task-card">
+                                <div><strong><?= htmlspecialchars($template['title']) ?></strong><small class="section-muted" style="display:block;"><?= htmlspecialchars($template['assignee_name'] ?? 'Sin asignar') ?> · <?= number_format((float) $template['estimated_hours'], 1) ?> h · vence día <?= (int) $template['due_day'] ?></small></div>
+                                <span class="badge status-badge status-info"><?= htmlspecialchars(ucfirst($template['priority'])) ?></span>
+                                <form method="POST" action="<?= $basePath ?>/projects/<?= (int) $project['id'] ?>/monthly-tasks/templates/<?= (int) $template['id'] ?>/delete"><button class="action-btn small" type="submit">Eliminar</button></form>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+        <?php endif; ?>
 
         <?php if ($canAddTask): ?>
             <form class="task-create-form" method="POST" action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/tasks">

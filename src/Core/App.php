@@ -197,6 +197,22 @@ class App
                 $controller->assignTalent();
                 return;
             }
+            if (preg_match('#^/projects/(\d+)/monthly-tasks/settings$#', $path, $matches) && $method === 'POST') {
+                $controller->saveMonthlyTaskSettings((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/monthly-tasks/templates$#', $path, $matches) && $method === 'POST') {
+                $controller->storeMonthlyTaskTemplate((int) $matches[1]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/monthly-tasks/templates/(\d+)/delete$#', $path, $matches) && $method === 'POST') {
+                $controller->deleteMonthlyTaskTemplate((int) $matches[1], (int) $matches[2]);
+                return;
+            }
+            if (preg_match('#^/projects/(\d+)/monthly-tasks/generate$#', $path, $matches) && $method === 'POST') {
+                $controller->generateMonthlyTasks((int) $matches[1]);
+                return;
+            }
             if (preg_match('#^/projects/(\\d+)/design-inputs/(\\d+)/delete$#', $path, $matches) && $method === 'POST') {
                 $controller->deleteDesignInput((int) $matches[1], (int) $matches[2]);
                 return;
