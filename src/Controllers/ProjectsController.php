@@ -633,7 +633,57 @@ class ProjectsController extends Controller
             'canCreateTask' => $canCreateTask,
             'isClosed' => $isClosed,
             'talents' => $talents,
+            'monthlyTaskSettings' => (new MonthlyTaskAutomationService($this->db))->settings($id),
+            'monthlyTaskTemplates' => (new MonthlyTaskAutomationService($this->db))->templates($id),
+            'isScrum' => strtolower((string) ($project['methodology'] ?? '')) === 'scrum',
         ]);
+    }
+
+    public function saveMonthlyTaskSettings(int $projectId): void
+    {
+        $project = $this->monthlyTaskProject($projectId);
+        (new MonthlyTaskAutomationService($this->db))->saveSettings(
+            (int) $project['id'],
+            isset($_POST['enabled']) && $_POST['enabled'] === '1',
+            (int) ($_POST['generation_day'] ?? 1)
+        );
+        header('Location: /projects/' . $projectId . '/tasks?monthly_settings_saved=1');
+    }
+
+    public function storeMonthlyTaskTemplate(int $projectId): void
+    {
+        $project = $this->monthlyTaskProject($projectId);
+        (new MonthlyTaskAutomationService($this->db))->addTemplate((int) $project['id'], $_POST);
+        header('Location: /projects/' . $projectId . '/tasks?monthly_template_saved=1');
+    }
+
+    public function deleteMonthlyTaskTemplate(int $projectId, int $templateId): void
+    {
+        $project = $this->monthlyTaskProject($projectId);
+        (new MonthlyTaskAutomationService($this->db))->deleteTemplate((int) $project['id'], $templateId);
+        header('Location: /projects/' . $projectId . '/tasks?monthly_template_deleted=1');
+    }
+
+    public function generateMonthlyTasks(int $projectId): void
+    {
+        $project = $this->monthlyTaskProject($projectId);
+        $created = (new MonthlyTaskAutomationService($this->db))->generateForProject((int) $project['id']);
+        header('Location: /projects/' . $projectId . '/tasks?monthly_generated=' . $created);
+    }
+
+    private function monthlyTaskProject(int $projectId): array
+    {
+        $this->requirePermission('projects.manage');
+        $project = (new ProjectsRepository($this->db))->findForUser($projectId, $this->auth->user() ?? []);
+        if (!$project) {
+            http_response_code(404);
+            exit('Proyecto no encontrado');
+        }
+        if (strtolower((string) ($project['methodology'] ?? '')) !== 'scrum') {
+            http_response_code(400);
+            exit('La automatización mensual solo está disponible para proyectos Scrum.');
+        }
+        return $project;
     }
 
     public function updateTaskStatusApi(int $projectId, int $taskId): void

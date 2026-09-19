@@ -460,6 +460,45 @@ CREATE TABLE talents (
     FOREIGN KEY (timesheet_approver_user_id) REFERENCES users(id)
 );
 
+CREATE TABLE project_monthly_task_settings (
+    project_id INT NOT NULL PRIMARY KEY,
+    enabled TINYINT(1) NOT NULL DEFAULT 0,
+    generation_day TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE project_monthly_task_templates (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    title VARCHAR(180) NOT NULL,
+    description TEXT NULL,
+    assignee_id INT NULL,
+    estimated_hours DECIMAL(8,2) NOT NULL DEFAULT 0,
+    priority ENUM('low','medium','high') NOT NULL DEFAULT 'medium',
+    due_day TINYINT UNSIGNED NOT NULL DEFAULT 28,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_monthly_task_templates_project (project_id, active),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (assignee_id) REFERENCES talents(id) ON DELETE SET NULL
+);
+
+CREATE TABLE project_monthly_task_runs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    template_id BIGINT NOT NULL,
+    project_id INT NOT NULL,
+    period_month DATE NOT NULL,
+    task_id INT NULL,
+    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_monthly_task_run (template_id, period_month),
+    INDEX idx_monthly_task_runs_project_period (project_id, period_month),
+    FOREIGN KEY (template_id) REFERENCES project_monthly_task_templates(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+);
+
 CREATE TABLE calendar_holidays (
     id INT AUTO_INCREMENT PRIMARY KEY,
     holiday_date DATE NOT NULL,
