@@ -296,7 +296,7 @@
             </div>
         </div>
 
-        <div class="card config-card governance-block">
+        <div class="card config-card governance-block" id="usuarios">
             <div class="card-content">
             <header class="governance-block-header">
                 <div class="governance-block-title-line">
@@ -305,6 +305,11 @@
                 </div>
                 <p class="governance-block-subtitle">Gestiona altas, roles y permisos puntuales por usuario.</p>
             </header>
+            <?php if (!empty($userMessage)): ?>
+                <div class="alert <?= $userMessageType === 'error' ? 'error' : 'success' ?>" role="alert">
+                    <?= htmlspecialchars((string) $userMessage, ENT_QUOTES, 'UTF-8') ?>
+                </div>
+            <?php endif; ?>
             <div class="governance-card-body">
                 <div class="governance-access-section">
                     <form method="POST" action="/config/users/create">
