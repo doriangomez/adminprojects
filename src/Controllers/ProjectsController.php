@@ -185,9 +185,7 @@ class ProjectsController extends Controller
         $catalogs = $this->projectCatalogs(new MasterFilesRepository($this->db));
         $projectManagers = $this->projectManagersForSelection(new UsersRepository($this->db));
         $hasTasks = $repo->hasTasks($id);
-        $deleteContext = $this->projectDeletionContext($id, $repo);
-
-        $this->render('projects/edit', array_merge([
+        $this->render('projects/edit', [
             'title' => 'Editar proyecto',
             'project' => $project,
             'projectManagers' => $projectManagers,
@@ -205,7 +203,7 @@ class ProjectsController extends Controller
                 ]
             ),
             'hasTasks' => $hasTasks,
-        ], $deleteContext));
+        ]);
     }
 
     public function update(int $id): void
@@ -1521,6 +1519,11 @@ class ProjectsController extends Controller
             exit('Proyecto no encontrado');
         }
 
+        if ($this->normalizeStatus((string) ($project['status'] ?? '')) === 'closed') {
+            header('Location: /projects/' . $id . '?closed=1');
+            return;
+        }
+
         $confirm = (string) ($_POST['confirm'] ?? '');
         if ($confirm !== 'yes') {
             header('Location: /projects/' . $id . '/close');
@@ -1554,6 +1557,21 @@ class ProjectsController extends Controller
             $governed = $this->applyLifecycleGovernance($project, $closingPayload, $delivery, $repo, $riskCatalog);
             $repo->closeProject($id, $governed['health'], $governed['risk_level'] ?? null);
             try {
+                (new AuditLogRepository($this->db))->log(
+                    (int) ($user['id'] ?? 0),
+                    'project',
+                    $id,
+                    'project_closed',
+                    [
+                        'previous_status' => $project['status'] ?? null,
+                        'closed_status' => 'closed',
+                        'progress_at_close' => (float) ($project['progress'] ?? 0),
+                    ]
+                );
+            } catch (\Throwable $e) {
+                error_log('Error al auditar cierre de proyecto: ' . $e->getMessage());
+            }
+            try {
                 (new NotificationService($this->db))->notify(
                     'project.closed',
                     [
@@ -1566,7 +1584,7 @@ class ProjectsController extends Controller
             } catch (\Throwable $e) {
                 error_log('Error al notificar cierre de proyecto: ' . $e->getMessage());
             }
-            header('Location: /projects/' . $id);
+            header('Location: /projects/' . $id . '?closed=1');
             return;
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
@@ -2758,8 +2776,6 @@ class ProjectsController extends Controller
         $approvedDocuments = $this->countApprovedDocuments($projectNodes);
         $loggedHours = $repo->timesheetHoursForProject($id);
         $timesheetEntries = $repo->timesheetEntriesForProject($id, 300);
-        $dependencies = $repo->dependencySummary($id);
-        $deleteContext = $this->projectDeletionContext($id, $repo);
         $projectService = new ProjectService($this->db);
         $healthScore = $projectService->calculateProjectHealthReport($id);
         $healthHistory = $projectService->history($id, 30);
@@ -2820,7 +2836,7 @@ class ProjectsController extends Controller
             $detailWarnings[] = 'No se pudo cargar la automatización PMO en este momento.';
         }
 
-        return array_merge([
+        return [
             'title' => 'Detalle de proyecto',
             'project' => $project,
             'healthScore' => $healthScore,
@@ -2871,7 +2887,7 @@ class ProjectsController extends Controller
             'pmoHoursTrend' => $pmoHoursTrend,
             'pmoActiveBlockers' => $pmoActiveBlockers,
             'detailWarnings' => $detailWarnings,
-        ], $deleteContext);
+        ];
     }
 
 
@@ -3732,23 +3748,6 @@ class ProjectsController extends Controller
         };
     }
 
-    private function projectDeletionContext(int $projectId, ?ProjectsRepository $repo = null): array
-    {
-        $repo ??= new ProjectsRepository($this->db);
-        $dependencies = $repo->dependencySummary($projectId);
-
-        return [
-            'dependencies' => $dependencies,
-            'hasDependencies' => $dependencies['has_dependencies'] ?? false,
-            'canDelete' => $this->canForceDeleteProjects(),
-            'canInactivate' => $this->canDeleteProjects(),
-            'isAdmin' => $this->canForceDeleteProjects(),
-            'mathOperand1' => random_int(1, 10),
-            'mathOperand2' => random_int(1, 10),
-            'mathOperator' => random_int(0, 1) === 0 ? '+' : '-',
-        ];
-    }
-
     private function wantsJson(): bool
     {
         $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
@@ -4547,6 +4546,12 @@ class ProjectsController extends Controller
 
     private function isAllowedTransition(string $current, string $next): bool
     {
+        // El cierre es una operación explícita: conserva el proyecto y su
+        // trazabilidad, y puede ejecutarse desde cualquier estado no final.
+        if ($next === 'closed' && $current !== 'closed') {
+            return true;
+        }
+
         $from = $this->isValidStatus($current) ? $current : 'planning';
         $allowed = self::ALLOWED_TRANSITIONS[$from] ?? ['planning'];
 

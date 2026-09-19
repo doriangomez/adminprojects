@@ -13,18 +13,6 @@ $stageOptions = is_array($stageOptions ?? null) ? $stageOptions : [];
 $methodologies = $deliveryConfig['methodologies'] ?? [];
 $phasesByMethodology = $deliveryConfig['phases'] ?? [];
 $riskCatalog = $deliveryConfig['risks'] ?? [];
-$canDelete = !empty($canDelete);
-$canInactivate = !empty($canInactivate);
-$dependencies = $dependencies ?? [];
-$hasDependencies = !empty($hasDependencies);
-$mathOperand1 = (int) ($mathOperand1 ?? 0);
-$mathOperand2 = (int) ($mathOperand2 ?? 0);
-$mathOperator = $mathOperator ?? '+';
-$dangerActionUrl = $canDelete
-    ? ($basePath . '/projects/delete')
-    : ($basePath . '/projects/' . (int) ($project['id'] ?? 0) . '/inactivate');
-$dangerButtonLabel = $canDelete ? 'Eliminar permanentemente' : 'Inactivar proyecto';
-$dangerActionText = $canDelete ? 'eliminación definitiva' : 'inactivación';
 $riskGroups = [];
 foreach ($riskCatalog as $risk) {
     $category = $risk['category'] ?? 'Otros';
@@ -53,9 +41,6 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         <a href="#planificacion">Planificación</a>
         <a href="#costos">Costos</a>
         <a href="#riesgos">Riesgos</a>
-        <?php if ($canDelete || $canInactivate): ?>
-            <a href="#zona-critica" class="danger-tab">Zona crítica</a>
-        <?php endif; ?>
     </nav>
 
     <details class="accordion" open id="datos-basicos">
@@ -269,67 +254,6 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     </details>
 </form>
 
-<?php if ($canDelete || $canInactivate): ?>
-    <details class="accordion danger-zone" open id="zona-critica">
-        <summary class="accordion-summary">
-            <div>
-                <p class="section-label">Zona crítica</p>
-                <strong>Eliminación y dependencias</strong>
-            </div>
-        </summary>
-        <div class="accordion-body">
-            <div class="danger-header">
-                <span aria-hidden="true" class="danger-icon">!</span>
-                <div>
-                    <p class="danger-title">Zona crítica</p>
-                    <p class="danger-text">Elimina el proyecto y todas sus dependencias (tareas, timesheets, nodos ISO, asignaciones, evidencias y archivos). Solo roles autorizados pueden continuar.</p>
-                </div>
-            </div>
-
-            <div class="danger-box">
-                <p class="danger-subtitle">Dependencias detectadas</p>
-                <ul class="danger-grid">
-                    <li><?= (int) ($dependencies['tasks'] ?? 0) ?> tareas</li>
-                    <li><?= (int) ($dependencies['timesheets'] ?? 0) ?> timesheets</li>
-                    <li><?= (int) ($dependencies['assignments'] ?? 0) ?> asignaciones</li>
-                    <li><?= (int) ($dependencies['outsourcing_followups'] ?? 0) ?> seguimientos outsourcing</li>
-                    <li><?= (int) ($dependencies['design_inputs'] ?? 0) ?> entradas de diseño</li>
-                    <li><?= (int) ($dependencies['design_controls'] ?? 0) ?> controles de diseño</li>
-                    <li><?= (int) ($dependencies['design_changes'] ?? 0) ?> cambios de diseño</li>
-                    <li><?= (int) ($dependencies['nodes'] ?? 0) ?> nodos/evidencias ISO</li>
-                </ul>
-                <?php if ($hasDependencies): ?>
-                    <p class="danger-note">La eliminación forzada borrará todo en cascada. No quedarán registros huérfanos.</p>
-                <?php endif; ?>
-            </div>
-
-            <form method="POST" action="<?= htmlspecialchars($dangerActionUrl) ?>" id="danger-delete-form" class="danger-form">
-                <input type="hidden" name="id" value="<?= (int) ($project['id'] ?? 0) ?>">
-                <input type="hidden" name="math_operand1" value="<?= (int) $mathOperand1 ?>">
-                <input type="hidden" name="math_operand2" value="<?= (int) $mathOperand2 ?>">
-                <input type="hidden" name="math_operator" value="<?= htmlspecialchars($mathOperator) ?>">
-                <input type="hidden" name="force_delete" value="<?= $canDelete ? '1' : '0' ?>">
-                <div>
-                    <p class="danger-title">Confirmación obligatoria</p>
-                    <p class="section-muted">Resuelve la operación para habilitar la <?= htmlspecialchars($dangerActionText) ?>.</p>
-                    <div class="danger-math">
-                        <div class="danger-math__operand">
-                            <?= (int) $mathOperand1 ?> <?= htmlspecialchars($mathOperator) ?> <?= (int) $mathOperand2 ?> =
-                        </div>
-                        <input type="number" name="math_result" id="math_result" inputmode="numeric" aria-label="Resultado de la operación" placeholder="Resultado">
-                    </div>
-                </div>
-
-                <div id="delete-feedback" class="danger-feedback"></div>
-
-                <div class="danger-actions">
-                    <button type="submit" class="btn danger" id="confirm-delete-btn" style="display:inline-flex;align-items:center;justify-content:center;min-width:260px;padding:12px 16px;font-weight:700;color:#ffffff;background:#b42318;border:1px solid #7a271a;opacity:1;visibility:visible;"><?= htmlspecialchars($dangerButtonLabel) ?></button>
-                </div>
-            </form>
-        </div>
-    </details>
-<?php endif; ?>
-
 <style>
     .project-form { display:flex; flex-direction:column; gap:16px; background: var(--surface); border:1px solid var(--border); padding:16px; border-radius:16px; }
     .form-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; }
@@ -337,7 +261,6 @@ $formTitle = $formTitle ?? 'Editar proyecto';
     .form-tabs { display:flex; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--border); padding-bottom:8px; }
     .form-tabs a { padding:8px 12px; border-radius:999px; border:1px solid var(--border); text-decoration:none; color: var(--text-primary); font-weight:700; font-size:13px; background: color-mix(in srgb, var(--text-secondary) 14%, var(--background)); }
     .form-tabs a:hover { background: color-mix(in srgb, var(--primary) 12%, var(--background)); color: var(--primary); }
-    .form-tabs a.danger-tab { border-color: color-mix(in srgb, var(--danger) 40%, var(--background)); color: var(--danger); }
 
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
     .accordion { border:1px solid var(--border); border-radius:14px; background: var(--surface); }
@@ -359,25 +282,6 @@ $formTitle = $formTitle ?? 'Editar proyecto';
 
     .empty-state { padding:10px 12px; border-radius:10px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); color: var(--text-secondary); font-weight:600; }
 
-    .danger-zone { margin-top:16px; border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 10%, var(--surface) 90%); }
-    .danger-header { display:flex; gap:12px; align-items:flex-start; }
-    .danger-icon { width:34px; height:34px; border-radius:10px; background: color-mix(in srgb, var(--danger) 16%, var(--background)); color: var(--danger); border:1px solid color-mix(in srgb, var(--danger) 40%, var(--background)); display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
-    .danger-title { margin:0; font-weight:700; color: var(--danger); }
-    .danger-text { margin:4px 0 0 0; color: color-mix(in srgb, var(--danger) 80%, var(--text-primary) 20%); }
-    .danger-box { border:1px solid color-mix(in srgb, var(--warning) 40%, var(--background)); background: color-mix(in srgb, var(--warning) 10%, var(--surface) 90%); border-radius:12px; padding:12px; }
-    .danger-subtitle { margin:0 0 6px 0; font-weight:600; color: var(--warning); }
-    .danger-grid { margin:0; padding-left:18px; color: var(--warning); display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:4px 12px; }
-    .danger-note { margin:8px 0 0 0; color: color-mix(in srgb, var(--warning) 80%, var(--text-primary) 20%); font-size:14px; }
-    .danger-math { display:flex; align-items:center; gap:10px; }
-    .danger-math__operand { padding:10px 12px; border:1px solid var(--border); border-radius:10px; background: color-mix(in srgb, var(--text-secondary) 12%, var(--background)); font-weight:700; }
-    .danger-form { display:flex; flex-direction:column; gap:12px; }
-    .danger-feedback { display:none; padding:10px 12px; border:1px solid color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); color: var(--danger); border-radius:10px; font-weight:600; }
-    .danger-actions { display:flex; justify-content:flex-start; align-items:center; gap:8px; margin-top:8px; }
-    #confirm-delete-btn { display:inline-flex !important; align-items:center; justify-content:center; min-width:260px; min-height:44px; opacity:1 !important; visibility:visible !important; color:#fff !important; background:#b42318 !important; border:1px solid #7a271a !important; }
-    #confirm-delete-btn:hover { background:#8f1f13 !important; border-color:#60170f !important; }
-    #confirm-delete-btn.is-ready { background:#7a271a !important; border-color:#60170f !important; }
-    #confirm-delete-btn:disabled { opacity:1 !important; color:#fff !important; background:#b42318 !important; }
-    .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--background)); background: color-mix(in srgb, var(--danger) 12%, var(--background)); }
     .action-btn { background: var(--surface); color: var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
     .action-btn.primary { background: var(--primary); color: var(--text-primary); border-color: var(--primary); }
 </style>
@@ -461,55 +365,4 @@ $formTitle = $formTitle ?? 'Editar proyecto';
         });
     });
 
-    const deleteForm = document.getElementById('danger-delete-form');
-    const deleteResult = document.getElementById('math_result');
-    const deleteButton = document.getElementById('confirm-delete-btn');
-    const deleteFeedback = document.getElementById('delete-feedback');
-
-    if (deleteForm && deleteResult && deleteButton) {
-        const operand1 = Number(deleteForm.querySelector('[name="math_operand1"]')?.value || 0);
-        const operand2 = Number(deleteForm.querySelector('[name="math_operand2"]')?.value || 0);
-        const operator = (deleteForm.querySelector('[name="math_operator"]')?.value || '').trim();
-        const expected = operator === '+' ? operand1 + operand2 : operand1 - operand2;
-
-        const syncDeleteState = () => {
-            const current = Number(deleteResult.value.trim());
-            const isValid = !Number.isNaN(current) && current === expected;
-            deleteButton.classList.toggle('is-ready', isValid);
-        };
-
-        deleteResult.addEventListener('input', syncDeleteState);
-
-        deleteForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            deleteFeedback.style.display = 'none';
-            deleteFeedback.textContent = '';
-
-            try {
-                const response = await fetch(deleteForm.getAttribute('action') || '', {
-                    method: 'POST',
-                    body: new FormData(deleteForm),
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-
-                const data = await response.json();
-
-                if (data?.success) {
-                    alert(data.message || 'Operación completada correctamente.');
-                    window.location.href = '<?= $basePath ?>/projects';
-                    return;
-                }
-
-                deleteFeedback.textContent = data?.message || 'No se pudo completar la operación.';
-                deleteFeedback.style.display = 'block';
-            } catch (error) {
-                deleteFeedback.textContent = 'No se pudo completar la operación. Intenta nuevamente o contacta al administrador.';
-                deleteFeedback.style.display = 'block';
-            }
-        });
-
-        syncDeleteState();
-    }
 </script>
