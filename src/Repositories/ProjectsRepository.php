@@ -2108,7 +2108,6 @@ class ProjectsRepository
             $fields[] = 'end_date = :end_date';
             $params[':end_date'] = $payload['end_date'];
         }
-
         if ($this->db->columnExists('projects', 'is_billable')) {
             $fields[] = 'is_billable = :is_billable';
             $params[':is_billable'] = (int) ($payload['is_billable'] ?? 0);
@@ -2258,6 +2257,10 @@ class ProjectsRepository
         if ($this->db->columnExists('projects', 'end_date')) {
             $fields[] = 'end_date = :end_date';
             $params[':end_date'] = date('Y-m-d');
+        }
+
+        if ($this->db->columnExists('projects', 'updated_at')) {
+            $fields[] = 'updated_at = NOW()';
         }
 
         if (empty($fields)) {

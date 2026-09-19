@@ -1300,9 +1300,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                             <a href="<?= $basePath ?>/projects/<?= $projectId ?>?view=documentos&return=<?= urlencode($returnUrl) ?>" data-no-row>Documentos</a>
                                             <a href="<?= $basePath ?>/projects/<?= $projectId ?>/talent?return=<?= urlencode($returnUrl) ?>" data-no-row>Talento</a>
                                             <a href="<?= $basePath ?>/projects/<?= $projectId ?>/costs?return=<?= urlencode($returnUrl) ?>" data-no-row>Costos</a>
-                                            <form action="<?= $basePath ?>/projects/<?= $projectId ?>/close" method="GET" data-no-row>
-                                                <button type="submit" data-no-row>Cerrar proyecto</button>
-                                            </form>
+                                            <?php if (!in_array(strtolower(trim((string) ($project['status'] ?? ''))), ['closed', 'cerrado', 'finalizado', 'finalized'], true)): ?>
+                                                <form action="<?= $basePath ?>/projects/<?= $projectId ?>/close" method="GET" data-no-row>
+                                                    <button type="submit" data-no-row>Cerrar proyecto</button>
+                                                </form>
+                                            <?php endif; ?>
                                         </div>
                                     </details>
                                 </td>
@@ -1389,9 +1391,11 @@ $stopperSeverityLabel = static function (string $impactLevel): string {
                                             <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>?view=documentos&return=<?= urlencode($returnUrl) ?>">Documentos</a>
                                             <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/talent?return=<?= urlencode($returnUrl) ?>">Talento</a>
                                             <a href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/costs?return=<?= urlencode($returnUrl) ?>">Costos</a>
-                                            <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET">
-                                                <button type="submit">Cerrar proyecto</button>
-                                            </form>
+                                            <?php if (!in_array(strtolower(trim((string) ($project['status'] ?? ''))), ['closed', 'cerrado', 'finalizado', 'finalized'], true)): ?>
+                                                <form action="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close" method="GET">
+                                                    <button type="submit">Cerrar proyecto</button>
+                                                </form>
+                                            <?php endif; ?>
                                         </div>
                                     </details>
                                 </div>

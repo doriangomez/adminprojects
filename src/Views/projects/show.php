@@ -621,27 +621,12 @@ $requiredDocumentsProgress = $requiredDocumentsTotal > 0 ? (int) round(($require
             <a class="action-btn" href="<?= htmlspecialchars($returnUrl) ?>">Volver al listado</a>
             <a class="action-btn primary" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/executive-report.pdf">Exportar informe<br>gerencial</a>
             <a class="action-btn" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit">Editar proyecto</a>
-            <?php if ($canDelete || $canInactivate): ?>
-                <a class="action-btn danger" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit#zona-critica">
-                    <?= $canDelete ? 'Eliminar proyecto' : 'Inactivar proyecto' ?>
-                </a>
+            <?php if ($canManage && !in_array(strtolower(trim((string) ($project['status'] ?? ''))), ['closed', 'cerrado', 'finalizado', 'finalized'], true)): ?>
+                <a class="action-btn danger" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/close">Cerrar proyecto</a>
             <?php endif; ?>
         </div>
     </header>
 
-
-    <?php if ($canDelete || $canInactivate): ?>
-        <section class="danger-shortcut" aria-label="Acción crítica del proyecto">
-            <p>
-                <?= $canDelete
-                    ? '¿Necesitas eliminar el proyecto con todas sus dependencias? Usa el acceso directo a Zona crítica.'
-                    : '¿Necesitas inactivar este proyecto? Usa el acceso directo a Zona crítica.' ?>
-            </p>
-            <a class="action-btn danger" href="<?= $basePath ?>/projects/<?= (int) ($project['id'] ?? 0) ?>/edit#zona-critica">
-                <?= $canDelete ? 'Ir a eliminar proyecto' : 'Ir a inactivar proyecto' ?>
-            </a>
-        </section>
-    <?php endif; ?>
 
     <?php
     $activeTab = match ($view) {
