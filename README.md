@@ -7,18 +7,18 @@ Este repo contiene una base MVC ligera (sin frameworks) para un PMO/ERP de proye
 - MySQL 8.
 
 ## Configuración de base de datos
-Las credenciales viven en `src/config.php` y se leen desde variables de entorno. Puedes exportarlas antes de levantar el servidor o definirlas en tu gestor de servicios:
+La configuración sensible vive en `.env`. `src/config.php` carga las variables de entorno y no debe contener credenciales. Puedes exportarlas antes de levantar el servidor o definirlas en tu gestor de servicios:
 
 ```bash
 export DB_HOST=localhost
 export DB_PORT=3306
-export DB_NAME=pmo
-export DB_USER=pmo_user
-export DB_PASSWORD=secret
-export APP_KEY=cambia-esta-clave
+export DB_NAME=your_database
+export DB_USER=your_database_user
+export DB_PASSWORD=your_database_password
+export APP_KEY=your_application_key
 ```
 
-Si no defines variables, se usarán los valores por defecto indicados en `src/config.php`.
+Las variables requeridas deben estar definidas en `.env` o en el entorno del sistema. La aplicación no utiliza credenciales ni claves sensibles por defecto.
 
 ## Crear la base de datos
 Ejecuta el script SQL incluido para crear tablas y datos semilla:
