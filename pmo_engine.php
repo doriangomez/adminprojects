@@ -8,20 +8,12 @@ require_once __DIR__ . '/src/Services/PmoAutomationService.php';
 require_once __DIR__ . '/src/Services/MonthlyTaskAutomationService.php';
 
 $configPath = __DIR__ . '/src/config.php';
-if (is_file($configPath)) {
-    $config = require $configPath;
-} else {
-    $config = [
-        'db' => [
-            'host' => getenv('DB_HOST') ?: 'localhost',
-            'port' => getenv('DB_PORT') ?: '3306',
-            'database' => getenv('DB_NAME') ?: 'pmo',
-            'username' => getenv('DB_USER') ?: 'pmo_user',
-            'password' => getenv('DB_PASSWORD') ?: 'secret',
-            'charset' => 'utf8mb4',
-        ],
-    ];
+
+if (!is_file($configPath)) {
+    throw new RuntimeException('Archivo de configuración no encontrado.');
 }
+
+$config = require $configPath;
 
 $db = new Database($config['db']);
 $migrator = new DatabaseMigrator($db);
