@@ -49,7 +49,11 @@ class EncryptionService
 
     private function key(): string
     {
-        $appKey = getenv('APP_KEY') ?: 'default-app-key';
+        $appKey = getenv('APP_KEY');
+
+        if ($appKey === false || trim($appKey) === '') {
+            throw new RuntimeException('APP_KEY no está configurada.');
+        }
 
         return hash('sha256', $appKey, true);
     }
